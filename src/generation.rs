@@ -829,7 +829,7 @@ impl WireConverting for Reference {
         let converted = |reference: &Reference, value: TokenStream| reference.recover(value, scope);
         if let Some(source) = &self.source {
             let source = source.tokens();
-            return quote! { <_ as #source::WireConversion>::try_from_wire(#value) };
+            return quote! { <_ as #source::WireConversion>::try_from_wire(#value).map_err(|_| WireFault::Text) };
         }
         match scope.resolve(&self.name) {
             Resolution::Intrinsic(Intrinsic::Text) => quote! {
@@ -856,7 +856,7 @@ impl WireConverting for Reference {
             }
             Resolution::Imported(source, _) => {
                 let source = source.tokens();
-                quote! { <_ as #source::WireConversion>::try_from_wire(#value) }
+                quote! { <_ as #source::WireConversion>::try_from_wire(#value).map_err(|_| WireFault::Text) }
             }
             Resolution::Type(_) => {
                 let name = self.name.tokens();
