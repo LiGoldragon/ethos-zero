@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::redundant_closure)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Generation(pub protos::Text, pub protos::Text);
 impl datom_codec::Datomic for Generation {

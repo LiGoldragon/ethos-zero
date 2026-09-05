@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::redundant_closure)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum XEthosNestedA {
     V,

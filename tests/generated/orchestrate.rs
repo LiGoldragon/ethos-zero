@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::redundant_closure)]
 pub type LockId = protos::Integer;
 pub type LockName = protos::Text;
 pub type FlowId = protos::Text;
@@ -555,4 +556,323 @@ impl protos::Conceivable<datom_codec::Datom> for Response {
             ),
         )
     }
+}
+pub trait WireConversion: Sized {
+    type Wire;
+    fn into_wire(self) -> Self::Wire;
+    fn try_from_wire(wire: Self::Wire) -> std::result::Result<Self, WireFault>;
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WireFault {
+    Text,
+}
+pub type LockIdWire = i64;
+pub type LockNameWire = std::string::String;
+pub type FlowIdWire = std::string::String;
+pub type LockPathWire = std::string::String;
+pub type LockPathsWire = std::vec::Vec<LockPathWire>;
+pub type LockReasonWire = std::string::String;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct LockRequestWire(
+    pub LockNameWire,
+    pub FlowIdWire,
+    pub LockPathsWire,
+    pub LockReasonWire,
+);
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct LockWire(
+    pub LockIdWire,
+    pub LockNameWire,
+    pub FlowIdWire,
+    pub LockPathsWire,
+    pub LockReasonWire,
+);
+pub type DuplicateNameWire = LockWire;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct LockOverlapWire(pub LockPathWire, pub LockWire);
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum LockRejectionWire {
+    DuplicateName(LockWire),
+    PathOverlap(LockOverlapWire),
+}
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum ReleaseRejectionWire {
+    UnknownLockId,
+}
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum ObserveSelectionWire {
+    Locks,
+}
+pub type LocksWire = std::vec::Vec<LockWire>;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum ObservationWire {
+    Locks(LocksWire),
+}
+impl WireConversion for LockRequest {
+    type Wire = LockRequestWire;
+    fn into_wire(self) -> Self::Wire {
+        let LockRequest(p0, p1, p2, p3) = self;
+        LockRequestWire(
+            p0.to_string(),
+            p1.to_string(),
+            p2.into_iter().map(|value| value.to_string()).collect(),
+            p3.to_string(),
+        )
+    }
+    fn try_from_wire(wire: Self::Wire) -> std::result::Result<Self, WireFault> {
+        let LockRequestWire(p0, p1, p2, p3) = wire;
+        Ok(
+            LockRequest(
+                protos::Text::try_from(p0).map_err(|_| WireFault::Text)?,
+                protos::Text::try_from(p1).map_err(|_| WireFault::Text)?,
+                p2
+                    .into_iter()
+                    .map(|value| {
+                        protos::Text::try_from(value).map_err(|_| WireFault::Text)
+                    })
+                    .collect::<std::result::Result<std::vec::Vec<_>, WireFault>>()?,
+                protos::Text::try_from(p3).map_err(|_| WireFault::Text)?,
+            ),
+        )
+    }
+}
+impl WireConversion for Lock {
+    type Wire = LockWire;
+    fn into_wire(self) -> Self::Wire {
+        let Lock(p0, p1, p2, p3, p4) = self;
+        LockWire(
+            p0,
+            p1.to_string(),
+            p2.to_string(),
+            p3.into_iter().map(|value| value.to_string()).collect(),
+            p4.to_string(),
+        )
+    }
+    fn try_from_wire(wire: Self::Wire) -> std::result::Result<Self, WireFault> {
+        let LockWire(p0, p1, p2, p3, p4) = wire;
+        Ok(
+            Lock(
+                Ok(p0)?,
+                protos::Text::try_from(p1).map_err(|_| WireFault::Text)?,
+                protos::Text::try_from(p2).map_err(|_| WireFault::Text)?,
+                p3
+                    .into_iter()
+                    .map(|value| {
+                        protos::Text::try_from(value).map_err(|_| WireFault::Text)
+                    })
+                    .collect::<std::result::Result<std::vec::Vec<_>, WireFault>>()?,
+                protos::Text::try_from(p4).map_err(|_| WireFault::Text)?,
+            ),
+        )
+    }
+}
+impl WireConversion for LockOverlap {
+    type Wire = LockOverlapWire;
+    fn into_wire(self) -> Self::Wire {
+        let LockOverlap(p0, p1) = self;
+        LockOverlapWire(p0.to_string(), <Lock as WireConversion>::into_wire(p1))
+    }
+    fn try_from_wire(wire: Self::Wire) -> std::result::Result<Self, WireFault> {
+        let LockOverlapWire(p0, p1) = wire;
+        Ok(
+            LockOverlap(
+                protos::Text::try_from(p0).map_err(|_| WireFault::Text)?,
+                <Lock as WireConversion>::try_from_wire(p1)?,
+            ),
+        )
+    }
+}
+impl WireConversion for LockRejection {
+    type Wire = LockRejectionWire;
+    fn into_wire(self) -> Self::Wire {
+        match self {
+            LockRejection::DuplicateName(value) => {
+                LockRejectionWire::DuplicateName(
+                    <Lock as WireConversion>::into_wire(value),
+                )
+            }
+            LockRejection::PathOverlap(value) => {
+                LockRejectionWire::PathOverlap(
+                    <LockOverlap as WireConversion>::into_wire(value),
+                )
+            }
+        }
+    }
+    fn try_from_wire(wire: Self::Wire) -> std::result::Result<Self, WireFault> {
+        match wire {
+            LockRejectionWire::DuplicateName(value) => {
+                Ok(
+                    LockRejection::DuplicateName(
+                        <Lock as WireConversion>::try_from_wire(value)?,
+                    ),
+                )
+            }
+            LockRejectionWire::PathOverlap(value) => {
+                Ok(
+                    LockRejection::PathOverlap(
+                        <LockOverlap as WireConversion>::try_from_wire(value)?,
+                    ),
+                )
+            }
+        }
+    }
+}
+impl WireConversion for ReleaseRejection {
+    type Wire = ReleaseRejectionWire;
+    fn into_wire(self) -> Self::Wire {
+        match self {
+            ReleaseRejection::UnknownLockId => ReleaseRejectionWire::UnknownLockId,
+        }
+    }
+    fn try_from_wire(wire: Self::Wire) -> std::result::Result<Self, WireFault> {
+        match wire {
+            ReleaseRejectionWire::UnknownLockId => Ok(ReleaseRejection::UnknownLockId),
+        }
+    }
+}
+impl WireConversion for ObserveSelection {
+    type Wire = ObserveSelectionWire;
+    fn into_wire(self) -> Self::Wire {
+        match self {
+            ObserveSelection::Locks => ObserveSelectionWire::Locks,
+        }
+    }
+    fn try_from_wire(wire: Self::Wire) -> std::result::Result<Self, WireFault> {
+        match wire {
+            ObserveSelectionWire::Locks => Ok(ObserveSelection::Locks),
+        }
+    }
+}
+impl WireConversion for Observation {
+    type Wire = ObservationWire;
+    fn into_wire(self) -> Self::Wire {
+        match self {
+            Observation::Locks(value) => {
+                ObservationWire::Locks(
+                    value
+                        .into_iter()
+                        .map(|value| <Lock as WireConversion>::into_wire(value))
+                        .collect(),
+                )
+            }
+        }
+    }
+    fn try_from_wire(wire: Self::Wire) -> std::result::Result<Self, WireFault> {
+        match wire {
+            ObservationWire::Locks(value) => {
+                Ok(
+                    Observation::Locks(
+                        value
+                            .into_iter()
+                            .map(|value| <Lock as WireConversion>::try_from_wire(value))
+                            .collect::<
+                                std::result::Result<std::vec::Vec<_>, WireFault>,
+                            >()?,
+                    ),
+                )
+            }
+        }
+    }
+}
+impl WireConversion for Request {
+    type Wire = RequestWire;
+    fn into_wire(self) -> Self::Wire {
+        match self {
+            Request::Lock(value) => {
+                RequestWire::Lock(<LockRequest as WireConversion>::into_wire(value))
+            }
+            Request::Release(value) => RequestWire::Release(value),
+            Request::Observe(value) => {
+                RequestWire::Observe(
+                    <ObserveSelection as WireConversion>::into_wire(value),
+                )
+            }
+        }
+    }
+    fn try_from_wire(wire: Self::Wire) -> std::result::Result<Self, WireFault> {
+        match wire {
+            RequestWire::Lock(value) => {
+                Ok(Request::Lock(<LockRequest as WireConversion>::try_from_wire(value)?))
+            }
+            RequestWire::Release(value) => Ok(Request::Release(Ok(value)?)),
+            RequestWire::Observe(value) => {
+                Ok(
+                    Request::Observe(
+                        <ObserveSelection as WireConversion>::try_from_wire(value)?,
+                    ),
+                )
+            }
+        }
+    }
+}
+impl WireConversion for Response {
+    type Wire = ResponseWire;
+    fn into_wire(self) -> Self::Wire {
+        match self {
+            Response::Locked(value) => {
+                ResponseWire::Locked(<Lock as WireConversion>::into_wire(value))
+            }
+            Response::LockRejected(value) => {
+                ResponseWire::LockRejected(
+                    <LockRejection as WireConversion>::into_wire(value),
+                )
+            }
+            Response::Released(value) => {
+                ResponseWire::Released(<Lock as WireConversion>::into_wire(value))
+            }
+            Response::ReleaseRejected(value) => {
+                ResponseWire::ReleaseRejected(
+                    <ReleaseRejection as WireConversion>::into_wire(value),
+                )
+            }
+            Response::Observed(value) => {
+                ResponseWire::Observed(<Observation as WireConversion>::into_wire(value))
+            }
+        }
+    }
+    fn try_from_wire(wire: Self::Wire) -> std::result::Result<Self, WireFault> {
+        match wire {
+            ResponseWire::Locked(value) => {
+                Ok(Response::Locked(<Lock as WireConversion>::try_from_wire(value)?))
+            }
+            ResponseWire::LockRejected(value) => {
+                Ok(
+                    Response::LockRejected(
+                        <LockRejection as WireConversion>::try_from_wire(value)?,
+                    ),
+                )
+            }
+            ResponseWire::Released(value) => {
+                Ok(Response::Released(<Lock as WireConversion>::try_from_wire(value)?))
+            }
+            ResponseWire::ReleaseRejected(value) => {
+                Ok(
+                    Response::ReleaseRejected(
+                        <ReleaseRejection as WireConversion>::try_from_wire(value)?,
+                    ),
+                )
+            }
+            ResponseWire::Observed(value) => {
+                Ok(
+                    Response::Observed(
+                        <Observation as WireConversion>::try_from_wire(value)?,
+                    ),
+                )
+            }
+        }
+    }
+}
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum RequestWire {
+    Lock(LockRequestWire),
+    Release(LockIdWire),
+    Observe(ObserveSelectionWire),
+}
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum ResponseWire {
+    Locked(LockWire),
+    LockRejected(LockRejectionWire),
+    Released(LockWire),
+    ReleaseRejected(ReleaseRejectionWire),
+    Observed(ObservationWire),
 }

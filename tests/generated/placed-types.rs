@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::redundant_closure)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Placed<A: Sized>(pub std::option::Option<protos::Integer>, pub A);
 impl<A: Sized + datom_codec::Datomic> datom_codec::Datomic for Placed<A> {

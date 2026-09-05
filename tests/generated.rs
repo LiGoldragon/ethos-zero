@@ -50,6 +50,23 @@ mod streamable_kind;
 #[path = "generated/tree-types.rs"]
 mod tree_types;
 
+#[test]
+fn generated_signal_has_a_structural_binary_projection() {
+    use orchestrate::WireConversion;
+
+    let request = orchestrate::Request::Lock(orchestrate::LockRequest(
+        text("fixture"),
+        text("542442"),
+        vec![text("/fixture")],
+        text("fixture"),
+    ));
+    let wire = request.clone().into_wire();
+    let archive = rkyv::to_bytes::<rkyv::rancor::Error>(&wire).expect("wire archives");
+    let recovered = rkyv::from_bytes::<orchestrate::RequestWire, rkyv::rancor::Error>(&archive)
+        .expect("wire recovers");
+    assert_eq!(orchestrate::Request::try_from_wire(recovered), Ok(request));
+}
+
 // ---------------------------------------------------------------------------
 // The enclosing module's companions: what the fixtures import from `super`
 // ---------------------------------------------------------------------------

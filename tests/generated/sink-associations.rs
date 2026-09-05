@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::redundant_closure)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Sink(pub protos::Text, pub std::vec::Vec<protos::Text>);
 impl datom_codec::Datomic for Sink {

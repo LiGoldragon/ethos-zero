@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::redundant_closure)]
 pub trait Summarizable {
     fn summarize(&self) -> protos::Text;
 }
