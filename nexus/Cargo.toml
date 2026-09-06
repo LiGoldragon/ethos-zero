@@ -18,8 +18,8 @@ offline-migration = [
 ethos-zero = { path = ".." }
 datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "41a3c073d5c5" }
 protos = { git = "https://github.com/LiGoldragon/protos", rev = "2d999f173334" }
-meta-signal-ethos-zero = { git = "https://github.com/LiGoldragon/meta-signal-ethos-zero", rev = "e583afebb9a9f38feed77719e3c929463e1ede49" }
-signal-ethos-zero = { git = "https://github.com/LiGoldragon/signal-ethos-zero", rev = "41428e25f7245e7d0498142ddf0bbf5388774dda" }
+meta-signal-ethos-zero = { git = "https://github.com/LiGoldragon/meta-signal-ethos-zero", rev = "6b32b72dbfcfd236261399035e4827aad77b79fe" }
+signal-ethos-zero = { git = "https://github.com/LiGoldragon/signal-ethos-zero", rev = "42df8e3c648951f66fb754844369a8646b21bbdd" }
 sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "7158e5503f37fd2fbca1d707f134e38a3fda1176" }
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 thiserror = "2"

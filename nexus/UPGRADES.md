@@ -1,5 +1,13 @@
 # Ethos-zero Nexus upgrades
 
+## Structural frame binding repair
+
+The ordinary and privileged Ethos-zero Signal contracts use globally distinct
+structural bindings: ordinary ContractId 7/revision 4 and privileged ContractId
+8/revision 4. These replace colliding Orchestrate IDs 1/2. Upgrade the Nexus
+and both Signal crates together; a frame with either Orchestrate binding is a
+foreign contract and is rejected before archive decoding.
+
 The structural Signal runtime stores schema version 2. It cannot open a
 retired version-1 store: v1 archived generated Signal values, whereas v2
 stores scalar configuration and assembly facts and uses current typed Datom

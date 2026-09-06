@@ -158,7 +158,7 @@ version = "5.0.0"
 dependencies = [
  "datom-codec",
  "protos 0.26.0",
- "signal-ethos-zero 0.4.0",
+ "signal-ethos-zero 0.5.0",
  "signal-frame 0.3.2",
 ]
 
@@ -167,7 +167,7 @@ name = "ethos-zero-meta"
 version = "5.0.0"
 dependencies = [
  "datom-codec",
- "meta-signal-ethos-zero 0.4.0",
+ "meta-signal-ethos-zero 0.5.0",
  "protos 0.26.0",
  "signal-frame 0.3.2",
 ]
@@ -180,12 +180,12 @@ dependencies = [
  "datomic",
  "ethos-zero 5.0.0",
  "meta-signal-ethos-zero 0.3.0",
- "meta-signal-ethos-zero 0.4.0",
+ "meta-signal-ethos-zero 0.5.0",
  "protos 0.26.0",
  "rkyv",
  "sema-engine",
  "signal-ethos-zero 0.3.0",
- "signal-ethos-zero 0.4.0",
+ "signal-ethos-zero 0.5.0",
  "signal-frame 0.3.2",
  "tempfile",
  "thiserror",
@@ -289,8 +289,8 @@ dependencies = [
 
 [[package]]
 name = "meta-signal-ethos-zero"
-version = "0.4.0"
-source = "git+https://github.com/LiGoldragon/meta-signal-ethos-zero?rev=e583afebb9a9f38feed77719e3c929463e1ede49#e583afebb9a9f38feed77719e3c929463e1ede49"
+version = "0.5.0"
+source = "git+https://github.com/LiGoldragon/meta-signal-ethos-zero?rev=6b32b72dbfcfd236261399035e4827aad77b79fe#6b32b72dbfcfd236261399035e4827aad77b79fe"
 dependencies = [
  "datom-codec",
  "ethos-zero 5.0.0 (git+https://github.com/LiGoldragon/ethos-zero.git?rev=bcf728bbe4521e663f4773d3c1fd4ebb643df32e)",
@@ -547,8 +547,8 @@ dependencies = [
 
 [[package]]
 name = "signal-ethos-zero"
-version = "0.4.0"
-source = "git+https://github.com/LiGoldragon/signal-ethos-zero?rev=41428e25f7245e7d0498142ddf0bbf5388774dda#41428e25f7245e7d0498142ddf0bbf5388774dda"
+version = "0.5.0"
+source = "git+https://github.com/LiGoldragon/signal-ethos-zero?rev=42df8e3c648951f66fb754844369a8646b21bbdd#42df8e3c648951f66fb754844369a8646b21bbdd"
 dependencies = [
  "datom-codec",
  "ethos-zero 5.0.0 (git+https://github.com/LiGoldragon/ethos-zero.git?rev=bcf728bbe4521e663f4773d3c1fd4ebb643df32e)",

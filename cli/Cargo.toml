@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "41a3c073d5c5" }
 protos = { git = "https://github.com/LiGoldragon/protos", rev = "2d999f173334" }
-signal-ethos-zero = { git = "https://github.com/LiGoldragon/signal-ethos-zero", rev = "41428e25f7245e7d0498142ddf0bbf5388774dda" }
+signal-ethos-zero = { git = "https://github.com/LiGoldragon/signal-ethos-zero", rev = "42df8e3c648951f66fb754844369a8646b21bbdd" }
 signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", rev = "80f70d929ae6d72707052f097be2264872913983", default-features = false }
 
 [[bin]]
