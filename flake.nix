@@ -49,11 +49,28 @@
         };
         cargoArtifacts = craneLib.buildDepsOnly common;
         package = craneLib.buildPackage (common // { inherit cargoArtifacts; });
+        migrationArtifacts = craneLib.buildDepsOnly (common // {
+          cargoExtraArgs = "--features offline-migration";
+        });
+        migration = craneLib.buildPackage (common // {
+          cargoArtifacts = migrationArtifacts;
+          cargoExtraArgs = "--features offline-migration --bin ethos-zero-migrate-v1";
+        });
       in {
-        packages.default = package;
+        packages = {
+          default = package;
+          ethos-zero-migrate-v1 = migration;
+        };
+        apps.ethos-zero-migrate-v1 = flake-utils.lib.mkApp {
+          drv = migration;
+          exePath = "/bin/ethos-zero-migrate-v1";
+        };
         checks = {
           build = craneLib.cargoBuild (common // { inherit cargoArtifacts; });
-          test = craneLib.cargoTest (common // { inherit cargoArtifacts; });
+          test = craneLib.cargoTest (common // {
+            inherit cargoArtifacts;
+            cargoTestExtraArgs = "--features offline-migration";
+          });
           fmt = craneLib.cargoFmt common;
           clippy = craneLib.cargoClippy (common // {
             inherit cargoArtifacts;

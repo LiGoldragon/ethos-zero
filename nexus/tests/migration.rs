@@ -1,5 +1,6 @@
 use std::{fs, path::Path, process::Command};
 
+use ethos_zero_nexus::{Paths, run};
 use legacy_meta_signal_ethos_zero as legacy_meta;
 use legacy_signal_ethos_zero as legacy_ordinary;
 use protos::Actualizable as _;
@@ -111,6 +112,13 @@ fn seed_v1(directory: &TempDir) -> (std::path::PathBuf, std::path::PathBuf) {
         },
         artifact: "schema.rs".try_into().expect("old artifact path"),
     };
+    let second_generation = legacy_ordinary::Generation {
+        file: legacy_ordinary::FileLocation {
+            source_name: "fieldlab".try_into().expect("old source name"),
+            relative_path: "nested/second.ethos".try_into().expect("old relative path"),
+        },
+        artifact: "nested/second.rs".try_into().expect("old artifact path"),
+    };
     let mut engine =
         Engine::open(EngineOpen::new(&source, SchemaVersion::new(1))).expect("v1 store opens");
     let configuration_table = engine
@@ -124,7 +132,13 @@ fn seed_v1(directory: &TempDir) -> (std::path::PathBuf, std::path::PathBuf) {
             engine
                 .begin_atomic_commit()
                 .assert(configuration_table, V1Configuration { configuration })
-                .assert(assemblies_table, V1Assembly { generation }),
+                .assert(assemblies_table, V1Assembly { generation })
+                .assert(
+                    assemblies_table,
+                    V1Assembly {
+                        generation: second_generation,
+                    },
+                ),
         )
         .expect("v1 source records commit atomically");
     drop(engine);
@@ -176,7 +190,7 @@ fn offline_v1_to_v2_migration_preserves_configuration_assemblies_and_manifest() 
             .expect("v1 assemblies remain queryable")
             .records()
             .len(),
-        1
+        2
     );
     drop(old_engine);
 
@@ -214,10 +228,36 @@ fn offline_v1_to_v2_migration_preserves_configuration_assemblies_and_manifest() 
         .expect("v2 assembly query")
         .records()
         .to_vec();
-    assert_eq!(assemblies.len(), 1);
-    assert_eq!(assemblies[0].source_name, "fieldlab");
-    assert_eq!(assemblies[0].relative_path, "schema.ethos");
-    assert_eq!(assemblies[0].artifact_path, "schema.rs");
+    assert_eq!(assemblies.len(), 2);
+    assert!(assemblies.iter().any(|assembly| {
+        assembly.source_name == "fieldlab"
+            && assembly.relative_path == "schema.ethos"
+            && assembly.artifact_path == "schema.rs"
+    }));
+    assert!(assemblies.iter().any(|assembly| {
+        assembly.source_name == "fieldlab"
+            && assembly.relative_path == "nested/second.ethos"
+            && assembly.artifact_path == "nested/second.rs"
+    }));
+}
+
+#[test]
+fn serving_nexus_refuses_v1_state_before_creating_sockets() {
+    let directory = tempfile::tempdir().expect("temporary fixture");
+    let (state_path, manifest) = seed_v1(&directory);
+    let paths = Paths {
+        state_path,
+        ordinary_socket: directory.path().join("ordinary.sock"),
+        meta_socket: directory.path().join("meta.sock"),
+        source_manifest: manifest,
+    };
+    let error = run(paths.clone()).expect_err("v1 state must fail closed in serving Nexus");
+    assert!(
+        error.to_string().contains("schema"),
+        "serving refusal identifies the incompatible state: {error}"
+    );
+    assert!(!paths.ordinary_socket.exists());
+    assert!(!paths.meta_socket.exists());
 }
 
 #[test]

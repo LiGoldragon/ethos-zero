@@ -5,6 +5,15 @@ edition.workspace = true
 rust-version.workspace = true
 publish = false
 
+[features]
+# The serving Nexus is current-Datom only.  Retired archive readers are linked
+# solely into the stopped-store converter and its historical fixture tests.
+offline-migration = [
+  "dep:legacy-datomic",
+  "dep:legacy-meta-signal-ethos-zero",
+  "dep:legacy-signal-ethos-zero",
+]
+
 [dependencies]
 ethos-zero = { path = ".." }
 datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "41a3c073d5c5" }
@@ -17,9 +26,19 @@ thiserror = "2"
 signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", rev = "80f70d929ae6d72707052f097be2264872913983", default-features = false }
 # The stopped-store converter alone reads these retired archive shapes.  The
 # serving Nexus has no legacy reader.
-legacy-datomic = { package = "datomic", git = "https://github.com/LiGoldragon/datomic", rev = "b670c72d0c2cb94ad1e39b372271f6569d91e214" }
-legacy-meta-signal-ethos-zero = { package = "meta-signal-ethos-zero", git = "https://github.com/LiGoldragon/meta-signal-ethos-zero", rev = "19f10780cc8dac630c6f72ec0c9a09be6a80c182" }
-legacy-signal-ethos-zero = { package = "signal-ethos-zero", git = "https://github.com/LiGoldragon/signal-ethos-zero", rev = "493742df956610aa829436d1b2da7568c0c7b82d" }
+legacy-datomic = { package = "datomic", git = "https://github.com/LiGoldragon/datomic", rev = "b670c72d0c2cb94ad1e39b372271f6569d91e214", optional = true }
+legacy-meta-signal-ethos-zero = { package = "meta-signal-ethos-zero", git = "https://github.com/LiGoldragon/meta-signal-ethos-zero", rev = "19f10780cc8dac630c6f72ec0c9a09be6a80c182", optional = true }
+legacy-signal-ethos-zero = { package = "signal-ethos-zero", git = "https://github.com/LiGoldragon/signal-ethos-zero", rev = "493742df956610aa829436d1b2da7568c0c7b82d", optional = true }
+
+[[bin]]
+name = "ethos-zero-migrate-v1"
+path = "src/bin/ethos-zero-migrate-v1.rs"
+required-features = ["offline-migration"]
+
+[[test]]
+name = "migration"
+path = "tests/migration.rs"
+required-features = ["offline-migration"]
 
 [dev-dependencies]
 tempfile = "3"
