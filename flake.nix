@@ -69,7 +69,7 @@
           build = craneLib.cargoBuild (common // { inherit cargoArtifacts; });
           test = craneLib.cargoTest (common // {
             inherit cargoArtifacts;
-            cargoTestExtraArgs = "--features offline-migration";
+            cargoTestExtraArgs = "--workspace --features ethos-zero-nexus/offline-migration";
           });
           fmt = craneLib.cargoFmt common;
           clippy = craneLib.cargoClippy (common // {
