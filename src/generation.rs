@@ -790,7 +790,9 @@ impl WireConverting for Reference {
         }
         match scope.resolve(&self.name) {
             Resolution::Intrinsic(Intrinsic::Text) => quote! { #value.to_string() },
-            Resolution::Intrinsic(Intrinsic::Integer | Intrinsic::Decimal | Intrinsic::Boolean) => value,
+            Resolution::Intrinsic(Intrinsic::Integer | Intrinsic::Decimal | Intrinsic::Boolean) => {
+                value
+            }
             Resolution::Intrinsic(Intrinsic::Meaning) => quote! { #value.to_string() },
             Resolution::Intrinsic(Intrinsic::Vector) => {
                 let argument = &self.arguments[0];
@@ -835,7 +837,9 @@ impl WireConverting for Reference {
             Resolution::Intrinsic(Intrinsic::Text) => quote! {
                 protos::Text::try_from(#value).map_err(|_| WireFault::Text)
             },
-            Resolution::Intrinsic(Intrinsic::Integer | Intrinsic::Decimal | Intrinsic::Boolean) => quote! { Ok(#value) },
+            Resolution::Intrinsic(Intrinsic::Integer | Intrinsic::Decimal | Intrinsic::Boolean) => {
+                quote! { Ok(#value) }
+            }
             Resolution::Intrinsic(Intrinsic::Meaning) => quote! {
                 datom_codec::Meaning::try_from(#value).map_err(|_| WireFault::Text)
             },
@@ -876,7 +880,11 @@ impl WireNaming for Name {
 impl Wiring for Reference {
     fn wire(&self, scope: &Scope) -> TokenStream {
         let arguments = self.arguments.iter().map(|argument| argument.wire(scope));
-        let applied = if self.arguments.is_empty() { TokenStream::new() } else { quote! { < #( #arguments ),* > } };
+        let applied = if self.arguments.is_empty() {
+            TokenStream::new()
+        } else {
+            quote! { < #( #arguments ),* > }
+        };
         let name = &self.name;
         if let Some(source) = &self.source {
             let source = source.tokens();
@@ -899,7 +907,10 @@ impl Wiring for Reference {
                 let wire = name.wire_name();
                 quote! { #source :: #wire #applied }
             }
-            Resolution::Type(_) | Resolution::Kind(_) | Resolution::Ambiguous(_) | Resolution::Undeclared => {
+            Resolution::Type(_)
+            | Resolution::Kind(_)
+            | Resolution::Ambiguous(_)
+            | Resolution::Undeclared => {
                 let wire = name.wire_name();
                 quote! { #wire #applied }
             }
@@ -975,13 +986,17 @@ impl WireConversionEmitting for TypeDeclaration {
                 let public_values: Vec<Ident> = (0..positions.len())
                     .map(|index| Ident::new(&format!("p{index}"), Span::call_site()))
                     .collect();
-                let wired = positions.iter().zip(&public_values).map(|(reference, value)| {
-                    reference.project(quote! { #value }, scope)
-                });
-                let recovered = positions.iter().zip(&public_values).map(|(reference, value)| {
-                    let converted = reference.recover(quote! { #value }, scope);
-                    quote! { #converted? }
-                });
+                let wired = positions
+                    .iter()
+                    .zip(&public_values)
+                    .map(|(reference, value)| reference.project(quote! { #value }, scope));
+                let recovered = positions
+                    .iter()
+                    .zip(&public_values)
+                    .map(|(reference, value)| {
+                        let converted = reference.recover(quote! { #value }, scope);
+                        quote! { #converted? }
+                    });
                 quote! {
                     impl WireConversion for #name {
                         type Wire = #wire;
@@ -999,8 +1014,12 @@ impl WireConversionEmitting for TypeDeclaration {
             TypeDeclaration::Enum(identity, variants) => {
                 let name = identity.name.tokens();
                 let wire = identity.name.wire_name();
-                let to_arms = variants.iter().map(|variant| variant.project_arm(&name, &wire, scope));
-                let from_arms = variants.iter().map(|variant| variant.recover_arm(&name, &wire, scope));
+                let to_arms = variants
+                    .iter()
+                    .map(|variant| variant.project_arm(&name, &wire, scope));
+                let from_arms = variants
+                    .iter()
+                    .map(|variant| variant.recover_arm(&name, &wire, scope));
                 quote! {
                     impl WireConversion for #name {
                         type Wire = #wire;
@@ -1039,9 +1058,10 @@ impl VariantConversionEmitting for Variant {
                 let values: Vec<Ident> = (0..positions.len())
                     .map(|index| Ident::new(&format!("p{index}"), Span::call_site()))
                     .collect();
-                let converted = positions.iter().zip(&values).map(|(reference, value)| {
-                    reference.project(quote! { #value }, scope)
-                });
+                let converted = positions
+                    .iter()
+                    .zip(&values)
+                    .map(|(reference, value)| reference.project(quote! { #value }, scope));
                 quote! { #public::#name( #( #values ),* ) => #wire::#name( #( #converted ),* ) }
             }
             Variant::Enum(_, _) => TokenStream::new(),
@@ -1078,7 +1098,10 @@ impl VariantConversionEmitting for Variant {
 impl Wiring for Signal {
     fn wire(&self, scope: &Scope) -> TokenStream {
         let types = self.types.iter().map(|declaration| declaration.wire(scope));
-        let conversions = self.types.iter().map(|declaration| declaration.conversion(scope));
+        let conversions = self
+            .types
+            .iter()
+            .map(|declaration| declaration.conversion(scope));
         let request = TypeDeclaration::Enum(
             Identity {
                 name: Name::try_from("Request").expect("static identifier"),
@@ -1116,7 +1139,6 @@ impl Wiring for Signal {
         }
     }
 }
-
 
 impl Generating for File {
     fn generate(&self) -> Result<String, crate::Fault> {

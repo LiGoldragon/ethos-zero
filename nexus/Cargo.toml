@@ -1,0 +1,28 @@
+[package]
+name = "ethos-zero-nexus"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+ethos-zero = { path = ".." }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "41a3c073d5c5" }
+protos = { git = "https://github.com/LiGoldragon/protos", rev = "2d999f173334" }
+meta-signal-ethos-zero = { git = "https://github.com/LiGoldragon/meta-signal-ethos-zero", rev = "e583afebb9a9f38feed77719e3c929463e1ede49" }
+signal-ethos-zero = { git = "https://github.com/LiGoldragon/signal-ethos-zero", rev = "41428e25f7245e7d0498142ddf0bbf5388774dda" }
+sema-engine = { git = "https://github.com/LiGoldragon/sema-engine.git", rev = "7158e5503f37fd2fbca1d707f134e38a3fda1176" }
+rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+thiserror = "2"
+signal-frame = { git = "https://github.com/LiGoldragon/signal-frame.git", rev = "80f70d929ae6d72707052f097be2264872913983", default-features = false }
+# The stopped-store converter alone reads these retired archive shapes.  The
+# serving Nexus has no legacy reader.
+legacy-datomic = { package = "datomic", git = "https://github.com/LiGoldragon/datomic", rev = "b670c72d0c2cb94ad1e39b372271f6569d91e214" }
+legacy-meta-signal-ethos-zero = { package = "meta-signal-ethos-zero", git = "https://github.com/LiGoldragon/meta-signal-ethos-zero", rev = "19f10780cc8dac630c6f72ec0c9a09be6a80c182" }
+legacy-signal-ethos-zero = { package = "signal-ethos-zero", git = "https://github.com/LiGoldragon/signal-ethos-zero", rev = "493742df956610aa829436d1b2da7568c0c7b82d" }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

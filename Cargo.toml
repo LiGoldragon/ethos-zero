@@ -20,7 +20,7 @@ name = "ethos-zero"
 path = "src/main.rs"
 
 [dependencies]
-protos      = { git = "https://github.com/LiGoldragon/protos",  rev = "2d999f173334" }
+protos      = { git = "https://github.com/LiGoldragon/protos", rev = "2d999f173334" }
 datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "41a3c073d5c5" }
 quote       = "1"
 proc-macro2 = "1"
@@ -31,18 +31,29 @@ prettyplease = "0.3"
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 serde = "1"
 
+[workspace]
+members = ["nexus", "cli", "meta-cli"]
+resolver = "3"
+
+[workspace.package]
+version = "5.0.0"
+edition = "2024"
+rust-version = "1.89"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused = { level = "warn", priority = -1 }
+dead_code = "warn"
+
 [[test]]
 name = "ethos"
 path = "tests/ethos.rs"
-
 [[test]]
 name = "generated"
 path = "tests/generated.rs"
-
 [[test]]
 name = "freshness"
 path = "tests/freshness.rs"
-
 [[test]]
 name = "cli"
 path = "tests/cli.rs"

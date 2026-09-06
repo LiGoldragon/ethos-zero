@@ -1,0 +1,4 @@
+Types
+[ protos:Text ]
+[ SourceEntry.{ Text Text } SourceManifest.{ Vector<SourceEntry> } ]
+[]
