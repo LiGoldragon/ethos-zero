@@ -1,110 +1,135 @@
-//! The ethos-zero CLI: it speaks datom, through its own contract.
-//!
-//! One inline datom value, no flags. `Generate.{ /abs/file.ethos
-//! /abs/out-dir }` reads the file, generates its Rust module and
-//! writes `/abs/out-dir/<stem>.rs`. Every reply is a value of the
-//! contract's `Response`, textualized. With no argument the CLI prints
-//! its own ethos.
+//! The ethos-zero CLI, expressed through its generated Signal contract.
 
-use std::path::Path;
+use std::path::Path as FilePath;
 use std::process::ExitCode;
 
-use datom_codec::{Datom, IncorporationBudget};
-use ethos_zero::{File, Generating};
-use protos::{Actualizable, Potential, Situated, Textualizable};
+use datom_codec::{Actualizing as _, Budget, Datomizable as _, Path, Potential};
+use ethos_zero::{Actualizing as _, File, Generating, Potential as EthosPotential};
+use protos::{Protosizable, Textualizable};
 
-/// The crate's contract, declared in ethos-zero.ethos and generated into contract.rs.
 #[rustfmt::skip]
+#[path = "ethos-zero.rs"]
 mod contract;
 
-use contract::{Generation, Request, Response};
+use contract::{
+    Conceptual_Data as Generation_Conceptual_Data, Generation, Generation_Error,
+    GenerationRejected_Data, Query, Response, Unreadable_Data, Unwritable_Data,
+};
 
-/// The crate's own ethos, printed when nothing is asked.
 const ETHOS: &str = include_str!("../ethos-zero.ethos");
 
-// ---------------------------------------------------------------------------
-// Kinds
-// ---------------------------------------------------------------------------
-
 trait Serving {
-    fn serve(&self) -> Response;
+    fn serve(&mut self) -> Response;
 }
-
 trait Exiting {
     fn exit(&self) -> ExitCode;
 }
-
 trait Invoking {
     fn invoke(&self) -> ExitCode;
 }
+trait Texting {
+    fn text(&self) -> String;
+}
+trait Erroring<T> {
+    fn error(self) -> T;
+}
 
-// ---------------------------------------------------------------------------
-// Interactions
-// ---------------------------------------------------------------------------
+impl Texting for Response {
+    fn text(&self) -> String {
+        self.datomize(Path::new()).protosize().textualize()
+    }
+}
+
+impl Erroring<Generation_Error> for ethos_zero::Error {
+    fn error(self) -> Generation_Error {
+        match self {
+            ethos_zero::Error::Structural(error) => Generation_Error::Structural(protos::Error {
+                extent: error.extent,
+                problem: error.problem,
+            }),
+            ethos_zero::Error::Conceptual(data) => {
+                Generation_Error::Conceptual(Generation_Conceptual_Data {
+                    integer_vector: data.integer_vector,
+                    problem: data.problem,
+                })
+            }
+        }
+    }
+}
 
 impl Serving for Generation {
-    fn serve(&self) -> Response {
-        let Generation(source, directory) = self;
-        let source_str: &str = source;
-        let directory_str: &str = directory;
-        let text = match std::fs::read_to_string(source_str) {
+    fn serve(&mut self) -> Response {
+        let source = &self.first_string;
+        let directory = &self.second_string;
+        let text = match std::fs::read_to_string(source) {
             Ok(text) => text,
             Err(error) => {
-                return Response::Unreadable(
-                    source.clone(),
-                    protos::Text::try_from(error.to_string()).expect("error message"),
-                );
+                return Response::Unreadable(Unreadable_Data {
+                    first_string: source.clone(),
+                    second_string: error.to_string(),
+                });
             }
         };
-        let file = match Potential::<File>::from(text).actualize(()) {
+        let file = match EthosPotential::<File>::from(text).actualize() {
             Ok(file) => file,
-            Err(Situated(situation, fault)) => {
-                return Response::Faulty(source.clone(), situation.extent, fault);
+            Err(error) => {
+                return Response::GenerationRejected(GenerationRejected_Data {
+                    string: source.clone(),
+                    path: Path::new(),
+                    generation__error: error.error(),
+                });
             }
         };
-        let stem = Path::new(source_str)
+        let stem = FilePath::new(source)
             .file_stem()
             .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned();
-        let target = Path::new(directory_str).join(format!("{stem}.rs"));
-        let written = target.to_string_lossy().into_owned();
-        if let Err(error) = std::fs::create_dir_all(directory_str) {
-            return Response::Unwritable(
-                directory.clone(),
-                protos::Text::try_from(error.to_string()).expect("error message"),
-            );
+            .to_string_lossy();
+        let target = FilePath::new(directory).join(format!("{stem}.rs"));
+        if let Err(error) = std::fs::create_dir_all(directory) {
+            return Response::Unwritable(Unwritable_Data {
+                first_string: directory.clone(),
+                second_string: error.to_string(),
+            });
         }
         let generated = match file.generate() {
             Ok(generated) => generated,
-            Err(fault) => {
-                return Response::Faulty(source.clone(), datom_codec::Extent(0, 0), fault);
+            Err(error) => {
+                return Response::GenerationRejected(GenerationRejected_Data {
+                    string: source.clone(),
+                    path: Path::new(),
+                    generation__error: error.error(),
+                });
             }
         };
         match std::fs::write(&target, generated) {
-            Ok(()) => Response::Generated(vec![protos::Text::try_from(written).expect("path")]),
-            Err(error) => Response::Unwritable(
-                protos::Text::try_from(written).expect("path"),
-                protos::Text::try_from(error.to_string()).expect("error message"),
-            ),
+            Ok(()) => Response::Generated(vec![target.to_string_lossy().into_owned()]),
+            Err(error) => Response::Unwritable(Unwritable_Data {
+                first_string: target.to_string_lossy().into_owned(),
+                second_string: error.to_string(),
+            }),
         }
     }
 }
 
-impl Serving for Request {
-    fn serve(&self) -> Response {
+impl Serving for Query {
+    fn serve(&mut self) -> Response {
         match self {
-            Request::Generate(generation) => generation.serve(),
+            Self::Generate(generation) => generation.serve(),
         }
     }
 }
 
-impl Serving for Potential<Request, Datom> {
-    fn serve(&self) -> Response {
-        let budget = IncorporationBudget::try_from(4_096).expect("a positive CLI budget");
-        match self.actualize(budget) {
-            Ok(request) => request.serve(),
-            Err(fault) => Response::Malformed(fault),
+impl Serving for Potential<Query> {
+    fn serve(&mut self) -> Response {
+        let mut budget = Budget {
+            remaining: 4_096,
+            reader: protos::ReaderBudget { remaining: 4_096 },
+            depth: 0,
+            maximum_depth: 4_096,
+        };
+        match self.actualize(&mut budget) {
+            Ok(mut request) => request.serve(),
+            Err(error) => Response::Malformed(error),
         }
     }
 }
@@ -112,12 +137,12 @@ impl Serving for Potential<Request, Datom> {
 impl Exiting for Response {
     fn exit(&self) -> ExitCode {
         match self {
-            Response::Generated(_) => ExitCode::SUCCESS,
-            Response::Arguments(_)
-            | Response::Malformed(_)
-            | Response::Unreadable(_, _)
-            | Response::Faulty(_, _, _)
-            | Response::Unwritable(_, _) => ExitCode::FAILURE,
+            Self::Generated(_) => ExitCode::SUCCESS,
+            Self::Arguments(_)
+            | Self::Malformed(_)
+            | Self::Unreadable(_)
+            | Self::GenerationRejected(_)
+            | Self::Unwritable(_) => ExitCode::FAILURE,
         }
     }
 }
@@ -132,15 +157,17 @@ impl Invoking for [String] {
                 }
                 return ExitCode::SUCCESS;
             }
-            [argument] => Potential::<Request, Datom>::from(argument.as_str()).serve(),
-            many => Response::Arguments(many.len() as protos::Integer),
+            [argument] => {
+                let mut potential = Potential::<Query>::from(argument.as_str());
+                potential.serve()
+            }
+            many => Response::Arguments(many.len() as datom_codec::Integer),
         };
-        println!("{}", response.textualize());
+        println!("{}", response.text());
         response.exit()
     }
 }
 
 fn main() -> ExitCode {
-    let arguments: Vec<String> = std::env::args().skip(1).collect();
-    arguments.invoke()
+    std::env::args().skip(1).collect::<Vec<_>>().invoke()
 }

@@ -1,0 +1,2 @@
+; Self-bearing capability methods are sized individually; ordinary methods stay object-safe.
+Library [ crate:Wrapper ] [] [ Mixed.[ inspect.[ String ] factory.[ Self ] optional.[ Option<Self> ] nested.[ Result<Vector<Self> String> ] qualified.[ Wrapper<Self> ] ] ] []

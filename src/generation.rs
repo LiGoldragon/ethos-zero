@@ -17,7 +17,6 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::checking::{Checkable, Declaring};
-use crate::datomization::{Datomizing, Uniform};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
     Identity, Intrinsic, KindBody, KindDeclaration, Name, Receiver, Reference, Resolution,
@@ -51,10 +50,13 @@ impl Tokening for Source {
 impl Tokening for Intrinsic {
     fn tokens(&self) -> TokenStream {
         match self {
-            Intrinsic::Text => quote! { protos::Text },
-            Intrinsic::Integer => quote! { protos::Integer },
-            Intrinsic::Decimal => quote! { protos::Decimal },
-            Intrinsic::Boolean => quote! { protos::Boolean },
+            Intrinsic::String => quote! { String },
+            // Signal contracts must compile without their optional `datom`
+            // feature.  The wire-level integer is therefore the ordinary
+            // Rust scalar; Datom derives know how to compose it when enabled.
+            Intrinsic::Integer => quote! { i64 },
+            Intrinsic::Decimal => quote! { f64 },
+            Intrinsic::Boolean => quote! { bool },
             Intrinsic::Meaning => quote! { datom_codec::Meaning },
             Intrinsic::Vector => quote! { std::vec::Vec },
             Intrinsic::Option => quote! { std::option::Option },
@@ -136,6 +138,14 @@ impl Emitting for Reference {
                 quote! { #intrinsic #applied }
             }
             Resolution::Imported(source, emitted) => {
+                if source.as_ref() == "std" {
+                    if emitted.0 == "Clone" {
+                        return quote! { std::clone::Clone #applied };
+                    }
+                    if emitted.0 == "Send" {
+                        return quote! { std::marker::Send #applied };
+                    }
+                }
                 let source = source.tokens();
                 let emitted = emitted.tokens();
                 quote! { #source :: #emitted #applied }
@@ -185,12 +195,12 @@ impl Bounding for [Reference] {
 
 /// The kind whose capabilities yield an identity's generics: the parameters with their bounds, and the arguments.
 pub(crate) trait Parametrizing {
-    fn parameters(&self, scope: &Scope, corporate: bool) -> TokenStream;
+    fn parameters(&self, scope: &Scope) -> TokenStream;
     fn arguments(&self, scope: &Scope) -> TokenStream;
 }
 
 impl Parametrizing for Identity {
-    fn parameters(&self, scope: &Scope, corporate: bool) -> TokenStream {
+    fn parameters(&self, scope: &Scope) -> TokenStream {
         if self.constraints.is_empty() {
             return TokenStream::new();
         }
@@ -204,11 +214,7 @@ impl Parametrizing for Identity {
         for (index, constraint) in self.constraints.iter().enumerate() {
             let letter = index.letter(scope);
             let bounds = constraint.bounds(&outer);
-            if corporate {
-                parameters.push(quote! { #letter: #bounds + datom_codec::Datomic });
-            } else {
-                parameters.push(quote! { #letter: #bounds });
-            }
+            parameters.push(quote! { #letter: #bounds });
         }
         quote! { < #( #parameters ),* > }
     }
@@ -305,24 +311,6 @@ impl Reaching for [Variant] {
     }
 }
 
-/// The kind whose capability yields the derives of a declared type: Eq unless it reaches Decimal, Copy when every variant is bare.
-trait Deriving {
-    fn derives(&self, file: &File, copy: bool) -> TokenStream;
-}
-
-impl<R: Reaching + ?Sized> Deriving for R {
-    fn derives(&self, file: &File, copy: bool) -> TokenStream {
-        let decimal = Name::try_from("Decimal").expect("static identifier");
-        let equatable = !self.reaches(&decimal, file, &mut vec![]);
-        match (copy, equatable) {
-            (true, true) => quote! { #[derive(Clone, Copy, Debug, PartialEq, Eq)] },
-            (true, false) => quote! { #[derive(Clone, Copy, Debug, PartialEq)] },
-            (false, true) => quote! { #[derive(Clone, Debug, PartialEq, Eq)] },
-            (false, false) => quote! { #[derive(Clone, Debug, PartialEq)] },
-        }
-    }
-}
-
 /// The kind whose capabilities yield a position's Rust type, boxed when it reaches its owner.
 pub(crate) trait Positioning {
     fn boxed(&self, scope: &Scope, owner: &Name) -> bool;
@@ -335,6 +323,30 @@ impl Positioning for Reference {
     }
 
     fn position(&self, scope: &Scope, owner: &Name) -> TokenStream {
+        // Put the indirection immediately around the recursive argument.
+        // `Option<Box<Tree>>` lets the Datom derive see the recursive edge,
+        // while `Box<Option<Tree>>` hides it behind the container and causes
+        // an infinitely recursive derive bound.
+        if self.source.is_none()
+            && matches!(
+                scope.file.resolve(&self.name),
+                Resolution::Intrinsic(Intrinsic::Option | Intrinsic::Result)
+            )
+        {
+            let name = self.name.tokens();
+            let mut arguments = Vec::with_capacity(self.arguments.len());
+            for argument in &self.arguments {
+                let ty = if argument.boxed(scope, owner) {
+                    let inner = argument.emit(scope);
+                    quote! { std::boxed::Box<#inner> }
+                } else {
+                    argument.emit(scope)
+                };
+                arguments.push(ty);
+            }
+            return quote! { #name < #( #arguments ),* > };
+        }
+
         let ty = self.emit(scope);
         if self.boxed(scope, owner) {
             quote! { std::boxed::Box<#ty> }
@@ -344,32 +356,119 @@ impl Positioning for Reference {
     }
 }
 
+trait Fielding {
+    fn field_base(&self) -> String;
+}
+
+trait SnakeCasing {
+    fn snake_case(&self) -> String;
+}
+
+impl SnakeCasing for str {
+    fn snake_case(&self) -> String {
+        let characters: Vec<char> = self.chars().collect();
+        let mut result = String::new();
+        for (index, character) in characters.iter().enumerate() {
+            let previous = index.checked_sub(1).and_then(|i| characters.get(i));
+            let next = characters.get(index + 1);
+            if character.is_uppercase()
+                && index != 0
+                && (previous.is_some_and(|previous| previous.is_lowercase())
+                    || next.is_some_and(|next| next.is_lowercase()))
+            {
+                result.push('_');
+            }
+            result.extend(character.to_lowercase());
+        }
+        result
+    }
+}
+
+impl Fielding for Reference {
+    fn field_base(&self) -> String {
+        let mut parts: Vec<String> = self.arguments.iter().map(Self::field_base).collect();
+        parts.push(self.name.0.as_str().snake_case());
+        parts.join("_")
+    }
+}
+
+trait Ordinaling {
+    fn ordinal(&self) -> &'static str;
+}
+
+impl Ordinaling for usize {
+    fn ordinal(&self) -> &'static str {
+        match self {
+            0 => "first",
+            1 => "second",
+            2 => "third",
+            3 => "fourth",
+            4 => "fifth",
+            5 => "sixth",
+            6 => "seventh",
+            7 => "eighth",
+            8 => "ninth",
+            9 => "tenth",
+            _ => "position",
+        }
+    }
+}
+
+trait FieldNaming {
+    fn field_names(&self) -> Vec<Ident>;
+}
+
+impl FieldNaming for [Reference] {
+    fn field_names(&self) -> Vec<Ident> {
+        let bases: Vec<String> = self.iter().map(Reference::field_base).collect();
+        let mut fields = Vec::with_capacity(bases.len());
+        for (index, base) in bases.iter().enumerate() {
+            let repetitions = bases.iter().filter(|other| *other == base).count();
+            let prior = bases[..index].iter().filter(|other| *other == base).count();
+            let name = if repetitions == 1 {
+                base.clone()
+            } else if prior < 10 {
+                format!("{}_{}", prior.ordinal(), base)
+            } else {
+                format!("position_{}_{}", prior + 1, base)
+            };
+            let field = if syn::parse_str::<Ident>(&name).is_ok() {
+                Ident::new(&name, Span::call_site())
+            } else {
+                Ident::new_raw(&name, Span::call_site())
+            };
+            fields.push(field);
+        }
+        fields
+    }
+}
+
 /// The kind whose capabilities yield a variant's definition and the items its inline enum needs.
 trait Varianted {
     fn definition(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream;
-    fn nested(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream;
+    fn nested(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        enclosing: &Identity,
+        conditional: bool,
+    ) -> TokenStream;
 }
 
 /// The kind whose capability names the enum type an inline enum variant declares.
 trait Nesting {
-    fn nested_identity(&self, name: &Name, scope: &Scope) -> Identity;
+    fn nested_identity(&self, name: &Name) -> Identity;
 }
 
 impl Nesting for Identity {
-    fn nested_identity(&self, name: &Name, scope: &Scope) -> Identity {
-        let joined = format!("{}{}", self.name.0, name.0);
-        let name = match Name::try_from(joined.clone()) {
-            Ok(joined) if scope.file.declaration(&joined).is_none() => joined,
-            Ok(_) | Err(_) => {
-                let mut allocated = Name::try_from(format!("{}EthosNested{}", self.name.0, name.0))
-                    .expect("nested identifiers are an identifier");
-                while scope.file.declaration(&allocated).is_some() {
-                    allocated = Name::try_from(format!("{}X", allocated.0))
-                        .expect("nested identifiers are an identifier");
-                }
-                allocated
-            }
+    fn nested_identity(&self, name: &Name) -> Identity {
+        let stem = if self.name.0.ends_with("_Data") {
+            format!("{}_{}", self.name.0, name.0)
+        } else {
+            name.0.clone()
         };
+        let name = Name::try_from(format!("{stem}_Data"))
+            .expect("derived inline identifiers are identifiers");
         Identity {
             name,
             constraints: self.constraints.clone(),
@@ -380,22 +479,22 @@ impl Nesting for Identity {
 impl Varianted for Variant {
     fn definition(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream {
         match self {
-            Variant::Bare(name) => name.tokens(),
+            Variant::Bare(name) => {
+                let variant = name.tokens();
+                if scope.file.declaration(name).is_some() {
+                    let ty = name.tokens();
+                    quote! { #variant(#ty) }
+                } else {
+                    quote! { #variant }
+                }
+            }
             Variant::Typed(name, reference) => {
                 let name = name.tokens();
                 let ty = reference.position(scope, owner);
                 quote! { #name(#ty) }
             }
-            Variant::Struct(name, positions) => {
-                let name = name.tokens();
-                let mut types = Vec::with_capacity(positions.len());
-                for position in positions {
-                    types.push(position.position(scope, owner));
-                }
-                quote! { #name( #( #types ),* ) }
-            }
-            Variant::Enum(name, _) => {
-                let nested = enclosing.nested_identity(name, scope);
+            Variant::Struct(name, _) | Variant::Enum(name, _) => {
+                let nested = enclosing.nested_identity(name);
                 let ty = nested.name.tokens();
                 let arguments = nested.arguments(scope);
                 let name = name.tokens();
@@ -404,13 +503,23 @@ impl Varianted for Variant {
         }
     }
 
-    fn nested(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream {
+    fn nested(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        enclosing: &Identity,
+        conditional: bool,
+    ) -> TokenStream {
         match self {
-            Variant::Enum(name, variants) => {
-                let nested = enclosing.nested_identity(name, scope);
-                variants.enumeration(scope, owner, &nested)
+            Variant::Struct(name, positions) => {
+                let nested = enclosing.nested_identity(name);
+                positions.structure(scope, owner, &nested, conditional)
             }
-            Variant::Bare(_) | Variant::Typed(_, _) | Variant::Struct(_, _) => TokenStream::new(),
+            Variant::Enum(name, variants) => {
+                let nested = enclosing.nested_identity(name);
+                variants.enumeration(scope, owner, &nested, conditional)
+            }
+            Variant::Bare(_) | Variant::Typed(_, _) => TokenStream::new(),
         }
     }
 }
@@ -421,49 +530,84 @@ impl Varianted for Variant {
 
 /// The kind whose capability emits a struct of these positions with its datomic machinery.
 trait Structuring {
-    fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
+    fn structure(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        identity: &Identity,
+        conditional: bool,
+    ) -> TokenStream;
 }
 
 /// The kind whose capability emits an enum of these variants with its datomic machinery.
 trait Enumerating {
-    fn enumeration(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
+    fn enumeration(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        identity: &Identity,
+        conditional: bool,
+    ) -> TokenStream;
+}
+
+trait DatomDeriving {
+    fn datom_derives(&self) -> TokenStream;
+}
+
+impl DatomDeriving for bool {
+    fn datom_derives(&self) -> TokenStream {
+        if *self {
+            quote! { #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Compositional))] }
+        } else {
+            quote! { #[derive(datom_codec::Datomizable, datom_codec::Compositional)] }
+        }
+    }
 }
 
 impl Structuring for [Reference] {
-    fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
+    fn structure(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        identity: &Identity,
+        conditional: bool,
+    ) -> TokenStream {
         let name = identity.name.tokens();
-        let parameters = identity.parameters(scope, false);
+        let parameters = identity.parameters(scope);
         let mut types = Vec::with_capacity(self.len());
         for position in self {
             types.push(position.position(scope, owner));
         }
-        let derive = self.derives(scope.file, false);
-        let machinery = self.machinery(scope, owner, identity);
+        let fields = self.field_names();
+        let derive = conditional.datom_derives();
         quote! {
             #derive
-            pub struct #name #parameters ( #( pub #types ),* );
-            #machinery
+            pub struct #name #parameters { #( pub #fields: #types ),* }
         }
     }
 }
 
 impl Enumerating for [Variant] {
-    fn enumeration(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
+    fn enumeration(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        identity: &Identity,
+        conditional: bool,
+    ) -> TokenStream {
         let name = identity.name.tokens();
-        let parameters = identity.parameters(scope, false);
-        let derive = self.derives(scope.file, self.all_bare());
+        let parameters = identity.parameters(scope);
+        let derive = conditional.datom_derives();
         let mut definitions = Vec::with_capacity(self.len());
         let mut nested = Vec::new();
         for variant in self {
             definitions.push(variant.definition(scope, owner, identity));
-            nested.push(variant.nested(scope, owner, identity));
+            nested.push(variant.nested(scope, owner, identity, conditional));
         }
-        let machinery = self.machinery(scope, owner, identity);
         quote! {
             #( #nested )*
             #derive
             pub enum #name #parameters { #( #definitions ),* }
-            #machinery
         }
     }
 }
@@ -477,7 +621,12 @@ impl Emitting for TypeDeclaration {
                     identity: Some(identity),
                     associated: scope.associated,
                 };
-                positions.structure(&inner, &identity.name, identity)
+                positions.structure(
+                    &inner,
+                    &identity.name,
+                    identity,
+                    matches!(scope.file, File::Signal(_)),
+                )
             }
             TypeDeclaration::Enum(identity, variants) => {
                 let inner = Scope {
@@ -485,7 +634,12 @@ impl Emitting for TypeDeclaration {
                     identity: Some(identity),
                     associated: scope.associated,
                 };
-                variants.enumeration(&inner, &identity.name, identity)
+                variants.enumeration(
+                    &inner,
+                    &identity.name,
+                    identity,
+                    matches!(scope.file, File::Signal(_)),
+                )
             }
             TypeDeclaration::Alias(identity, aliased) => {
                 let inner = Scope {
@@ -494,7 +648,7 @@ impl Emitting for TypeDeclaration {
                     associated: scope.associated,
                 };
                 let name = identity.name.tokens();
-                let parameters = identity.parameters(&inner, false);
+                let parameters = identity.parameters(&inner);
                 let aliased = aliased.emit(&inner);
                 quote! { pub type #name #parameters = #aliased; }
             }
@@ -589,7 +743,36 @@ impl Emitting for Capability {
             }
         };
         let yields = yields.emit(scope);
-        quote! { fn #name( #( #parameters ),* ) -> #yields; }
+        let sized = if self.contains_self() {
+            quote! { where Self: Sized }
+        } else {
+            TokenStream::new()
+        };
+        quote! { fn #name( #( #parameters ),* ) -> #yields #sized; }
+    }
+}
+
+/// Whether a capability signature mentions `Self`, which requires a sized
+/// trait receiver when lowered into Rust's sized generic constructors.
+trait SelfContaining {
+    fn contains_self(&self) -> bool;
+}
+
+impl SelfContaining for Reference {
+    fn contains_self(&self) -> bool {
+        (self.source.is_none() && self.name.0 == "Self")
+            || self.arguments.iter().any(SelfContaining::contains_self)
+    }
+}
+
+impl SelfContaining for Capability {
+    fn contains_self(&self) -> bool {
+        match &self.signature {
+            Signature::Yielding(yielded) => yielded.contains_self(),
+            Signature::Taking(inputs, yielded) => {
+                inputs.iter().any(SelfContaining::contains_self) || yielded.contains_self()
+            }
+        }
     }
 }
 
@@ -607,7 +790,7 @@ impl Emitting for KindDeclaration {
             associated: types,
         };
         let name = self.identity.name.tokens();
-        let parameters = self.identity.parameters(&inner, false);
+        let parameters = self.identity.parameters(&inner);
         let extends = if superkinds.is_empty() {
             TokenStream::new()
         } else {
@@ -648,7 +831,7 @@ impl Emitting for Association {
         };
         let ty = subject.emit(scope);
         let arguments = self.identity.arguments(&inner);
-        let parameters = self.identity.parameters(&inner, false);
+        let parameters = self.identity.parameters(&inner);
         let mut assertions = Vec::with_capacity(self.kinds.len());
         for kind in &self.kinds {
             let assertion = Ident::new(
@@ -684,19 +867,17 @@ impl Emitting for Association {
 
 impl Emitting for File {
     fn emit(&self, scope: &Scope) -> TokenStream {
-        let mut items = vec![quote! { #![allow(dead_code)] }];
+        let mut items = vec![quote! { #![allow(dead_code, non_camel_case_types, non_snake_case)] }];
         match self {
-            File::Types(types) => {
-                for declaration in &types.types {
+            File::Library(library) => {
+                for declaration in &library.types {
                     items.push(declaration.emit(scope));
                 }
-                for association in &types.associations {
+                for declaration in &library.kinds {
+                    items.push(declaration.emit(scope));
+                }
+                for association in &library.associations {
                     items.push(association.emit(scope));
-                }
-            }
-            File::Kinds(kinds) => {
-                for declaration in &kinds.kinds {
-                    items.push(declaration.emit(scope));
                 }
             }
             File::Signal(signal) => {
@@ -705,7 +886,7 @@ impl Emitting for File {
                 }
                 let request = TypeDeclaration::Enum(
                     Identity {
-                        name: Name::try_from("Request").expect("static identifier"),
+                        name: Name::try_from("Query").expect("static identifier"),
                         constraints: vec![],
                     },
                     signal.requests.clone(),
@@ -721,14 +902,6 @@ impl Emitting for File {
                 items.push(response.emit(scope));
             }
             File::Sema(sema) => {
-                let record = TypeDeclaration::Struct(
-                    Identity {
-                        name: Name::try_from("Record").expect("static identifier"),
-                        constraints: vec![],
-                    },
-                    sema.record.clone(),
-                );
-                items.push(record.emit(scope));
                 for declaration in &sema.types {
                     items.push(declaration.emit(scope));
                 }
@@ -739,7 +912,7 @@ impl Emitting for File {
 }
 
 impl Generating for File {
-    fn generate(&self) -> Result<String, crate::Fault> {
+    fn generate(&self) -> Result<String, crate::Error> {
         let scope = Scope {
             file: self,
             identity: None,

@@ -2,7 +2,7 @@
 set -eu
 out_dir="$TMPDIR/generated"
 for declaration in $declarations; do
-  reply="$("$package/bin/ethos-zero" "Generate.{ $declaration $out_dir }")"
+  reply="$("$package/bin/ethos-zero" "Generate.{ «$declaration» «$out_dir» }")"
   case "$reply" in
     Generated.*) echo "$reply" ;;
     *) echo "$declaration: $reply" >&2; exit 1 ;;

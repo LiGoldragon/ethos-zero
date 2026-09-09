@@ -4,15 +4,26 @@ version = 4
 
 [[package]]
 name = "datom-codec"
-version = "0.21.0"
-source = "git+https://github.com/LiGoldragon/datom-codec?rev=41a3c073d5c5#41a3c073d5c5cdcb3ebb1a5c842e8c068145fdb2"
+version = "0.25.4"
+source = "git+https://github.com/LiGoldragon/datom-codec?rev=35d26d822870356af9b04cacfec40d85600b541d#35d26d822870356af9b04cacfec40d85600b541d"
 dependencies = [
+ "datom-codec-derive",
  "protos",
 ]
 
 [[package]]
+name = "datom-codec-derive"
+version = "0.25.4"
+source = "git+https://github.com/LiGoldragon/datom-codec?rev=35d26d822870356af9b04cacfec40d85600b541d#35d26d822870356af9b04cacfec40d85600b541d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "ethos-zero"
-version = "5.0.0"
+version = "6.0.0"
 dependencies = [
  "datom-codec",
  "prettyplease",
@@ -20,7 +31,7 @@ dependencies = [
  "protos",
  "quote",
  "serde",
- "syn",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -30,7 +41,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bfe0f4c752e450fc2faf62654f1c134747922825d5b04ca717b8874f41a40c0"
 dependencies = [
  "proc-macro2",
- "syn",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -44,8 +55,8 @@ dependencies = [
 
 [[package]]
 name = "protos"
-version = "0.26.0"
-source = "git+https://github.com/LiGoldragon/protos?rev=2d999f173334#2d999f1733347b7e64e24b2f75ba889ad7182bc0"
+version = "0.29.0"
+source = "git+https://github.com/LiGoldragon/protos?rev=aac95b0d08a4c7eb7f73c8ea18309f9e2e89315f#aac95b0d08a4c7eb7f73c8ea18309f9e2e89315f"
 
 [[package]]
 name = "quote"
@@ -82,7 +93,18 @@ checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 3.0.5",
+]
+
+[[package]]
+name = "syn"
+version = "2.0.119"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "872831b642d1a07999a962a351ed35b955ea2cfc8f3862091e2a240a84f17297"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
 ]
 
 [[package]]

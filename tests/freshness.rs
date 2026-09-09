@@ -1,10 +1,9 @@
 //! Freshness: every committed generated module equals a fresh generation
 //! by the library. The text is the product here, so the text is what is
-//! asserted: src/fault.rs from fault.ethos, src/contract.rs from
+//! asserted: src/error.rs from error.ethos, src/ethos-zero.rs from
 //! ethos-zero.ethos, and tests/generated/<stem>.rs from every fixture.
 
-use ethos_zero::{File, Generating};
-use protos::{Actualizable, Potential};
+use ethos_zero::{Actualizing, File, Generating, Potential};
 
 /// The kind whose capability asserts a committed generation is fresh.
 trait Fresh {
@@ -16,12 +15,15 @@ impl Fresh for str {
         let root = env!("CARGO_MANIFEST_DIR");
         let source = std::fs::read_to_string(format!("{root}/{self}")).expect(self);
         let committed = std::fs::read_to_string(format!("{root}/{generated}")).expect(generated);
-        let file = match Potential::<File>::from(source).actualize(()) {
+        let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
-            Err(fault) => panic!("{self} does not read: {fault:?}"),
+            Err(_) => panic!("{self} does not read"),
         };
         assert_eq!(
-            file.generate().expect("checked source generates"),
+            match file.generate() {
+                Ok(rust) => rust,
+                Err(_) => panic!("checked source generates"),
+            },
             committed,
             "{generated} is stale; regenerate from {self}"
         );
@@ -29,13 +31,13 @@ impl Fresh for str {
 }
 
 #[test]
-fn the_fault_module_is_fresh() {
-    "fault.ethos".fresh("src/fault.rs");
+fn the_error_module_is_fresh() {
+    "error.ethos".fresh("src/error.rs");
 }
 
 #[test]
 fn the_contract_module_is_fresh() {
-    "ethos-zero.ethos".fresh("src/contract.rs");
+    "ethos-zero.ethos".fresh("src/ethos-zero.rs");
 }
 
 #[test]
@@ -49,7 +51,7 @@ fn every_fixture_module_is_fresh() {
         }
     }
     fixtures.sort();
-    assert_eq!(fixtures.len(), 13);
+    assert_eq!(fixtures.len(), 14);
     for stem in fixtures {
         format!("fixtures/{stem}.ethos").fresh(&format!("tests/generated/{stem}.rs"));
     }

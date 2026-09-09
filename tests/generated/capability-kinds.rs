@@ -1,12 +1,11 @@
-#![allow(dead_code)]
+#![allow(dead_code, non_camel_case_types, non_snake_case)]
 pub trait Summarizable {
-    fn summarize(&self) -> protos::Text;
+    fn summarize(&self) -> String;
 }
 pub trait Fillable {
-    fn push(
-        &mut self,
-        input: protos::Text,
-    ) -> std::result::Result<protos::Integer, super::SinkError>;
-    fn drain(&mut self) -> std::vec::Vec<protos::Text>;
-    fn create() -> Self;
+    fn push(&mut self, input: String) -> std::result::Result<i64, super::SinkError>;
+    fn drain(&mut self) -> std::vec::Vec<String>;
+    fn create() -> Self
+    where
+        Self: Sized;
 }

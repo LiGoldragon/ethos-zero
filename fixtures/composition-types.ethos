@@ -1,4 +1,5 @@
-Types
+Library
 []
-[ Result.{ Text } Box.{ Text } Tree.{ Option<Self> } Nested.[ Choice.[ Item.{ Result Box } ] ] ]
+[ Result.{ String } Box.{ String } Tree.{ Option<Self> } Nested.[ Choice.[ Item.{ Result Box } ] ] ]
+[]
 []

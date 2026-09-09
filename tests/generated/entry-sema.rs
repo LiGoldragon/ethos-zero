@@ -1,71 +1,11 @@
-#![allow(dead_code)]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Record(pub protos::Text, pub std::vec::Vec<Entry>);
-impl datom_codec::Datomic for Record {
-    fn incorporate(
-        site: datom_codec::Site<'_>,
-    ) -> std::result::Result<Self, datom_codec::Fault> {
-        let mut p = datom_codec::Sited::positions(site, 2)?;
-        let p0: protos::Text = datom_codec::Positional::position(&mut p)?;
-        let p1: std::vec::Vec<Entry> = datom_codec::Positional::position(&mut p)?;
-        std::result::Result::Ok(Self(p0, p1))
-    }
+#![allow(dead_code, non_camel_case_types, non_snake_case)]
+#[derive(datom_codec::Datomizable, datom_codec::Compositional)]
+pub struct Record {
+    pub string: String,
+    pub entry_vector: std::vec::Vec<Entry>,
 }
-impl protos::Conceivable<datom_codec::Datom> for Record {
-    type Fault = std::convert::Infallible;
-    fn conceive(
-        &self,
-    ) -> std::result::Result<protos::Situated<datom_codec::Datom>, Self::Fault> {
-        std::result::Result::Ok(
-            protos::Situated(
-                protos::Situation {
-                    extent: protos::Extent(0, 0),
-                    children: vec![],
-                },
-                datom_codec::Datom::Struct(
-                    vec![
-                        protos::Conceivable::conceive(& self.0)
-                        .expect("infallible datom ascent").1,
-                        protos::Conceivable::conceive(& self.1)
-                        .expect("infallible datom ascent").1
-                    ],
-                ),
-            ),
-        )
-    }
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Entry(pub protos::Text, pub protos::Integer);
-impl datom_codec::Datomic for Entry {
-    fn incorporate(
-        site: datom_codec::Site<'_>,
-    ) -> std::result::Result<Self, datom_codec::Fault> {
-        let mut p = datom_codec::Sited::positions(site, 2)?;
-        let p0: protos::Text = datom_codec::Positional::position(&mut p)?;
-        let p1: protos::Integer = datom_codec::Positional::position(&mut p)?;
-        std::result::Result::Ok(Self(p0, p1))
-    }
-}
-impl protos::Conceivable<datom_codec::Datom> for Entry {
-    type Fault = std::convert::Infallible;
-    fn conceive(
-        &self,
-    ) -> std::result::Result<protos::Situated<datom_codec::Datom>, Self::Fault> {
-        std::result::Result::Ok(
-            protos::Situated(
-                protos::Situation {
-                    extent: protos::Extent(0, 0),
-                    children: vec![],
-                },
-                datom_codec::Datom::Struct(
-                    vec![
-                        protos::Conceivable::conceive(& self.0)
-                        .expect("infallible datom ascent").1,
-                        protos::Conceivable::conceive(& self.1)
-                        .expect("infallible datom ascent").1
-                    ],
-                ),
-            ),
-        )
-    }
+#[derive(datom_codec::Datomizable, datom_codec::Compositional)]
+pub struct Entry {
+    pub string: String,
+    pub integer: i64,
 }

@@ -1,6 +1,6 @@
 [package]
 name         = "ethos-zero"
-version      = "5.0.0"
+version      = "6.0.0"
 edition      = "2024"
 rust-version = "1.89"
 license      = "MIT OR Apache-2.0"
@@ -19,9 +19,13 @@ path = "src/lib.rs"
 name = "ethos-zero"
 path = "src/main.rs"
 
+[features]
+default = ["datom"]
+datom = []
+
 [dependencies]
-protos      = { git = "https://github.com/LiGoldragon/protos",  rev = "2d999f173334" }
-datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "41a3c073d5c5" }
+protos      = { git = "https://github.com/LiGoldragon/protos",  rev = "aac95b0d08a4c7eb7f73c8ea18309f9e2e89315f" }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "35d26d822870356af9b04cacfec40d85600b541d" }
 quote       = "1"
 proc-macro2 = "1"
 syn         = { version = "3", features = ["full"] }
@@ -41,6 +45,10 @@ path = "tests/generated.rs"
 [[test]]
 name = "freshness"
 path = "tests/freshness.rs"
+
+[[test]]
+name = "signal-without-datom"
+path = "tests/signal_without_datom.rs"
 
 [[test]]
 name = "cli"

@@ -1,77 +1,12 @@
-#![allow(dead_code)]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Placed<A: Sized>(pub std::option::Option<protos::Integer>, pub A);
-impl<A: Sized + datom_codec::Datomic> datom_codec::Datomic for Placed<A> {
-    fn incorporate(
-        site: datom_codec::Site<'_>,
-    ) -> std::result::Result<Self, datom_codec::Fault> {
-        let mut p = datom_codec::Sited::positions(site, 2)?;
-        let p0: std::option::Option<protos::Integer> = datom_codec::Positional::position(
-            &mut p,
-        )?;
-        let p1: A = datom_codec::Positional::position(&mut p)?;
-        std::result::Result::Ok(Self(p0, p1))
-    }
+#![allow(dead_code, non_camel_case_types, non_snake_case)]
+#[derive(datom_codec::Datomizable, datom_codec::Compositional)]
+pub struct Placed {
+    pub integer_option: Option<i64>,
+    pub integer: i64,
 }
-impl<A: Sized + datom_codec::Datomic> protos::Conceivable<datom_codec::Datom>
-for Placed<A> {
-    type Fault = std::convert::Infallible;
-    fn conceive(
-        &self,
-    ) -> std::result::Result<protos::Situated<datom_codec::Datom>, Self::Fault> {
-        std::result::Result::Ok(
-            protos::Situated(
-                protos::Situation {
-                    extent: protos::Extent(0, 0),
-                    children: vec![],
-                },
-                datom_codec::Datom::Struct(
-                    vec![
-                        protos::Conceivable::conceive(& self.0)
-                        .expect("infallible datom ascent").1,
-                        protos::Conceivable::conceive(& self.1)
-                        .expect("infallible datom ascent").1
-                    ],
-                ),
-            ),
-        )
-    }
-}
-#[derive(Clone, Debug, PartialEq)]
-pub struct Score(pub protos::Decimal, pub protos::Boolean, pub datom_codec::Meaning);
-impl datom_codec::Datomic for Score {
-    fn incorporate(
-        site: datom_codec::Site<'_>,
-    ) -> std::result::Result<Self, datom_codec::Fault> {
-        let mut p = datom_codec::Sited::positions(site, 3)?;
-        let p0: protos::Decimal = datom_codec::Positional::position(&mut p)?;
-        let p1: protos::Boolean = datom_codec::Positional::position(&mut p)?;
-        let p2: datom_codec::Meaning = datom_codec::Positional::position(&mut p)?;
-        std::result::Result::Ok(Self(p0, p1, p2))
-    }
-}
-impl protos::Conceivable<datom_codec::Datom> for Score {
-    type Fault = std::convert::Infallible;
-    fn conceive(
-        &self,
-    ) -> std::result::Result<protos::Situated<datom_codec::Datom>, Self::Fault> {
-        std::result::Result::Ok(
-            protos::Situated(
-                protos::Situation {
-                    extent: protos::Extent(0, 0),
-                    children: vec![],
-                },
-                datom_codec::Datom::Struct(
-                    vec![
-                        protos::Conceivable::conceive(& self.0)
-                        .expect("infallible datom ascent").1,
-                        protos::Conceivable::conceive(& self.1)
-                        .expect("infallible datom ascent").1,
-                        protos::Conceivable::conceive(& self.2)
-                        .expect("infallible datom ascent").1
-                    ],
-                ),
-            ),
-        )
-    }
+#[derive(datom_codec::Datomizable, datom_codec::Compositional)]
+pub struct Score {
+    pub decimal: f64,
+    pub boolean: bool,
+    pub meaning: datom_codec::Meaning,
 }

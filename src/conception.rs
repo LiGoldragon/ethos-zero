@@ -1,736 +1,434 @@
-//! Conception: Protoform to File (the reader, may fault).
-//!
-//! Every concept is conceived from the protoform that carries it, by a
-//! `Conceiving<Concept>` interaction on `Protoform` (or on
-//! `Head`, for what a head carries). Each interaction raises its faults
-//! at paths relative to its own protoform; the container places them
-//! under the child's index. A read file is checked whole before it is
-//! yielded.
+//! Conception: structural Protos to Ethos concepts.
 
-use protos::{Bare, Enclosure, Head, Protoform, Separator, Situated, Symbol};
+use datom_codec::Integer;
+use protos::{Enclosure, Protos, Separator, Symbol};
 
-use crate::checking::Checkable;
-
-/// The kind whose capability conceives a concept from a protoform.
-pub(crate) trait Conceiving<C> {
-    fn conceive(&self) -> Result<C, Fault>;
-}
 use crate::{
-    AssociatedConstant, AssociatedType, Association, Capability, Constraint, Fault, File, Form,
-    Identifiable, Identity, Import, Imported, KindBody, KindDeclaration, Kinds, Name, Placing,
-    Problem, Receiver, Reference, Root, Scope, Sema, Signal, Signature, Source, TypeDeclaration,
-    Types, Variant,
+    ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualFaulting,
+    Constraint, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported, KindBody,
+    KindDeclaration, Library, Name, Placing, Problem, Receiver, Reference, Root, Sema, Signal,
+    Signature, Source, TypeDeclaration, Variant,
 };
 
-// ---------------------------------------------------------------------------
-// Faults at the protoform at hand
-// ---------------------------------------------------------------------------
-
-/// The kind whose capabilities raise a conceptual fault here, at the empty path.
-trait Faulting {
-    fn here(self) -> Fault;
+pub(crate) trait Conceiving<C> {
+    fn conceive(&self) -> Result<C, Error>;
 }
-
-impl Faulting for Problem {
-    fn here(self) -> Fault {
-        Fault::Conceptual(vec![], self)
+impl Ethosizable<File> for Protos {
+    type Error = Error;
+    fn ethosize(&self) -> Result<File, Self::Error> {
+        self.conceive()
     }
 }
-
-// ---------------------------------------------------------------------------
-// Anatomy: what a protoform is, asked structurally
-// ---------------------------------------------------------------------------
-
-/// The kind whose capabilities expose a protoform's anatomy.
-trait Anatomical {
-    fn braced(&self) -> Option<&[Protoform]>;
-    fn bracketed(&self) -> Option<&[Protoform]>;
-    fn headed(&self) -> Option<Headed<'_>>;
-    fn bare(&self) -> Option<&Bare>;
+trait Children {
+    fn children(&self, enclosure: Enclosure) -> Option<&[Protos]>;
 }
-
-/// The three named parts of a headed protoform.
-struct Headed<'a> {
-    head: &'a Head,
-    separator: Separator,
-    body: &'a Protoform,
-}
-
-impl Anatomical for Protoform {
-    fn braced(&self) -> Option<&[Protoform]> {
+impl Children for Protos {
+    fn children(&self, enclosure: Enclosure) -> Option<&[Protos]> {
         match self {
-            Protoform::Enclosed(Enclosure::Braced, children) => Some(children),
-            _ => None,
-        }
-    }
-
-    fn bracketed(&self) -> Option<&[Protoform]> {
-        match self {
-            Protoform::Enclosed(Enclosure::Bracketed, children) => Some(children),
-            _ => None,
-        }
-    }
-
-    fn headed(&self) -> Option<Headed<'_>> {
-        match self {
-            Protoform::Headed(head, separator, body) => Some(Headed {
-                head,
-                separator: *separator,
-                body,
-            }),
-            _ => None,
-        }
-    }
-
-    fn bare(&self) -> Option<&Bare> {
-        match self {
-            Protoform::Bare(head) => Some(head),
+            Protos::Enclosed {
+                enclosure: found,
+                children,
+                ..
+            } if *found == enclosure => Some(children),
             _ => None,
         }
     }
 }
-
-trait Worded {
-    fn text(&self) -> &str;
+trait Naming {
+    fn name(&self) -> Result<Name, Error>;
 }
-impl Worded for Symbol {
-    fn text(&self) -> &str {
-        self.as_ref()
+impl Naming for Symbol {
+    fn name(&self) -> Result<Name, Error> {
+        Name::try_from(self.0.as_str())
+            .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))
     }
 }
-impl Worded for Bare {
-    fn text(&self) -> &str {
-        self.as_ref()
+impl Naming for str {
+    fn name(&self) -> Result<Name, Error> {
+        Name::try_from(self).map_err(|text| Error::conceptual(vec![], Problem::Name(text)))
     }
 }
-
-/// The kind whose capabilities conceive every child of an enclosure, each placed under its index.
-trait Enumerating {
-    fn bracketed_of<C>(&self, form: Form) -> Result<Vec<C>, Fault>
+trait Reading {
+    fn list<C>(children: &[Protos]) -> Result<Vec<C>, Error>
     where
-        Self: Conceiving<C>;
-    fn braced_of<C>(&self, form: Form) -> Result<Vec<C>, Fault>
-    where
-        Self: Conceiving<C>;
-    fn each<C>(children: &[Self]) -> Result<Vec<C>, Fault>
-    where
-        Self: Conceiving<C> + Sized;
+        Protos: Conceiving<C>;
 }
-
-impl Enumerating for Protoform {
-    fn bracketed_of<C>(&self, form: Form) -> Result<Vec<C>, Fault>
+impl Reading for Protos {
+    fn list<C>(children: &[Protos]) -> Result<Vec<C>, Error>
     where
-        Self: Conceiving<C>,
+        Protos: Conceiving<C>,
     {
-        match self.bracketed() {
-            Some(children) => Self::each(children),
-            None => Err(Problem::Expected(form).here()),
-        }
-    }
-
-    fn braced_of<C>(&self, form: Form) -> Result<Vec<C>, Fault>
-    where
-        Self: Conceiving<C>,
-    {
-        match self.braced() {
-            Some(children) => Self::each(children),
-            None => Err(Problem::Expected(form).here()),
-        }
-    }
-
-    fn each<C>(children: &[Self]) -> Result<Vec<C>, Fault>
-    where
-        Self: Conceiving<C>,
-    {
-        let mut concepts = Vec::with_capacity(children.len());
+        let mut values = Vec::new();
         for (index, child) in children.iter().enumerate() {
-            concepts.push(Conceiving::<C>::conceive(child).place(index as protos::Integer)?);
+            values.push(<Protos as Conceiving<C>>::conceive(child).place(index as Integer)?);
         }
-        Ok(concepts)
+        Ok(values)
     }
 }
 
-// ---------------------------------------------------------------------------
-// Depth: the reader recurses, so the structure is bounded first, iteratively
-// ---------------------------------------------------------------------------
-
-/// How deep a structure may nest before the reader refuses it.
-const DEPTH_LIMIT: usize = 128;
-
-/// One pending structural visit in the bounded reader walk.
-struct Pending<'a> {
-    protoform: &'a Protoform,
-    depth: usize,
-    path: Vec<protos::Integer>,
-}
-
-/// The kind whose capability finds the first structure nested past the limit, walking with an explicit stack.
-trait Bounded {
-    fn bounded(&self, limit: usize) -> Result<(), Fault>;
-}
-
-impl Bounded for Protoform {
-    fn bounded(&self, limit: usize) -> Result<(), Fault> {
-        let mut pending = vec![Pending {
-            protoform: self,
-            depth: 0,
-            path: vec![],
-        }];
-        while let Some(Pending {
-            protoform,
-            depth,
-            path,
-        }) = pending.pop()
-        {
-            if depth > limit {
-                return Err(Fault::Conceptual(path, Problem::Depth));
-            }
-            match protoform {
-                Protoform::Headed(head, _, body) => {
-                    if let Head::Qualified(_, arguments) = head {
-                        for (index, argument) in arguments.iter().enumerate() {
-                            let mut child_path = path.clone();
-                            child_path.push(0);
-                            child_path.push(index as protos::Integer);
-                            pending.push(Pending {
-                                protoform: argument,
-                                depth: depth + 1,
-                                path: child_path,
-                            });
-                        }
-                    }
-                    let mut child_path = path.clone();
-                    child_path.push(1);
-                    pending.push(Pending {
-                        protoform: body,
-                        depth: depth + 1,
-                        path: child_path,
-                    });
-                }
-                Protoform::Enclosed(_, enclosed) => {
-                    for (index, child) in enclosed.iter().enumerate() {
-                        let mut child_path = path.clone();
-                        child_path.push(index as protos::Integer);
-                        pending.push(Pending {
-                            protoform: child,
-                            depth: depth + 1,
-                            path: child_path,
-                        });
-                    }
-                }
-                Protoform::Qualified(_, arguments) => {
-                    for (index, argument) in arguments.iter().enumerate() {
-                        let mut child_path = path.clone();
-                        child_path.push(index as protos::Integer);
-                        pending.push(Pending {
-                            protoform: argument,
-                            depth: depth + 1,
-                            path: child_path,
-                        });
-                    }
-                }
-                Protoform::Bare(_) | Protoform::Quoted(_) | Protoform::Parenthesized(_) => {}
-            }
-        }
-        Ok(())
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Names and sources: validated text
-// ---------------------------------------------------------------------------
-
-impl Conceiving<Name> for str {
-    fn conceive(&self) -> Result<Name, Fault> {
-        Name::try_from(self).map_err(|refused| {
-            Problem::Name(protos::Text::try_from(refused).unwrap_or_default()).here()
-        })
-    }
-}
-
-impl Conceiving<Source> for str {
-    fn conceive(&self) -> Result<Source, Fault> {
-        Source::try_from(self).map_err(|refused| {
-            Problem::Name(protos::Text::try_from(refused).unwrap_or_default()).here()
-        })
-    }
-}
-
-// ---------------------------------------------------------------------------
-// The file: a headed brace under one of the four roots
-// ---------------------------------------------------------------------------
-
-impl Conceiving<File> for protos::Delineation {
-    fn conceive(&self) -> Result<File, Fault> {
-        match self.0.as_slice() {
-            [Situated(_, protoform)] => Conceiving::<File>::conceive(protoform).place(0),
-            _ => Err(Problem::Root.here()),
-        }
-    }
-}
-
-/// The universal concept-layer interaction: a delineation conceives the one
-/// situated Ethos file it carries.  The private reader interactions below are
-/// its declaration anatomy, not an alternative public layer kind.
-impl protos::Conceivable<File> for protos::Delineation {
-    type Fault = Fault;
-
-    fn conceive(&self) -> Result<Situated<File>, Self::Fault> {
-        match self.0.as_slice() {
-            [Situated(situation, protoform)] => Conceiving::<File>::conceive(protoform)
-                .map(|file| Situated(situation.clone(), file)),
-            _ => Err(Problem::Root.here()),
-        }
-    }
-}
-
-impl Conceiving<File> for Protoform {
-    fn conceive(&self) -> Result<File, Fault> {
-        self.bounded(DEPTH_LIMIT)?;
-        let Some(Headed {
+impl Conceiving<File> for Protos {
+    fn conceive(&self) -> Result<File, Error> {
+        let Protos::Headed {
             head,
+            constraints,
             separator,
             body,
-        }) = self.headed()
+            ..
+        } = self
         else {
-            return Err(Problem::Root.here());
+            return Err(Error::conceptual(vec![], Problem::Root));
         };
-        let Head::Symbol(symbol) = head else {
-            return Err(Problem::Root.here());
+        if constraints.is_some() || *separator != Separator::Period {
+            return Err(Error::conceptual(vec![], Problem::Root));
         };
-        if separator != Separator::Period {
-            return Err(Problem::Separator(separator).here());
+        match Root::identify(&head.0) {
+            Some(Root::Library) => Ok(File::Library(body.conceive()?)),
+            Some(Root::Signal) => Ok(File::Signal(body.conceive()?)),
+            Some(Root::Sema) => Ok(File::Sema(body.conceive()?)),
+            _ => Err(Error::conceptual(vec![], Problem::Root)),
         }
-        let Some(root) = Root::identify(symbol.text()) else {
-            return Err(Problem::Root.here());
+    }
+}
+trait Sections {
+    fn sections(&self, count: usize) -> Result<&[Protos], Error>;
+}
+impl Sections for Protos {
+    fn sections(&self, count: usize) -> Result<&[Protos], Error> {
+        let Some(parts) = self.children(Enclosure::Braced) else {
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::File)));
         };
-        let file = match root {
-            Root::Types => File::Types(Conceiving::<Types>::conceive(body).place(1)?),
-            Root::Kinds => File::Kinds(Conceiving::<Kinds>::conceive(body).place(1)?),
-            Root::Signal => File::Signal(Conceiving::<Signal>::conceive(body).place(1)?),
-            Root::Sema => File::Sema(Conceiving::<Sema>::conceive(body).place(1)?),
+        if parts.len() != count {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::arity(count as Integer, parts.len() as Integer),
+            ));
         };
-        let scope = Scope {
-            file: &file,
-            identity: None,
-            associated: &[],
+        Ok(parts)
+    }
+}
+trait Brackets {
+    fn bracket<C>(&self) -> Result<Vec<C>, Error>
+    where
+        Protos: Conceiving<C>;
+}
+impl Brackets for Protos {
+    fn bracket<C>(&self) -> Result<Vec<C>, Error>
+    where
+        Protos: Conceiving<C>,
+    {
+        let Some(children) = self.children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::Section)));
         };
-        file.check(&scope)?;
-        Ok(file)
+        Protos::list(children)
     }
 }
-
-/// The kind whose capability yields the sections of a braced body, exactly as many as the variant has.
-trait Sectioning {
-    fn sections(&self, count: usize) -> Result<&[Protoform], Fault>;
+trait References {
+    fn references(&self) -> Result<Vec<Reference>, Error>;
 }
-
-impl Sectioning for Protoform {
-    fn sections(&self, count: usize) -> Result<&[Protoform], Fault> {
-        let Some(sections) = self.braced() else {
-            return Err(Problem::Expected(Form::File).here());
-        };
-        if sections.len() != count {
-            return Err(Problem::Arity(
-                count as protos::Integer,
-                sections.len() as protos::Integer,
-            )
-            .here());
-        }
-        Ok(sections)
-    }
-}
-
-impl Conceiving<Types> for Protoform {
-    fn conceive(&self) -> Result<Types, Fault> {
-        let sections = self.sections(3)?;
-        Ok(Types {
-            imports: sections[0].bracketed_of(Form::Section).place(0)?,
-            types: sections[1].bracketed_of(Form::Section).place(1)?,
-            associations: sections[2].bracketed_of(Form::Section).place(2)?,
-        })
-    }
-}
-
-impl Conceiving<Kinds> for Protoform {
-    fn conceive(&self) -> Result<Kinds, Fault> {
-        let sections = self.sections(2)?;
-        Ok(Kinds {
-            imports: sections[0].bracketed_of(Form::Section).place(0)?,
-            kinds: sections[1].bracketed_of(Form::Section).place(1)?,
-        })
-    }
-}
-
-impl Conceiving<Signal> for Protoform {
-    fn conceive(&self) -> Result<Signal, Fault> {
-        let sections = self.sections(4)?;
-        Ok(Signal {
-            imports: sections[0].bracketed_of(Form::Section).place(0)?,
-            requests: sections[1].bracketed_of(Form::Section).place(1)?,
-            responses: sections[2].bracketed_of(Form::Section).place(2)?,
-            types: sections[3].bracketed_of(Form::Section).place(3)?,
-        })
-    }
-}
-
-impl Conceiving<Sema> for Protoform {
-    fn conceive(&self) -> Result<Sema, Fault> {
-        let sections = self.sections(3)?;
-        Ok(Sema {
-            imports: sections[0].bracketed_of(Form::Section).place(0)?,
-            record: sections[1].braced_of(Form::Section).place(1)?,
-            types: sections[2].bracketed_of(Form::Section).place(2)?,
-        })
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Imports
-// ---------------------------------------------------------------------------
-
-impl Conceiving<Import> for Protoform {
-    fn conceive(&self) -> Result<Import, Fault> {
-        // A source:name import. Protos keeps each source segment in a colon
-        // headed body, so collect the chain before conceiving its imported
-        // name or group.
-        if let Some(Headed {
-            head: Head::Symbol(symbol),
-            separator,
-            body,
-        }) = self.headed()
-        {
-            if separator != Separator::Colon {
-                return Err(Problem::Separator(separator).here());
-            }
-            let mut source = symbol.text().to_owned();
-            let mut names = body;
-            let mut segments = 1;
-            while let Some(Headed {
-                head: Head::Symbol(segment),
-                separator: Separator::Colon,
-                body,
-            }) = names.headed()
+impl References for [Protos] {
+    fn references(&self) -> Result<Vec<Reference>, Error> {
+        let mut values = Vec::new();
+        let mut index = 0;
+        while index < self.len() {
+            if let Protos::Bare { text, .. } = &self[index]
+                && let Some(Protos::Enclosed {
+                    enclosure: Enclosure::Angled,
+                    children,
+                    ..
+                }) = self.get(index + 1)
             {
-                source.push_str("::");
-                source.push_str(segment.text());
-                names = body;
-                segments += 1;
+                values.push(Reference {
+                    source: None,
+                    name: text.as_str().name().place(index as Integer)?,
+                    arguments: children.references().place((index + 1) as Integer)?,
+                });
+                index += 2;
+                continue;
             }
-            let source: Source = source.as_str().conceive()?;
-            return match names.bracketed() {
-                Some(children) => {
-                    let mut imports = Protoform::each(children);
-                    for _ in 0..segments {
-                        imports = imports.place(1);
-                    }
-                    Ok(Import::Many(source, imports?))
-                }
-                None => {
-                    let mut imported = Conceiving::<Imported>::conceive(names);
-                    for _ in 0..segments {
-                        imported = imported.place(1);
-                    }
-                    Ok(Import::One(source, imported?))
-                }
-            };
+            values.push(self[index].conceive().place(index as Integer)?);
+            index += 1;
         }
-        if let Some(word) = self.bare()
-            && let Some(colon) = word.text().rfind(':')
-        {
-            let source: Source = word.text()[..colon].conceive()?;
-            let imported = Conceiving::<Imported>::conceive(&word.text()[colon + 1..])?;
-            return Ok(Import::One(source, imported));
-        }
-        Err(Problem::Expected(Form::Import).here())
+        Ok(values)
     }
 }
-
-impl Conceiving<Imported> for str {
-    fn conceive(&self) -> Result<Imported, Fault> {
-        if let Some(dot) = self.find('.') {
-            let ethos_name = &self[..dot];
-            let source_name = &self[dot + 1..];
-            Ok(Imported {
-                name: Conceiving::<Name>::conceive(ethos_name)?,
-                emitted: Conceiving::<Name>::conceive(source_name).place(0)?,
-            })
-        } else {
-            let name: Name = Conceiving::<Name>::conceive(self)?;
-            Ok(Imported {
-                emitted: name.clone(),
-                name,
-            })
+trait Declarations {
+    fn declarations(&self) -> Result<Vec<TypeDeclaration>, Error>;
+}
+impl Declarations for [Protos] {
+    fn declarations(&self) -> Result<Vec<TypeDeclaration>, Error> {
+        let mut values = Vec::new();
+        let mut index = 0;
+        while index < self.len() {
+            let mut declaration: TypeDeclaration =
+                self[index].conceive().place(index as Integer)?;
+            if let (
+                TypeDeclaration::Alias(_, reference),
+                Some(Protos::Enclosed {
+                    enclosure: Enclosure::Angled,
+                    children,
+                    ..
+                }),
+            ) = (&mut declaration, self.get(index + 1))
+            {
+                reference.arguments = children.references().place((index + 1) as Integer)?;
+                index += 1;
+            }
+            values.push(declaration);
+            index += 1;
         }
+        Ok(values)
     }
 }
-
-impl Conceiving<Imported> for Protoform {
-    fn conceive(&self) -> Result<Imported, Fault> {
-        if let Some(symbol) = self.bare() {
-            return Conceiving::<Imported>::conceive(symbol.text());
+trait Variants {
+    fn variants(&self) -> Result<Vec<Variant>, Error>;
+}
+impl Variants for [Protos] {
+    fn variants(&self) -> Result<Vec<Variant>, Error> {
+        let mut values = Vec::new();
+        let mut index = 0;
+        while index < self.len() {
+            let mut variant: Variant = self[index].conceive().place(index as Integer)?;
+            if let (
+                Variant::Typed(_, reference),
+                Some(Protos::Enclosed {
+                    enclosure: Enclosure::Angled,
+                    children,
+                    ..
+                }),
+            ) = (&mut variant, self.get(index + 1))
+            {
+                reference.arguments = children.references().place((index + 1) as Integer)?;
+                index += 1;
+            }
+            values.push(variant);
+            index += 1;
         }
-        if let Some(Headed {
-            head: Head::Symbol(symbol),
-            separator: Separator::Period,
-            body,
-        }) = self.headed()
-            && let Some(emitted) = body.bare()
-        {
-            return Ok(Imported {
-                name: symbol.text().conceive()?,
-                emitted: Conceiving::<Name>::conceive(emitted.text()).place(0)?,
-            });
-        }
-        Err(Problem::Expected(Form::Import).here())
+        Ok(values)
     }
 }
-
-// ---------------------------------------------------------------------------
-// References, identities, constraints
-// ---------------------------------------------------------------------------
-
-impl Conceiving<Reference> for Head {
-    fn conceive(&self) -> Result<Reference, Fault> {
-        match self {
-            Head::Symbol(symbol) => Ok(Reference {
-                source: None,
-                name: symbol.text().conceive()?,
-                arguments: vec![],
-            }),
-            Head::Qualified(symbol, arguments) => Ok(Reference {
-                source: None,
-                name: symbol.text().conceive()?,
-                arguments: Protoform::each(arguments)?,
-            }),
-        }
-    }
+trait AssociatedTypes {
+    fn associated_types(&self) -> Result<Vec<AssociatedType>, Error>;
 }
-
-impl Conceiving<Reference> for Protoform {
-    fn conceive(&self) -> Result<Reference, Fault> {
-        if let Some(head) = self.bare() {
-            return Ok(Reference {
-                source: None,
-                name: head.text().conceive()?,
-                arguments: vec![],
-            });
-        }
-        if let Protoform::Qualified(symbol, arguments) = self {
-            return Ok(Reference {
-                source: None,
-                name: symbol.text().conceive()?,
-                arguments: Protoform::each(arguments)?,
-            });
-        }
-        if let Some(Headed {
-            head: Head::Symbol(symbol),
-            separator: Separator::Colon,
-            body,
-        }) = self.headed()
-        {
-            let source: Source = symbol.text().conceive()?;
-            let Some(head) = body.bare() else {
-                return Err(Fault::Conceptual(
-                    vec![1],
-                    Problem::Expected(Form::Reference),
+impl AssociatedTypes for [Protos] {
+    fn associated_types(&self) -> Result<Vec<AssociatedType>, Error> {
+        let mut values = Vec::new();
+        let mut index = 0;
+        while index < self.len() {
+            let Protos::Bare { text, .. } = &self[index] else {
+                return Err(Error::conceptual(
+                    vec![index as Integer],
+                    Problem::Expected(Form::Kind),
                 ));
             };
-            let reference = Reference {
-                source: None,
-                name: head.text().conceive().place(1)?,
-                arguments: vec![],
+            let bounds = match self.get(index + 1) {
+                Some(Protos::Enclosed {
+                    enclosure: Enclosure::Angled,
+                    children,
+                    ..
+                }) => {
+                    index += 1;
+                    Protos::list(children).place((index + 1) as Integer)?
+                }
+                _ => vec![],
             };
-            return Ok(Reference {
-                source: Some(source),
-                ..reference
+            values.push(AssociatedType {
+                name: text.as_str().name().place(index as Integer)?,
+                bounds,
             });
+            index += 1;
         }
-        Err(Problem::Expected(Form::Reference).here())
+        Ok(values)
     }
 }
-
-impl Conceiving<Identity> for Head {
-    fn conceive(&self) -> Result<Identity, Fault> {
-        match self {
-            Head::Symbol(symbol) if symbol.text() != "Self" => Ok(Identity {
-                name: symbol.text().conceive()?,
-                constraints: vec![],
-            }),
-            Head::Qualified(symbol, constraints) if symbol.text() != "Self" => Ok(Identity {
-                name: symbol.text().conceive()?,
-                constraints: Protoform::each(constraints)?,
-            }),
-            _ => Err(Problem::Name(protos::Text::try_from("Self").expect("static text")).here()),
-        }
-    }
-}
-
-impl Conceiving<Constraint> for Protoform {
-    fn conceive(&self) -> Result<Constraint, Fault> {
-        match self.bracketed() {
-            Some(children) => Ok(Constraint::Many(Protoform::each(children)?)),
-            None => Ok(Constraint::One(Conceiving::<Reference>::conceive(self)?)),
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Type declarations and variants
-// ---------------------------------------------------------------------------
-
-impl Conceiving<TypeDeclaration> for Protoform {
-    fn conceive(&self) -> Result<TypeDeclaration, Fault> {
-        let Some(Headed {
-            head,
-            separator,
-            body,
-        }) = self.headed()
-        else {
-            return Err(Problem::Expected(Form::Declaration).here());
+impl Conceiving<Library> for Protos {
+    fn conceive(&self) -> Result<Library, Error> {
+        let s = self.sections(4)?;
+        let Some(declarations) = s[1].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
-        if separator != Separator::Period {
-            return Err(Problem::Separator(separator).here());
-        }
-        let identity: Identity = head.conceive().place(0)?;
-        if let Some(positions) = body.braced() {
-            return Ok(TypeDeclaration::Struct(
-                identity,
-                Protoform::each(positions).place(1)?,
-            ));
-        }
-        if let Some(variants) = body.bracketed() {
-            return Ok(TypeDeclaration::Enum(
-                identity,
-                Protoform::each(variants).place(1)?,
-            ));
-        }
-        Ok(TypeDeclaration::Alias(
-            identity,
-            Conceiving::<Reference>::conceive(body).place(1)?,
-        ))
-    }
-}
-
-impl Conceiving<Variant> for Protoform {
-    fn conceive(&self) -> Result<Variant, Fault> {
-        if let Some(symbol) = self.bare() {
-            return Ok(Variant::Bare(symbol.text().conceive()?));
-        }
-        let Some(Headed {
-            head: Head::Symbol(symbol),
-            separator,
-            body,
-        }) = self.headed()
-        else {
-            return Err(Problem::Expected(Form::Variant).here());
-        };
-        if separator != Separator::Period {
-            return Err(Problem::Separator(separator).here());
-        }
-        let name: Name = symbol.text().conceive()?;
-        if let Some(positions) = body.braced() {
-            return Ok(Variant::Struct(name, Protoform::each(positions).place(1)?));
-        }
-        if let Some(variants) = body.bracketed() {
-            return Ok(Variant::Enum(name, Protoform::each(variants).place(1)?));
-        }
-        Ok(Variant::Typed(
-            name,
-            Conceiving::<Reference>::conceive(body).place(1)?,
-        ))
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Kind declarations
-// ---------------------------------------------------------------------------
-
-impl Conceiving<KindDeclaration> for Protoform {
-    fn conceive(&self) -> Result<KindDeclaration, Fault> {
-        let Some(Headed {
-            head,
-            separator,
-            body,
-        }) = self.headed()
-        else {
-            return Err(Problem::Expected(Form::Kind).here());
-        };
-        if separator != Separator::Period {
-            return Err(Problem::Separator(separator).here());
-        }
-        let identity: Identity = head.conceive().place(0)?;
-        if body.bracketed().is_some() {
-            return Ok(KindDeclaration {
-                identity,
-                body: KindBody::Simple(body.bracketed_of(Form::Kind).place(1)?),
-            });
-        }
-        let Some(sections) = body.braced() else {
-            return Err(Fault::Conceptual(vec![1], Problem::Expected(Form::Kind)));
-        };
-        let [superkinds, types, constants, capabilities] = sections else {
-            return Err(Fault::Conceptual(
-                vec![1],
-                Problem::Arity(4, sections.len() as protos::Integer),
-            ));
-        };
-        Ok(KindDeclaration {
-            identity,
-            body: KindBody::Complex {
-                superkinds: superkinds
-                    .bracketed_of(Form::Constraint)
-                    .place(0)
-                    .place(1)?,
-                types: types.bracketed_of(Form::Kind).place(1).place(1)?,
-                constants: constants.bracketed_of(Form::Constant).place(2).place(1)?,
-                capabilities: capabilities
-                    .bracketed_of(Form::Capability)
-                    .place(3)
-                    .place(1)?,
-            },
+        Ok(Library {
+            imports: s[0].bracket().place(0)?,
+            types: declarations.declarations().place(1)?,
+            kinds: s[2].bracket().place(2)?,
+            associations: s[3].bracket().place(3)?,
         })
     }
 }
-
-impl Conceiving<AssociatedType> for Protoform {
-    fn conceive(&self) -> Result<AssociatedType, Fault> {
-        match self {
-            Protoform::Bare(symbol) => Ok(AssociatedType {
-                name: symbol.text().conceive()?,
-                bounds: vec![],
-            }),
-            Protoform::Qualified(symbol, bounds) => Ok(AssociatedType {
-                name: symbol.text().conceive()?,
-                bounds: Protoform::each(bounds)?,
-            }),
-            _ => Err(Problem::Expected(Form::Kind).here()),
-        }
-    }
-}
-
-impl Conceiving<AssociatedConstant> for Protoform {
-    fn conceive(&self) -> Result<AssociatedConstant, Fault> {
-        let Some(Headed {
-            head: Head::Symbol(symbol),
-            separator,
-            body,
-        }) = self.headed()
-        else {
-            return Err(Problem::Expected(Form::Constant).here());
+impl Conceiving<Signal> for Protos {
+    fn conceive(&self) -> Result<Signal, Error> {
+        let s = self.sections(4)?;
+        let Some(requests) = s[1].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
-        if separator != Separator::Period {
-            return Err(Problem::Separator(separator).here());
-        }
-        Ok(AssociatedConstant {
-            name: symbol.text().conceive()?,
-            ty: Conceiving::<Reference>::conceive(body).place(1)?,
+        let Some(responses) = s[2].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![2], Problem::Expected(Form::Section)));
+        };
+        let Some(declarations) = s[3].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![3], Problem::Expected(Form::Section)));
+        };
+        Ok(Signal {
+            imports: s[0].bracket().place(0)?,
+            requests: requests.variants().place(1)?,
+            responses: responses.variants().place(2)?,
+            types: declarations.declarations().place(3)?,
         })
     }
 }
+impl Conceiving<Sema> for Protos {
+    fn conceive(&self) -> Result<Sema, Error> {
+        let s = self.sections(2)?;
+        let Some(types) = s[1].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
+        };
+        Ok(Sema {
+            imports: s[0].bracket().place(0)?,
+            types: types.declarations().place(1)?,
+        })
+    }
+}
+impl Conceiving<Imported> for Protos {
+    fn conceive(&self) -> Result<Imported, Error> {
+        let name = match self {
+            Protos::Bare { text, .. } => text.as_str().name()?,
+            Protos::Headed {
+                head,
+                separator: Separator::Period,
+                body,
+                ..
+            } => {
+                let Protos::Bare { text, .. } = body.as_ref() else {
+                    return Err(Error::conceptual(vec![1], Problem::Expected(Form::Import)));
+                };
+                return Ok(Imported {
+                    name: head.name()?,
+                    emitted: text.as_str().name()?,
+                });
+            }
+            _ => return Err(Error::conceptual(vec![], Problem::Expected(Form::Import))),
+        };
+        Ok(Imported {
+            name: name.clone(),
+            emitted: name,
+        })
+    }
+}
+impl Conceiving<Import> for Protos {
+    fn conceive(&self) -> Result<Import, Error> {
+        let Protos::Headed {
+            head,
+            separator: Separator::Colon,
+            body,
+            ..
+        } = self
+        else {
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::Import)));
+        };
+        let source = Source::try_from(head.0.as_str())
+            .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))?;
+        if let Some(children) = body.children(Enclosure::Bracketed) {
+            Ok(Import::Many(source, Protos::list(children)?))
+        } else {
+            Ok(Import::One(source, body.conceive()?))
+        }
+    }
+}
+impl Conceiving<Reference> for Protos {
+    fn conceive(&self) -> Result<Reference, Error> {
+        match self {
+            Protos::Bare { text, .. } => Ok(Reference {
+                source: None,
+                name: text.as_str().name()?,
+                arguments: vec![],
+            }),
+            Protos::Headed {
+                head,
+                separator: Separator::Colon,
+                body,
+                ..
+            } => {
+                let mut r: Reference = body.conceive()?;
+                r.source = Some(
+                    Source::try_from(head.0.as_str())
+                        .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))?,
+                );
+                Ok(r)
+            }
+            _ => Err(Error::conceptual(
+                vec![],
+                Problem::Expected(Form::Reference),
+            )),
+        }
+    }
+}
+impl Conceiving<TypeDeclaration> for Protos {
+    fn conceive(&self) -> Result<TypeDeclaration, Error> {
+        let Protos::Headed {
+            head,
+            constraints,
+            separator: Separator::Period,
+            body,
+            ..
+        } = self
+        else {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Expected(Form::Declaration),
+            ));
+        };
+        if constraints.is_some() {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Expected(Form::Declaration),
+            ));
+        }
+        let identity = Identity {
+            name: head.name()?,
+            constraints: vec![],
+        };
+        if let Some(p) = body.children(Enclosure::Braced) {
+            Ok(TypeDeclaration::Struct(identity, p.references()?))
+        } else if let Some(v) = body.children(Enclosure::Bracketed) {
+            Ok(TypeDeclaration::Enum(identity, v.variants()?))
+        } else {
+            Ok(TypeDeclaration::Alias(identity, body.conceive()?))
+        }
+    }
+}
+impl Conceiving<Variant> for Protos {
+    fn conceive(&self) -> Result<Variant, Error> {
+        match self {
+            Protos::Bare { text, .. } => Ok(Variant::Bare(text.as_str().name()?)),
+            Protos::Headed {
+                head,
+                separator: Separator::Period,
+                body,
+                ..
+            } => {
+                let n = head.name()?;
+                if let Some(p) = body.children(Enclosure::Braced) {
+                    Ok(Variant::Struct(n, p.references()?))
+                } else if let Some(v) = body.children(Enclosure::Bracketed) {
+                    Ok(Variant::Enum(n, v.variants()?))
+                } else {
+                    Ok(Variant::Typed(n, body.conceive()?))
+                }
+            }
+            _ => Err(Error::conceptual(vec![], Problem::Expected(Form::Variant))),
+        }
+    }
+}
 
+impl Conceiving<Constraint> for Protos {
+    fn conceive(&self) -> Result<Constraint, Error> {
+        if let Some(c) = self.children(Enclosure::Bracketed) {
+            Ok(Constraint::Many(Protos::list(c)?))
+        } else {
+            Ok(Constraint::One(self.conceive()?))
+        }
+    }
+}
 impl Conceiving<Receiver> for Separator {
-    fn conceive(&self) -> Result<Receiver, Fault> {
+    fn conceive(&self) -> Result<Receiver, Error> {
         Ok(match self {
             Separator::Period => Receiver::Shared,
             Separator::Exclamation => Receiver::Mutable,
@@ -738,87 +436,155 @@ impl Conceiving<Receiver> for Separator {
         })
     }
 }
-
-/// The kind whose capability reads a yield bracket: exactly one type.
-trait Yielding {
-    fn yields(&self) -> Result<Reference, Fault>;
-}
-
-impl Yielding for Protoform {
-    fn yields(&self) -> Result<Reference, Fault> {
-        let Some(children) = self.bracketed() else {
-            return Err(Problem::Expected(Form::Capability).here());
-        };
-        match children {
-            [] => Err(Problem::Yield.here()),
-            [one] => Conceiving::<Reference>::conceive(one).place(0),
-            many => Err(Problem::Arity(1, many.len() as protos::Integer).here()),
+impl Conceiving<AssociatedType> for Protos {
+    fn conceive(&self) -> Result<AssociatedType, Error> {
+        match self {
+            Protos::Bare { text, .. } => Ok(AssociatedType {
+                name: text.as_str().name()?,
+                bounds: vec![],
+            }),
+            Protos::Headed {
+                head, constraints, ..
+            } => Ok(AssociatedType {
+                name: head.name()?,
+                bounds: match constraints.as_deref() {
+                    Some(Protos::Enclosed { children, .. }) => Protos::list(children)?,
+                    _ => vec![],
+                },
+            }),
+            _ => Err(Error::conceptual(vec![], Problem::Expected(Form::Kind))),
         }
     }
 }
-
-impl Conceiving<Capability> for Protoform {
-    fn conceive(&self) -> Result<Capability, Fault> {
-        let Some(Headed {
-            head: Head::Symbol(symbol),
+impl Conceiving<AssociatedConstant> for Protos {
+    fn conceive(&self) -> Result<AssociatedConstant, Error> {
+        let Protos::Headed {
+            head,
+            separator: Separator::Period,
+            body,
+            ..
+        } = self
+        else {
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::Constant)));
+        };
+        Ok(AssociatedConstant {
+            name: head.name().place(0)?,
+            ty: body.conceive().place(1)?,
+        })
+    }
+}
+impl Conceiving<Capability> for Protos {
+    fn conceive(&self) -> Result<Capability, Error> {
+        let Protos::Headed {
+            head,
             separator,
             body,
-        }) = self.headed()
+            ..
+        } = self
         else {
-            return Err(Problem::Expected(Form::Capability).here());
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Expected(Form::Capability),
+            ));
         };
-        let name: Name = symbol.text().conceive()?;
-        let receiver: Receiver = separator.conceive()?;
-        if body.bracketed().is_some() {
+        let name = head.name().place(0)?;
+        let receiver = separator.conceive()?;
+        if let Some(y) = body.children(Enclosure::Bracketed) {
+            let yields = y.references().place(1)?;
+            if yields.len() != 1 {
+                return Err(Error::conceptual(vec![1], Problem::Yield));
+            };
             return Ok(Capability {
                 name,
                 receiver,
-                signature: Signature::Yielding(body.yields().place(1)?),
+                signature: Signature::Yielding(yields.into_iter().next().expect("one yield")),
             });
-        }
-        let Some(sections) = body.braced() else {
-            return Err(Fault::Conceptual(
+        };
+        let sections = body.sections(2)?;
+        let Some(input_nodes) = sections[0].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(
+                vec![0],
+                Problem::Expected(Form::Capability),
+            ));
+        };
+        let inputs = input_nodes.references().place(0).place(1)?;
+        let Some(y) = sections[1].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(
                 vec![1],
                 Problem::Expected(Form::Capability),
             ));
         };
-        let [inputs, yields] = sections else {
-            return Err(Fault::Conceptual(
-                vec![1],
-                Problem::Arity(2, sections.len() as protos::Integer),
-            ));
+        let yields = y.references().place(1).place(1)?;
+        if yields.len() != 1 {
+            return Err(Error::conceptual(vec![1, 1], Problem::Yield));
         };
         Ok(Capability {
             name,
             receiver,
-            signature: Signature::Taking(
-                inputs.bracketed_of(Form::Capability).place(0).place(1)?,
-                yields.yields().place(1).place(1)?,
-            ),
+            signature: Signature::Taking(inputs, yields.into_iter().next().expect("one yield")),
         })
     }
 }
-
-// ---------------------------------------------------------------------------
-// Associations
-// ---------------------------------------------------------------------------
-
-impl Conceiving<Association> for Protoform {
-    fn conceive(&self) -> Result<Association, Fault> {
-        let Some(Headed {
+impl Conceiving<KindDeclaration> for Protos {
+    fn conceive(&self) -> Result<KindDeclaration, Error> {
+        let Protos::Headed {
             head,
-            separator,
+            constraints,
+            separator: Separator::Period,
             body,
-        }) = self.headed()
+            ..
+        } = self
         else {
-            return Err(Problem::Expected(Form::Association).here());
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::Kind)));
         };
-        if separator != Separator::Period {
-            return Err(Problem::Separator(separator).here());
-        }
+        let identity = Identity {
+            name: head.name()?,
+            constraints: match constraints.as_deref() {
+                Some(Protos::Enclosed { children, .. }) => Protos::list(children)?,
+                _ => vec![],
+            },
+        };
+        if let Some(c) = body.children(Enclosure::Bracketed) {
+            return Ok(KindDeclaration {
+                identity,
+                body: KindBody::Simple(Protos::list(c).place(1)?),
+            });
+        };
+        let s = body.sections(4)?;
+        let Some(types) = s[1].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![1], Problem::Expected(Form::Kind)));
+        };
+        Ok(KindDeclaration {
+            identity,
+            body: KindBody::Complex {
+                superkinds: s[0].bracket().place(0).place(1)?,
+                types: types.associated_types().place(1).place(1)?,
+                constants: s[2].bracket().place(2).place(1)?,
+                capabilities: s[3].bracket().place(3).place(1)?,
+            },
+        })
+    }
+}
+impl Conceiving<Association> for Protos {
+    fn conceive(&self) -> Result<Association, Error> {
+        let Protos::Headed {
+            head,
+            separator: Separator::Period,
+            body,
+            ..
+        } = self
+        else {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Expected(Form::Association),
+            ));
+        };
         Ok(Association {
-            identity: head.conceive().place(0)?,
-            kinds: body.bracketed_of(Form::Association).place(1)?,
+            identity: Identity {
+                name: head.name().place(0)?,
+                constraints: vec![],
+            },
+            kinds: body.bracket().place(1)?,
         })
     }
 }

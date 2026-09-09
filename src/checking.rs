@@ -7,13 +7,13 @@
 //! concept as the protoform was laid out, so every fault is at the
 //! path of the structure at fault, relative to the checked value.
 
-use protos::{Integer, Path};
+use datom_codec::{Integer, Path};
 
 use crate::{
-    AssociatedConstant, AssociatedType, Association, Capability, Constraint, Fault, File,
-    Identifiable, Identity, Import, Intrinsic, KindBody, KindDeclaration, Kinds, Name, Placing,
-    Problem, Reference, Resolution, Resolving, Role, Scope, Sema, Signal, Signature,
-    TypeDeclaration, Types, Variant,
+    ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualFaulting,
+    Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, KindBody, KindDeclaration,
+    Name, Placing, Problem, Reference, Resolution, Resolving, Role, Scope, Sema, Signal, Signature,
+    TypeDeclaration, Variant,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -115,7 +115,7 @@ pub(crate) trait Implying {
 impl Implying for File {
     fn implied(&self) -> Vec<Name> {
         match self {
-            File::Types(_) | File::Kinds(_) => vec![],
+            File::Library(_) => vec![],
             File::Signal(_) => vec![
                 Name::try_from("Request").expect("static identifier"),
                 Name::try_from("Response").expect("static identifier"),
@@ -128,8 +128,11 @@ impl Implying for File {
 impl Resolving for File {
     fn resolve(&self, name: &Name) -> Resolution {
         let resolution = match self {
-            File::Types(types) => types.types.resolve(name).or(types.imports.resolve(name)),
-            File::Kinds(kinds) => kinds.kinds.resolve(name).or(kinds.imports.resolve(name)),
+            File::Library(library) => library
+                .types
+                .resolve(name)
+                .or(library.kinds.resolve(name))
+                .or(library.imports.resolve(name)),
             File::Signal(signal) => signal.types.resolve(name).or(signal.imports.resolve(name)),
             File::Sema(sema) => sema.types.resolve(name).or(sema.imports.resolve(name)),
         };
@@ -225,7 +228,7 @@ impl Taking for Intrinsic {
         match self {
             Intrinsic::Vector | Intrinsic::Option => 1,
             Intrinsic::Result => 2,
-            Intrinsic::Text
+            Intrinsic::String
             | Intrinsic::Integer
             | Intrinsic::Decimal
             | Intrinsic::Boolean
@@ -363,19 +366,17 @@ impl<N: Naming> Sectioned for [N] {
 
 /// The kind whose capability faults on the second occurrence of a name.
 trait Distinct {
-    fn distinct(&self) -> Result<(), Fault>;
+    fn distinct(&self) -> Result<(), Error>;
 }
 
 impl Distinct for [DeclarationSite] {
-    fn distinct(&self) -> Result<(), Fault> {
+    fn distinct(&self) -> Result<(), Error> {
         for (later, declared) in self.iter().enumerate() {
             for earlier in &self[..later] {
                 if earlier.name == declared.name {
-                    return Err(Fault::Conceptual(
+                    return Err(Error::conceptual(
                         declared.path.clone(),
-                        Problem::Duplicate(
-                            protos::Text::try_from(declared.name.0.clone()).expect("identifier"),
-                        ),
+                        Problem::Duplicate(declared.name.0.clone()),
                     ));
                 }
             }
@@ -388,16 +389,13 @@ impl Distinct for [DeclarationSite] {
 /// position. `Self` remains a valid unsourced type reference, but is never a
 /// declaration or imported emitted name.
 trait Defining {
-    fn define(&self) -> Result<(), Fault>;
+    fn define(&self) -> Result<(), Error>;
 }
 
 impl Defining for Name {
-    fn define(&self) -> Result<(), Fault> {
+    fn define(&self) -> Result<(), Error> {
         if self.0 == "Self" {
-            return Err(Fault::Conceptual(
-                vec![],
-                Problem::Name(protos::Text::try_from(self.0.clone()).expect("identifier")),
-            ));
+            return Err(Error::conceptual(vec![], Problem::Name(self.0.clone())));
         }
         Ok(())
     }
@@ -410,31 +408,31 @@ impl Defining for Name {
 /// The kind whose capability checks a value in a scope, faulting at a path relative to the value.
 pub(crate) trait Checkable {
     /// Check the value whole.
-    fn check(&self, scope: &Scope) -> Result<(), Fault>;
+    fn check(&self, scope: &Scope) -> Result<(), Error>;
 }
 
 /// The kind whose capabilities check enclosed children, or a section that
 /// contains enclosed children.
 trait Checking {
-    fn check_children(&self, scope: &Scope) -> Result<(), Fault>;
-    fn check_each(&self, scope: &Scope, section: Integer) -> Result<(), Fault>;
+    fn check_children(&self, scope: &Scope) -> Result<(), Error>;
+    fn check_each(&self, scope: &Scope, section: Integer) -> Result<(), Error>;
 }
 
 impl<C: Checkable> Checking for [C] {
-    fn check_children(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check_children(&self, scope: &Scope) -> Result<(), Error> {
         for (index, element) in self.iter().enumerate() {
             element.check(scope).place(index as Integer)?;
         }
         Ok(())
     }
 
-    fn check_each(&self, scope: &Scope, section: Integer) -> Result<(), Fault> {
+    fn check_each(&self, scope: &Scope, section: Integer) -> Result<(), Error> {
         self.check_children(scope).place(section)
     }
 }
 
 impl Checkable for Import {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
             Import::One(_, imported) => imported.check(scope).place(1),
             Import::Many(_, imported) => imported.check_children(scope).place(1),
@@ -443,7 +441,7 @@ impl Checkable for Import {
 }
 
 impl Checkable for crate::Imported {
-    fn check(&self, _: &Scope) -> Result<(), Fault> {
+    fn check(&self, _: &Scope) -> Result<(), Error> {
         self.name.define()?;
         self.emitted.define()?;
         Ok(())
@@ -451,10 +449,9 @@ impl Checkable for crate::Imported {
 }
 
 impl Checkable for File {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         let checked = match self {
-            File::Types(types) => types.check(scope),
-            File::Kinds(kinds) => kinds.check(scope),
+            File::Library(library) => library.check(scope),
             File::Signal(signal) => signal.check(scope),
             File::Sema(sema) => sema.check(scope),
         };
@@ -462,37 +459,29 @@ impl Checkable for File {
     }
 }
 
-impl Checkable for Types {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+impl Checkable for crate::Library {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         if self.types.len() > TYPE_DECLARATION_LIMIT {
-            return Err(Fault::Conceptual(vec![1], Problem::Depth));
+            return Err(Error::conceptual(vec![1], Problem::Depth));
         }
         let mut names = self.imports.names_in(0);
         names.extend(self.types.names_in(1));
+        names.extend(self.kinds.names_in(2));
         names.distinct()?;
         self.imports.check_each(scope, 0)?;
         self.types.check_each(scope, 1)?;
-        self.associations.check_each(scope, 2)
-    }
-}
-
-impl Checkable for Kinds {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
-        let mut names = self.imports.names_in(0);
-        names.extend(self.kinds.names_in(1));
-        names.distinct()?;
-        self.imports.check_each(scope, 0)?;
-        self.kinds.check_each(scope, 1)
+        self.kinds.check_each(scope, 2)?;
+        self.associations.check_each(scope, 3)
     }
 }
 
 impl Checkable for Signal {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         if self.requests.is_empty() {
-            return Err(Fault::Conceptual(vec![1], Problem::Empty));
+            return Err(Error::conceptual(vec![1], Problem::Empty));
         }
         if self.responses.is_empty() {
-            return Err(Fault::Conceptual(vec![2], Problem::Empty));
+            return Err(Error::conceptual(vec![2], Problem::Empty));
         }
         let mut names = vec![
             DeclarationSite {
@@ -517,7 +506,7 @@ impl Checkable for Signal {
 }
 
 impl Checkable for Sema {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         let mut names = vec![DeclarationSite {
             name: Name::try_from("Record").expect("static identifier"),
             path: vec![1],
@@ -526,18 +515,17 @@ impl Checkable for Sema {
         names.extend(self.types.names_in(2));
         names.distinct()?;
         self.imports.check_each(scope, 0)?;
-        self.record.check_each(scope, 1)?;
-        self.types.check_each(scope, 2)
+        self.types.check_each(scope, 1)
     }
 }
 
 impl Checkable for Identity {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.name.define()?;
         if self.constraints.len() > 26 {
-            return Err(Fault::Conceptual(
+            return Err(Error::conceptual(
                 vec![],
-                Problem::Arity(26, self.constraints.len() as Integer),
+                Problem::arity(26, self.constraints.len() as Integer),
             ));
         }
         let mut parameters: Vec<&Name> = Vec::new();
@@ -547,11 +535,9 @@ impl Checkable for Identity {
                 && reference.arguments.is_empty()
             {
                 if parameters.contains(&&reference.name) {
-                    return Err(Fault::Conceptual(
+                    return Err(Error::conceptual(
                         vec![index as Integer],
-                        Problem::Duplicate(
-                            protos::Text::try_from(reference.name.0.clone()).expect("identifier"),
-                        ),
+                        Problem::Duplicate(reference.name.0.clone()),
                     ));
                 }
                 parameters.push(&reference.name);
@@ -563,12 +549,12 @@ impl Checkable for Identity {
 }
 
 impl Checkable for Constraint {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
             Constraint::One(reference) => reference.refer(scope, Role::Kind),
             Constraint::Many(references) => {
                 if references.is_empty() {
-                    return Err(Fault::Conceptual(vec![], Problem::Empty));
+                    return Err(Error::conceptual(vec![], Problem::Empty));
                 }
                 for (index, reference) in references.iter().enumerate() {
                     reference.refer(scope, Role::Kind).place(index as Integer)?;
@@ -588,7 +574,7 @@ impl Roled for Intrinsic {
     fn role(&self) -> Role {
         match self {
             Intrinsic::Sized => Role::Kind,
-            Intrinsic::Text
+            Intrinsic::String
             | Intrinsic::Integer
             | Intrinsic::Decimal
             | Intrinsic::Boolean
@@ -604,7 +590,7 @@ impl Roled for Intrinsic {
 /// The kind whose capability checks a reference in the role its position gives it.
 pub(crate) trait Referring {
     /// Check the reference as a type or as a kind.
-    fn refer(&self, scope: &Scope, role: Role) -> Result<(), Fault>;
+    fn refer(&self, scope: &Scope, role: Role) -> Result<(), Error>;
 }
 
 /// The role and optional argument count a resolved reference requires.
@@ -615,11 +601,11 @@ struct ReferenceRequirement {
 
 /// The kind whose capability checks every reference of a section in one role.
 trait ReferringEach {
-    fn refer_each(&self, scope: &Scope, role: Role, section: Integer) -> Result<(), Fault>;
+    fn refer_each(&self, scope: &Scope, role: Role, section: Integer) -> Result<(), Error>;
 }
 
 impl ReferringEach for [Reference] {
-    fn refer_each(&self, scope: &Scope, role: Role, section: Integer) -> Result<(), Fault> {
+    fn refer_each(&self, scope: &Scope, role: Role, section: Integer) -> Result<(), Error> {
         for (index, reference) in self.iter().enumerate() {
             reference
                 .refer(scope, role)
@@ -631,11 +617,11 @@ impl ReferringEach for [Reference] {
 }
 
 impl Referring for Reference {
-    fn refer(&self, scope: &Scope, role: Role) -> Result<(), Fault> {
+    fn refer(&self, scope: &Scope, role: Role) -> Result<(), Error> {
         if self.source.is_some() && self.name.0 == "Self" {
-            return Err(Fault::Conceptual(
+            return Err(Error::conceptual(
                 vec![],
-                Problem::Name(protos::Text::try_from(self.name.0.clone()).expect("identifier")),
+                Problem::Name(self.name.0.clone()),
             ));
         }
         // A direct Protos intrinsic has the same contract whether it arrives
@@ -648,15 +634,15 @@ impl Referring for Reference {
             && let Some(intrinsic) = Intrinsic::identify(&self.name.0)
         {
             if intrinsic.role() != role {
-                return Err(Fault::Conceptual(
+                return Err(Error::conceptual(
                     vec![],
-                    Problem::Role(protos::Text::try_from(self.name.0.clone()).expect("identifier")),
+                    Problem::Role(self.name.0.clone()),
                 ));
             }
             if intrinsic.arity() != self.arguments.len() {
-                return Err(Fault::Conceptual(
+                return Err(Error::conceptual(
                     vec![],
-                    Problem::Arity(
+                    Problem::arity(
                         intrinsic.arity() as Integer,
                         self.arguments.len() as Integer,
                     ),
@@ -668,17 +654,12 @@ impl Referring for Reference {
         if self.source.is_none() {
             let requirement = match scope.resolve(&self.name) {
                 Resolution::Ambiguous(name) => {
-                    return Err(Fault::Conceptual(
-                        vec![],
-                        Problem::Duplicate(protos::Text::try_from(name.0).expect("identifier")),
-                    ));
+                    return Err(Error::conceptual(vec![], Problem::Duplicate(name.0)));
                 }
                 Resolution::Undeclared => {
-                    return Err(Fault::Conceptual(
+                    return Err(Error::conceptual(
                         vec![],
-                        Problem::Undeclared(
-                            protos::Text::try_from(self.name.0.clone()).expect("identifier"),
-                        ),
+                        Problem::Undeclared(self.name.0.clone()),
                     ));
                 }
                 Resolution::Intrinsic(intrinsic) => ReferenceRequirement {
@@ -722,17 +703,17 @@ impl Referring for Reference {
                 Resolution::Imported(_, _) => ReferenceRequirement { role, arity: None },
             };
             if requirement.role != role {
-                return Err(Fault::Conceptual(
+                return Err(Error::conceptual(
                     vec![],
-                    Problem::Role(protos::Text::try_from(self.name.0.clone()).expect("identifier")),
+                    Problem::Role(self.name.0.clone()),
                 ));
             }
             if let Some(expected) = requirement.arity
                 && expected != self.arguments.len()
             {
-                return Err(Fault::Conceptual(
+                return Err(Error::conceptual(
                     vec![],
-                    Problem::Arity(expected as Integer, self.arguments.len() as Integer),
+                    Problem::arity(expected as Integer, self.arguments.len() as Integer),
                 ));
             }
         }
@@ -748,7 +729,7 @@ impl Referring for Reference {
 }
 
 impl Checkable for Reference {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.refer(scope, Role::Type)
     }
 }
@@ -882,8 +863,7 @@ pub(crate) trait Declaring {
 impl Declaring for File {
     fn declaration(&self, name: &Name) -> Option<&TypeDeclaration> {
         let declarations = match self {
-            File::Types(types) => &types.types,
-            File::Kinds(_) => return None,
+            File::Library(library) => &library.types,
             File::Signal(signal) => &signal.types,
             File::Sema(sema) => &sema.types,
         };
@@ -903,10 +883,10 @@ trait KindDeclaring {
 
 impl KindDeclaring for File {
     fn kind_declaration(&self, name: &Name) -> Option<&KindDeclaration> {
-        let File::Kinds(kinds) = self else {
+        let File::Library(library) = self else {
             return None;
         };
-        kinds
+        library
             .kinds
             .iter()
             .find(|declaration| declaration.identity.name == *name)
@@ -946,12 +926,18 @@ impl Supercycling for Reference {
 }
 
 impl Checkable for TypeDeclaration {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         let identity = match self {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
             | TypeDeclaration::Alias(identity, _) => identity,
         };
+        if !identity.constraints.is_empty() {
+            return Err(Error::conceptual(
+                vec![0],
+                Problem::Expected(crate::Form::Declaration),
+            ));
+        }
         identity.check(scope).place(0)?;
         let inner = Scope {
             file: scope.file,
@@ -972,11 +958,9 @@ impl Checkable for TypeDeclaration {
             TypeDeclaration::Alias(identity, aliased) => {
                 aliased.check(&inner).place(1)?;
                 if aliased.cycles(&identity.name, scope.file, &mut vec![]) {
-                    return Err(Fault::Conceptual(
+                    return Err(Error::conceptual(
                         vec![0],
-                        Problem::Cycle(
-                            protos::Text::try_from(identity.name.0.clone()).expect("identifier"),
-                        ),
+                        Problem::Cycle(identity.name.0.clone()),
                     ));
                 }
                 Ok(())
@@ -986,7 +970,7 @@ impl Checkable for TypeDeclaration {
 }
 
 impl Checkable for Variant {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
             Variant::Bare(name) => name.define(),
             Variant::Typed(name, reference) => {
@@ -1012,7 +996,7 @@ impl Checkable for Variant {
 }
 
 impl Checkable for KindDeclaration {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.identity.check(scope).place(0)?;
         let inner = Scope {
             file: scope.file,
@@ -1044,12 +1028,9 @@ impl Checkable for KindDeclaration {
                         scope.file,
                         &mut vec![self.identity.name.clone()],
                     ) {
-                        return Err(Fault::Conceptual(
+                        return Err(Error::conceptual(
                             vec![1, 0, index as Integer],
-                            Problem::Cycle(
-                                protos::Text::try_from(self.identity.name.0.clone())
-                                    .expect("identifier"),
-                            ),
+                            Problem::Cycle(self.identity.name.0.clone()),
                         ));
                     }
                 }
@@ -1070,7 +1051,7 @@ impl Checkable for KindDeclaration {
 }
 
 impl Checkable for AssociatedType {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.name.define()?;
         for (index, bound) in self.bounds.iter().enumerate() {
             bound.refer(scope, Role::Kind).place(index as Integer)?;
@@ -1080,12 +1061,12 @@ impl Checkable for AssociatedType {
 }
 
 impl Checkable for AssociatedConstant {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.name.define().place(0)?;
         if self.name.0 != self.name.0.to_uppercase() {
-            return Err(Fault::Conceptual(
+            return Err(Error::conceptual(
                 vec![],
-                Problem::Name(protos::Text::try_from(self.name.0.clone()).expect("identifier")),
+                Problem::Name(self.name.0.clone()),
             ));
         }
         self.ty.check(scope).place(1)
@@ -1093,7 +1074,7 @@ impl Checkable for AssociatedConstant {
 }
 
 impl Checkable for Capability {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.name.define().place(0)?;
         match &self.signature {
             Signature::Yielding(yields) => yields.check(scope).place(0).place(1),
@@ -1106,13 +1087,11 @@ impl Checkable for Capability {
 }
 
 impl Checkable for Association {
-    fn check(&self, scope: &Scope) -> Result<(), Fault> {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
         if scope.resolve(&self.identity.name) == Resolution::Undeclared {
-            return Err(Fault::Conceptual(
+            return Err(Error::conceptual(
                 vec![],
-                Problem::Undeclared(
-                    protos::Text::try_from(self.identity.name.0.clone()).expect("identifier"),
-                ),
+                Problem::Undeclared(self.identity.name.0.clone()),
             ));
         }
         self.identity.check(scope).place(0)?;

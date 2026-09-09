@@ -1,6 +1,7 @@
-; A type identified with a constraint: one parameter, bounded by the kind, Datomic when the parameter is
-Types
+; Named fields use type-first names for intrinsic and container positions.
+Library
 []
-[ Placed<Sized>.{ Option<Integer> Sized }
+[ Placed.{ Option<Integer> Integer }
   Score.{ Decimal Boolean Meaning } ]
+[]
 []

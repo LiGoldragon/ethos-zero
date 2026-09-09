@@ -1,5 +1,6 @@
-; Kind identity example from Vision/ethos.md: the imports say where Clonable, Sendable and
-; Serializable come from and what their sources call them
-Kinds
-[ std::clone:Clonable.Clone  std::marker:Sendable.Send  serde:Serializable.Serialize ]
-[ Processable<[Clonable Sendable] Serializable>.[ process.[ Text ] ] ]
+; Kind identity constraints use the standard imported kinds.
+Library
+[ std:Clonable.Clone  std:Sendable.Send  serde:Serializable.Serialize ]
+[]
+[ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ]
+[]

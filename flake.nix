@@ -10,13 +10,13 @@
     };
     # The dependencies' own ethos declarations, read by the built tool as a check.
     protos = {
-      url = "github:LiGoldragon/protos/2d999f173334";
+      url = "github:LiGoldragon/protos/d5616342f5c4654deda3af3858bad68af8b68ce8";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
       inputs.rust-build.follows = "rust-build";
     };
     datom-codec = {
-      url = "github:LiGoldragon/datom-codec/41a3c073d5c5";
+      url = "github:LiGoldragon/datom-codec/35d26d822870356af9b04cacfec40d85600b541d";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
       inputs.rust-build.follows = "rust-build";

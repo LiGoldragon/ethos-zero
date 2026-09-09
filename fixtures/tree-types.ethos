@@ -1,12 +1,13 @@
 ; Recursion and nesting: a position that reaches its own type is boxed, and only there
-Types
+Library
 []
 [ Tree.[ Leaf.Integer  Node.{ Tree Tree }  Many.Vector<Tree>  Maybe.Option<Tree> ]
-  Chain.{ Text Option<Chain> }
+  Chain.{ String Option<Chain> }
   Twin.{ Twig Twig }
   Twig.[ Tip  Grow.Twin ]
   Forest.Vector<Tree>
-  Wrapped.{ Option<Integer> Result<Text Integer> Vector<Option<Text>> }
-  Nested.[ A.[ X Y.Integer ]  B.{ Text } ]
-  Deep.Vector<Vector<Vector<Option<Result<Text Integer>>>>> ]
+  Wrapped.{ Option<Integer> Result<String Integer> Vector<Option<String>> }
+  Nested.[ A.[ X Y.Integer ]  B.{ String } ]
+  Deep.Vector<Vector<Vector<Option<Result<String Integer>>>>> ]
+[]
 []

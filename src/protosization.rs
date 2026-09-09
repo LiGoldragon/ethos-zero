@@ -1,319 +1,363 @@
-//! Protosization: File to Protoform to Text (the ascent, cannot fault).
-//!
-//! Every concept yields the protoform that carries it, the exact
-//! reverse of conception; the file's text is the canonical print of
-//! its protoform, the braced form on one line.
+//! Protosization: the infallible structural ascent of a checked Ethos file.
 
-use std::convert::Infallible;
-
-use protos::{
-    Bare, Delineation, Enclosure, Head, Protoform, Separator, Situated, Symbol, Textualizable,
-};
+use protos::{Canonicalizable, Enclosure, Extent, Protos, Protosizable, Separator, Symbol};
 
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Identity,
-    Import, Imported, KindBody, KindDeclaration, Named, Receiver, Reference, Rooted, Signature,
-    Source, TypeDeclaration, Variant,
+    Import, Imported, KindBody, KindDeclaration, Library, Receiver, Reference, Sema, Signal,
+    Signature, TypeDeclaration, Variant,
 };
 
-/// The kind whose capability yields the protoform carrying a concept.
-trait Protosizing {
-    fn protoform(&self) -> Protoform;
+pub(crate) trait Protosizing {
+    fn protos(&self) -> Protos;
 }
 
-/// The kind whose capability yields the head naming a concept.
-trait Heading {
-    fn head(&self) -> Head;
+trait Structuring {
+    fn bare(&self) -> Protos;
+    fn enclosed(&self, enclosure: Enclosure, children: Vec<Protos>) -> Protos;
+    fn headed(&self, constraints: Option<Protos>, separator: Separator, body: Protos) -> Protos;
 }
 
-/// The kind whose capability encloses the protoforms of every element.
-trait Enclosing {
-    fn bracketed(&self) -> Protoform;
-    fn braced(&self) -> Protoform;
-}
-
-impl<P: Protosizing> Enclosing for [P] {
-    fn bracketed(&self) -> Protoform {
-        let mut children = Vec::with_capacity(self.len());
-        for element in self {
-            children.push(element.protoform());
+impl Structuring for str {
+    fn bare(&self) -> Protos {
+        Protos::Bare {
+            extent: Extent { start: 0, end: 0 },
+            text: self.to_owned(),
         }
-        Protoform::Enclosed(Enclosure::Bracketed, children)
     }
-
-    fn braced(&self) -> Protoform {
-        let mut children = Vec::with_capacity(self.len());
-        for element in self {
-            children.push(element.protoform());
+    fn enclosed(&self, enclosure: Enclosure, children: Vec<Protos>) -> Protos {
+        Protos::Enclosed {
+            extent: Extent { start: 0, end: 0 },
+            enclosure,
+            children,
         }
-        Protoform::Enclosed(Enclosure::Braced, children)
     }
-}
-
-/// The kind whose capability heads a body with a name and a separator.
-trait Attaching {
-    fn under(self, head: Head, separator: Separator) -> Protoform;
-}
-
-/// The kind whose capability prefixes a body with every segment of a source.
-trait Sourcing {
-    fn under_source(self, source: &Source) -> Protoform;
-}
-
-/// The kind whose capabilities form validated Protos names and bare forms.
-trait Naming {
-    fn symbol(&self) -> Symbol;
-    fn bare(&self) -> Protoform;
-}
-
-impl Naming for str {
-    fn symbol(&self) -> Symbol {
-        Symbol::try_from(self).expect("validated ethos name")
-    }
-
-    fn bare(&self) -> Protoform {
-        Protoform::Bare(Bare::try_from(self).expect("validated ethos bare"))
-    }
-}
-
-impl Attaching for Protoform {
-    fn under(self, head: Head, separator: Separator) -> Protoform {
-        Protoform::Headed(head, separator, Box::new(self))
-    }
-}
-
-impl Sourcing for Protoform {
-    fn under_source(self, source: &Source) -> Protoform {
-        let mut headed = self;
-        for segment in source.segments.iter().rev() {
-            headed = headed.under(Head::Symbol(segment.clone()), Separator::Colon);
-        }
-        headed
-    }
-}
-
-impl Protosizing for File {
-    fn protoform(&self) -> Protoform {
-        let sections = match self {
-            File::Types(types) => vec![
-                types.imports.bracketed(),
-                types.types.bracketed(),
-                types.associations.bracketed(),
-            ],
-            File::Kinds(kinds) => vec![kinds.imports.bracketed(), kinds.kinds.bracketed()],
-            File::Signal(signal) => vec![
-                signal.imports.bracketed(),
-                signal.requests.bracketed(),
-                signal.responses.bracketed(),
-                signal.types.bracketed(),
-            ],
-            File::Sema(sema) => vec![
-                sema.imports.bracketed(),
-                sema.record.braced(),
-                sema.types.bracketed(),
-            ],
-        };
-        Protoform::Enclosed(Enclosure::Braced, sections)
-            .under(Head::Symbol(self.root().name().symbol()), Separator::Period)
-    }
-}
-
-impl Protosizing for Imported {
-    fn protoform(&self) -> Protoform {
-        if self.name == self.emitted {
-            self.name.0.as_str().bare()
-        } else {
-            self.emitted.0.as_str().bare().under(
-                Head::Symbol(self.name.0.as_str().symbol()),
-                Separator::Period,
-            )
+    fn headed(&self, constraints: Option<Protos>, separator: Separator, body: Protos) -> Protos {
+        Protos::Headed {
+            extent: Extent { start: 0, end: 0 },
+            head: Symbol(self.to_owned()),
+            constraints: constraints.map(Box::new),
+            separator,
+            body: Box::new(body),
         }
     }
 }
 
-impl Protosizing for Import {
-    fn protoform(&self) -> Protoform {
-        match self {
-            Import::One(source, imported) => imported.protoform().under_source(source),
-            Import::Many(source, imports) => imports.bracketed().under_source(source),
-        }
+trait ListProtosizing {
+    fn protos_list(&self) -> Vec<Protos>;
+}
+impl<T: Protosizing> ListProtosizing for [T] {
+    fn protos_list(&self) -> Vec<Protos> {
+        self.iter().map(Protosizing::protos).collect()
     }
 }
 
-impl Heading for Reference {
-    fn head(&self) -> Head {
-        if self.arguments.is_empty() {
-            Head::Symbol(self.name.0.as_str().symbol())
-        } else {
-            let mut arguments = Vec::with_capacity(self.arguments.len());
-            for argument in &self.arguments {
-                arguments.push(argument.protoform());
+trait ReferencesProtosizing {
+    fn reference_nodes(&self) -> Vec<Protos>;
+}
+impl ReferencesProtosizing for [Reference] {
+    fn reference_nodes(&self) -> Vec<Protos> {
+        let mut nodes = Vec::new();
+        for reference in self {
+            if reference.arguments.is_empty() {
+                nodes.push(reference.protos());
+            } else {
+                let base = match &reference.source {
+                    Some(source) => source.as_ref().headed(
+                        None,
+                        Separator::Colon,
+                        reference.name.as_ref().bare(),
+                    ),
+                    None => reference.name.as_ref().bare(),
+                };
+                nodes.push(base);
+                nodes.push("".enclosed(Enclosure::Angled, reference.arguments.reference_nodes()));
             }
-            Head::Qualified(self.name.0.as_str().symbol(), arguments)
         }
+        nodes
+    }
+}
+
+trait DeclarationsProtosizing {
+    fn declaration_nodes(&self) -> Vec<Protos>;
+}
+
+/// Associated types use the substrate's adjacent bare-plus-angle sequence:
+/// `Item<Serializable>`.  They are declarations only conceptually; emitting
+/// a headed `Item<...>.` invents a separator and cannot be read back.
+trait AssociatedTypesProtosizing {
+    fn associated_type_nodes(&self) -> Vec<Protos>;
+}
+impl AssociatedTypesProtosizing for [AssociatedType] {
+    fn associated_type_nodes(&self) -> Vec<Protos> {
+        let mut nodes = Vec::new();
+        for associated in self {
+            nodes.push(associated.name.as_ref().bare());
+            if !associated.bounds.is_empty() {
+                nodes.push("".enclosed(Enclosure::Angled, associated.bounds.protos_list()));
+            }
+        }
+        nodes
+    }
+}
+impl DeclarationsProtosizing for [TypeDeclaration] {
+    fn declaration_nodes(&self) -> Vec<Protos> {
+        let mut nodes = Vec::new();
+        for declaration in self {
+            match declaration {
+                TypeDeclaration::Alias(identity, reference) if !reference.arguments.is_empty() => {
+                    let body = match &reference.source {
+                        Some(source) => source.as_ref().headed(
+                            None,
+                            Separator::Colon,
+                            reference.name.as_ref().bare(),
+                        ),
+                        None => reference.name.as_ref().bare(),
+                    };
+                    nodes.push(identity.heading(Separator::Period, body));
+                    nodes.push(
+                        "".enclosed(Enclosure::Angled, reference.arguments.reference_nodes()),
+                    );
+                }
+                _ => nodes.push(declaration.protos()),
+            }
+        }
+        nodes
     }
 }
 
 impl Protosizing for Reference {
-    fn protoform(&self) -> Protoform {
-        let bare = if self.arguments.is_empty() {
-            self.name.0.as_str().bare()
+    fn protos(&self) -> Protos {
+        let base = self.name.as_ref().bare();
+        let applied = if self.arguments.is_empty() {
+            base
         } else {
-            let mut arguments = Vec::with_capacity(self.arguments.len());
-            for argument in &self.arguments {
-                arguments.push(argument.protoform());
-            }
-            Protoform::Qualified(self.name.0.as_str().symbol(), arguments)
+            let arguments = "".enclosed(Enclosure::Angled, self.arguments.protos_list());
+            "".enclosed(Enclosure::Braced, vec![base, arguments])
         };
         match &self.source {
-            Some(source) => bare.under_source(source),
-            None => bare,
-        }
-    }
-}
-
-impl Heading for Identity {
-    fn head(&self) -> Head {
-        if self.constraints.is_empty() {
-            Head::Symbol(self.name.0.as_str().symbol())
-        } else {
-            let mut constraints = Vec::with_capacity(self.constraints.len());
-            for constraint in &self.constraints {
-                constraints.push(constraint.protoform());
-            }
-            Head::Qualified(self.name.0.as_str().symbol(), constraints)
+            Some(source) => source.as_ref().headed(None, Separator::Colon, applied),
+            None => applied,
         }
     }
 }
 
 impl Protosizing for Constraint {
-    fn protoform(&self) -> Protoform {
+    fn protos(&self) -> Protos {
         match self {
-            Constraint::One(reference) => reference.protoform(),
-            Constraint::Many(references) => references.bracketed(),
+            Self::One(reference) => reference.protos(),
+            Self::Many(references) => "".enclosed(Enclosure::Bracketed, references.protos_list()),
         }
     }
 }
 
-impl Protosizing for TypeDeclaration {
-    fn protoform(&self) -> Protoform {
-        match self {
-            TypeDeclaration::Struct(identity, positions) => {
-                positions.braced().under(identity.head(), Separator::Period)
-            }
-            TypeDeclaration::Enum(identity, variants) => variants
-                .bracketed()
-                .under(identity.head(), Separator::Period),
-            TypeDeclaration::Alias(identity, aliased) => aliased
-                .protoform()
-                .under(identity.head(), Separator::Period),
-        }
+impl Protosizing for Identity {
+    fn protos(&self) -> Protos {
+        let constraints = (!self.constraints.is_empty())
+            .then(|| "".enclosed(Enclosure::Angled, self.constraints.protos_list()));
+        self.name
+            .as_ref()
+            .headed(constraints, Separator::Period, "".bare())
     }
 }
 
-impl Protosizing for Variant {
-    fn protoform(&self) -> Protoform {
-        match self {
-            Variant::Bare(name) => name.0.as_str().bare(),
-            Variant::Typed(name, reference) => reference
-                .protoform()
-                .under(Head::Symbol(name.0.as_str().symbol()), Separator::Period),
-            Variant::Struct(name, positions) => positions
-                .braced()
-                .under(Head::Symbol(name.0.as_str().symbol()), Separator::Period),
-            Variant::Enum(name, variants) => variants
-                .bracketed()
-                .under(Head::Symbol(name.0.as_str().symbol()), Separator::Period),
-        }
+trait Heading {
+    fn heading(&self, separator: Separator, body: Protos) -> Protos;
+}
+impl Heading for Identity {
+    fn heading(&self, separator: Separator, body: Protos) -> Protos {
+        let constraints = (!self.constraints.is_empty())
+            .then(|| "".enclosed(Enclosure::Angled, self.constraints.protos_list()));
+        self.name.as_ref().headed(constraints, separator, body)
     }
 }
 
-impl Protosizing for KindDeclaration {
-    fn protoform(&self) -> Protoform {
-        let body = match &self.body {
-            KindBody::Simple(capabilities) => capabilities.bracketed(),
-            KindBody::Complex {
-                superkinds,
-                types,
-                constants,
-                capabilities,
-            } => Protoform::Enclosed(
-                Enclosure::Braced,
-                vec![
-                    superkinds.bracketed(),
-                    types.bracketed(),
-                    constants.bracketed(),
-                    capabilities.bracketed(),
-                ],
-            ),
-        };
-        body.under(self.identity.head(), Separator::Period)
-    }
-}
-
-impl Protosizing for AssociatedType {
-    fn protoform(&self) -> Protoform {
-        if self.bounds.is_empty() {
-            self.name.0.as_str().bare()
+impl Protosizing for Imported {
+    fn protos(&self) -> Protos {
+        if self.name == self.emitted {
+            self.name.as_ref().bare()
         } else {
-            let mut bounds = Vec::with_capacity(self.bounds.len());
-            for bound in &self.bounds {
-                bounds.push(bound.protoform());
-            }
-            Protoform::Qualified(self.name.0.as_str().symbol(), bounds)
+            self.name
+                .as_ref()
+                .headed(None, Separator::Period, self.emitted.as_ref().bare())
         }
     }
 }
-
-impl Protosizing for AssociatedConstant {
-    fn protoform(&self) -> Protoform {
-        self.ty.protoform().under(
-            Head::Symbol(self.name.0.as_str().symbol()),
-            Separator::Period,
-        )
+impl Protosizing for Import {
+    fn protos(&self) -> Protos {
+        match self {
+            Self::One(source, imported) => {
+                source
+                    .as_ref()
+                    .headed(None, Separator::Colon, imported.protos())
+            }
+            Self::Many(source, imported) => source.as_ref().headed(
+                None,
+                Separator::Colon,
+                "".enclosed(Enclosure::Bracketed, imported.protos_list()),
+            ),
+        }
     }
 }
-
+impl Protosizing for TypeDeclaration {
+    fn protos(&self) -> Protos {
+        match self {
+            Self::Struct(identity, positions) => identity.heading(
+                Separator::Period,
+                "".enclosed(Enclosure::Braced, positions.reference_nodes()),
+            ),
+            Self::Enum(identity, variants) => identity.heading(
+                Separator::Period,
+                "".enclosed(Enclosure::Bracketed, variants.protos_list()),
+            ),
+            Self::Alias(identity, reference) => {
+                identity.heading(Separator::Period, reference.protos())
+            }
+        }
+    }
+}
+impl Protosizing for Variant {
+    fn protos(&self) -> Protos {
+        match self {
+            Self::Bare(name) => name.as_ref().bare(),
+            Self::Typed(name, reference) => {
+                name.as_ref()
+                    .headed(None, Separator::Period, reference.protos())
+            }
+            Self::Struct(name, positions) => name.as_ref().headed(
+                None,
+                Separator::Period,
+                "".enclosed(Enclosure::Braced, positions.reference_nodes()),
+            ),
+            Self::Enum(name, variants) => name.as_ref().headed(
+                None,
+                Separator::Period,
+                "".enclosed(Enclosure::Bracketed, variants.protos_list()),
+            ),
+        }
+    }
+}
+impl Protosizing for AssociatedConstant {
+    fn protos(&self) -> Protos {
+        self.name
+            .as_ref()
+            .headed(None, Separator::Period, self.ty.protos())
+    }
+}
 impl Protosizing for Capability {
-    fn protoform(&self) -> Protoform {
+    fn protos(&self) -> Protos {
         let separator = match self.receiver {
             Receiver::Shared => Separator::Period,
             Receiver::Mutable => Separator::Exclamation,
             Receiver::Static => Separator::Colon,
         };
         let body = match &self.signature {
-            Signature::Yielding(yields) => std::slice::from_ref(yields).bracketed(),
-            Signature::Taking(inputs, yields) => Protoform::Enclosed(
+            Signature::Yielding(yielding) => "".enclosed(
+                Enclosure::Bracketed,
+                std::slice::from_ref(yielding).reference_nodes(),
+            ),
+            Signature::Taking(inputs, yielding) => "".enclosed(
                 Enclosure::Braced,
-                vec![inputs.bracketed(), std::slice::from_ref(yields).bracketed()],
+                vec![
+                    "".enclosed(Enclosure::Bracketed, inputs.reference_nodes()),
+                    "".enclosed(
+                        Enclosure::Bracketed,
+                        std::slice::from_ref(yielding).reference_nodes(),
+                    ),
+                ],
             ),
         };
-        body.under(Head::Symbol(self.name.0.as_str().symbol()), separator)
+        self.name.as_ref().headed(None, separator, body)
     }
 }
-
+impl Protosizing for KindDeclaration {
+    fn protos(&self) -> Protos {
+        let body = match &self.body {
+            KindBody::Simple(capabilities) => {
+                "".enclosed(Enclosure::Bracketed, capabilities.protos_list())
+            }
+            KindBody::Complex {
+                superkinds,
+                types,
+                constants,
+                capabilities,
+            } => "".enclosed(
+                Enclosure::Braced,
+                vec![
+                    "".enclosed(Enclosure::Bracketed, superkinds.protos_list()),
+                    "".enclosed(Enclosure::Bracketed, types.associated_type_nodes()),
+                    "".enclosed(Enclosure::Bracketed, constants.protos_list()),
+                    "".enclosed(Enclosure::Bracketed, capabilities.protos_list()),
+                ],
+            ),
+        };
+        self.identity.heading(Separator::Period, body)
+    }
+}
 impl Protosizing for Association {
-    fn protoform(&self) -> Protoform {
-        self.kinds
-            .bracketed()
-            .under(self.identity.head(), Separator::Period)
+    fn protos(&self) -> Protos {
+        self.identity.heading(
+            Separator::Period,
+            "".enclosed(Enclosure::Bracketed, self.kinds.protos_list()),
+        )
+    }
+}
+impl Protosizing for Library {
+    fn protos(&self) -> Protos {
+        "".enclosed(
+            Enclosure::Braced,
+            vec![
+                "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.kinds.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.associations.protos_list()),
+            ],
+        )
+    }
+}
+impl Protosizing for Signal {
+    fn protos(&self) -> Protos {
+        "".enclosed(
+            Enclosure::Braced,
+            vec![
+                "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.requests.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.responses.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
+            ],
+        )
+    }
+}
+impl Protosizing for Sema {
+    fn protos(&self) -> Protos {
+        "".enclosed(
+            Enclosure::Braced,
+            vec![
+                "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
+            ],
+        )
+    }
+}
+impl Protosizing for File {
+    fn protos(&self) -> Protos {
+        let raw = match self {
+            Self::Library(library) => "Library".headed(None, Separator::Period, library.protos()),
+            Self::Signal(signal) => "Signal".headed(None, Separator::Period, signal.protos()),
+            Self::Sema(sema) => "Sema".headed(None, Separator::Period, sema.protos()),
+        };
+        // Shared Protos canonicalization assigns exact UTF-8 byte spans
+        // without routing a valid conceptual ascent through a finite reader.
+        let mut canonical = raw;
+        canonical.canonicalize();
+        canonical
     }
 }
 
-impl Textualizable for File {
-    fn textualize(&self) -> String {
-        self.protoform().textualize()
-    }
-}
+impl Protosizable for File {
+    type Output = Protos;
 
-/// A file directly projects the structural form it constructs. Situation is
-/// computed while that form is written; ascent never reparses text.
-impl protos::Protosizable for File {
-    type Fault = Infallible;
-
-    fn protosize(&self) -> Result<Delineation, Self::Fault> {
-        let protoform = self.protoform();
-        let situated = protos::Situating::situate(&protoform);
-        Ok(Delineation(vec![Situated(situated.0, protoform)]))
+    fn protosize(&self) -> Self::Output {
+        self.protos()
     }
 }

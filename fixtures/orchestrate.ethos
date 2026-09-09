@@ -4,11 +4,11 @@ Signal
 [ Lock.LockRequest  Release.LockId  Observe.ObserveSelection ]
 [ Locked.Lock  LockRejected.LockRejection  Released.Lock  ReleaseRejected.ReleaseRejection  Observed.Observation ]
 [ LockId.Integer
-  LockName.Text
-  FlowId.Text
-  LockPath.Text
+  LockName.String
+  FlowId.String
+  LockPath.String
   LockPaths.Vector<LockPath>
-  LockReason.Text
+  LockReason.String
   LockRequest.{ LockName FlowId LockPaths LockReason }
   Lock.{ LockId LockName FlowId LockPaths LockReason }
   DuplicateName.Lock

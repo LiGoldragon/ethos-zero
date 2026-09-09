@@ -1,18 +1,20 @@
 ; The faults the ethos reader raises: structural, from the delineation, or conceptual, at a path.
-Types
-[ protos:Separator ]
-[ Fault.[ Structural.protos:Fault  Conceptual.{ Vector<Integer> Problem } ]
+Library
+[ protos:[ Extent Separator ] ]
+[ Structural_Error.{ Extent protos:Problem }
+  Error.[ Structural.Structural_Error  Conceptual.{ Vector<Integer> Problem } ]
   Problem.[ Root
             Arity.{ Integer Integer }
             Expected.Form
             Separator.Separator
-            Name.Text
-            Duplicate.Text
-            Undeclared.Text
-            Cycle.Text
+            Name.String
+            Duplicate.String
+            Undeclared.String
+            Cycle.String
             Yield
             Empty
             Depth
-            Role.Text ]
+            Role.String ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Kind Capability Constant Association ] ]
+[]
 []
