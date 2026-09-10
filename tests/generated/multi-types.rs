@@ -14,4 +14,5 @@ pub enum SinkError {
     Closed,
     Full,
 }
+#[rustfmt::skip]
 pub type LockId = i64;

@@ -26,6 +26,7 @@ pub enum Twig {
     Tip,
     Grow(std::boxed::Box<Twin>),
 }
+#[rustfmt::skip]
 pub type Forest = std::vec::Vec<Tree>;
 #[derive(datom_codec::Datomizable, datom_codec::Compositional)]
 pub struct Wrapped {
@@ -47,6 +48,7 @@ pub enum Nested {
     A(A_Data),
     B(B_Data),
 }
+#[rustfmt::skip]
 pub type Deep = std::vec::Vec<
     std::vec::Vec<std::vec::Vec<std::option::Option<std::result::Result<String, i64>>>>,
 >;

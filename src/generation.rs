@@ -653,7 +653,15 @@ impl Emitting for TypeDeclaration {
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
                 let aliased = aliased.emit(&inner);
-                quote! { pub type #name #parameters = #aliased; }
+                // prettyplease owns the generated module's layout. rustfmt and
+                // prettyplease choose different line breaks for type aliases
+                // near their width thresholds, so preserve the generator's
+                // canonical alias text while rustfmt continues checking every
+                // authored and other generated Rust item.
+                quote! {
+                    #[rustfmt::skip]
+                    pub type #name #parameters = #aliased;
+                }
             }
         }
     }

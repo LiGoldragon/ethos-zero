@@ -1,0 +1,10 @@
+Library
+[]
+[ Short.String
+  OptionalSpiritGuardianProviderName.Option<SpiritGuardianProviderName>
+  OptionalSpiritGuardianMaximumOutputTokens.Option<SpiritGuardianMaximumOutputTokens>
+  Nested.Vector<Option<Result<String Integer>>>
+  SpiritGuardianProviderName.String
+  SpiritGuardianMaximumOutputTokens.Integer ]
+[]
+[]

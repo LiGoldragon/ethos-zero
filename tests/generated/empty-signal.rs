@@ -7,4 +7,5 @@
 pub struct Shared {
     pub name: Name,
 }
+#[rustfmt::skip]
 pub type Name = String;
