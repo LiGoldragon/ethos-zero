@@ -59,3 +59,14 @@ fn retired_roots_are_not_accepted() {
     );
     assert!(Potential::<File>::from("Kinds [] []").actualize().is_err());
 }
+
+#[test]
+fn operation_free_signal_generates_only_its_declared_shared_data() {
+    let generated = match read("Signal [] [] [] [ Shared.{ Name } Name.String ]").generate() {
+        Ok(generated) => generated,
+        Err(_) => panic!("operation-free Signal generates"),
+    };
+    assert!(generated.contains("pub struct Shared"));
+    assert!(!generated.contains("pub enum Query"));
+    assert!(!generated.contains("pub enum Response"));
+}

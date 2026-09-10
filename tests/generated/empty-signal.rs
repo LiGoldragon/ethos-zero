@@ -8,5 +8,3 @@ pub struct Shared {
     pub name: Name,
 }
 pub type Name = String;
-pub enum Query {}
-pub enum Response {}

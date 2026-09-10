@@ -600,9 +600,6 @@ impl Enumerating for [Variant] {
     ) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
-        if self.is_empty() {
-            return quote! { pub enum #name #parameters {} };
-        }
         let derive = conditional.datom_derives();
         let mut definitions = Vec::with_capacity(self.len());
         let mut nested = Vec::new();
@@ -904,8 +901,12 @@ impl Emitting for File {
                     },
                     signal.responses.clone(),
                 );
-                items.push(request.emit(scope));
-                items.push(response.emit(scope));
+                if !signal.requests.is_empty() {
+                    items.push(request.emit(scope));
+                }
+                if !signal.responses.is_empty() {
+                    items.push(response.emit(scope));
+                }
             }
             File::Sema(sema) => {
                 for declaration in &sema.types {
