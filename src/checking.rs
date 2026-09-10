@@ -477,12 +477,6 @@ impl Checkable for crate::Library {
 
 impl Checkable for Signal {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        if self.requests.is_empty() {
-            return Err(Error::conceptual(vec![1], Problem::Empty));
-        }
-        if self.responses.is_empty() {
-            return Err(Error::conceptual(vec![2], Problem::Empty));
-        }
         let mut names = vec![
             DeclarationSite {
                 name: Name::try_from("Request").expect("static identifier"),

@@ -600,6 +600,9 @@ impl Enumerating for [Variant] {
     ) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
+        if self.is_empty() {
+            return quote! { pub enum #name #parameters {} };
+        }
         let derive = conditional.datom_derives();
         let mut definitions = Vec::with_capacity(self.len());
         let mut nested = Vec::new();

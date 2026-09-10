@@ -2,6 +2,8 @@
 
 pub struct Wrapper<T>(pub T);
 
+#[path = "generated/empty-signal.rs"]
+mod empty_signal;
 #[path = "generated/nested-collision.rs"]
 mod nested_collision;
 #[path = "generated/orchestrate.rs"]
@@ -84,4 +86,33 @@ fn self_bearing_methods_are_sized_without_sizing_the_trait() {
 #[test]
 fn constrained_kind_identity_compiles() {
     assert!(include_str!("generated/processable-kinds.rs").contains("pub trait Processable"));
+}
+
+#[test]
+fn operation_free_signal_shared_record_archives_and_round_trips_as_datom_text() {
+    use datom_codec::{Actualizing, Budget, Datomizable, Potential};
+    use protos::{Protosizable, ReaderBudget, Textualizable};
+
+    let shared = empty_signal::Shared {
+        name: "domain".to_owned(),
+    };
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&shared).expect("archive shared record");
+    assert_eq!(
+        rkyv::from_bytes::<empty_signal::Shared, rkyv::rancor::Error>(&bytes)
+            .expect("restore shared record"),
+        shared
+    );
+    let text = shared.clone().datomize(vec![]).protosize().textualize();
+    let mut pending = Potential::<empty_signal::Shared>::from(text);
+    assert_eq!(
+        pending
+            .actualize(&mut Budget {
+                remaining: 1024,
+                reader: ReaderBudget { remaining: 1024 },
+                depth: 0,
+                maximum_depth: 1024,
+            })
+            .expect("restore shared datom"),
+        shared
+    );
 }
