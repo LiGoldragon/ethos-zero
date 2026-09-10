@@ -62,7 +62,7 @@ fn generate_writes_a_named_field_module_and_replies_generated() {
     assert!(success, "{output}");
     assert_eq!(
         output,
-        format!("Generated.[ «{directory}/record-types.rs» ]\n")
+        format!("Generated.[ {directory}/record-types.rs ]\n")
     );
     let written = std::fs::read_to_string(format!("{directory}/record-types.rs")).unwrap();
     assert!(written.contains("pub struct Record"));
@@ -71,7 +71,7 @@ fn generate_writes_a_named_field_module_and_replies_generated() {
 }
 
 #[test]
-fn opaque_paths_allow_absolute_and_quoted_inputs() {
+fn quoted_inputs_canonicalize_paths_as_bare_strings() {
     let directory = "quoted".scratch();
     let source = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/multi-types.ethos");
     let argument = generate(source, &directory);
@@ -79,7 +79,7 @@ fn opaque_paths_allow_absolute_and_quoted_inputs() {
     assert!(success, "{output}");
     assert_eq!(
         output,
-        format!("Generated.[ «{directory}/multi-types.rs» ]\n")
+        format!("Generated.[ {directory}/multi-types.rs ]\n")
     );
 }
 
@@ -115,7 +115,7 @@ fn a_missing_file_is_unreadable() {
     let (success, output) = [argument.as_str()].invoke();
     assert!(!success);
     assert!(
-        output.starts_with("Unreadable.{ «/nowhere/missing.ethos» "),
+        output.starts_with("Unreadable.{ /nowhere/missing.ethos "),
         "{output}"
     );
 }
