@@ -30,6 +30,7 @@ quote       = "1"
 proc-macro2 = "1"
 syn         = { version = "3", features = ["full"] }
 prettyplease = "0.3"
+rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 
 [dev-dependencies]
 serde = "1"

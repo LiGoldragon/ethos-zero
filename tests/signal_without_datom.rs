@@ -15,7 +15,7 @@ fn generated_signal_compiles_without_datom_codec() {
     std::fs::create_dir_all(format!("{directory}/src")).expect("temporary source directory");
     std::fs::write(
         format!("{directory}/Cargo.toml"),
-        "[package]\nname = \"signal-without-datom\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[features]\ndatom = []\n",
+        "[package]\nname = \"signal-without-datom\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[features]\ndatom = []\n[dependencies]\nrkyv = { version = \"0.8\", default-features = false, features = [\"std\", \"bytecheck\", \"little_endian\", \"pointer_width_32\", \"unaligned\"] }\n",
     )
     .expect("temporary manifest");
     std::fs::write(

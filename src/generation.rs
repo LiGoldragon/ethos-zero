@@ -557,7 +557,10 @@ trait DatomDeriving {
 impl DatomDeriving for bool {
     fn datom_derives(&self) -> TokenStream {
         if *self {
-            quote! { #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Compositional))] }
+            quote! {
+                #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+                #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Compositional))]
+            }
         } else {
             quote! { #[derive(datom_codec::Datomizable, datom_codec::Compositional)] }
         }

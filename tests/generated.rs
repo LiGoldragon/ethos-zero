@@ -43,6 +43,15 @@ fn named_fields_and_signal_query_response_compile() {
 }
 
 #[test]
+fn generated_signal_query_round_trips_as_a_portable_archive() {
+    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(vec![]));
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive query");
+    let restored = rkyv::from_bytes::<orchestrate::Query, rkyv::rancor::Error>(&bytes)
+        .expect("restore query");
+    assert!(matches!(restored, orchestrate::Query::Observe(_)));
+}
+
+#[test]
 fn recursive_generated_types_compile() {
     let tree = tree_types::Tree::Leaf(1);
     assert!(matches!(tree, tree_types::Tree::Leaf(1)));

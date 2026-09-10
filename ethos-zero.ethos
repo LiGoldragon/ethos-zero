@@ -1,14 +1,16 @@
-; The ethos-zero command contract.
-Signal
+; The local Datom command contract, not a wire Signal.
+Library
 [ datom_codec:[ Error Path ]
   ethos_zero:[ Problem ] ]
-[ Generate.Generation ]
-[ Generated.Vector<String>
-  Arguments.Integer
-  Malformed.Error
-  Unreadable.{ String String }
-  GenerationRejected.{ String Path Generation_Error }
-  Unwritable.{ String String } ]
-[ Generation.{ String String }
+[ Query.[ Generate.Generation ]
+  Response.[ Generated.Vector<String>
+             Arguments.Integer
+             Malformed.Error
+             Unreadable.{ String String }
+             GenerationRejected.{ String Path Generation_Error }
+             Unwritable.{ String String } ]
+  Generation.{ String String }
   Generation_Error.[ Structural.protos:Error
                       Conceptual.{ Vector<Integer> ethos_zero:Problem } ] ]
+[]
+[]
