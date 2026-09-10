@@ -12,6 +12,8 @@ mod processable_kinds;
 mod record_types;
 #[path = "generated/self-kinds.rs"]
 mod self_kinds;
+#[path = "generated/signal-decimal.rs"]
+mod signal_decimal;
 #[path = "generated/tree-types.rs"]
 mod tree_types;
 
@@ -49,6 +51,15 @@ fn generated_signal_query_round_trips_as_a_portable_archive() {
     let restored = rkyv::from_bytes::<orchestrate::Query, rkyv::rancor::Error>(&bytes)
         .expect("restore query");
     assert!(matches!(restored, orchestrate::Query::Observe(_)));
+}
+
+#[test]
+fn generated_decimal_signal_archives_and_bears_datom_derives() {
+    let query = signal_decimal::Query::Measure(signal_decimal::Measurement { decimal: 1.25 });
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive decimal query");
+    let restored = rkyv::from_bytes::<signal_decimal::Query, rkyv::rancor::Error>(&bytes)
+        .expect("restore decimal query");
+    assert_eq!(restored, query);
 }
 
 #[test]
