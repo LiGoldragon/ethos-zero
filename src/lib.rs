@@ -702,7 +702,9 @@ mod behavior {
             Ok(rust) => rust,
             Err(_) => panic!("approved Library record generates"),
         };
-        assert!(rust.contains("#[derive(datom_codec::Datomizable, datom_codec::Compositional)]"));
+        assert!(rust.contains(
+            "#[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]"
+        ));
         assert!(rust.contains("pub string: String"));
         assert!(rust.contains("pub integer: i64"));
     }

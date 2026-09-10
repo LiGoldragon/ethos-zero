@@ -1,28 +1,28 @@
 #![allow(dead_code, non_camel_case_types, non_snake_case)]
 #[rustfmt::skip]
-#[derive(datom_codec::Datomizable, datom_codec::Compositional)]
+#[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]
 pub struct Structural_Error {
     pub extent: protos::Extent,
     pub problem: protos::Problem,
 }
 #[rustfmt::skip]
-#[derive(datom_codec::Datomizable, datom_codec::Compositional)]
+#[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]
 pub struct Conceptual_Data {
     pub integer_vector: std::vec::Vec<i64>,
     pub problem: Problem,
 }
-#[derive(datom_codec::Datomizable, datom_codec::Compositional)]
+#[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]
 pub enum Error {
     Structural(Structural_Error),
     Conceptual(Conceptual_Data),
 }
 #[rustfmt::skip]
-#[derive(datom_codec::Datomizable, datom_codec::Compositional)]
+#[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]
 pub struct Arity_Data {
     pub first_integer: i64,
     pub second_integer: i64,
 }
-#[derive(datom_codec::Datomizable, datom_codec::Compositional)]
+#[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]
 pub enum Problem {
     Root,
     Arity(Arity_Data),
@@ -38,7 +38,7 @@ pub enum Problem {
     Role(String),
 }
 #[rustfmt::skip]
-#[derive(datom_codec::Datomizable, datom_codec::Compositional)]
+#[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]
 pub enum Form {
     File,
     Section,

@@ -562,7 +562,9 @@ impl DatomDeriving for bool {
                 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Compositional))]
             }
         } else {
-            quote! { #[derive(datom_codec::Datomizable, datom_codec::Compositional)] }
+            quote! {
+                #[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]
+            }
         }
     }
 }
