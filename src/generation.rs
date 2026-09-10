@@ -653,15 +653,7 @@ impl Emitting for TypeDeclaration {
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
                 let aliased = aliased.emit(&inner);
-                // prettyplease owns the generated module's layout. rustfmt and
-                // prettyplease choose different line breaks for type aliases
-                // near their width thresholds, so preserve the generator's
-                // canonical alias text while rustfmt continues checking every
-                // authored and other generated Rust item.
-                quote! {
-                    #[rustfmt::skip]
-                    pub type #name #parameters = #aliased;
-                }
+                quote! { pub type #name #parameters = #aliased; }
             }
         }
     }
@@ -878,7 +870,11 @@ impl Emitting for Association {
 
 impl Emitting for File {
     fn emit(&self, scope: &Scope) -> TokenStream {
-        let mut items = vec![quote! { #![allow(dead_code, non_camel_case_types, non_snake_case)] }];
+        // prettyplease owns each generated item's canonical text. rustfmt makes
+        // different width decisions for aliases and ordinary items, so each
+        // generated item is excluded individually while every authored Rust
+        // item remains checked by the repository formatter.
+        let mut items = Vec::new();
         match self {
             File::Library(library) => {
                 for declaration in &library.types {
@@ -922,7 +918,10 @@ impl Emitting for File {
                 }
             }
         }
-        quote! { #( #items )* }
+        quote! {
+            #![allow(dead_code, non_camel_case_types, non_snake_case)]
+            #( #[rustfmt::skip] #items )*
+        }
     }
 }
 

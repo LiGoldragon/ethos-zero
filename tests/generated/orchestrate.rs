@@ -11,6 +11,7 @@ pub type LockPath = String;
 pub type LockPaths = std::vec::Vec<LockPath>;
 #[rustfmt::skip]
 pub type LockReason = String;
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
@@ -22,6 +23,7 @@ pub struct LockRequest {
     pub lock_paths: LockPaths,
     pub lock_reason: LockReason,
 }
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
@@ -36,6 +38,7 @@ pub struct Lock {
 }
 #[rustfmt::skip]
 pub type DuplicateName = Lock;
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
@@ -45,6 +48,7 @@ pub struct LockOverlap {
     pub lock_path: LockPath,
     pub lock: Lock,
 }
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
@@ -54,6 +58,7 @@ pub enum LockRejection {
     DuplicateName(Lock),
     PathOverlap(LockOverlap),
 }
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
@@ -62,6 +67,7 @@ pub enum LockRejection {
 pub enum ReleaseRejection {
     UnknownLockId,
 }
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
@@ -72,6 +78,7 @@ pub enum ObserveSelection {
 }
 #[rustfmt::skip]
 pub type Locks = std::vec::Vec<Lock>;
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
@@ -80,6 +87,7 @@ pub type Locks = std::vec::Vec<Lock>;
 pub enum Observation {
     Locks(Locks),
 }
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
@@ -90,6 +98,7 @@ pub enum Query {
     Release(LockId),
     Observe(ObserveSelection),
 }
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",

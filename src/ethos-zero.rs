@@ -1,8 +1,10 @@
 #![allow(dead_code, non_camel_case_types, non_snake_case)]
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Compositional)]
 pub enum Query {
     Generate(Generation),
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Compositional)]
 pub struct Unreadable_Data {
     pub first_string: String,
@@ -28,11 +30,13 @@ pub enum Response {
     GenerationRejected(GenerationRejected_Data),
     Unwritable(Unwritable_Data),
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Compositional)]
 pub struct Generation {
     pub first_string: String,
     pub second_string: String,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Compositional)]
 pub struct Conceptual_Data {
     pub integer_vector: std::vec::Vec<i64>,

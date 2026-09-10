@@ -1,4 +1,5 @@
 #![allow(dead_code, non_camel_case_types, non_snake_case)]
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Compositional)]
 pub struct A_Data_X_Data {
     pub string: String,
@@ -20,6 +21,7 @@ pub enum Outer {
     A(A_Data),
     B(B_Data),
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Compositional)]
 pub struct PathOverlap_Data {
     pub first_string: String,

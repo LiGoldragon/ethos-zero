@@ -1,4 +1,5 @@
 #![allow(dead_code, non_camel_case_types, non_snake_case)]
+#[rustfmt::skip]
 pub trait Mixed {
     fn inspect(&self) -> String;
     fn factory(&self) -> Self
