@@ -5,7 +5,7 @@ pub type FlowId = String;
 pub type LockPath = String;
 pub type LockPaths = std::vec::Vec<LockPath>;
 pub type LockReason = String;
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
     derive(datom_codec::Datomizable, datom_codec::Compositional)
@@ -16,7 +16,7 @@ pub struct LockRequest {
     pub lock_paths: LockPaths,
     pub lock_reason: LockReason,
 }
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
     derive(datom_codec::Datomizable, datom_codec::Compositional)
@@ -29,7 +29,7 @@ pub struct Lock {
     pub lock_reason: LockReason,
 }
 pub type DuplicateName = Lock;
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
     derive(datom_codec::Datomizable, datom_codec::Compositional)
@@ -38,7 +38,7 @@ pub struct LockOverlap {
     pub lock_path: LockPath,
     pub lock: Lock,
 }
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
     derive(datom_codec::Datomizable, datom_codec::Compositional)
@@ -47,7 +47,7 @@ pub enum LockRejection {
     DuplicateName(Lock),
     PathOverlap(LockOverlap),
 }
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
     derive(datom_codec::Datomizable, datom_codec::Compositional)
@@ -55,7 +55,7 @@ pub enum LockRejection {
 pub enum ReleaseRejection {
     UnknownLockId,
 }
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
     derive(datom_codec::Datomizable, datom_codec::Compositional)
@@ -64,7 +64,7 @@ pub enum ObserveSelection {
     Locks(Locks),
 }
 pub type Locks = std::vec::Vec<Lock>;
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
     derive(datom_codec::Datomizable, datom_codec::Compositional)
@@ -72,7 +72,7 @@ pub type Locks = std::vec::Vec<Lock>;
 pub enum Observation {
     Locks(Locks),
 }
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
     derive(datom_codec::Datomizable, datom_codec::Compositional)
@@ -82,7 +82,7 @@ pub enum Query {
     Release(LockId),
     Observe(ObserveSelection),
 }
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
 #[cfg_attr(
     feature = "datom",
     derive(datom_codec::Datomizable, datom_codec::Compositional)

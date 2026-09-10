@@ -558,7 +558,7 @@ impl DatomDeriving for bool {
     fn datom_derives(&self) -> TokenStream {
         if *self {
             quote! {
-                #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq)]
+                #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
                 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Compositional))]
             }
         } else {
