@@ -55,7 +55,11 @@ impl Tokening for Intrinsic {
             // feature.  The wire-level integer is therefore the ordinary
             // Rust scalar; Datom derives know how to compose it when enabled.
             Intrinsic::Integer => quote! { i64 },
-            Intrinsic::Decimal => quote! { f64 },
+            // A datom decimal is finite and point-mandatory. `f64` is neither,
+            // so it has no datom text; `datom_codec::Decimal` admits only a
+            // finite value, which is also what makes a type reaching one Eq
+            // and Hash.
+            Intrinsic::Decimal => quote! { datom_codec::Decimal },
             Intrinsic::Boolean => quote! { bool },
             Intrinsic::Meaning => quote! { datom_codec::Meaning },
             Intrinsic::Vector => quote! { std::vec::Vec },
@@ -470,7 +474,7 @@ trait Varianted {
         scope: &Scope,
         owner: &Name,
         enclosing: &Identity,
-        conditional: bool,
+        carriage: Carriage,
     ) -> TokenStream;
 }
 
@@ -527,16 +531,16 @@ impl Varianted for Variant {
         scope: &Scope,
         owner: &Name,
         enclosing: &Identity,
-        conditional: bool,
+        carriage: Carriage,
     ) -> TokenStream {
         match self {
             Variant::Struct(name, positions) => {
                 let nested = enclosing.nested_identity(name);
-                positions.structure(scope, owner, &nested, conditional)
+                positions.structure(scope, owner, &nested, carriage)
             }
             Variant::Enum(name, variants) => {
                 let nested = enclosing.nested_identity(name);
-                variants.enumeration(scope, owner, &nested, conditional)
+                variants.enumeration(scope, owner, &nested, carriage)
             }
             Variant::Bare(_) | Variant::Typed(_, _) => TokenStream::new(),
         }
@@ -554,7 +558,7 @@ trait Structuring {
         scope: &Scope,
         owner: &Name,
         identity: &Identity,
-        conditional: bool,
+        carriage: Carriage,
     ) -> TokenStream;
 }
 
@@ -565,25 +569,59 @@ trait Enumerating {
         scope: &Scope,
         owner: &Name,
         identity: &Identity,
-        conditional: bool,
+        carriage: Carriage,
     ) -> TokenStream;
+}
+
+/// How a declaration's projection is carried. A Signal's types cross a wire,
+/// so they archive and their datom kinds are gated behind the `datom` feature
+/// the Nexus does not enable; a Library's or a Sema's do not.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Carriage {
+    Archived,
+    Plain,
 }
 
 trait DatomDeriving {
     fn datom_derives(&self) -> TokenStream;
 }
 
-impl DatomDeriving for bool {
+/// What every declared type derives, and what none does.
+///
+/// `Clone`, `Debug` and `PartialEq` always. `Eq` and `Hash` always too: every
+/// intrinsic a position can hold is now `Eq` and `Hash`, `Decimal` included,
+/// because a datom decimal is finite. Without them no contract value could be
+/// a map key, and the orphan rule leaves a consumer no way to add them.
+///
+/// Never `Copy`: a wire type's size is not part of its contract, and a
+/// contract that grew a `String` position would silently break every consumer
+/// relying on it. Never `Default`: a default is a policy the consumer holds,
+/// not a value the wire carries, and a manufactured zero satisfies the type
+/// while violating the schema's invariants.
+impl DatomDeriving for Carriage {
     fn datom_derives(&self) -> TokenStream {
-        if *self {
-            quote! {
-                #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
+        match self {
+            Carriage::Archived => quote! {
+                #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
                 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-            }
-        } else {
-            quote! {
-                #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq)]
-            }
+            },
+            Carriage::Plain => quote! {
+                #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
+            },
+        }
+    }
+}
+
+/// A file says how the types it declares are carried.
+pub trait Carrying {
+    fn carriage(&self) -> Carriage;
+}
+
+impl Carrying for File {
+    fn carriage(&self) -> Carriage {
+        match self {
+            File::Signal(_) => Carriage::Archived,
+            File::Library(_) | File::Sema(_) => Carriage::Plain,
         }
     }
 }
@@ -594,7 +632,7 @@ impl Structuring for [Reference] {
         scope: &Scope,
         owner: &Name,
         identity: &Identity,
-        conditional: bool,
+        carriage: Carriage,
     ) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
@@ -603,7 +641,7 @@ impl Structuring for [Reference] {
             types.push(position.position(scope, owner));
         }
         let fields = self.field_names(owner);
-        let derive = conditional.datom_derives();
+        let derive = carriage.datom_derives();
         quote! {
             #derive
             pub struct #name #parameters { #( pub #fields: #types ),* }
@@ -617,16 +655,16 @@ impl Enumerating for [Variant] {
         scope: &Scope,
         owner: &Name,
         identity: &Identity,
-        conditional: bool,
+        carriage: Carriage,
     ) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
-        let derive = conditional.datom_derives();
+        let derive = carriage.datom_derives();
         let mut definitions = Vec::with_capacity(self.len());
         let mut nested = Vec::new();
         for variant in self {
             definitions.push(variant.definition(scope, owner, identity));
-            nested.push(variant.nested(scope, owner, identity, conditional));
+            nested.push(variant.nested(scope, owner, identity, carriage));
         }
         quote! {
             #( #nested )*
@@ -649,7 +687,7 @@ impl Emitting for TypeDeclaration {
                     &inner,
                     &identity.name,
                     identity,
-                    matches!(scope.file, File::Signal(_)),
+                    scope.file.carriage(),
                 )
             }
             TypeDeclaration::Enum(identity, variants) => {
@@ -662,7 +700,7 @@ impl Emitting for TypeDeclaration {
                     &inner,
                     &identity.name,
                     identity,
-                    matches!(scope.file, File::Signal(_)),
+                    scope.file.carriage(),
                 )
             }
             TypeDeclaration::Alias(identity, aliased) => {

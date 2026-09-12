@@ -59,7 +59,9 @@ fn generated_signal_query_round_trips_as_a_portable_archive() {
 
 #[test]
 fn generated_decimal_signal_archives_and_bears_datom_derives() {
-    let query = signal_decimal::Query::Measure(signal_decimal::Measurement { decimal: 1.25 });
+    let query = signal_decimal::Query::Measure(signal_decimal::Measurement {
+        decimal: datom_codec::Decimal::try_from(1.25).expect("1.25 is finite"),
+    });
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive decimal query");
     let restored = rkyv::from_bytes::<signal_decimal::Query, rkyv::rancor::Error>(&bytes)
         .expect("restore decimal query");

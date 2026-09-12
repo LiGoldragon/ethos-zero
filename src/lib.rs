@@ -702,8 +702,11 @@ mod behavior {
             Ok(rust) => rust,
             Err(_) => panic!("approved Library record generates"),
         };
-        assert!(rust.contains(
-            "#[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq)]"
+        // The emitted derive list wraps across lines once it is long enough,
+        // so the assertion is on the set it names, not on where it breaks.
+        let derives: String = rust.chars().filter(|c| !c.is_whitespace()).collect();
+        assert!(derives.contains(
+            "#[derive(datom_codec::Datomizable,datom_codec::Composing,Clone,Debug,PartialEq,Eq,Hash)]"
         ));
         assert!(rust.contains("pub string: String"));
         assert!(rust.contains("pub integer: i64"));
