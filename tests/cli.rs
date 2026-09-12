@@ -122,9 +122,9 @@ fn a_missing_file_is_unreadable() {
 
 #[test]
 fn a_bad_ethos_file_returns_a_typed_generation_error() {
-    let directory = "faulty".scratch();
+    let directory = "erroneous".scratch();
     std::fs::create_dir_all(&directory).unwrap();
-    let source = format!("{directory}/faulty.ethos");
+    let source = format!("{directory}/erroneous.ethos");
     std::fs::write(&source, "Library [] [ Record.{ String Bogus } ] [] []").unwrap();
     let argument = generate(&source, &directory);
     let (success, output) = [argument.as_str()].invoke();

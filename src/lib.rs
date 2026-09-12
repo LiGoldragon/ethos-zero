@@ -7,23 +7,23 @@
 //!
 //! | layer | type | kind borne | yields |
 //! |---|---|---|---|
-//! | Text, as written (the sweet form) | `protos::Text` | [`Canonicalizable`] | [`Canonical`] |
-//! | Text, canonical (the braced form) | [`Canonical`] | `protos::Protosizable` | `protos::Delineation` |
-//! | Protoform | `protos::Delineation`, `protos::Protoform` | `Conceiving<File>` | [`File`], checked whole |
-//! | Concept | [`File`] | [`Generating`] | Rust text, or a whole-file fault |
+//! | Text, as written (the sweet form) | `String` | [`Canonicalizable`] | [`Canonical`] |
+//! | Text, canonical (the braced form) | [`Canonical`] | `protos::Protosizable` | `protos::Protos` |
+//! | Structure | `protos::Protos` | [`Ethosizable`]<[`File`]> | [`File`], checked whole |
+//! | Concept | [`File`] | [`Generating`] | Rust text, or a whole-file error |
 //!
-//! `protos::Potential<File>` bears `protos::Actualizable<File>`: the
-//! whole descent in one call, its fault situated by path and extent in
+//! [`Potential<File>`](Potential) bears [`Actualizing`]<[`File`]>: the
+//! whole descent in one call, its error situated by path and extent in
 //! the source text. The concept goes back up too: [`File`] bears
 //! `protos::Protosizable` and `protos::Textualizable`, which cannot
-//! fault.
+//! err.
 //!
-//! Every fault the reader raises is a [`Error`] carrying the path of
-//! the structure at fault, in Protos's path convention: a headed structure's
+//! Every error the reader raises is an [`Error`] carrying the path of
+//! the structure in error, in Protos's path convention: a headed structure's
 //! head is child 0 and its body is child 1; a qualified head's arguments are
 //! children of that head; an enclosure's children are
 //! numbered from 0, and each container prepends its child's index on
-//! the way up (`protos::Pathed::within`).
+//! the way up ([`Pathed::within`]).
 //!
 //! Declared structs and enums bear datom-codec's structural kinds through its
 //! derives. Signal declarations gate those derives behind their `datom`
@@ -496,7 +496,7 @@ pub trait Resolving {
 
 /// The kind whose capability checks a whole file and generates its Rust module.
 pub trait Generating {
-    /// The formatted Rust text, or the whole-file fault that prevents generation.
+    /// The formatted Rust text, or the whole-file error that prevents generation.
     fn generate(&self) -> Result<String, Error>;
 }
 
@@ -512,23 +512,23 @@ pub trait Ethosizable<T> {
     fn ethosize(&self) -> Result<T, Self::Error>;
 }
 
-/// The kind whose capability yields a conceptual fault's path and places it below a child.
+/// The kind whose capability yields a conceptual error's path and places it below a child.
 pub trait Pathed {
-    /// The path from the root form to this fault.
+    /// The path from the root form to this error.
     fn path(&self) -> &[Integer];
     /// Prepend a child position to the path.
     fn within(self, index: Integer) -> Self;
 }
 
-/// The kind whose capability places a result's fault under a child index.
+/// The kind whose capability places a result's error under a child index.
 pub trait Placing {
-    /// Prepend the index to the fault's path.
+    /// Prepend the index to the error's path.
     fn place(self, index: Integer) -> Self;
 }
 
-/// The kind whose capability constructs a situated conceptual fault.
-pub trait ConceptualFaulting {
-    /// Construct the fault from its path and problem.
+/// The kind whose capability constructs a situated conceptual error.
+pub trait ConceptualErroring {
+    /// Construct the error from its path and problem.
     fn conceptual(integer_vector: Vec<Integer>, problem: Problem) -> Self;
 }
 
@@ -552,7 +552,7 @@ impl crate::Pathed for Error {
 
     fn within(self, index: Integer) -> Self {
         match self {
-            Error::Structural(fault) => Error::Structural(fault),
+            Error::Structural(error) => Error::Structural(error),
             Error::Conceptual(mut data) => {
                 data.integer_vector.insert(0, index);
                 Error::Conceptual(data)
@@ -561,7 +561,7 @@ impl crate::Pathed for Error {
     }
 }
 
-impl ConceptualFaulting for Error {
+impl ConceptualErroring for Error {
     fn conceptual(integer_vector: Vec<Integer>, problem: Problem) -> Self {
         Self::Conceptual(Conceptual_Data {
             integer_vector,
@@ -580,10 +580,10 @@ impl ArityProblem for Problem {
 }
 
 impl From<protos::Error> for Error {
-    fn from(fault: protos::Error) -> Self {
+    fn from(error: protos::Error) -> Self {
         Error::Structural(Structural_Error {
-            extent: fault.extent,
-            problem: fault.problem,
+            extent: error.extent,
+            problem: error.problem,
         })
     }
 }
@@ -592,7 +592,7 @@ impl<T> Placing for Result<T, Error> {
     fn place(self, index: Integer) -> Self {
         match self {
             Ok(value) => Ok(value),
-            Err(fault) => Err(fault.within(index)),
+            Err(error) => Err(error.within(index)),
         }
     }
 }

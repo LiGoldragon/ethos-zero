@@ -1,4 +1,4 @@
-; The faults the ethos reader raises: structural, from the delineation, or conceptual, at a path.
+; The errors the ethos reader raises: structural, from the protos reading, or conceptual, at a path.
 Library
 [ protos:[ Extent Separator ] ]
 [ Structural_Error.{ Extent protos:Problem }

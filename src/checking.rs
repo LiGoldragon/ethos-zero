@@ -1,16 +1,16 @@
-//! Checking: the file validated whole (may fault).
+//! Checking: the file validated whole (may err).
 //!
 //! Resolution is borne by the declarations: an import resolves the
 //! names it carries, a declaration its own name, an identity its
 //! parameters, a kind its associated types, and the file walks its
 //! variant's sections in turn, then the intrinsics. Checking walks the
-//! concept as the protoform was laid out, so every fault is at the
-//! path of the structure at fault, relative to the checked value.
+//! concept as the structure was laid out, so every error is at the
+//! path of the structure in error, relative to the checked value.
 
 use datom_codec::{Integer, Path};
 
 use crate::{
-    ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualFaulting,
+    ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, KindBody, KindDeclaration,
     Name, Placing, Problem, Reference, Resolution, Resolving, Role, Scope, Sema, Signal, Signature,
     TypeDeclaration, Variant,
@@ -364,7 +364,7 @@ impl<N: Naming> Sectioned for [N] {
     }
 }
 
-/// The kind whose capability faults on the second occurrence of a name.
+/// The kind whose capability errs on the second occurrence of a name.
 trait Distinct {
     fn distinct(&self) -> Result<(), Error>;
 }
@@ -405,7 +405,7 @@ impl Defining for Name {
 // Checking
 // ---------------------------------------------------------------------------
 
-/// The kind whose capability checks a value in a scope, faulting at a path relative to the value.
+/// The kind whose capability checks a value in a scope, erring at a path relative to the value.
 pub(crate) trait Checkable {
     /// Check the value whole.
     fn check(&self, scope: &Scope) -> Result<(), Error>;

@@ -1,4 +1,4 @@
-//! Generation: File to Rust text (cannot fault, the file having been checked).
+//! Generation: File to Rust text (cannot err, the file having been checked).
 //!
 //! Each declaration emits itself: a struct declaration its struct and
 //! its datomic machinery, an enum declaration its enum and its

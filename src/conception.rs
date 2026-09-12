@@ -4,7 +4,7 @@ use datom_codec::Integer;
 use protos::{Enclosure, Protos, Separator, Symbol};
 
 use crate::{
-    ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualFaulting,
+    ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported, KindBody,
     KindDeclaration, Library, Name, Placing, Problem, Receiver, Reference, Root, Sema, Signal,
     Signature, Source, TypeDeclaration, Variant,
@@ -140,7 +140,7 @@ impl Brackets for Protos {
 /// reprint spells the type `Vector <Integer>`.
 ///
 /// Each pair carries the node, the constraints if any, and the node's own
-/// index, so a fault still points at the authored position.
+/// index, so an error still points at the authored position.
 trait Constraining {
     fn constrained(&self) -> Vec<(&Protos, Option<&Vec<Protos>>, usize)>;
 }

@@ -11,18 +11,18 @@ types. Each pass is a module named for it.
 | pass | kind | from | to |
 |---|---|---|---|
 | canonicalization | `Canonicalizable` | sweet text | `Canonical`, the braced form, with its seam |
-| delineation (protos) | `Protosizable` | canonical text | `Delineation` |
-| conception | `Conceivable<File>` | `Delineation`, `Protoform` | `File`, checked whole |
+| protosization (protos) | `Protosizable` | canonical text | `protos::Protos` |
+| conception | `Ethosizable<File>` | `protos::Protos` | `File`, checked whole |
 | checking | `Resolving`, `Checkable` | `File` | names resolved, duplicates and undeclared names refused |
-| generation | `Generating` | `File` | Rust text, or a whole-file fault |
-| datomization | | each declared type | its `Conceivable<Datom>`, `Datomic`, `Incorporable` interactions |
-| protosization | `Protosizable`, `Textualizable` | `File` | canonical text (the ascent, cannot fault) |
-| actualization | `Actualizable<File>` on `Potential<File>` | text | `File`, or a `Situated<Error>` |
+| generation | `Generating` | `File` | Rust text, or a whole-file error |
+| datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Compositional` derives |
+| ascent | `Protosizable`, `Textualizable` | `File` | canonical text (cannot err) |
+| actualization | `Actualizing<File>` on `Potential<File>` | text | `File`, or an `Error` |
 
-Every fault carries the Protos path of the structure at fault: a headed
+Every error carries the Protos path of the structure in error: a headed
 form puts its head at child zero and body at child one, while qualified
 head arguments remain below the head. Actualization follows that
-structure directly to situate the fault in its source text. Every method
+structure directly to situate the error in its source text. Every method
 call lives under a kind; there are no free functions, no inherent impls,
 no closures beyond what std forces, and no lookup tables: the enums are
 walked variant by variant.
@@ -62,8 +62,8 @@ The flat declaration budget applies to a Library's types section: it refuses
 more than 512 type declarations. The other roots retain their structural reader
 bounds and are not counted against it.
 
-File ascent projects the File's structural Protoform and situates that
-form directly; it does not textualize and parse the result again.
+File ascent projects the File directly into its `protos::Protos`
+structure; it does not textualize and parse the result again.
 
 ## CLI
 
