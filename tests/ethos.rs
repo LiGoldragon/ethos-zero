@@ -39,7 +39,8 @@ fn signal_generates_query_response_and_optional_datom_derives() {
     };
     assert!(rust.contains("pub enum Query"));
     assert!(rust.contains("pub enum Response"));
-    assert!(rust.contains("cfg_attr(\n    feature = \"datom\""));
+    assert!(rust.contains("feature = \"datom\""));
+    assert!(rust.contains("datom_codec::Datomizable, datom_codec::Composing"));
     assert!(rust.contains("pub type LockId = i64"));
 }
 

@@ -239,17 +239,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1789184403,
-        "narHash": "sha256-MQxLXUQMfHRHdSzqwDnO0eBTxRBJShfUqDs5nvwsq0Y=",
+        "lastModified": 1789208562,
+        "narHash": "sha256-EsjRlUPPOGUlABZVKTOsa23P24GFVAghhT2YOZ6G/QU=",
         "owner": "LiGoldragon",
         "repo": "datom-codec",
-        "rev": "627db67f2655efd9f786864009955005fd8ab2ad",
+        "rev": "6dccc76b75918a91d3370a9d4fe88aa7dd567876",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
         "repo": "datom-codec",
-        "rev": "627db67f2655efd9f786864009955005fd8ab2ad",
+        "rev": "6dccc76b75918a91d3370a9d4fe88aa7dd567876",
         "type": "github"
       }
     },

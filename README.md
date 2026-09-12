@@ -15,7 +15,7 @@ types. Each pass is a module named for it.
 | conception | `Ethosizable<File>` | `protos::Protos` | `File`, checked whole |
 | checking | `Resolving`, `Checkable` | `File` | names resolved, duplicates and undeclared names refused |
 | generation | `Generating` | `File` | Rust text, or a whole-file error |
-| datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Compositional` derives |
+| datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Composing` derives |
 | ascent | `Protosizable`, `Textualizable` | `File` | canonical text (cannot err) |
 | actualization | `Actualizing<File>` on `Potential<File>` | text | `File`, or an `Error` |
 

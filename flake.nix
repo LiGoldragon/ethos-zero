@@ -16,7 +16,7 @@
       inputs.rust-build.follows = "rust-build";
     };
     datom-codec = {
-      url = "github:LiGoldragon/datom-codec/627db67f2655efd9f786864009955005fd8ab2ad";
+      url = "github:LiGoldragon/datom-codec/6dccc76b75918a91d3370a9d4fe88aa7dd567876";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
       inputs.rust-build.follows = "rust-build";

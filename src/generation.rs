@@ -578,11 +578,11 @@ impl DatomDeriving for bool {
         if *self {
             quote! {
                 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq)]
-                #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Compositional))]
+                #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
             }
         } else {
             quote! {
-                #[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]
+                #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq)]
             }
         }
     }
