@@ -683,12 +683,7 @@ impl Emitting for TypeDeclaration {
                     identity: Some(identity),
                     associated: scope.associated,
                 };
-                positions.structure(
-                    &inner,
-                    &identity.name,
-                    identity,
-                    scope.file.carriage(),
-                )
+                positions.structure(&inner, &identity.name, identity, scope.file.carriage())
             }
             TypeDeclaration::Enum(identity, variants) => {
                 let inner = Scope {
@@ -696,12 +691,7 @@ impl Emitting for TypeDeclaration {
                     identity: Some(identity),
                     associated: scope.associated,
                 };
-                variants.enumeration(
-                    &inner,
-                    &identity.name,
-                    identity,
-                    scope.file.carriage(),
-                )
+                variants.enumeration(&inner, &identity.name, identity, scope.file.carriage())
             }
             TypeDeclaration::Alias(identity, aliased) => {
                 let inner = Scope {
@@ -984,6 +974,43 @@ impl Emitting for File {
     }
 }
 
+/// `#[rustfmt::skip]` on an item does not stop rustfmt reformatting the
+/// item's other attributes, so a derive list that prettyplease breaks across
+/// lines and rustfmt would rejoin makes the two formatters disagree and the
+/// repository's `fmt` gate fail on generated text. The derive list is written
+/// on one line here, which is the form rustfmt wants.
+trait DeriveCollapsing {
+    fn collapse_derives(&self) -> String;
+}
+
+impl DeriveCollapsing for String {
+    fn collapse_derives(&self) -> String {
+        let mut out = String::with_capacity(self.len());
+        let mut lines = self.lines().peekable();
+        while let Some(line) = lines.next() {
+            if line.trim_end() == "#[derive(" {
+                let indent = &line[..line.len() - line.trim_start().len()];
+                let mut names: Vec<&str> = Vec::new();
+                for inner in lines.by_ref() {
+                    let trimmed = inner.trim();
+                    if trimmed == ")]" {
+                        break;
+                    }
+                    names.push(trimmed.trim_end_matches(','));
+                }
+                out.push_str(indent);
+                out.push_str("#[derive(");
+                out.push_str(&names.join(", "));
+                out.push_str(")]\n");
+            } else {
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+        out
+    }
+}
+
 impl Generating for File {
     fn generate(&self) -> Result<String, crate::Error> {
         let scope = Scope {
@@ -994,6 +1021,6 @@ impl Generating for File {
         self.check(&scope)?;
         let tokens = self.emit(&scope);
         let file: syn::File = syn::parse2(tokens).expect("generated tokens are a Rust file");
-        Ok(prettyplease::unparse(&file))
+        Ok(prettyplease::unparse(&file).collapse_derives())
     }
 }
