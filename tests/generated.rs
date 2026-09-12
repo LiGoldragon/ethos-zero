@@ -4,6 +4,8 @@ pub struct Wrapper<T>(pub T);
 
 #[path = "generated/empty-signal.rs"]
 mod empty_signal;
+#[path = "generated/entry-sema.rs"]
+mod entry_sema;
 #[path = "generated/nested-collision.rs"]
 mod nested_collision;
 #[path = "generated/orchestrate.rs"]
@@ -114,5 +116,33 @@ fn operation_free_signal_shared_record_archives_and_round_trips_as_datom_text() 
             })
             .expect("restore shared datom"),
         shared
+    );
+}
+
+#[test]
+fn generated_sema_records_round_trip_as_datom_text() {
+    use datom_codec::{Actualizing, Budget, Datomizable, Potential};
+    use protos::{Protosizable, ReaderBudget, Textualizable};
+
+    let record = entry_sema::Record {
+        string: "root".to_owned(),
+        entry_vector: vec![entry_sema::Entry {
+            string: "first".to_owned(),
+            integer: 1,
+        }],
+    };
+    let text = record.clone().datomize(vec![]).protosize().textualize();
+    assert_eq!(text, "{ root [ { first 1 } ] }");
+    let mut pending = Potential::<entry_sema::Record>::from(text);
+    assert_eq!(
+        pending
+            .actualize(&mut Budget {
+                remaining: 1024,
+                reader: ReaderBudget { remaining: 1024 },
+                depth: 0,
+                maximum_depth: 1024,
+            })
+            .expect("restore sema record"),
+        record
     );
 }

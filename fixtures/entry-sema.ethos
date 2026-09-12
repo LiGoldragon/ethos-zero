@@ -1,7 +1,5 @@
 ; A sema file: the record's positions in braces, then the types it stores
-Library
+Sema
 []
 [ Record.{ String Vector<Entry> }
   Entry.{ String Integer } ]
-[]
-[]

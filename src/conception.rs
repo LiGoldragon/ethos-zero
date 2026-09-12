@@ -122,31 +122,59 @@ impl Brackets for Protos {
         Protos::list(children)
     }
 }
+/// The kind whose capability pairs each node of a list with the angle-bracketed
+/// constraints written against it.
+///
+/// `Vector<Integer>` is one type in Ethos and two sibling protos structures: a
+/// constrained head that no separator follows is rewound to a bare run, leaving
+/// the angled enclosure beside it.
+///
+/// This re-join is owed to protos, not to Ethos. `Protos::Headed` carries a
+/// separator and a body unconditionally, so a name bearing constraints and no
+/// body has no node to be read into; for Ethos to read and print
+/// `Vector<Integer>` as one structure, protos needs such a node -- constraints
+/// on a bare run, or an optional separator and body on a headed one -- a reader
+/// that keeps the constraints instead of rewinding past them, and a writer that
+/// prints the constraints against the name with no space between. Until then
+/// the re-join is done here, once, for every list context, and the canonical
+/// reprint spells the type `Vector <Integer>`.
+///
+/// Each pair carries the node, the constraints if any, and the node's own
+/// index, so a fault still points at the authored position.
+trait Constraining {
+    fn constrained(&self) -> Vec<(&Protos, Option<&Vec<Protos>>, usize)>;
+}
+impl Constraining for [Protos] {
+    fn constrained(&self) -> Vec<(&Protos, Option<&Vec<Protos>>, usize)> {
+        let mut pairs = Vec::new();
+        let mut index = 0;
+        while index < self.len() {
+            let arguments = match self.get(index + 1) {
+                Some(Protos::Enclosed {
+                    enclosure: Enclosure::Angled,
+                    children,
+                    ..
+                }) => Some(children),
+                _ => None,
+            };
+            pairs.push((&self[index], arguments, index));
+            index += if arguments.is_some() { 2 } else { 1 };
+        }
+        pairs
+    }
+}
 trait References {
     fn references(&self) -> Result<Vec<Reference>, Error>;
 }
 impl References for [Protos] {
     fn references(&self) -> Result<Vec<Reference>, Error> {
         let mut values = Vec::new();
-        let mut index = 0;
-        while index < self.len() {
-            if let Protos::Bare { text, .. } = &self[index]
-                && let Some(Protos::Enclosed {
-                    enclosure: Enclosure::Angled,
-                    children,
-                    ..
-                }) = self.get(index + 1)
-            {
-                values.push(Reference {
-                    source: None,
-                    name: text.as_str().name().place(index as Integer)?,
-                    arguments: children.references().place((index + 1) as Integer)?,
-                });
-                index += 2;
-                continue;
+        for (node, arguments, index) in self.constrained() {
+            let mut reference: Reference = node.conceive().place(index as Integer)?;
+            if let Some(children) = arguments {
+                reference.arguments = children.references().place((index + 1) as Integer)?;
             }
-            values.push(self[index].conceive().place(index as Integer)?);
-            index += 1;
+            values.push(reference);
         }
         Ok(values)
     }
@@ -157,24 +185,18 @@ trait Declarations {
 impl Declarations for [Protos] {
     fn declarations(&self) -> Result<Vec<TypeDeclaration>, Error> {
         let mut values = Vec::new();
-        let mut index = 0;
-        while index < self.len() {
-            let mut declaration: TypeDeclaration =
-                self[index].conceive().place(index as Integer)?;
-            if let (
-                TypeDeclaration::Alias(_, reference),
-                Some(Protos::Enclosed {
-                    enclosure: Enclosure::Angled,
-                    children,
-                    ..
-                }),
-            ) = (&mut declaration, self.get(index + 1))
-            {
+        for (node, arguments, index) in self.constrained() {
+            let mut declaration: TypeDeclaration = node.conceive().place(index as Integer)?;
+            if let Some(children) = arguments {
+                let TypeDeclaration::Alias(_, reference) = &mut declaration else {
+                    return Err(Error::conceptual(
+                        vec![(index + 1) as Integer],
+                        Problem::Expected(Form::Declaration),
+                    ));
+                };
                 reference.arguments = children.references().place((index + 1) as Integer)?;
-                index += 1;
             }
             values.push(declaration);
-            index += 1;
         }
         Ok(values)
     }
@@ -185,23 +207,18 @@ trait Variants {
 impl Variants for [Protos] {
     fn variants(&self) -> Result<Vec<Variant>, Error> {
         let mut values = Vec::new();
-        let mut index = 0;
-        while index < self.len() {
-            let mut variant: Variant = self[index].conceive().place(index as Integer)?;
-            if let (
-                Variant::Typed(_, reference),
-                Some(Protos::Enclosed {
-                    enclosure: Enclosure::Angled,
-                    children,
-                    ..
-                }),
-            ) = (&mut variant, self.get(index + 1))
-            {
+        for (node, arguments, index) in self.constrained() {
+            let mut variant: Variant = node.conceive().place(index as Integer)?;
+            if let Some(children) = arguments {
+                let Variant::Typed(_, reference) = &mut variant else {
+                    return Err(Error::conceptual(
+                        vec![(index + 1) as Integer],
+                        Problem::Expected(Form::Variant),
+                    ));
+                };
                 reference.arguments = children.references().place((index + 1) as Integer)?;
-                index += 1;
             }
             values.push(variant);
-            index += 1;
         }
         Ok(values)
     }
@@ -212,30 +229,21 @@ trait AssociatedTypes {
 impl AssociatedTypes for [Protos] {
     fn associated_types(&self) -> Result<Vec<AssociatedType>, Error> {
         let mut values = Vec::new();
-        let mut index = 0;
-        while index < self.len() {
-            let Protos::Bare { text, .. } = &self[index] else {
+        for (node, arguments, index) in self.constrained() {
+            let Protos::Bare { text, .. } = node else {
                 return Err(Error::conceptual(
                     vec![index as Integer],
                     Problem::Expected(Form::Kind),
                 ));
             };
-            let bounds = match self.get(index + 1) {
-                Some(Protos::Enclosed {
-                    enclosure: Enclosure::Angled,
-                    children,
-                    ..
-                }) => {
-                    index += 1;
-                    Protos::list(children).place((index + 1) as Integer)?
-                }
-                _ => vec![],
+            let bounds = match arguments {
+                Some(children) => Protos::list(children).place((index + 1) as Integer)?,
+                None => vec![],
             };
             values.push(AssociatedType {
                 name: text.as_str().name().place(index as Integer)?,
                 bounds,
             });
-            index += 1;
         }
         Ok(values)
     }
@@ -257,7 +265,7 @@ impl Conceiving<Library> for Protos {
 impl Conceiving<Signal> for Protos {
     fn conceive(&self) -> Result<Signal, Error> {
         let s = self.sections(4)?;
-        let Some(requests) = s[1].children(Enclosure::Bracketed) else {
+        let Some(queries) = s[1].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
         let Some(responses) = s[2].children(Enclosure::Bracketed) else {
@@ -268,7 +276,7 @@ impl Conceiving<Signal> for Protos {
         };
         Ok(Signal {
             imports: s[0].bracket().place(0)?,
-            requests: requests.variants().place(1)?,
+            queries: queries.variants().place(1)?,
             responses: responses.variants().place(2)?,
             types: declarations.declarations().place(3)?,
         })

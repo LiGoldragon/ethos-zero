@@ -106,7 +106,7 @@ impl Resolving for [KindDeclaration] {
     }
 }
 
-/// The kind whose capability yields the names a file variant implies: its query, response or record type.
+/// The kind whose capability yields the names a file variant implies: a Signal's query and response types.
 pub(crate) trait Implying {
     /// The implied type names.
     fn implied(&self) -> Vec<Name>;
@@ -117,10 +117,10 @@ impl Implying for File {
         match self {
             File::Library(_) => vec![],
             File::Signal(_) => vec![
-                Name::try_from("Request").expect("static identifier"),
+                Name::try_from("Query").expect("static identifier"),
                 Name::try_from("Response").expect("static identifier"),
             ],
-            File::Sema(_) => vec![Name::try_from("Record").expect("static identifier")],
+            File::Sema(_) => vec![],
         }
     }
 }
@@ -479,7 +479,7 @@ impl Checkable for Signal {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         let mut names = vec![
             DeclarationSite {
-                name: Name::try_from("Request").expect("static identifier"),
+                name: Name::try_from("Query").expect("static identifier"),
                 path: vec![1],
             },
             DeclarationSite {
@@ -491,9 +491,9 @@ impl Checkable for Signal {
         names.extend(self.types.names_in(3));
         names.distinct()?;
         self.imports.check_each(scope, 0)?;
-        self.requests.names_in(1).distinct()?;
+        self.queries.names_in(1).distinct()?;
         self.responses.names_in(2).distinct()?;
-        self.requests.check_each(scope, 1)?;
+        self.queries.check_each(scope, 1)?;
         self.responses.check_each(scope, 2)?;
         self.types.check_each(scope, 3)
     }
@@ -501,12 +501,8 @@ impl Checkable for Signal {
 
 impl Checkable for Sema {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        let mut names = vec![DeclarationSite {
-            name: Name::try_from("Record").expect("static identifier"),
-            path: vec![1],
-        }];
-        names.extend(self.imports.names_in(0));
-        names.extend(self.types.names_in(2));
+        let mut names = self.imports.names_in(0);
+        names.extend(self.types.names_in(1));
         names.distinct()?;
         self.imports.check_each(scope, 0)?;
         self.types.check_each(scope, 1)

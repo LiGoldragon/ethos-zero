@@ -12,7 +12,7 @@ pub struct Box {
 #[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]
 pub struct Tree {
-    pub self_option: Option<std::boxed::Box<Self>>,
+    pub tree_option: Option<std::boxed::Box<Self>>,
 }
 #[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Compositional, Clone, Debug, PartialEq)]

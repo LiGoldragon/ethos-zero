@@ -181,10 +181,10 @@ pub struct Signal {
     /// Where imported names come from.
     pub imports: Vec<Import>,
     /// The variants of the query type `Query`.
-    pub requests: Vec<Variant>,
+    pub queries: Vec<Variant>,
     /// The variants of the response type `Response`.
     pub responses: Vec<Variant>,
-    /// The types the requests and responses carry.
+    /// The types the queries and responses carry.
     pub types: Vec<TypeDeclaration>,
 }
 

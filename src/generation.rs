@@ -356,8 +356,9 @@ impl Positioning for Reference {
     }
 }
 
+/// The kind whose capability yields the stem a position's field name is built from.
 trait Fielding {
-    fn field_base(&self) -> String;
+    fn field_base(&self, owner: &Name) -> String;
 }
 
 trait SnakeCasing {
@@ -385,9 +386,20 @@ impl SnakeCasing for str {
 }
 
 impl Fielding for Reference {
-    fn field_base(&self) -> String {
-        let mut parts: Vec<String> = self.arguments.iter().map(Self::field_base).collect();
-        parts.push(self.name.0.as_str().snake_case());
+    fn field_base(&self, owner: &Name) -> String {
+        let mut parts: Vec<String> = self
+            .arguments
+            .iter()
+            .map(|argument| argument.field_base(owner))
+            .collect();
+        // `Self` in a position is the enclosing type, and `self` is not a name a
+        // field may bear; the field takes the enclosing type's name instead.
+        let named = if self.source.is_none() && self.name.0 == "Self" {
+            owner
+        } else {
+            &self.name
+        };
+        parts.push(named.0.as_str().snake_case());
         parts.join("_")
     }
 }
@@ -414,13 +426,17 @@ impl Ordinaling for usize {
     }
 }
 
+/// The kind whose capability names every field of a struct of these positions.
 trait FieldNaming {
-    fn field_names(&self) -> Vec<Ident>;
+    fn field_names(&self, owner: &Name) -> Vec<Ident>;
 }
 
 impl FieldNaming for [Reference] {
-    fn field_names(&self) -> Vec<Ident> {
-        let bases: Vec<String> = self.iter().map(Reference::field_base).collect();
+    fn field_names(&self, owner: &Name) -> Vec<Ident> {
+        let bases: Vec<String> = self
+            .iter()
+            .map(|position| position.field_base(owner))
+            .collect();
         let mut fields = Vec::with_capacity(bases.len());
         for (index, base) in bases.iter().enumerate() {
             let repetitions = bases.iter().filter(|other| *other == base).count();
@@ -434,6 +450,9 @@ impl FieldNaming for [Reference] {
             };
             let field = if syn::parse_str::<Ident>(&name).is_ok() {
                 Ident::new(&name, Span::call_site())
+            } else if matches!(name.as_str(), "crate" | "self" | "super" | "Self") {
+                // The four keywords no raw identifier may spell.
+                Ident::new(&format!("{name}_"), Span::call_site())
             } else {
                 Ident::new_raw(&name, Span::call_site())
             };
@@ -583,7 +602,7 @@ impl Structuring for [Reference] {
         for position in self {
             types.push(position.position(scope, owner));
         }
-        let fields = self.field_names();
+        let fields = self.field_names(owner);
         let derive = conditional.datom_derives();
         quote! {
             #derive
@@ -893,12 +912,12 @@ impl Emitting for File {
                 for declaration in &signal.types {
                     items.push(declaration.emit(scope));
                 }
-                let request = TypeDeclaration::Enum(
+                let query = TypeDeclaration::Enum(
                     Identity {
                         name: Name::try_from("Query").expect("static identifier"),
                         constraints: vec![],
                     },
-                    signal.requests.clone(),
+                    signal.queries.clone(),
                 );
                 let response = TypeDeclaration::Enum(
                     Identity {
@@ -907,8 +926,8 @@ impl Emitting for File {
                     },
                     signal.responses.clone(),
                 );
-                if !signal.requests.is_empty() {
-                    items.push(request.emit(scope));
+                if !signal.queries.is_empty() {
+                    items.push(query.emit(scope));
                 }
                 if !signal.responses.is_empty() {
                     items.push(response.emit(scope));

@@ -28,17 +28,21 @@ no closures beyond what std forces, and no lookup tables: the enums are
 walked variant by variant.
 
 The crate eats its own food: `error.ethos` generates `src/error.rs`
-and `ethos-zero.ethos` generates `src/contract.rs`; the freshness test
+and `ethos-zero.ethos` generates `src/ethos-zero.rs`; the freshness test
 regenerates both and every fixture under `tests/generated/`.
 
 ## File variants
 
 ```
-Types    [ imports ] [ types ] [ associations ]
-Kinds    [ imports ] [ kinds ]
-Signal   [ imports ] [ requests ] [ responses ] [ types ]   ; Request and Response implied
-Sema     [ imports ] { record positions } [ types ]         ; Record implied
+Library  [ imports ] [ types ] [ kinds ] [ associations ]
+Signal   [ imports ] [ queries ] [ responses ] [ types ]   ; Query and Response implied
+Sema     [ imports ] [ record types ]
 ```
+
+A Signal generates `pub enum Query` and `pub enum Response` from its
+first two sections, so those two names are the ones a Signal may not
+also declare. Sema generates nothing but its declared record types and
+reserves no name; a Sema record may be named `Record`.
 
 An import names a Rust path prefix and the names taken from it:
 `std:clone:Clonable.Clone` imports one name, and
@@ -54,9 +58,9 @@ allocates an `EthosNested` name instead; authored identities stay unchanged.
 Generated generic parameters similarly move from `A`, `B`, and so on only
 when one would capture an authored type reference.
 
-The flat declaration budget applies to the `Types` section: it refuses more
-than 512 type declarations. The other roots retain their structural reader
-bounds and are not counted against that `Types` budget.
+The flat declaration budget applies to a Library's types section: it refuses
+more than 512 type declarations. The other roots retain their structural reader
+bounds and are not counted against it.
 
 File ascent projects the File's structural Protoform and situates that
 form directly; it does not textualize and parse the result again.

@@ -84,7 +84,9 @@ trait DeclarationsProtosizing {
 
 /// Associated types use the substrate's adjacent bare-plus-angle sequence:
 /// `Item<Serializable>`.  They are declarations only conceptually; emitting
-/// a headed `Item<...>.` invents a separator and cannot be read back.
+/// a headed `Item<...>.` invents a separator and cannot be read back.  What
+/// protos would need for the unsplit shape is stated on `Constraining` in
+/// `conception`.
 trait AssociatedTypesProtosizing {
     fn associated_type_nodes(&self) -> Vec<Protos>;
 }
@@ -321,7 +323,7 @@ impl Protosizing for Signal {
             Enclosure::Braced,
             vec![
                 "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
-                "".enclosed(Enclosure::Bracketed, self.requests.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.queries.protos_list()),
                 "".enclosed(Enclosure::Bracketed, self.responses.protos_list()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
             ],
