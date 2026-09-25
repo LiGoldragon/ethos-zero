@@ -60,7 +60,8 @@ states the serializer, deserializer and validator bounds once, so a
 recursive contract archives and restores. The generated Rust writes
 standard containers as `std::vec::Vec`, `std::option::Option`,
 `std::result::Result`, and `std::boxed::Box`, so a declaration cannot
-capture those names. `Name.{ T1 T2 }` is a tuple variant.
+capture those names. A variant `Name.{ T1 T2 }` carries a generated
+struct `Name_Data` with one field per position.
 
 A type or kind declaration is refused when its name is an intrinsic's
 (`Intrinsic.Result`: the declaration would shadow the intrinsic for every
