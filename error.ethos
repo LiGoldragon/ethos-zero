@@ -14,7 +14,9 @@ Library
             Yield
             Empty
             Depth
-            Role.String ]
+            Role.String
+            Intrinsic.String
+            Case.String ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Kind Capability Constant Association ] ]
 []
 []

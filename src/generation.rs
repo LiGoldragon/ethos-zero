@@ -481,12 +481,10 @@ impl Positioning for Reference {
         // while `Box<Option<Tree>>` hides it behind the container and causes
         // an infinitely recursive derive bound.
         if self.source.is_none()
-            && matches!(
-                scope.file.resolve(&self.name),
-                Resolution::Intrinsic(Intrinsic::Option | Intrinsic::Result)
-            )
+            && let Resolution::Intrinsic(intrinsic @ (Intrinsic::Option | Intrinsic::Result)) =
+                scope.file.resolve(&self.name)
         {
-            let name = self.name.tokens();
+            let name = intrinsic.tokens();
             let mut arguments = Vec::with_capacity(self.arguments.len());
             for argument in &self.arguments {
                 let ty = if argument.boxed(scope, owner) {

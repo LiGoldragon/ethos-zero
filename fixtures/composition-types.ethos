@@ -1,5 +1,10 @@
+; A declared type named as a Rust container cannot capture the generated
+; code, which writes every container fully qualified. An intrinsic's own
+; name, such as Result, is refused as a declaration. A declared Box is not
+; shown here: datom-codec's derive writes Box::new unqualified in every
+; enum's datomization, so a Box in the module captures it.
 Library
 []
-[ Result.{ String } Box.{ String } Tree.{ Option<Self> } Nested.[ Choice.[ Item.{ Result Box } ] ] ]
+[ Vec.{ String } Tree.{ Option<Self> Result<Vec Integer> } Nested.[ Choice.[ Item.{ Vec Integer } ] ] ]
 []
 []

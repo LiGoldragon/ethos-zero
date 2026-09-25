@@ -58,6 +58,14 @@ standard containers as `std::vec::Vec`, `std::option::Option`,
 `std::result::Result`, and `std::boxed::Box`, so a declaration cannot
 capture those names. `Name.{ T1 T2 }` is a tuple variant.
 
+A type or kind declaration is refused when its name is an intrinsic's
+(`Intrinsic.Result`: the declaration would shadow the intrinsic for every
+later reference), or does not begin with a capital (`Case.a`). A declared
+type with no finite value, one that reaches itself with no `Vector`,
+`Option` or other variant to stop at, such as `S.{ Self }`, is refused as
+a `Cycle`. Every generated item carries `#[rustfmt::skip]`, an inline
+payload's as much as its enum's.
+
 A variant that declares its payload in place names a derived type:
 `X.{ … }` or `X.[ … ]` in an enum gives `X_Data`. Derived names are unique
 across the whole file: where two enums each declare an `X` in place, each

@@ -1,17 +1,48 @@
-//! Current generated contracts compile with Datom enabled.
+//! Every generated fixture compiles with Datom enabled.
 
 pub struct Wrapper<T>(pub T);
 
+/// What the kind fixtures import from `super`: the error a capability
+/// yields, and the kinds a type is asserted to bear.
+pub enum SinkError {
+    Closed,
+    Full,
+}
+pub trait Summarizable {
+    fn summarize(&self) -> String;
+}
+pub trait Fillable {}
+pub trait Serializable {}
+
+impl Summarizable for sink_associations::Sink {
+    fn summarize(&self) -> String {
+        self.string.clone()
+    }
+}
+impl Fillable for sink_associations::Sink {}
+
+#[path = "generated/alias-format.rs"]
+mod alias_format;
+#[path = "generated/capability-kinds.rs"]
+mod capability_kinds;
+#[path = "generated/composition-types.rs"]
+mod composition_types;
 #[path = "generated/empty-signal.rs"]
 mod empty_signal;
 #[path = "generated/entry-sema.rs"]
 mod entry_sema;
+#[path = "generated/generic-shadow.rs"]
+mod generic_shadow;
 #[path = "generated/inline-collision.rs"]
 mod inline_collision;
+#[path = "generated/multi-types.rs"]
+mod multi_types;
 #[path = "generated/nested-collision.rs"]
 mod nested_collision;
 #[path = "generated/orchestrate.rs"]
 mod orchestrate;
+#[path = "generated/placed-types.rs"]
+mod placed_types;
 #[path = "generated/processable-kinds.rs"]
 mod processable_kinds;
 #[path = "generated/record-types.rs"]
@@ -20,6 +51,10 @@ mod record_types;
 mod self_kinds;
 #[path = "generated/signal-decimal.rs"]
 mod signal_decimal;
+#[path = "generated/sink-associations.rs"]
+mod sink_associations;
+#[path = "generated/streamable-kind.rs"]
+mod streamable_kind;
 #[path = "generated/tree-types.rs"]
 mod tree_types;
 
@@ -216,4 +251,163 @@ fn generated_sema_records_round_trip_as_datom_text() {
             .expect("restore sema record"),
         record
     );
+}
+
+#[test]
+fn aliases_name_their_types() {
+    let short: alias_format::Short = String::new();
+    let provider: alias_format::OptionalSpiritGuardianProviderName = Some(short);
+    let tokens: alias_format::OptionalSpiritGuardianMaximumOutputTokens = Some(4_096);
+    let nested: alias_format::Nested = vec![Some(Ok(String::new())), Some(Err(1)), None];
+    assert!(provider.is_some() && tokens.is_some());
+    assert_eq!(nested.len(), 3);
+}
+
+/// A sink bearing the fixture's own capability kind.
+struct Buffer {
+    lines: Vec<String>,
+}
+
+impl capability_kinds::Fillable for Buffer {
+    fn push(&mut self, input: String) -> Result<i64, SinkError> {
+        if self.lines.len() > 1 {
+            return Err(SinkError::Full);
+        }
+        self.lines.push(input);
+        Ok(self.lines.len() as i64)
+    }
+    fn drain(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.lines)
+    }
+    fn create() -> Self {
+        Self { lines: Vec::new() }
+    }
+}
+
+impl capability_kinds::Summarizable for Buffer {
+    fn summarize(&self) -> String {
+        self.lines.join(" ")
+    }
+}
+
+#[test]
+fn capability_kinds_are_implementable_traits() {
+    use capability_kinds::{Fillable, Summarizable};
+    let mut buffer = Buffer::create();
+    assert_eq!(buffer.push("a".to_owned()).ok(), Some(1));
+    assert_eq!(buffer.push("b".to_owned()).ok(), Some(2));
+    assert!(matches!(buffer.push("c".to_owned()), Err(SinkError::Full)));
+    assert_eq!(buffer.summarize(), "a b");
+    assert_eq!(buffer.drain().len(), 2);
+    assert!(!matches!(SinkError::Closed, SinkError::Full));
+}
+
+#[test]
+fn declared_container_names_do_not_capture_the_generated_containers() {
+    let tree = composition_types::Tree {
+        tree_option: Some(std::boxed::Box::new(composition_types::Tree {
+            tree_option: None,
+            vec_integer_result: Err(1),
+        })),
+        vec_integer_result: Ok(composition_types::Vec {
+            string: String::new(),
+        }),
+    };
+    let nested = composition_types::Nested::Choice(composition_types::Choice_Data::Item(
+        composition_types::Choice_Data_Item_Data {
+            vec: composition_types::Vec {
+                string: String::new(),
+            },
+            integer: 0,
+        },
+    ));
+    assert!(tree.tree_option.is_some());
+    assert!(matches!(nested, composition_types::Nested::Choice(_)));
+}
+
+#[test]
+fn a_declared_single_letter_type_is_not_shadowed() {
+    let holder = generic_shadow::Holder {
+        string: String::new(),
+        a: generic_shadow::A {
+            string: "a".to_owned(),
+        },
+    };
+    assert_eq!(holder.a.string, "a");
+}
+
+#[test]
+fn several_declarations_generate_side_by_side() {
+    let record = multi_types::Record {
+        string: String::new(),
+        integer: 1,
+    };
+    let report = multi_types::Report {
+        string: String::new(),
+        integer_vector: vec![record.integer],
+    };
+    let id: multi_types::LockId = 7;
+    assert_eq!(report.integer_vector, vec![1]);
+    assert!(matches!(
+        multi_types::SinkError::Closed,
+        multi_types::SinkError::Closed
+    ));
+    assert_eq!(id, 7);
+}
+
+#[test]
+fn every_scalar_intrinsic_has_a_position() {
+    let placed = placed_types::Placed {
+        integer_option: None,
+        integer: 0,
+    };
+    let score = placed_types::Score {
+        decimal: datom_codec::Decimal::try_from(0.5).expect("0.5 is finite"),
+        boolean: true,
+        meaning: datom_codec::Meaning(String::new()),
+    };
+    assert!(placed.integer_option.is_none());
+    assert!(score.boolean);
+}
+
+#[test]
+fn an_association_asserts_the_kinds_a_type_bears() {
+    let sink = sink_associations::Sink {
+        string: "sunk".to_owned(),
+        string_vector: vec![],
+    };
+    assert_eq!(sink.summarize(), "sunk");
+    assert!(matches!(
+        sink_associations::SinkError::Full,
+        sink_associations::SinkError::Full
+    ));
+}
+
+/// A stream bearing the fixture's complex kind.
+struct Counter {
+    count: i64,
+}
+
+impl Serializable for i64 {}
+impl Fillable for Counter {}
+
+impl streamable_kind::Streamable for Counter {
+    type Item = i64;
+    const CAPACITY: i64 = 2;
+    fn next(&mut self) -> Option<i64> {
+        if self.count >= Self::CAPACITY {
+            return None;
+        }
+        self.count += 1;
+        Some(self.count)
+    }
+}
+
+#[test]
+fn a_complex_kind_carries_its_superkind_type_and_constant() {
+    use streamable_kind::Streamable;
+    let mut counter = Counter { count: 0 };
+    assert_eq!(counter.next(), Some(1));
+    assert_eq!(counter.next(), Some(2));
+    assert_eq!(counter.next(), None);
 }

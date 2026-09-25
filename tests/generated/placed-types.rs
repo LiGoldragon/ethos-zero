@@ -2,7 +2,7 @@
 #[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Placed {
-    pub integer_option: Option<i64>,
+    pub integer_option: std::option::Option<i64>,
     pub integer: i64,
 }
 #[rustfmt::skip]

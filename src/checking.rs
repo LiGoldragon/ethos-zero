@@ -401,6 +401,161 @@ impl Defining for Name {
     }
 }
 
+/// The kind whose capability makes sure a name can be declared as a type or a
+/// kind: a name a Rust declaration may take, not an intrinsic's, which a
+/// declaration would shadow for every later reference, and capitalized.
+trait Typing {
+    fn declare(&self) -> Result<(), Error>;
+}
+
+impl Typing for Name {
+    fn declare(&self) -> Result<(), Error> {
+        self.define()?;
+        if Intrinsic::identify(&self.0).is_some() {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Intrinsic(self.0.clone()),
+            ));
+        }
+        if !self.0.starts_with(|glyph: char| glyph.is_uppercase()) {
+            return Err(Error::conceptual(vec![], Problem::Case(self.0.clone())));
+        }
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Inhabitation: every declared type has a finite value
+// ---------------------------------------------------------------------------
+
+/// Whether each declared type is known to have a finite value, as the file is walked to a fixpoint.
+struct Inhabitation {
+    inhabited: Vec<Name>,
+}
+
+/// The kind whose capability tells whether a value has a finite value, given the types known to.
+trait Inhabiting {
+    fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool;
+}
+
+impl Inhabiting for Reference {
+    fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool {
+        if self.source.is_some() {
+            return true;
+        }
+        match file.resolve(&self.name) {
+            Resolution::Intrinsic(Intrinsic::Itself) => known.inhabited.contains(owner),
+            Resolution::Intrinsic(Intrinsic::Result) => {
+                self.arguments.is_empty()
+                    || self
+                        .arguments
+                        .iter()
+                        .any(|argument| argument.inhabited(file, owner, known))
+            }
+            Resolution::Type(name) if file.declaration(&name).is_some() => {
+                known.inhabited.contains(&name)
+            }
+            _ => true,
+        }
+    }
+}
+
+impl Inhabiting for Variant {
+    fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool {
+        match self {
+            Variant::Bare(name) => {
+                file.declaration(name).is_none() || known.inhabited.contains(name)
+            }
+            Variant::Typed(_, reference) => reference.inhabited(file, owner, known),
+            Variant::Struct(_, positions) => positions
+                .iter()
+                .all(|position| position.inhabited(file, owner, known)),
+            Variant::Enum(_, variants) => {
+                variants.is_empty()
+                    || variants
+                        .iter()
+                        .any(|variant| variant.inhabited(file, owner, known))
+            }
+        }
+    }
+}
+
+impl Inhabiting for TypeDeclaration {
+    fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool {
+        match self {
+            TypeDeclaration::Struct(_, positions) => positions
+                .iter()
+                .all(|position| position.inhabited(file, owner, known)),
+            // An enum of no variants is declared empty on purpose, not by recursion.
+            TypeDeclaration::Enum(_, variants) => {
+                variants.is_empty()
+                    || variants
+                        .iter()
+                        .any(|variant| variant.inhabited(file, owner, known))
+            }
+            TypeDeclaration::Alias(_, aliased) => aliased.inhabited(file, owner, known),
+        }
+    }
+}
+
+/// The kind whose capability refuses a declared type that has no finite value,
+/// such as `S.{ Self }`: it reaches itself with no `Vector`, `Option` or
+/// variant to stop at.
+trait Finite {
+    fn finite(&self) -> Result<(), Error>;
+}
+
+impl Finite for File {
+    fn finite(&self) -> Result<(), Error> {
+        let (declarations, section) = match self {
+            File::Library(library) => (&library.types, 1),
+            File::Signal(signal) => (&signal.types, 3),
+            File::Sema(sema) => (&sema.types, 1),
+        };
+        let mut known = Inhabitation {
+            inhabited: Vec::new(),
+        };
+        loop {
+            let mut grown = false;
+            for declaration in declarations {
+                let name = declaration.identity().name.clone();
+                if !known.inhabited.contains(&name) && declaration.inhabited(self, &name, &known) {
+                    known.inhabited.push(name);
+                    grown = true;
+                }
+            }
+            if !grown {
+                break;
+            }
+        }
+        for (index, declaration) in declarations.iter().enumerate() {
+            let name = &declaration.identity().name;
+            if !known.inhabited.contains(name) {
+                return Err(Error::conceptual(
+                    vec![section, index as Integer, 0],
+                    Problem::Cycle(name.0.clone()),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// The kind whose capability yields a type declaration's identity.
+pub(crate) trait Identified {
+    fn identity(&self) -> &Identity;
+}
+
+impl Identified for TypeDeclaration {
+    fn identity(&self) -> &Identity {
+        match self {
+            TypeDeclaration::Struct(identity, _)
+            | TypeDeclaration::Enum(identity, _)
+            | TypeDeclaration::Alias(identity, _) => identity,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Checking
 // ---------------------------------------------------------------------------
@@ -460,7 +615,8 @@ impl Checkable for File {
         // capture one is the occurrence refused.
         let mut names = self.inline_sites();
         names.extend(self.declared());
-        names.distinct().place(1)
+        names.distinct().place(1)?;
+        self.finite().place(1)
     }
 }
 
@@ -1133,6 +1289,7 @@ impl Checkable for TypeDeclaration {
                 Problem::Expected(crate::Form::Declaration),
             ));
         }
+        identity.name.declare().place(0)?;
         identity.check(scope).place(0)?;
         let inner = Scope {
             file: scope.file,
@@ -1192,6 +1349,7 @@ impl Checkable for Variant {
 
 impl Checkable for KindDeclaration {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
+        self.identity.name.declare().place(0)?;
         self.identity.check(scope).place(0)?;
         let inner = Scope {
             file: scope.file,
@@ -1247,7 +1405,7 @@ impl Checkable for KindDeclaration {
 
 impl Checkable for AssociatedType {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        self.name.define()?;
+        self.name.declare()?;
         for (index, bound) in self.bounds.iter().enumerate() {
             bound.refer(scope, Role::Kind).place(index as Integer)?;
         }

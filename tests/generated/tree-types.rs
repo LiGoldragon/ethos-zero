@@ -39,7 +39,7 @@ pub enum Tree {
     Leaf(i64),
     Node(Node_Data),
     Many(#[rkyv(omit_bounds)] std::vec::Vec<Tree>),
-    Maybe(#[rkyv(omit_bounds)] Option<std::boxed::Box<Tree>>),
+    Maybe(#[rkyv(omit_bounds)] std::option::Option<std::boxed::Box<Tree>>),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -59,7 +59,7 @@ pub enum Tree {
 pub struct Chain {
     pub string: String,
     #[rkyv(omit_bounds)]
-    pub chain_option: Option<std::boxed::Box<Chain>>,
+    pub chain_option: std::option::Option<std::boxed::Box<Chain>>,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -145,8 +145,8 @@ pub type Forest = std::vec::Vec<Tree>;
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Wrapped {
-    pub integer_option: Option<i64>,
-    pub string_integer_result: Result<String, i64>,
+    pub integer_option: std::option::Option<i64>,
+    pub string_integer_result: std::result::Result<String, i64>,
     pub string_option_vector: std::vec::Vec<std::option::Option<String>>,
 }
 #[rustfmt::skip]

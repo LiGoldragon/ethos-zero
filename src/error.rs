@@ -38,6 +38,8 @@ pub enum Problem {
     Empty,
     Depth,
     Role(String),
+    Intrinsic(String),
+    Case(String),
 }
 #[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
