@@ -19,10 +19,14 @@ types. Each pass is a module named for it.
 | ascent | `Protosizable`, `Textualizable` | `File` | canonical text (cannot err) |
 | actualization | `Actualizing<File>` on `Potential<File>` | text | `File`, or an `Error` |
 
-Every error carries the Protos path of the structure in error: a headed
-form puts its head at child zero and body at child one, while qualified
-head arguments remain below the head. Actualization follows that
-structure directly to situate the error in its source text. Every method
+Every error carries the Protos path of the structure in error, from the
+file's root: a headed form puts its head at child zero and body at child
+one, qualified head arguments remain below the head, and a reference's
+arguments are the angled enclosure beside it in its list
+(`Vector<Bogus>` at index 0 puts `Bogus` at `[ 1 0 ]`). `Locating`
+follows that path down the source's structure and carries the node's
+start back across the sweet form's seam, so every error is situated as a
+line and a column in the text as written. Every method
 call lives under a kind; there are no free functions, no inherent impls,
 no closures beyond what std forces, and no lookup tables: the enums are
 walked variant by variant.
@@ -88,7 +92,14 @@ structure; it does not textualize and parse the result again.
 ```
 ethos-zero 'Generate.{ /abs/file.ethos /abs/out-dir }'
 # -> Generated.[ /abs/out-dir/file.rs ]
+ethos-zero 'Check./abs/file.ethos'
+# -> Checked./abs/file.ethos
+# -> Rejected.{ /abs/file.ethos { 4 19 } Conceptual.{ [ 1 1 0 1 1 ] Undeclared.Bogus } }
 ```
+
+`Check` validates the whole file and writes nothing. A rejection, from
+either query, names the file, the line and column of the error (counted
+from one), and the error; a rejected `Generate` creates no directory.
 
 One inline datom value, no flags; every reply is a value of the
 contract's `Response`. With no argument, `ethos-zero` prints its own

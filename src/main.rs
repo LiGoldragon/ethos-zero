@@ -4,7 +4,9 @@ use std::path::Path as FilePath;
 use std::process::ExitCode;
 
 use datom_codec::{Actualizing as _, Budget, Datomizable as _, Path, Potential};
-use ethos_zero::{Actualizing as _, File, Generating, Potential as EthosPotential};
+use ethos_zero::{
+    Actualizing as _, File, Generating, Locating as _, Potential as EthosPotential, Validating as _,
+};
 use protos::{Protosizable, Textualizable};
 
 #[rustfmt::skip]
@@ -12,8 +14,8 @@ use protos::{Protosizable, Textualizable};
 mod contract;
 
 use contract::{
-    Conceptual_Data as Generation_Conceptual_Data, Generation, Generation_Error,
-    GenerationRejected_Data, Query, Response, Unreadable_Data, Unwritable_Data,
+    Conceptual_Data as Generation_Conceptual_Data, Generation, Generation_Error, Query,
+    Rejected_Data, Response, Unreadable_Data, Unwritable_Data,
 };
 
 const ETHOS: &str = include_str!("../ethos-zero.ethos");
@@ -32,6 +34,14 @@ trait Texting {
 }
 trait Erroring<T> {
     fn error(self) -> T;
+}
+/// The kind whose capability reads an ethos source file into its checked-for-structure File.
+trait Sourcing {
+    fn source(&self) -> Result<(EthosPotential<File>, File), Response>;
+}
+/// The kind whose capability turns an error in a read source into a located rejection.
+trait Rejecting {
+    fn reject(&self, source: &EthosPotential<File>, error: ethos_zero::Error) -> Response;
 }
 
 impl Texting for Response {
@@ -57,50 +67,58 @@ impl Erroring<Generation_Error> for ethos_zero::Error {
     }
 }
 
+impl Sourcing for String {
+    fn source(&self) -> Result<(EthosPotential<File>, File), Response> {
+        let text = match std::fs::read_to_string(self) {
+            Ok(text) => text,
+            Err(error) => {
+                return Err(Response::Unreadable(Unreadable_Data {
+                    first_string: self.clone(),
+                    second_string: error.to_string(),
+                }));
+            }
+        };
+        let potential = EthosPotential::<File>::from(text);
+        match potential.actualize() {
+            Ok(file) => Ok((potential, file)),
+            Err(error) => Err(self.reject(&potential, error)),
+        }
+    }
+}
+
+impl Rejecting for String {
+    fn reject(&self, source: &EthosPotential<File>, error: ethos_zero::Error) -> Response {
+        Response::Rejected(Rejected_Data {
+            string: self.clone(),
+            location: source.locate(&error),
+            generation__error: error.error(),
+        })
+    }
+}
+
 impl Serving for Generation {
     fn serve(&mut self) -> Response {
         let source = &self.first_string;
         let directory = &self.second_string;
-        let text = match std::fs::read_to_string(source) {
-            Ok(text) => text,
-            Err(error) => {
-                return Response::Unreadable(Unreadable_Data {
-                    first_string: source.clone(),
-                    second_string: error.to_string(),
-                });
-            }
-        };
-        let file = match EthosPotential::<File>::from(text).actualize() {
-            Ok(file) => file,
-            Err(error) => {
-                return Response::GenerationRejected(GenerationRejected_Data {
-                    string: source.clone(),
-                    path: Path::new(),
-                    generation__error: error.error(),
-                });
-            }
+        let (potential, file) = match source.source() {
+            Ok(read) => read,
+            Err(response) => return response,
         };
         let stem = FilePath::new(source)
             .file_stem()
             .unwrap_or_default()
             .to_string_lossy();
         let target = FilePath::new(directory).join(format!("{stem}.rs"));
+        let generated = match file.generate() {
+            Ok(generated) => generated,
+            Err(error) => return source.reject(&potential, error),
+        };
         if let Err(error) = std::fs::create_dir_all(directory) {
             return Response::Unwritable(Unwritable_Data {
                 first_string: directory.clone(),
                 second_string: error.to_string(),
             });
         }
-        let generated = match file.generate() {
-            Ok(generated) => generated,
-            Err(error) => {
-                return Response::GenerationRejected(GenerationRejected_Data {
-                    string: source.clone(),
-                    path: Path::new(),
-                    generation__error: error.error(),
-                });
-            }
-        };
         match std::fs::write(&target, generated) {
             Ok(()) => Response::Generated(vec![target.to_string_lossy().into_owned()]),
             Err(error) => Response::Unwritable(Unwritable_Data {
@@ -111,10 +129,24 @@ impl Serving for Generation {
     }
 }
 
+impl Serving for String {
+    fn serve(&mut self) -> Response {
+        let (potential, file) = match self.source() {
+            Ok(read) => read,
+            Err(response) => return response,
+        };
+        match file.validate() {
+            Ok(()) => Response::Checked(self.clone()),
+            Err(error) => self.reject(&potential, error),
+        }
+    }
+}
+
 impl Serving for Query {
     fn serve(&mut self) -> Response {
         match self {
             Self::Generate(generation) => generation.serve(),
+            Self::Check(source) => source.serve(),
         }
     }
 }
@@ -137,11 +169,11 @@ impl Serving for Potential<Query> {
 impl Exiting for Response {
     fn exit(&self) -> ExitCode {
         match self {
-            Self::Generated(_) => ExitCode::SUCCESS,
+            Self::Generated(_) | Self::Checked(_) => ExitCode::SUCCESS,
             Self::Arguments(_)
             | Self::Malformed(_)
             | Self::Unreadable(_)
-            | Self::GenerationRejected(_)
+            | Self::Rejected(_)
             | Self::Unwritable(_) => ExitCode::FAILURE,
         }
     }

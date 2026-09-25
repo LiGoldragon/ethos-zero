@@ -342,23 +342,113 @@ impl Naming for Capability {
     }
 }
 
-/// The kind whose capability lists the names of every element of a section, each under its index.
+// ---------------------------------------------------------------------------
+// Placement: every path is the Protos path of the structure in error
+// ---------------------------------------------------------------------------
+
+/// The path step naming the angled enclosure beside a node. `Vector<Integer>`
+/// in a list is two Protos siblings, the name and the enclosure after it, so
+/// a reference's arguments are not below its node but beside it. The
+/// reference writes this step; the list, which knows where the node sits,
+/// resolves it to the index after the node's.
+const BESIDE: Integer = -1;
+
+/// The kind whose capability yields how many Protos siblings an element of
+/// a list occupies: two when its arguments stand in the enclosure beside it.
+pub(crate) trait Spanning {
+    fn span(&self) -> Integer {
+        1
+    }
+}
+
+impl Spanning for Reference {
+    fn span(&self) -> Integer {
+        if self.arguments.is_empty() { 1 } else { 2 }
+    }
+}
+
+impl Spanning for TypeDeclaration {
+    fn span(&self) -> Integer {
+        match self {
+            TypeDeclaration::Alias(_, aliased) => aliased.span(),
+            TypeDeclaration::Struct(_, _) | TypeDeclaration::Enum(_, _) => 1,
+        }
+    }
+}
+
+impl Spanning for Variant {
+    fn span(&self) -> Integer {
+        match self {
+            Variant::Typed(_, reference) => reference.span(),
+            Variant::Bare(_) | Variant::Struct(_, _) | Variant::Enum(_, _) => 1,
+        }
+    }
+}
+
+impl Spanning for AssociatedType {
+    fn span(&self) -> Integer {
+        if self.bounds.is_empty() { 1 } else { 2 }
+    }
+}
+
+impl Spanning for Import {}
+impl Spanning for crate::Imported {}
+impl Spanning for KindDeclaration {}
+impl Spanning for AssociatedConstant {}
+impl Spanning for Capability {}
+impl Spanning for Association {}
+
+/// The kind whose capabilities place an element's error in its list, and
+/// carry a beside step through the node it names.
+trait Siting {
+    /// Place the error under the element at Protos index `at`, resolving a
+    /// leading beside step to the enclosure after it.
+    fn beside(self, at: Integer) -> Self;
+    /// Place the error under child `index`, unless it lies beside this node,
+    /// in which case it passes up to the list that holds the node.
+    fn lifted(self, index: Integer) -> Self;
+}
+
+impl<T> Siting for Result<T, Error> {
+    fn beside(self, at: Integer) -> Self {
+        match self {
+            Err(Error::Conceptual(mut data)) if data.integer_vector.first() == Some(&BESIDE) => {
+                data.integer_vector[0] = at + 1;
+                Err(Error::Conceptual(data))
+            }
+            other => other.place(at),
+        }
+    }
+
+    fn lifted(self, index: Integer) -> Self {
+        match self {
+            Err(Error::Conceptual(data)) if data.integer_vector.first() == Some(&BESIDE) => {
+                Err(Error::Conceptual(data))
+            }
+            other => other.place(index),
+        }
+    }
+}
+
+/// The kind whose capability lists the names of every element of a section, each under its Protos index.
 trait Sectioned {
     fn names_in(&self, section: Integer) -> Vec<DeclarationSite>;
 }
 
-impl<N: Naming> Sectioned for [N] {
+impl<N: Naming + Spanning> Sectioned for [N] {
     fn names_in(&self, section: Integer) -> Vec<DeclarationSite> {
         let mut names = Vec::new();
-        for (index, element) in self.iter().enumerate() {
+        let mut at = 0;
+        for element in self {
             for declared in element.names() {
-                let mut placed = vec![section, index as Integer];
+                let mut placed = vec![section, at];
                 placed.extend(declared.path);
                 names.push(DeclarationSite {
                     name: declared.name,
                     path: placed,
                 });
             }
+            at += element.span();
         }
         names
     }
@@ -528,14 +618,16 @@ impl Finite for File {
                 break;
             }
         }
-        for (index, declaration) in declarations.iter().enumerate() {
+        let mut at = 0;
+        for declaration in declarations {
             let name = &declaration.identity().name;
             if !known.inhabited.contains(name) {
                 return Err(Error::conceptual(
-                    vec![section, index as Integer, 0],
+                    vec![section, at, 0],
                     Problem::Cycle(name.0.clone()),
                 ));
             }
+            at += declaration.span();
         }
         Ok(())
     }
@@ -573,10 +665,12 @@ trait Checking {
     fn check_each(&self, scope: &Scope, section: Integer) -> Result<(), Error>;
 }
 
-impl<C: Checkable> Checking for [C] {
+impl<C: Checkable + Spanning> Checking for [C] {
     fn check_children(&self, scope: &Scope) -> Result<(), Error> {
-        for (index, element) in self.iter().enumerate() {
-            element.check(scope).place(index as Integer)?;
+        let mut at = 0;
+        for element in self {
+            element.check(scope).beside(at)?;
+            at += element.span();
         }
         Ok(())
     }
@@ -660,14 +754,16 @@ trait EnumSectioned {
 impl EnumSectioned for [TypeDeclaration] {
     fn enums_in(&self, section: Integer) -> Vec<InlineRoot<'_>> {
         let mut roots = Vec::new();
-        for (index, declaration) in self.iter().enumerate() {
+        let mut at = 0;
+        for declaration in self {
             if let TypeDeclaration::Enum(identity, variants) = declaration {
                 roots.push(InlineRoot {
                     owner: identity.name.clone(),
                     variants,
-                    path: vec![section, index as Integer, 1],
+                    path: vec![section, at, 1],
                 });
             }
+            at += declaration.span();
         }
         roots
     }
@@ -733,13 +829,16 @@ impl InlineWalking for [Variant] {
         path: &Path,
         sites: &mut Vec<DeclarationSite>,
     ) {
-        for (index, variant) in self.iter().enumerate() {
+        let mut at = 0;
+        for variant in self {
+            let index = at;
+            at += variant.span();
             let Some(name) = variant.payload() else {
                 continue;
             };
             let derived = file.inline_name(owner, enclosing, name);
             let mut placed = path.clone();
-            placed.push(index as Integer);
+            placed.push(index);
             let mut named = placed.clone();
             named.push(0);
             sites.push(DeclarationSite {
@@ -957,11 +1056,10 @@ trait ReferringEach {
 
 impl ReferringEach for [Reference] {
     fn refer_each(&self, scope: &Scope, role: Role, section: Integer) -> Result<(), Error> {
-        for (index, reference) in self.iter().enumerate() {
-            reference
-                .refer(scope, role)
-                .place(index as Integer)
-                .place(section)?;
+        let mut at = 0;
+        for reference in self {
+            reference.refer(scope, role).beside(at).place(section)?;
+            at += reference.span();
         }
         Ok(())
     }
@@ -1068,12 +1166,11 @@ impl Referring for Reference {
                 ));
             }
         }
-        for (index, argument) in self.arguments.iter().enumerate() {
-            let checked = argument.refer(scope, Role::Type).place(index as Integer);
-            match self.source {
-                Some(_) => checked.place(1)?,
-                None => checked?,
-            }
+        // The arguments stand in the angled enclosure beside this node.
+        let mut at = 0;
+        for argument in &self.arguments {
+            argument.refer(scope, Role::Type).beside(at).place(BESIDE)?;
+            at += argument.span();
         }
         Ok(())
     }
@@ -1308,7 +1405,7 @@ impl Checkable for TypeDeclaration {
                 variants.check_children(&inner).place(1)
             }
             TypeDeclaration::Alias(identity, aliased) => {
-                aliased.check(&inner).place(1)?;
+                aliased.check(&inner).lifted(1)?;
                 if aliased.cycles(&identity.name, scope.file, &mut vec![]) {
                     return Err(Error::conceptual(
                         vec![0],
@@ -1327,7 +1424,7 @@ impl Checkable for Variant {
             Variant::Bare(name) => name.define(),
             Variant::Typed(name, reference) => {
                 name.define().place(0)?;
-                reference.check(scope).place(1)
+                reference.check(scope).lifted(1)
             }
             Variant::Struct(name, positions) => {
                 name.define().place(0)?;
@@ -1406,8 +1503,11 @@ impl Checkable for KindDeclaration {
 impl Checkable for AssociatedType {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.name.declare()?;
-        for (index, bound) in self.bounds.iter().enumerate() {
-            bound.refer(scope, Role::Kind).place(index as Integer)?;
+        // The bounds stand in the angled enclosure beside the name.
+        let mut at = 0;
+        for bound in &self.bounds {
+            bound.refer(scope, Role::Kind).beside(at).place(BESIDE)?;
+            at += bound.span();
         }
         Ok(())
     }
@@ -1422,7 +1522,7 @@ impl Checkable for AssociatedConstant {
                 Problem::Name(self.name.0.clone()),
             ));
         }
-        self.ty.check(scope).place(1)
+        self.ty.check(scope).lifted(1)
     }
 }
 
@@ -1430,10 +1530,10 @@ impl Checkable for Capability {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.name.define().place(0)?;
         match &self.signature {
-            Signature::Yielding(yields) => yields.check(scope).place(0).place(1),
+            Signature::Yielding(yields) => yields.check(scope).beside(0).place(1),
             Signature::Taking(inputs, yields) => {
-                inputs.check_each(scope, 0).place(0).place(1)?;
-                yields.check(scope).place(0).place(1).place(1)
+                inputs.check_each(scope, 0).place(1)?;
+                yields.check(scope).beside(0).place(1).place(1)
             }
         }
     }
@@ -1450,5 +1550,15 @@ impl Checkable for Association {
         self.identity.check(scope).place(0)?;
         // The kinds borne are named outside the identity that bears them.
         self.kinds.refer_each(scope, Role::Kind, 0).place(1)
+    }
+}
+
+impl crate::Validating for File {
+    fn validate(&self) -> Result<(), Error> {
+        self.check(&Scope {
+            file: self,
+            identity: None,
+            associated: &[],
+        })
     }
 }

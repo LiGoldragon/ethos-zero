@@ -3,6 +3,7 @@
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Query {
     Generate(Generation),
+    Check(String),
 }
 #[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
@@ -12,9 +13,9 @@ pub struct Unreadable_Data {
 }
 #[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct GenerationRejected_Data {
+pub struct Rejected_Data {
     pub string: String,
-    pub path: datom_codec::Path,
+    pub location: ethos_zero::Location,
     pub generation__error: Generation_Error,
 }
 #[rustfmt::skip]
@@ -27,10 +28,11 @@ pub struct Unwritable_Data {
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Response {
     Generated(std::vec::Vec<String>),
+    Checked(String),
     Arguments(i64),
     Malformed(datom_codec::Error),
     Unreadable(Unreadable_Data),
-    GenerationRejected(GenerationRejected_Data),
+    Rejected(Rejected_Data),
     Unwritable(Unwritable_Data),
 }
 #[rustfmt::skip]

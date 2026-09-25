@@ -1,13 +1,18 @@
 ; The local Datom command contract, not a wire Signal.
+; Generate reads an ethos file and writes its Rust module into a directory;
+; Check reads and validates it whole, writing nothing. A rejection names the
+; file, the line and column of the error in it, and the error.
 Library
-[ datom_codec:[ Error Path ]
-  ethos_zero:[ Problem ] ]
-[ Query.[ Generate.Generation ]
+[ datom_codec:[ Error ]
+  ethos_zero:[ Problem Location ] ]
+[ Query.[ Generate.Generation
+          Check.String ]
   Response.[ Generated.Vector<String>
+             Checked.String
              Arguments.Integer
              Malformed.Error
              Unreadable.{ String String }
-             GenerationRejected.{ String Path Generation_Error }
+             Rejected.{ String Location Generation_Error }
              Unwritable.{ String String } ]
   Generation.{ String String }
   Generation_Error.[ Structural.protos:Error

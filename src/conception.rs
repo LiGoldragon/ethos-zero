@@ -82,10 +82,10 @@ impl Conceiving<File> for Protos {
             return Err(Error::conceptual(vec![], Problem::Root));
         };
         match Root::identify(&head.0) {
-            Some(Root::Library) => Ok(File::Library(body.conceive()?)),
-            Some(Root::Signal) => Ok(File::Signal(body.conceive()?)),
-            Some(Root::Sema) => Ok(File::Sema(body.conceive()?)),
-            _ => Err(Error::conceptual(vec![], Problem::Root)),
+            Some(Root::Library) => Ok(File::Library(body.conceive().place(1)?)),
+            Some(Root::Signal) => Ok(File::Signal(body.conceive().place(1)?)),
+            Some(Root::Sema) => Ok(File::Sema(body.conceive().place(1)?)),
+            _ => Err(Error::conceptual(vec![0], Problem::Root)),
         }
     }
 }
@@ -308,8 +308,8 @@ impl Conceiving<Imported> for Protos {
                     return Err(Error::conceptual(vec![1], Problem::Expected(Form::Import)));
                 };
                 return Ok(Imported {
-                    name: head.name()?,
-                    emitted: text.as_str().name()?,
+                    name: head.name().place(0)?,
+                    emitted: text.as_str().name().place(1)?,
                 });
             }
             _ => return Err(Error::conceptual(vec![], Problem::Expected(Form::Import))),
@@ -332,11 +332,11 @@ impl Conceiving<Import> for Protos {
             return Err(Error::conceptual(vec![], Problem::Expected(Form::Import)));
         };
         let source = Source::try_from(head.0.as_str())
-            .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))?;
+            .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?;
         if let Some(children) = body.children(Enclosure::Bracketed) {
-            Ok(Import::Many(source, Protos::list(children)?))
+            Ok(Import::Many(source, Protos::list(children).place(1)?))
         } else {
-            Ok(Import::One(source, body.conceive()?))
+            Ok(Import::One(source, body.conceive().place(1)?))
         }
     }
 }
@@ -354,10 +354,10 @@ impl Conceiving<Reference> for Protos {
                 body,
                 ..
             } => {
-                let mut r: Reference = body.conceive()?;
+                let mut r: Reference = body.conceive().place(1)?;
                 r.source = Some(
                     Source::try_from(head.0.as_str())
-                        .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))?,
+                        .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?,
                 );
                 Ok(r)
             }
@@ -390,15 +390,15 @@ impl Conceiving<TypeDeclaration> for Protos {
             ));
         }
         let identity = Identity {
-            name: head.name()?,
+            name: head.name().place(0)?,
             constraints: vec![],
         };
         if let Some(p) = body.children(Enclosure::Braced) {
-            Ok(TypeDeclaration::Struct(identity, p.references()?))
+            Ok(TypeDeclaration::Struct(identity, p.references().place(1)?))
         } else if let Some(v) = body.children(Enclosure::Bracketed) {
-            Ok(TypeDeclaration::Enum(identity, v.variants()?))
+            Ok(TypeDeclaration::Enum(identity, v.variants().place(1)?))
         } else {
-            Ok(TypeDeclaration::Alias(identity, body.conceive()?))
+            Ok(TypeDeclaration::Alias(identity, body.conceive().place(1)?))
         }
     }
 }
@@ -412,13 +412,13 @@ impl Conceiving<Variant> for Protos {
                 body,
                 ..
             } => {
-                let n = head.name()?;
+                let n = head.name().place(0)?;
                 if let Some(p) = body.children(Enclosure::Braced) {
-                    Ok(Variant::Struct(n, p.references()?))
+                    Ok(Variant::Struct(n, p.references().place(1)?))
                 } else if let Some(v) = body.children(Enclosure::Bracketed) {
-                    Ok(Variant::Enum(n, v.variants()?))
+                    Ok(Variant::Enum(n, v.variants().place(1)?))
                 } else {
-                    Ok(Variant::Typed(n, body.conceive()?))
+                    Ok(Variant::Typed(n, body.conceive().place(1)?))
                 }
             }
             _ => Err(Error::conceptual(vec![], Problem::Expected(Form::Variant))),
@@ -454,9 +454,9 @@ impl Conceiving<AssociatedType> for Protos {
             Protos::Headed {
                 head, constraints, ..
             } => Ok(AssociatedType {
-                name: head.name()?,
+                name: head.name().place(0)?,
                 bounds: match constraints.as_deref() {
-                    Some(Protos::Enclosed { children, .. }) => Protos::list(children)?,
+                    Some(Protos::Enclosed { children, .. }) => Protos::list(children).place(0)?,
                     _ => vec![],
                 },
             }),
@@ -508,17 +508,17 @@ impl Conceiving<Capability> for Protos {
                 signature: Signature::Yielding(yields.into_iter().next().expect("one yield")),
             });
         };
-        let sections = body.sections(2)?;
+        let sections = body.sections(2).place(1)?;
         let Some(input_nodes) = sections[0].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(
-                vec![0],
+                vec![1, 0],
                 Problem::Expected(Form::Capability),
             ));
         };
         let inputs = input_nodes.references().place(0).place(1)?;
         let Some(y) = sections[1].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(
-                vec![1],
+                vec![1, 1],
                 Problem::Expected(Form::Capability),
             ));
         };
@@ -546,9 +546,9 @@ impl Conceiving<KindDeclaration> for Protos {
             return Err(Error::conceptual(vec![], Problem::Expected(Form::Kind)));
         };
         let identity = Identity {
-            name: head.name()?,
+            name: head.name().place(0)?,
             constraints: match constraints.as_deref() {
-                Some(Protos::Enclosed { children, .. }) => Protos::list(children)?,
+                Some(Protos::Enclosed { children, .. }) => Protos::list(children).place(0)?,
                 _ => vec![],
             },
         };
@@ -558,9 +558,9 @@ impl Conceiving<KindDeclaration> for Protos {
                 body: KindBody::Simple(Protos::list(c).place(1)?),
             });
         };
-        let s = body.sections(4)?;
+        let s = body.sections(4).place(1)?;
         let Some(types) = s[1].children(Enclosure::Bracketed) else {
-            return Err(Error::conceptual(vec![1], Problem::Expected(Form::Kind)));
+            return Err(Error::conceptual(vec![1, 1], Problem::Expected(Form::Kind)));
         };
         Ok(KindDeclaration {
             identity,

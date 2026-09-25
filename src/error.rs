@@ -57,3 +57,13 @@ pub enum Form {
     Constant,
     Association,
 }
+#[rustfmt::skip]
+#[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Location {
+    pub line: Line,
+    pub column: Column,
+}
+#[rustfmt::skip]
+pub type Line = i64;
+#[rustfmt::skip]
+pub type Column = i64;

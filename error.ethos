@@ -1,4 +1,5 @@
-; The errors the ethos reader raises: structural, from the protos reading, or conceptual, at a path.
+; The errors the ethos reader raises: structural, from the protos reading, or conceptual, at a path;
+; and where an error lies in the source text, its line and column counted from one.
 Library
 [ protos:[ Extent Separator ] ]
 [ Structural_Error.{ Extent protos:Problem }
@@ -17,6 +18,9 @@ Library
             Role.String
             Intrinsic.String
             Case.String ]
-  Form.[ File Section Import Name Declaration Variant Reference Constraint Kind Capability Constant Association ] ]
+  Form.[ File Section Import Name Declaration Variant Reference Constraint Kind Capability Constant Association ]
+  Location.{ Line Column }
+  Line.Integer
+  Column.Integer ]
 []
 []

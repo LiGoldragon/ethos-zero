@@ -45,7 +45,9 @@ use std::marker::PhantomData;
 #[rustfmt::skip]
 mod error;
 
-pub use error::{Arity_Data, Conceptual_Data, Error, Form, Problem, Structural_Error};
+pub use error::{
+    Arity_Data, Column, Conceptual_Data, Error, Form, Line, Location, Problem, Structural_Error,
+};
 
 // ---------------------------------------------------------------------------
 // The concept: the File and its declarations
@@ -500,6 +502,20 @@ pub trait Generating {
     fn generate(&self) -> Result<String, Error>;
 }
 
+/// The kind whose capability checks a whole file without generating it.
+pub trait Validating {
+    /// The whole-file error that would prevent generation, if any.
+    fn validate(&self) -> Result<(), Error>;
+}
+
+/// The kind whose capability situates an error in the source text it was raised from.
+pub trait Locating {
+    /// The line and column, counted from one, where the error lies: a
+    /// structural error at its extent, a conceptual one at the start of the
+    /// structure its path names.
+    fn locate(&self, error: &Error) -> Location;
+}
+
 /// The kind whose capability actualizes Ethos text into its conceptual value.
 pub trait Actualizing<T> {
     type Error;
@@ -680,6 +696,7 @@ mod canonicalization;
 mod checking;
 mod conception;
 mod generation;
+mod location;
 mod protosization;
 
 #[cfg(test)]
@@ -917,7 +934,7 @@ mod behavior {
     fn conceptual_errors_preserve_the_bad_declaration_path() {
         let source = "Library.{ [] [ Bad ] [] [] }";
         match Potential::<File>::from(source).actualize() {
-            Err(Error::Conceptual(data)) => assert_eq!(data.integer_vector, vec![1, 0]),
+            Err(Error::Conceptual(data)) => assert_eq!(data.integer_vector, vec![1, 1, 0]),
             _ => panic!("bad declaration must retain its section and child path"),
         }
     }
@@ -986,9 +1003,9 @@ mod behavior {
     #[test]
     fn signal_sema_import_and_attached_generic_errors_keep_root_paths() {
         let cases = [
-            ("Signal [ 1 ] [] [] []", vec![0, 0]),
-            ("Sema [] [ 1 ]", vec![1, 0]),
-            ("Library [] [ Alias.Vector<1> ] [] []", vec![1, 1, 0]),
+            ("Signal [ 1 ] [] [] []", vec![1, 0, 0]),
+            ("Sema [] [ 1 ]", vec![1, 1, 0]),
+            ("Library [] [ Alias.Vector<1> ] [] []", vec![1, 1, 1, 0]),
         ];
         for (source, expected) in cases {
             match Potential::<File>::from(source).actualize() {
@@ -1001,14 +1018,14 @@ mod behavior {
     #[test]
     fn kind_capability_and_association_errors_keep_all_structural_parents() {
         let cases = [
-            ("Library [] [] [ K.[ 1 ] ] []", vec![2, 0, 1, 0]),
+            ("Library [] [] [ K.[ 1 ] ] []", vec![1, 2, 0, 1, 0]),
             (
                 "Library [] [] [ K.{ [ 1 ] [] [] [] } ] []",
-                vec![2, 0, 1, 0, 0],
+                vec![1, 2, 0, 1, 0, 0],
             ),
             (
                 "Library [] [ T.String ] [ K.[] ] [ T.[ 1 ] ]",
-                vec![3, 0, 1, 0],
+                vec![1, 3, 0, 1, 0],
             ),
         ];
         for (source, expected) in cases {
@@ -1016,6 +1033,52 @@ mod behavior {
                 Err(Error::Conceptual(data)) => assert_eq!(data.integer_vector, expected),
                 _ => panic!("{source} must retain every structural parent"),
             }
+        }
+    }
+
+    #[test]
+    fn every_path_located_names_the_offending_token() {
+        use crate::Locating;
+        // Each source holds exactly one `1` or `Bogus`, which is the error.
+        let cases = [
+            "Library.{ [] [ 1 ] [] [] }",
+            "Signal [ 1 ] [] [] []",
+            "Sema [] [ 1 ]",
+            "Library [] [ Alias.Vector<1> ] [] []",
+            "Library [] [] [ K.[ 1 ] ] []",
+            "Library [] [] [ K.{ [ 1 ] [] [] [] } ] []",
+            "Library [] [ T.String ] [ K.[] ] [ T.[ 1 ] ]",
+            "Library [] [ Rec.{ String Bogus } ] [] []",
+            "Library [] [ Rec.{ Vector<String> Option<Bogus> } ] [] []",
+            "Library [] [ Rec.{ Vector<Option<Bogus>> } ] [] []",
+            "Library [] [ Alias.Result<String Bogus> ] [] []",
+            "Library [] [ E.[ A.Vector<String> B.Option<Bogus> ] ] [] []",
+            "Library [ x:[ T ] ] [ Rec.{ x:T<Bogus> } ] [] []",
+            "Library [] [] [ K.[ run.{ [ String Bogus ] [ String ] } ] ] []",
+            "Library [] [] [ K.[ run.{ [ String ] [ Vector<Bogus> ] } ] ] []",
+            "Library [] [] [ K.{ [] [ Item<Bogus> ] [] [] } ] []",
+            "Signal [] [ Ask.Vector<Bogus> ] [] []",
+        ];
+        for source in cases {
+            let potential = Potential::<File>::from(source);
+            let error = match potential.actualize() {
+                Ok(file) => match file.generate() {
+                    Err(error) => error,
+                    Ok(_) => panic!("{source} must be refused"),
+                },
+                Err(error) => error,
+            };
+            let location = potential.locate(&error);
+            let offending = source
+                .find("Bogus")
+                .or_else(|| source.find(" 1 ").map(|at| at + 1))
+                .or_else(|| source.find("<1>").map(|at| at + 1))
+                .expect("one offending token");
+            assert_eq!(
+                (location.line, location.column),
+                (1, offending as i64 + 1),
+                "{source}: {error:?}"
+            );
         }
     }
 }
