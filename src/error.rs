@@ -11,6 +11,7 @@ pub struct Conceptual_Data {
     pub integer_vector: std::vec::Vec<i64>,
     pub problem: Problem,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Error {
     Structural(Structural_Error),
@@ -22,6 +23,7 @@ pub struct Arity_Data {
     pub first_integer: i64,
     pub second_integer: i64,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Problem {
     Root,

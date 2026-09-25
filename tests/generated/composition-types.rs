@@ -20,10 +20,12 @@ pub struct Choice_Data_Item_Data {
     pub result: Result,
     pub r#box: Box,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Choice_Data {
     Item(Choice_Data_Item_Data),
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Nested {
     Choice(Choice_Data),

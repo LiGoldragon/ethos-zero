@@ -7,11 +7,16 @@
 //! are resolved through the scope, never a table; the generated Rust
 //! carries no `use` and writes every foreign name fully qualified.
 //!
-//! One rule decides boxing: a position whose type reaches the type
-//! that declares it, walking through declared types, aliases, `Option`
-//! and `Result` but not through `Vector`, is boxed as a whole
-//! (`std::boxed::Box<std::option::Option<Tree>>`), and the datom machinery
-//! never sees the box.
+//! One rule decides boxing: a position is boxed where it closes a by-value
+//! cycle, that is where it names, through aliases, `Option` and `Result` but
+//! not through `Vector`, a type declared no later than its owner that reaches
+//! the owner by value. The box sits immediately around the recursive
+//! argument (`std::option::Option<std::boxed::Box<Tree>>`).
+//!
+//! One rule decides archive bounds: in a Signal, a position that reaches its
+//! owner by any path, `Vector` included, omits its rkyv bounds, and its type
+//! states the serializer, deserializer and validator bounds once instead, so
+//! a recursive type archives and restores.
 
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -236,26 +241,50 @@ impl Parametrizing for Identity {
 }
 
 // ---------------------------------------------------------------------------
-// Reaching: the boxing rule
+// Reaching: the boxing rule and the archive-bound rule
 // ---------------------------------------------------------------------------
 
-/// The kind whose capability tells whether a value holds the target type by value, through declared types, aliases, Option and Result.
+/// Which containment a reach walks through. A value holds what it reaches
+/// `ByValue` inside its own size; a `Vector` puts its elements behind a heap
+/// pointer, so it stops a by-value reach but not an `Any` reach, which is
+/// what trait bounds follow.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Passage {
+    ByValue,
+    Any,
+}
+
+/// The kind whose capability tells whether a value holds the target type, through declared types, aliases, Option and Result, and Vector when the passage allows it.
 trait Reaching {
-    fn reaches(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool;
+    fn reaches(
+        &self,
+        target: &Name,
+        passage: Passage,
+        file: &File,
+        visited: &mut Vec<Name>,
+    ) -> bool;
 }
 
 impl Reaching for Reference {
-    fn reaches(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
+    fn reaches(
+        &self,
+        target: &Name,
+        passage: Passage,
+        file: &File,
+        visited: &mut Vec<Name>,
+    ) -> bool {
         if self.source.is_none() {
             if &self.name == target || self.name.0 == "Self" {
                 return true;
             }
             match file.resolve(&self.name) {
-                Resolution::Intrinsic(Intrinsic::Vector) => return false,
+                Resolution::Intrinsic(Intrinsic::Vector) if passage == Passage::ByValue => {
+                    return false;
+                }
                 Resolution::Type(name) if !visited.contains(&name) => {
                     visited.push(name.clone());
                     if let Some(declaration) = file.declaration(&name)
-                        && declaration.reaches(target, file, visited)
+                        && declaration.reaches(target, passage, file, visited)
                     {
                         return true;
                     }
@@ -264,7 +293,7 @@ impl Reaching for Reference {
             }
         }
         for argument in &self.arguments {
-            if argument.reaches(target, file, visited) {
+            if argument.reaches(target, passage, file, visited) {
                 return true;
             }
         }
@@ -273,9 +302,15 @@ impl Reaching for Reference {
 }
 
 impl Reaching for [Reference] {
-    fn reaches(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
+    fn reaches(
+        &self,
+        target: &Name,
+        passage: Passage,
+        file: &File,
+        visited: &mut Vec<Name>,
+    ) -> bool {
         for reference in self {
-            if reference.reaches(target, file, visited) {
+            if reference.reaches(target, passage, file, visited) {
                 return true;
             }
         }
@@ -284,30 +319,53 @@ impl Reaching for [Reference] {
 }
 
 impl Reaching for TypeDeclaration {
-    fn reaches(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
+    fn reaches(
+        &self,
+        target: &Name,
+        passage: Passage,
+        file: &File,
+        visited: &mut Vec<Name>,
+    ) -> bool {
         match self {
-            TypeDeclaration::Struct(_, positions) => positions.reaches(target, file, visited),
-            TypeDeclaration::Enum(_, variants) => variants.reaches(target, file, visited),
-            TypeDeclaration::Alias(_, aliased) => aliased.reaches(target, file, visited),
+            TypeDeclaration::Struct(_, positions) => {
+                positions.reaches(target, passage, file, visited)
+            }
+            TypeDeclaration::Enum(_, variants) => variants.reaches(target, passage, file, visited),
+            TypeDeclaration::Alias(_, aliased) => aliased.reaches(target, passage, file, visited),
         }
     }
 }
 
 impl Reaching for Variant {
-    fn reaches(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
+    fn reaches(
+        &self,
+        target: &Name,
+        passage: Passage,
+        file: &File,
+        visited: &mut Vec<Name>,
+    ) -> bool {
         match self {
-            Variant::Bare(_) => false,
-            Variant::Typed(_, reference) => reference.reaches(target, file, visited),
-            Variant::Struct(_, positions) => positions.reaches(target, file, visited),
-            Variant::Enum(_, variants) => variants.reaches(target, file, visited),
+            Variant::Bare(name) => match file.declaration(name) {
+                Some(_) => name.carried().reaches(target, passage, file, visited),
+                None => false,
+            },
+            Variant::Typed(_, reference) => reference.reaches(target, passage, file, visited),
+            Variant::Struct(_, positions) => positions.reaches(target, passage, file, visited),
+            Variant::Enum(_, variants) => variants.reaches(target, passage, file, visited),
         }
     }
 }
 
 impl Reaching for [Variant] {
-    fn reaches(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
+    fn reaches(
+        &self,
+        target: &Name,
+        passage: Passage,
+        file: &File,
+        visited: &mut Vec<Name>,
+    ) -> bool {
         for variant in self {
-            if variant.reaches(target, file, visited) {
+            if variant.reaches(target, passage, file, visited) {
                 return true;
             }
         }
@@ -315,15 +373,106 @@ impl Reaching for [Variant] {
     }
 }
 
-/// The kind whose capabilities yield a position's Rust type, boxed when it reaches its owner.
+/// The kind whose capability yields the reference a bare variant naming a declared type carries.
+trait Carried {
+    fn carried(&self) -> Reference;
+}
+
+impl Carried for Name {
+    fn carried(&self) -> Reference {
+        Reference {
+            source: None,
+            name: self.clone(),
+            arguments: vec![],
+        }
+    }
+}
+
+/// The kind whose capability gives a declared type's place in its file's declaration order.
+trait Placing {
+    fn place(&self, name: &Name) -> Option<usize>;
+}
+
+impl Placing for File {
+    fn place(&self, name: &Name) -> Option<usize> {
+        let declarations = match self {
+            File::Library(library) => &library.types,
+            File::Signal(signal) => &signal.types,
+            File::Sema(sema) => &sema.types,
+        };
+        declarations
+            .iter()
+            .position(|declaration| declaration.resolve(name) != Resolution::Undeclared)
+    }
+}
+
+/// The kind whose capability tells whether a reference closes a by-value
+/// cycle back to its owner: it names, by value, a struct or enum declared no
+/// later than the owner that reaches the owner by value. Every by-value cycle
+/// has at least one edge that does not move forward in declaration order, so
+/// boxing exactly these edges breaks every cycle, and an edge that moves
+/// forward is left unboxed: in `Twin.{ Twig Twig }  Twig.[ Tip  Grow.Twin ]`
+/// only `Grow` is boxed.
+trait Closing {
+    fn closes(&self, owner: &Name, file: &File) -> bool;
+}
+
+impl Closing for Reference {
+    fn closes(&self, owner: &Name, file: &File) -> bool {
+        if self.source.is_some() {
+            return false;
+        }
+        if &self.name == owner || self.name.0 == "Self" {
+            return true;
+        }
+        match file.resolve(&self.name) {
+            Resolution::Intrinsic(Intrinsic::Vector) => return false,
+            Resolution::Type(name) => match file.declaration(&name) {
+                Some(TypeDeclaration::Alias(_, aliased)) => {
+                    if aliased.closes(owner, file) {
+                        return true;
+                    }
+                }
+                Some(declaration) => {
+                    let earlier = match (file.place(&name), file.place(owner)) {
+                        (Some(named), Some(owning)) => named <= owning,
+                        _ => false,
+                    };
+                    if earlier
+                        && declaration.reaches(owner, Passage::ByValue, file, &mut vec![name])
+                    {
+                        return true;
+                    }
+                }
+                None => {}
+            },
+            _ => {}
+        }
+        for argument in &self.arguments {
+            if argument.closes(owner, file) {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+/// The kind whose capabilities yield a position's Rust type, boxed where it
+/// closes a by-value cycle, and the archive attribute it bears.
 pub(crate) trait Positioning {
     fn boxed(&self, scope: &Scope, owner: &Name) -> bool;
+    fn recursive(&self, scope: &Scope, owner: &Name) -> bool;
     fn position(&self, scope: &Scope, owner: &Name) -> TokenStream;
+    fn archival(&self, scope: &Scope, owner: &Name, carriage: Carriage) -> TokenStream;
 }
 
 impl Positioning for Reference {
     fn boxed(&self, scope: &Scope, owner: &Name) -> bool {
-        self.reaches(owner, scope.file, &mut vec![])
+        self.closes(owner, scope.file)
+    }
+
+    fn recursive(&self, scope: &Scope, owner: &Name) -> bool {
+        self.reaches(owner, Passage::Any, scope.file, &mut vec![])
     }
 
     fn position(&self, scope: &Scope, owner: &Name) -> TokenStream {
@@ -356,6 +505,39 @@ impl Positioning for Reference {
             quote! { std::boxed::Box<#ty> }
         } else {
             ty
+        }
+    }
+
+    // rkyv's derive bounds every field's type by the trait it derives, so a
+    // position that reaches its owner, through a Vector as much as a Box,
+    // makes the bound depend on itself and the trait solver overflows. Such
+    // a position omits its bound; its type then states the bounds its
+    // containers need instead (`Recursing`).
+    fn archival(&self, scope: &Scope, owner: &Name, carriage: Carriage) -> TokenStream {
+        if carriage == Carriage::Archived && self.recursive(scope, owner) {
+            quote! { #[rkyv(omit_bounds)] }
+        } else {
+            TokenStream::new()
+        }
+    }
+}
+
+/// The kind whose capability yields the archive bounds a type states once
+/// some position of it omits its own: what `Box` and `Vec` ask of the
+/// serializer, the deserializer and the validator, named once for the type.
+trait Recursing {
+    fn recursion_bounds(&self) -> TokenStream;
+}
+
+impl Recursing for Carriage {
+    fn recursion_bounds(&self) -> TokenStream {
+        match self {
+            Carriage::Archived => quote! {
+                #[rkyv(serialize_bounds(__S: rkyv::ser::Writer + rkyv::ser::Allocator, __S::Error: rkyv::rancor::Source))]
+                #[rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source))]
+                #[rkyv(bytecheck(bounds(__C: rkyv::validation::ArchiveContext, __C::Error: rkyv::rancor::Source)))]
+            },
+            Carriage::Plain => TokenStream::new(),
         }
     }
 }
@@ -468,7 +650,14 @@ impl FieldNaming for [Reference] {
 
 /// The kind whose capabilities yield a variant's definition and the items its inline enum needs.
 trait Varianted {
-    fn definition(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream;
+    fn definition(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        enclosing: &Identity,
+        carriage: Carriage,
+    ) -> TokenStream;
+    fn recursive(&self, scope: &Scope, owner: &Name) -> bool;
     fn nested(
         &self,
         scope: &Scope,
@@ -494,21 +683,30 @@ impl Nesting for Identity {
 }
 
 impl Varianted for Variant {
-    fn definition(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream {
+    fn definition(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        enclosing: &Identity,
+        carriage: Carriage,
+    ) -> TokenStream {
         match self {
             Variant::Bare(name) => {
                 let variant = name.tokens();
                 if scope.file.declaration(name).is_some() {
-                    let ty = name.tokens();
-                    quote! { #variant(#ty) }
+                    let carried = name.carried();
+                    let archival = carried.archival(scope, owner, carriage);
+                    let ty = carried.position(scope, owner);
+                    quote! { #variant(#archival #ty) }
                 } else {
                     quote! { #variant }
                 }
             }
             Variant::Typed(name, reference) => {
                 let name = name.tokens();
+                let archival = reference.archival(scope, owner, carriage);
                 let ty = reference.position(scope, owner);
-                quote! { #name(#ty) }
+                quote! { #name(#archival #ty) }
             }
             Variant::Struct(name, _) | Variant::Enum(name, _) => {
                 let nested = enclosing.nested_identity(scope, owner, name);
@@ -537,6 +735,18 @@ impl Varianted for Variant {
                 variants.enumeration(scope, owner, &nested, carriage)
             }
             Variant::Bare(_) | Variant::Typed(_, _) => TokenStream::new(),
+        }
+    }
+
+    // Only the variant's own field counts: an inline payload is its own
+    // type, and its positions omit their bounds there.
+    fn recursive(&self, scope: &Scope, owner: &Name) -> bool {
+        match self {
+            Variant::Bare(name) => {
+                scope.file.declaration(name).is_some() && name.carried().recursive(scope, owner)
+            }
+            Variant::Typed(_, reference) => reference.recursive(scope, owner),
+            Variant::Struct(_, _) | Variant::Enum(_, _) => false,
         }
     }
 }
@@ -596,10 +806,12 @@ impl DatomDeriving for Carriage {
     fn datom_derives(&self) -> TokenStream {
         match self {
             Carriage::Archived => quote! {
+                #[rustfmt::skip]
                 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
                 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
             },
             Carriage::Plain => quote! {
+                #[rustfmt::skip]
                 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
             },
         }
@@ -631,14 +843,24 @@ impl Structuring for [Reference] {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
         let mut types = Vec::with_capacity(self.len());
+        let mut archivals = Vec::with_capacity(self.len());
+        let mut recursive = false;
         for position in self {
             types.push(position.position(scope, owner));
+            archivals.push(position.archival(scope, owner, carriage));
+            recursive |= position.recursive(scope, owner);
         }
         let fields = self.field_names(owner);
         let derive = carriage.datom_derives();
+        let bounds = if recursive {
+            carriage.recursion_bounds()
+        } else {
+            TokenStream::new()
+        };
         quote! {
             #derive
-            pub struct #name #parameters { #( pub #fields: #types ),* }
+            #bounds
+            pub struct #name #parameters { #( #archivals pub #fields: #types ),* }
         }
     }
 }
@@ -656,13 +878,21 @@ impl Enumerating for [Variant] {
         let derive = carriage.datom_derives();
         let mut definitions = Vec::with_capacity(self.len());
         let mut nested = Vec::new();
+        let mut recursive = false;
         for variant in self {
-            definitions.push(variant.definition(scope, owner, identity));
+            definitions.push(variant.definition(scope, owner, identity, carriage));
             nested.push(variant.nested(scope, owner, identity, carriage));
+            recursive |= variant.recursive(scope, owner);
         }
+        let bounds = if recursive {
+            carriage.recursion_bounds()
+        } else {
+            TokenStream::new()
+        };
         quote! {
             #( #nested )*
             #derive
+            #bounds
             pub enum #name #parameters { #( #definitions ),* }
         }
     }
@@ -696,7 +926,7 @@ impl Emitting for TypeDeclaration {
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
                 let aliased = aliased.emit(&inner);
-                quote! { pub type #name #parameters = #aliased; }
+                quote! { #[rustfmt::skip] pub type #name #parameters = #aliased; }
             }
         }
     }
@@ -916,7 +1146,10 @@ impl Emitting for File {
         // prettyplease owns each generated item's canonical text. rustfmt makes
         // different width decisions for aliases and ordinary items, so each
         // generated item is excluded individually while every authored Rust
-        // item remains checked by the repository formatter.
+        // item remains checked by the repository formatter. A type declaration
+        // may emit several items (its inline payloads before it), so each
+        // struct, enum and alias bears its own skip; kinds and associations
+        // are one item each and receive it here.
         let mut items = Vec::new();
         match self {
             File::Library(library) => {
@@ -924,10 +1157,12 @@ impl Emitting for File {
                     items.push(declaration.emit(scope));
                 }
                 for declaration in &library.kinds {
-                    items.push(declaration.emit(scope));
+                    let item = declaration.emit(scope);
+                    items.push(quote! { #[rustfmt::skip] #item });
                 }
                 for association in &library.associations {
-                    items.push(association.emit(scope));
+                    let item = association.emit(scope);
+                    items.push(quote! { #[rustfmt::skip] #item });
                 }
             }
             File::Signal(signal) => {
@@ -963,7 +1198,7 @@ impl Emitting for File {
         }
         quote! {
             #![allow(dead_code, non_camel_case_types, non_snake_case)]
-            #( #[rustfmt::skip] #items )*
+            #( #items )*
         }
     }
 }

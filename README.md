@@ -46,8 +46,14 @@ reserves no name; a Sema record may be named `Record`.
 
 An import names a Rust path prefix and the names taken from it:
 `std:clone:Clonable.Clone` imports one name, and
-`std:clone:[ Clonable.Clone ]` imports a group. A position that reaches
-its declaring type is boxed, and only there. The generated Rust writes
+`std:clone:[ Clonable.Clone ]` imports a group. A position is boxed only
+where it closes a by-value cycle: it names, through aliases, `Option` and
+`Result` but not `Vector`, a type declared no later than its owner that
+reaches the owner by value; in `Twin.{ Twig Twig }  Twig.[ Tip  Grow.Twin ]`
+only `Grow` is boxed. In a Signal, every position that reaches its owner by
+any path, `Vector` included, carries `#[rkyv(omit_bounds)]`, and its type
+states the serializer, deserializer and validator bounds once, so a
+recursive contract archives and restores. The generated Rust writes
 standard containers as `std::vec::Vec`, `std::option::Option`,
 `std::result::Result`, and `std::boxed::Box`, so a declaration cannot
 capture those names. `Name.{ T1 T2 }` is a tuple variant.

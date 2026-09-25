@@ -88,9 +88,59 @@ fn generated_decimal_signal_archives_and_bears_datom_derives() {
 }
 
 #[test]
-fn recursive_generated_types_compile() {
-    let tree = tree_types::Tree::Leaf(1);
-    assert!(matches!(tree, tree_types::Tree::Leaf(1)));
+fn recursive_generated_signal_archives_and_restores() {
+    use tree_types::{Chain, Node_Data, Query, Response, Tree, Twig, Twin};
+    let tree = Tree::Node(Node_Data {
+        first_tree: Box::new(Tree::Many(vec![Tree::Leaf(1), Tree::Maybe(None)])),
+        second_tree: Box::new(Tree::Maybe(Some(Box::new(Tree::Many(vec![
+            Tree::Leaf(2),
+            Tree::Many(vec![]),
+        ]))))),
+    });
+    let twin = Twin {
+        first_twig: Twig::Grow(Box::new(Twin {
+            first_twig: Twig::Tip,
+            second_twig: Twig::Tip,
+        })),
+        second_twig: Twig::Tip,
+    };
+    let queries = [Query::Plant(tree.clone()), Query::Twine(twin.clone())];
+    for query in queries {
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive recursive query");
+        let restored = rkyv::from_bytes::<Query, rkyv::rancor::Error>(&bytes)
+            .expect("restore recursive query");
+        assert_eq!(restored, query);
+    }
+    let responses = [
+        Response::Planted(vec![tree, Tree::Leaf(3)]),
+        Response::Twined(Twig::Grow(Box::new(twin))),
+    ];
+    for response in responses {
+        let bytes =
+            rkyv::to_bytes::<rkyv::rancor::Error>(&response).expect("archive recursive response");
+        let restored = rkyv::from_bytes::<Response, rkyv::rancor::Error>(&bytes)
+            .expect("restore recursive response");
+        assert_eq!(restored, response);
+    }
+    let chain = Chain {
+        string: "head".to_owned(),
+        chain_option: Some(Box::new(Chain {
+            string: "tail".to_owned(),
+            chain_option: None,
+        })),
+    };
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&chain).expect("archive chain");
+    let restored = rkyv::from_bytes::<Chain, rkyv::rancor::Error>(&bytes).expect("restore chain");
+    assert_eq!(restored, chain);
+    let knot = tree_types::Knot::Loop(tree_types::Loop {
+        knot: Box::new(tree_types::Knot::Loop(tree_types::Loop {
+            knot: Box::new(tree_types::Knot::End),
+        })),
+    });
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&knot).expect("archive knot");
+    let restored =
+        rkyv::from_bytes::<tree_types::Knot, rkyv::rancor::Error>(&bytes).expect("restore knot");
+    assert_eq!(restored, knot);
 }
 
 #[test]

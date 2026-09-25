@@ -10,17 +10,20 @@ pub struct Unreadable_Data {
     pub first_string: String,
     pub second_string: String,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GenerationRejected_Data {
     pub string: String,
     pub path: datom_codec::Path,
     pub generation__error: Generation_Error,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Unwritable_Data {
     pub first_string: String,
     pub second_string: String,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Response {
     Generated(std::vec::Vec<String>),
@@ -42,6 +45,7 @@ pub struct Conceptual_Data {
     pub integer_vector: std::vec::Vec<i64>,
     pub problem: ethos_zero::Problem,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Generation_Error {
     Structural(protos::Error),

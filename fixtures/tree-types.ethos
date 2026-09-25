@@ -1,13 +1,15 @@
-; Recursion and nesting: a position that reaches its own type is boxed, and only there
-Library
+; Recursion on the wire: a position is boxed only where it closes a by-value cycle, and every recursive position, through Vector too, omits its archive bounds
+Signal
 []
+[ Plant.Tree  Twine.Twin ]
+[ Planted.Forest  Twined.Twig ]
 [ Tree.[ Leaf.Integer  Node.{ Tree Tree }  Many.Vector<Tree>  Maybe.Option<Tree> ]
   Chain.{ String Option<Chain> }
   Twin.{ Twig Twig }
   Twig.[ Tip  Grow.Twin ]
+  Knot.[ End  Loop ]
+  Loop.{ Knot }
   Forest.Vector<Tree>
   Wrapped.{ Option<Integer> Result<String Integer> Vector<Option<String>> }
   Nested.[ A.[ X Y.Integer ]  B.{ String } ]
   Deep.Vector<Vector<Vector<Option<Result<String Integer>>>>> ]
-[]
-[]
