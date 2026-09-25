@@ -94,6 +94,11 @@ regions verbatim with their glyphs; one line. Writing cannot error.
 | `traversing` | iterative `Clone`, `PartialEq` and `Drop` | `Structuring` |
 
 No free functions, no inherent impls, no zero-sized bearers, no variant rosters:
-`nix flake check` carries the guards, with build, test, fmt, clippy and doc, and
-regenerates both `.ethos` declarations from the pinned `ethos-zero` to hold the
-committed contracts against the generator.
+`nix flake check` carries the guards, with build, test, fmt, clippy and doc.
+
+`protos.ethos` and `protos-kinds.ethos` state the datom anatomy of the public
+types and kinds; no Rust is generated from them. The crate is hand-written
+because Ethos cannot yet state what it needs: `usize` extents, `char`
+payloads, borrowed receivers, and the iterative `Clone`, `PartialEq` and `Drop`
+of `traversing`; and a generated contract would derive datom-codec's kinds,
+which depends on this crate.
