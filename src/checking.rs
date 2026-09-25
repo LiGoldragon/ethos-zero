@@ -250,7 +250,7 @@ trait Naming {
 }
 
 /// A declared name and its structural path.
-struct DeclarationSite {
+pub(crate) struct DeclarationSite {
     name: Name,
     path: Path,
 }
@@ -455,28 +455,198 @@ impl Checkable for File {
             File::Signal(signal) => signal.check(scope),
             File::Sema(sema) => sema.check(scope),
         };
-        checked.place(1)
+        checked.place(1)?;
+        // The derived names come first, so an authored name that would
+        // capture one is the occurrence refused.
+        let mut names = self.inline_sites();
+        names.extend(self.declared());
+        names.distinct().place(1)
     }
 }
 
-impl Checkable for crate::Library {
-    fn check(&self, scope: &Scope) -> Result<(), Error> {
-        if self.types.len() > TYPE_DECLARATION_LIMIT {
-            return Err(Error::conceptual(vec![1], Problem::Depth));
+// ---------------------------------------------------------------------------
+// Inline payloads: the names derived for them, unique file-wide
+// ---------------------------------------------------------------------------
+
+/// An enum whose variants may declare inline payloads: a declared enum type,
+/// or a Signal's implied `Query` or `Response`.
+struct InlineRoot<'a> {
+    owner: Name,
+    variants: &'a [Variant],
+    path: Path,
+}
+
+/// The kind whose capabilities name every inline payload of a file.
+///
+/// A payload a variant `X` declares in place is named `X_Data`. Where two
+/// declared enums each declare an `X` in place, `X_Data` would be two
+/// types, so each is named for its enum instead: `P_X_Data`, `Q_X_Data`.
+/// A payload declared inside a derived enum carries that enum's name as
+/// its stem: `A_Data_X_Data`.
+pub(crate) trait Inlining {
+    /// The name of the payload `variant` declares in the enum `enclosing`,
+    /// which is the declared type `owner` itself or a payload derived under it.
+    fn inline_name(&self, owner: &Name, enclosing: &Name, variant: &Name) -> Name;
+    /// Every derived name, at the path of the variant that declares it.
+    fn inline_sites(&self) -> Vec<DeclarationSite>;
+}
+
+/// The kind whose capability lists the enums of a file whose variants are named first-level.
+trait Rooting {
+    fn inline_roots(&self) -> Vec<InlineRoot<'_>>;
+}
+
+/// The kind whose capability lists the enum declarations of a section at their paths.
+trait EnumSectioned {
+    fn enums_in(&self, section: Integer) -> Vec<InlineRoot<'_>>;
+}
+
+impl EnumSectioned for [TypeDeclaration] {
+    fn enums_in(&self, section: Integer) -> Vec<InlineRoot<'_>> {
+        let mut roots = Vec::new();
+        for (index, declaration) in self.iter().enumerate() {
+            if let TypeDeclaration::Enum(identity, variants) = declaration {
+                roots.push(InlineRoot {
+                    owner: identity.name.clone(),
+                    variants,
+                    path: vec![section, index as Integer, 1],
+                });
+            }
         }
+        roots
+    }
+}
+
+impl Rooting for File {
+    fn inline_roots(&self) -> Vec<InlineRoot<'_>> {
+        match self {
+            File::Library(library) => library.types.enums_in(1),
+            File::Sema(sema) => sema.types.enums_in(1),
+            File::Signal(signal) => {
+                let mut roots = vec![
+                    InlineRoot {
+                        owner: Name::try_from("Query").expect("static identifier"),
+                        variants: &signal.queries,
+                        path: vec![1],
+                    },
+                    InlineRoot {
+                        owner: Name::try_from("Response").expect("static identifier"),
+                        variants: &signal.responses,
+                        path: vec![2],
+                    },
+                ];
+                roots.extend(signal.types.enums_in(3));
+                roots
+            }
+        }
+    }
+}
+
+/// The kind whose capability names a payload declared in place, if the variant declares one.
+trait Payloading {
+    fn payload(&self) -> Option<&Name>;
+}
+
+impl Payloading for Variant {
+    fn payload(&self) -> Option<&Name> {
+        match self {
+            Variant::Struct(name, _) | Variant::Enum(name, _) => Some(name),
+            Variant::Bare(_) | Variant::Typed(_, _) => None,
+        }
+    }
+}
+
+/// The kind whose capability walks the derived names below an enclosing enum.
+trait InlineWalking {
+    fn walk_inline(
+        &self,
+        file: &File,
+        owner: &Name,
+        enclosing: &Name,
+        path: &Path,
+        sites: &mut Vec<DeclarationSite>,
+    );
+}
+
+impl InlineWalking for [Variant] {
+    fn walk_inline(
+        &self,
+        file: &File,
+        owner: &Name,
+        enclosing: &Name,
+        path: &Path,
+        sites: &mut Vec<DeclarationSite>,
+    ) {
+        for (index, variant) in self.iter().enumerate() {
+            let Some(name) = variant.payload() else {
+                continue;
+            };
+            let derived = file.inline_name(owner, enclosing, name);
+            let mut placed = path.clone();
+            placed.push(index as Integer);
+            let mut named = placed.clone();
+            named.push(0);
+            sites.push(DeclarationSite {
+                name: derived.clone(),
+                path: named,
+            });
+            if let Variant::Enum(_, nested) = variant {
+                placed.push(1);
+                nested.walk_inline(file, owner, &derived, &placed, sites);
+            }
+        }
+    }
+}
+
+impl Inlining for File {
+    fn inline_name(&self, owner: &Name, enclosing: &Name, variant: &Name) -> Name {
+        let name = if enclosing != owner {
+            format!("{}_{}_Data", enclosing.0, variant.0)
+        } else {
+            let mut declaring = 0;
+            for root in self.inline_roots() {
+                for other in root.variants {
+                    if other.payload() == Some(variant) {
+                        declaring += 1;
+                    }
+                }
+            }
+            if declaring > 1 {
+                format!("{}_{}_Data", owner.0, variant.0)
+            } else {
+                format!("{}_Data", variant.0)
+            }
+        };
+        Name::try_from(name).expect("derived inline identifiers are identifiers")
+    }
+
+    fn inline_sites(&self) -> Vec<DeclarationSite> {
+        let mut sites = Vec::new();
+        for root in self.inline_roots() {
+            root.variants
+                .walk_inline(self, &root.owner, &root.owner, &root.path, &mut sites);
+        }
+        sites
+    }
+}
+
+/// The kind whose capability lists every name a file root declares by
+/// authorship: its imports, its types and kinds, and the types it implies.
+trait Declared {
+    fn declared(&self) -> Vec<DeclarationSite>;
+}
+
+impl Declared for crate::Library {
+    fn declared(&self) -> Vec<DeclarationSite> {
         let mut names = self.imports.names_in(0);
         names.extend(self.types.names_in(1));
         names.extend(self.kinds.names_in(2));
-        names.distinct()?;
-        self.imports.check_each(scope, 0)?;
-        self.types.check_each(scope, 1)?;
-        self.kinds.check_each(scope, 2)?;
-        self.associations.check_each(scope, 3)
+        names
     }
 }
 
-impl Checkable for Signal {
-    fn check(&self, scope: &Scope) -> Result<(), Error> {
+impl Declared for Signal {
+    fn declared(&self) -> Vec<DeclarationSite> {
         let mut names = vec![
             DeclarationSite {
                 name: Name::try_from("Query").expect("static identifier"),
@@ -489,7 +659,44 @@ impl Checkable for Signal {
         ];
         names.extend(self.imports.names_in(0));
         names.extend(self.types.names_in(3));
-        names.distinct()?;
+        names
+    }
+}
+
+impl Declared for Sema {
+    fn declared(&self) -> Vec<DeclarationSite> {
+        let mut names = self.imports.names_in(0);
+        names.extend(self.types.names_in(1));
+        names
+    }
+}
+
+impl Declared for File {
+    fn declared(&self) -> Vec<DeclarationSite> {
+        match self {
+            File::Library(library) => library.declared(),
+            File::Signal(signal) => signal.declared(),
+            File::Sema(sema) => sema.declared(),
+        }
+    }
+}
+
+impl Checkable for crate::Library {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
+        if self.types.len() > TYPE_DECLARATION_LIMIT {
+            return Err(Error::conceptual(vec![1], Problem::Depth));
+        }
+        self.declared().distinct()?;
+        self.imports.check_each(scope, 0)?;
+        self.types.check_each(scope, 1)?;
+        self.kinds.check_each(scope, 2)?;
+        self.associations.check_each(scope, 3)
+    }
+}
+
+impl Checkable for Signal {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
+        self.declared().distinct()?;
         self.imports.check_each(scope, 0)?;
         self.queries.names_in(1).distinct()?;
         self.responses.names_in(2).distinct()?;
@@ -501,9 +708,7 @@ impl Checkable for Signal {
 
 impl Checkable for Sema {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        let mut names = self.imports.names_in(0);
-        names.extend(self.types.names_in(1));
-        names.distinct()?;
+        self.declared().distinct()?;
         self.imports.check_each(scope, 0)?;
         self.types.check_each(scope, 1)
     }

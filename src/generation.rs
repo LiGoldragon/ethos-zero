@@ -16,7 +16,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::checking::{Checkable, Declaring};
+use crate::checking::{Checkable, Declaring, Inlining};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
     Identity, Intrinsic, KindBody, KindDeclaration, Name, Receiver, Reference, Resolution,
@@ -478,22 +478,16 @@ trait Varianted {
     ) -> TokenStream;
 }
 
-/// The kind whose capability names the enum type an inline enum variant declares.
+/// The kind whose capability yields the identity of the payload a variant
+/// declares in place, named file-wide unique by the file ([`Inlining`]).
 trait Nesting {
-    fn nested_identity(&self, name: &Name) -> Identity;
+    fn nested_identity(&self, scope: &Scope, owner: &Name, name: &Name) -> Identity;
 }
 
 impl Nesting for Identity {
-    fn nested_identity(&self, name: &Name) -> Identity {
-        let stem = if self.name.0.ends_with("_Data") {
-            format!("{}_{}", self.name.0, name.0)
-        } else {
-            name.0.clone()
-        };
-        let name = Name::try_from(format!("{stem}_Data"))
-            .expect("derived inline identifiers are identifiers");
+    fn nested_identity(&self, scope: &Scope, owner: &Name, name: &Name) -> Identity {
         Identity {
-            name,
+            name: scope.file.inline_name(owner, &self.name, name),
             constraints: self.constraints.clone(),
         }
     }
@@ -517,7 +511,7 @@ impl Varianted for Variant {
                 quote! { #name(#ty) }
             }
             Variant::Struct(name, _) | Variant::Enum(name, _) => {
-                let nested = enclosing.nested_identity(name);
+                let nested = enclosing.nested_identity(scope, owner, name);
                 let ty = nested.name.tokens();
                 let arguments = nested.arguments(scope);
                 let name = name.tokens();
@@ -535,11 +529,11 @@ impl Varianted for Variant {
     ) -> TokenStream {
         match self {
             Variant::Struct(name, positions) => {
-                let nested = enclosing.nested_identity(name);
+                let nested = enclosing.nested_identity(scope, owner, name);
                 positions.structure(scope, owner, &nested, carriage)
             }
             Variant::Enum(name, variants) => {
-                let nested = enclosing.nested_identity(name);
+                let nested = enclosing.nested_identity(scope, owner, name);
                 variants.enumeration(scope, owner, &nested, carriage)
             }
             Variant::Bare(_) | Variant::Typed(_, _) => TokenStream::new(),

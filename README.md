@@ -52,9 +52,13 @@ standard containers as `std::vec::Vec`, `std::option::Option`,
 `std::result::Result`, and `std::boxed::Box`, so a declaration cannot
 capture those names. `Name.{ T1 T2 }` is a tuple variant.
 
-Inline enum bodies receive an internal Rust type name. When concatenating the
-enclosing type and variant name would occupy an authored type name, generation
-allocates an `EthosNested` name instead; authored identities stay unchanged.
+A variant that declares its payload in place names a derived type:
+`X.{ … }` or `X.[ … ]` in an enum gives `X_Data`. Derived names are unique
+across the whole file: where two enums each declare an `X` in place, each
+payload is named for its enum instead (`P_X_Data`, `Q_X_Data`), and a payload
+declared inside a derived enum carries that enum's name as its stem
+(`Y_Data_X_Data`). An authored name equal to a derived name is refused as a
+`Duplicate` at the authored declaration.
 Generated generic parameters similarly move from `A`, `B`, and so on only
 when one would capture an authored type reference.
 

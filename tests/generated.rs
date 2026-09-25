@@ -6,6 +6,8 @@ pub struct Wrapper<T>(pub T);
 mod empty_signal;
 #[path = "generated/entry-sema.rs"]
 mod entry_sema;
+#[path = "generated/inline-collision.rs"]
+mod inline_collision;
 #[path = "generated/nested-collision.rs"]
 mod nested_collision;
 #[path = "generated/orchestrate.rs"]
@@ -33,6 +35,23 @@ fn nested_inline_payloads_have_distinct_rust_types() {
     ));
     assert!(matches!(left, nested_collision::Outer::A(_)));
     assert!(matches!(right, nested_collision::Outer::B(_)));
+}
+
+#[test]
+fn colliding_inline_payloads_are_named_for_their_enums() {
+    let p = inline_collision::P::X(inline_collision::P_X_Data {
+        string: String::new(),
+    });
+    let nested = inline_collision::P::Y(inline_collision::Y_Data::X(
+        inline_collision::Y_Data_X_Data { integer: 2 },
+    ));
+    let q = inline_collision::Q::X(inline_collision::Q_X_Data { integer: 1 });
+    let authored: inline_collision::X_Data = String::new();
+    let unique = inline_collision::R::Z(inline_collision::Z_Data { string: authored });
+    assert!(matches!(p, inline_collision::P::X(_)));
+    assert!(matches!(nested, inline_collision::P::Y(_)));
+    assert!(matches!(q, inline_collision::Q::X(_)));
+    assert!(matches!(unique, inline_collision::R::Z(_)));
 }
 
 #[test]

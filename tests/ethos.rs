@@ -2,7 +2,7 @@
 //! the constructs that consumers write; detailed parser failures live beside
 //! the reader in `src/lib.rs`.
 
-use ethos_zero::{Actualizing, File, Generating, Potential};
+use ethos_zero::{Actualizing, Error, File, Generating, Potential, Problem};
 use protos::{Protosizable, Textualizable};
 
 fn read(source: &str) -> File {
@@ -150,4 +150,42 @@ fn a_sourced_generic_in_a_data_position_reads_and_reprints() {
         Err(_) => panic!("a sourced generic position generates"),
     };
     assert!(generated.contains("pub string_vector: external::Vector<String>"));
+}
+
+#[test]
+fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
+    // The audit's row-15 probe: two enums each declare X in place, and an
+    // authored X_Data would capture the short name. The authored name is
+    // the occurrence refused, at its declaration.
+    let probe = "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] X_Data.String ] [] []";
+    assert!(read(probe).generate().is_ok());
+    let captured = "Library [] [ P.[ X.{ String } ] P_X_Data.String ] [] []";
+    assert!(read(captured).generate().is_ok());
+    let captured = "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] P_X_Data.String ] [] []";
+    match read(captured).generate() {
+        Err(Error::Conceptual(data)) => {
+            assert_eq!(data.problem, Problem::Duplicate("P_X_Data".to_owned()));
+            assert_eq!(data.integer_vector, vec![1, 1, 2, 0]);
+        }
+        _ => panic!("an authored name capturing a derived one is refused"),
+    }
+    let captured = "Library [] [ P.[ X.{ String } ] X_Data.String ] [] []";
+    match read(captured).generate() {
+        Err(Error::Conceptual(data)) => {
+            assert_eq!(data.problem, Problem::Duplicate("X_Data".to_owned()));
+            assert_eq!(data.integer_vector, vec![1, 1, 1, 0]);
+        }
+        _ => panic!("an authored X_Data beside a unique inline X is refused"),
+    }
+}
+
+#[test]
+fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
+    let generated = match read("Signal [] [ Ask.{ String } ] [ Ask.{ Integer } ] []").generate() {
+        Ok(generated) => generated,
+        Err(_) => panic!("Query and Response each declaring Ask in place generate"),
+    };
+    assert!(generated.contains("pub struct Query_Ask_Data"));
+    assert!(generated.contains("pub struct Response_Ask_Data"));
+    syn::parse_file(&generated).expect("generated Rust parses");
 }
