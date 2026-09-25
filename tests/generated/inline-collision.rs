@@ -4,14 +4,17 @@
 pub struct P_X_Data {
     pub string: String,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Y_Data_X_Data {
     pub integer: i64,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Y_Data {
     X(Y_Data_X_Data),
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum P {
     X(P_X_Data),
@@ -22,6 +25,7 @@ pub enum P {
 pub struct Q_X_Data {
     pub integer: i64,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Q {
     X(Q_X_Data),
@@ -33,6 +37,7 @@ pub type X_Data = String;
 pub struct Z_Data {
     pub string: String,
 }
+#[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum R {
     Z(Z_Data),
