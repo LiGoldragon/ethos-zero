@@ -779,10 +779,37 @@ mod behavior {
         // so the assertion is on the set it names, not on where it breaks.
         let derives: String = rust.chars().filter(|c| !c.is_whitespace()).collect();
         assert!(derives.contains(
-            "#[derive(datom_codec::Datomizable,datom_codec::Composing,Clone,Debug,PartialEq,Eq,Hash)]"
+            "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]"
         ));
         assert!(rust.contains("pub string: String"));
         assert!(rust.contains("pub integer: i64"));
+    }
+
+    /// Every root carries its types alike: rkyv always, the datom kinds
+    /// behind the `datom` feature, so any type can cross the wire and a
+    /// Nexus compiles its whole contract without datom-codec.
+    #[test]
+    fn every_root_archives_and_gates_its_datom_kinds() {
+        let carried = "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]";
+        for source in [
+            "Library [] [ Record.{ String Integer } ] [] []",
+            "Signal [] [ Ask.{ String Integer } ] [ Told ] []",
+            "Operation [] [ Do.{ String Integer } ] [ Done ] []",
+            "Memory [] [ Record.{ String Integer } ]",
+        ] {
+            let file = match Potential::<File>::from(source).actualize() {
+                Ok(file) => file,
+                Err(_) => panic!("{source} reads"),
+            };
+            let rust = match file.generate() {
+                Ok(rust) => rust,
+                Err(_) => panic!("{source} generates"),
+            };
+            let derives: String = rust.chars().filter(|c| !c.is_whitespace()).collect();
+            let declared = derives.matches("pubstruct").count() + derives.matches("pubenum").count();
+            assert!(declared > 0, "{source} declares a type");
+            assert_eq!(derives.matches(carried).count(), declared, "{source}: {rust}");
+        }
     }
 
     #[test]

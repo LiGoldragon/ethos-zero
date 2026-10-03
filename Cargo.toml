@@ -52,6 +52,10 @@ name = "signal-without-datom"
 path = "tests/signal_without_datom.rs"
 
 [[test]]
+name = "flow-contract"
+path = "tests/flow_contract.rs"
+
+[[test]]
 name = "print"
 path = "tests/print.rs"
 
