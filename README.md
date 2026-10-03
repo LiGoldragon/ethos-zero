@@ -81,6 +81,35 @@ declared inside a derived enum carries that enum's name as its stem
 Generated generic parameters similarly move from `A`, `B`, and so on only
 when one would capture an authored type reference.
 
+## Kinds
+
+A kind is the bearer of capabilities: `Name.[ capabilities ]`, or
+`Name.{ [ superkinds ] [ associated types ] [ CONSTANTS ] [ capabilities ] }`.
+A capability's separator says who is called: `.` takes `&self`, `!` takes
+`&mut self`, `:` takes no self. `name.[ Yield ]` yields alone;
+`name.{ [ inputs ] [ Yield ] }` takes inputs.
+
+A capability speaks in `Self`, the kind's own parameters and other kinds;
+a concrete type in an input is a kind not yet named. A kind named in an
+input becomes a parameter of the generated method, bounded by that kind,
+lettered from `N`:
+
+```
+Resolvable.[ resolve.{ [ Textualizable ] [ Self ] } ]
+; -> fn resolve<N: Textualizable>(&self, input: N) -> Self where Self: Sized;
+```
+
+Where an associated type of the kind is already bounded by that kind
+(`Streamable.{ [] [ Item<Textualizable> ] [] [ push!{ [ Textualizable ] [ Self ] } ] }`),
+the input is that associated type, `Self::Item`. `Self`, a parameter of the
+kind's head, and an associated type named directly stay as they are. A
+concrete type in an input (`String`, `Vector<Self>`, a declared type) is
+refused: `Conceptual.{ [ path ] KindWanted.String }`, the path and its line
+and column naming the input. An imported name says nothing of its role, so
+in an input it is taken as a kind. A yield may name a concrete type; a
+declared kind in a yield is a method parameter too (`make:[ Textualizable ]`
+gives `fn make<N: Textualizable>() -> N`).
+
 The flat declaration budget applies to a Library's types section: it refuses
 more than 512 type declarations. The other roots retain their structural reader
 bounds and are not counted against it.

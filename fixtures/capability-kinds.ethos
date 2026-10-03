@@ -1,9 +1,10 @@
-; Summarizable and Fillable from Vision/ethos.md; SinkError is the enclosing module's
+; Summarizable and Fillable from Vision/ethos.md; SinkError is the enclosing module's.
+; push takes any Summarizable: a capability's input is a kind, never a concrete type.
 Library
 [ super:SinkError ]
 []
 [ Summarizable.[ summarize.[ String ] ]
-  Fillable.[ push!{ [ String ] [ Result<Integer SinkError> ] }
+  Fillable.[ push!{ [ Summarizable ] [ Result<Integer SinkError> ] }
              drain![ Vector<String> ]
              create:[ Self ] ] ]
 []

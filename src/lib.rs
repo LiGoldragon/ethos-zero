@@ -698,6 +698,7 @@ mod conception;
 mod generation;
 mod location;
 mod protosization;
+mod signature;
 
 #[cfg(test)]
 mod behavior {
@@ -756,7 +757,7 @@ mod behavior {
 
     #[test]
     fn library_kinds_generate_trait_surfaces() {
-        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ String ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -769,7 +770,7 @@ mod behavior {
             Err(_) => panic!("approved kinds generate"),
         };
         assert!(rust.contains("pub trait Fillable"));
-        assert!(rust.contains("fn push("));
+        assert!(rust.contains("fn push<N: std::Serializable>("));
         assert!(rust.contains("fn create() -> Self"));
         assert!(rust.contains("pub trait Streamable"));
         assert!(rust.contains("type Item"));
@@ -838,7 +839,7 @@ mod behavior {
 
     #[test]
     fn canonical_ascent_round_trips_nonempty_library_and_signal() {
-        let library = "Library [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.Vector<FilePath> External.external:Vector<FilePath> Record.{ Vector<Option<String>> Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Vector<Option<String>> ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ]";
+        let library = "Library [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.Vector<FilePath> External.external:Vector<FilePath> Record.{ Vector<Option<String>> Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Capability ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ]";
         let signal = "Signal [ datom_codec:[ Error Path ] ] [ Generate.Generation ] [ Generated.String Malformed.Error ] [ Generation.{ String String } ]";
         for source in [library, signal] {
             let file = match Potential::<File>::from(source).actualize() {
@@ -1054,8 +1055,8 @@ mod behavior {
             "Library [] [ Alias.Result<String Bogus> ] [] []",
             "Library [] [ E.[ A.Vector<String> B.Option<Bogus> ] ] [] []",
             "Library [ x:[ T ] ] [ Rec.{ x:T<Bogus> } ] [] []",
-            "Library [] [] [ K.[ run.{ [ String Bogus ] [ String ] } ] ] []",
-            "Library [] [] [ K.[ run.{ [ String ] [ Vector<Bogus> ] } ] ] []",
+            "Library [] [] [ K.[ run.{ [ Self Bogus ] [ String ] } ] ] []",
+            "Library [] [] [ K.[ run.{ [ Self ] [ Vector<Bogus> ] } ] ] []",
             "Library [] [] [ K.{ [] [ Item<Bogus> ] [] [] } ] []",
             "Signal [] [ Ask.Vector<Bogus> ] [] []",
         ];

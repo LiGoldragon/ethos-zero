@@ -244,3 +244,30 @@ fn check_of_a_missing_file_is_unreadable() {
         "{output}"
     );
 }
+
+#[test]
+fn check_takes_a_kind_in_an_input_and_locates_a_concrete_type_there() {
+    let directory = "kinds".scratch();
+    let taken = directory.write_source(
+        "taken",
+        "Library\n[]\n[]\n[ Textualizable.[ textualize.[ String ] ]\n  Resolvable.[ resolve.{ [ Textualizable ]\n                         [ Self ] } ] ]\n[]\n",
+    );
+    let argument = check(&taken);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(success, "{output}");
+    assert_eq!(output, format!("Checked.{taken}\n"));
+
+    let refused = directory.write_source(
+        "refused",
+        "Library\n[]\n[ Rec.String ]\n[ Resolvable.[ resolve.{ [ Rec ]\n                         [ Self ] } ] ]\n[]\n",
+    );
+    let argument = check(&refused);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert_eq!(
+        output,
+        format!(
+            "Rejected.{{ {refused} {{ 4 28 }} Conceptual.{{ [ 1 2 0 1 0 1 0 0 ] KindWanted.Rec }} }}\n"
+        )
+    );
+}

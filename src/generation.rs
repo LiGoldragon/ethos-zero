@@ -22,6 +22,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::checking::{Checkable, Declaring, Inlining};
+use crate::signature::{Place, Stance, Standing};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
     Identity, Intrinsic, KindBody, KindDeclaration, Name, Receiver, Reference, Resolution,
@@ -991,9 +992,47 @@ impl Emitting for AssociatedConstant {
     }
 }
 
+/// The method's own parameters: one per kind its signature names, lettered
+/// from N past the kind's head parameters.
+struct MethodParameters {
+    first: usize,
+    declared: Vec<TokenStream>,
+}
+
+/// The kind whose capability yields a signature reference's Rust type,
+/// taking a method parameter where the reference names a kind.
+trait Signing {
+    fn sign(&self, scope: &Scope, place: Place, method: &mut MethodParameters) -> TokenStream;
+}
+
+impl Signing for Reference {
+    fn sign(&self, scope: &Scope, place: Place, method: &mut MethodParameters) -> TokenStream {
+        match self.stance(scope, place) {
+            Stance::Bounding => {
+                let letter = (method.first + method.declared.len()).letter(scope);
+                let bound = self.emit(scope);
+                method.declared.push(quote! { #letter: #bound });
+                quote! { #letter }
+            }
+            Stance::Bound(associated) => {
+                let associated = associated.tokens();
+                quote! { Self::#associated }
+            }
+            Stance::Kept | Stance::Concrete => self.emit(scope),
+        }
+    }
+}
+
 impl Emitting for Capability {
     fn emit(&self, scope: &Scope) -> TokenStream {
         let name = self.name.tokens();
+        let heads = scope
+            .identity
+            .map_or(0, |identity| identity.constraints.len());
+        let mut method = MethodParameters {
+            first: heads.max(13),
+            declared: Vec::new(),
+        };
         let mut parameters = Vec::new();
         match self.receiver {
             Receiver::Shared => parameters.push(quote! { &self }),
@@ -1004,25 +1043,31 @@ impl Emitting for Capability {
             Signature::Yielding(yields) => yields,
             Signature::Taking(inputs, yields) => {
                 if let [input] = inputs.as_slice() {
-                    let ty = input.emit(scope);
+                    let ty = input.sign(scope, Place::Input, &mut method);
                     parameters.push(quote! { input: #ty });
                 } else {
                     for (index, input) in inputs.iter().enumerate() {
                         let input_name = Ident::new(&format!("input_{index}"), Span::call_site());
-                        let ty = input.emit(scope);
+                        let ty = input.sign(scope, Place::Input, &mut method);
                         parameters.push(quote! { #input_name: #ty });
                     }
                 }
                 yields
             }
         };
-        let yields = yields.emit(scope);
+        let yields = yields.sign(scope, Place::Yield, &mut method);
+        let generics = if method.declared.is_empty() {
+            TokenStream::new()
+        } else {
+            let declared = &method.declared;
+            quote! { < #( #declared ),* > }
+        };
         let sized = if self.contains_self() {
             quote! { where Self: Sized }
         } else {
             TokenStream::new()
         };
-        quote! { fn #name( #( #parameters ),* ) -> #yields #sized; }
+        quote! { fn #name #generics ( #( #parameters ),* ) -> #yields #sized; }
     }
 }
 

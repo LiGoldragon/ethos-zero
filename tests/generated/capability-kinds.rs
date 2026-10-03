@@ -5,7 +5,10 @@ pub trait Summarizable {
 }
 #[rustfmt::skip]
 pub trait Fillable {
-    fn push(&mut self, input: String) -> std::result::Result<i64, super::SinkError>;
+    fn push<N: Summarizable>(
+        &mut self,
+        input: N,
+    ) -> std::result::Result<i64, super::SinkError>;
     fn drain(&mut self) -> std::vec::Vec<String>;
     fn create() -> Self
     where

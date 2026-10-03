@@ -268,12 +268,21 @@ struct Buffer {
     lines: Vec<String>,
 }
 
+/// A line of text, which summarizes as itself.
+struct Line(&'static str);
+
+impl capability_kinds::Summarizable for Line {
+    fn summarize(&self) -> String {
+        self.0.to_owned()
+    }
+}
+
 impl capability_kinds::Fillable for Buffer {
-    fn push(&mut self, input: String) -> Result<i64, SinkError> {
+    fn push<N: capability_kinds::Summarizable>(&mut self, input: N) -> Result<i64, SinkError> {
         if self.lines.len() > 1 {
             return Err(SinkError::Full);
         }
-        self.lines.push(input);
+        self.lines.push(input.summarize());
         Ok(self.lines.len() as i64)
     }
     fn drain(&mut self) -> Vec<String> {
@@ -294,11 +303,15 @@ impl capability_kinds::Summarizable for Buffer {
 fn capability_kinds_are_implementable_traits() {
     use capability_kinds::{Fillable, Summarizable};
     let mut buffer = Buffer::create();
-    assert_eq!(buffer.push("a".to_owned()).ok(), Some(1));
-    assert_eq!(buffer.push("b".to_owned()).ok(), Some(2));
-    assert!(matches!(buffer.push("c".to_owned()), Err(SinkError::Full)));
+    assert_eq!(buffer.push(Line("a")).ok(), Some(1));
+    assert_eq!(buffer.push(Line("b")).ok(), Some(2));
+    assert!(matches!(buffer.push(Line("c")), Err(SinkError::Full)));
     assert_eq!(buffer.summarize(), "a b");
-    assert_eq!(buffer.drain().len(), 2);
+    // Any Summarizable is taken, another Buffer among them.
+    let mut outer = Buffer::create();
+    assert_eq!(outer.push(buffer).ok(), Some(1));
+    assert_eq!(outer.summarize(), "a b");
+    assert_eq!(outer.drain().len(), 1);
     assert!(!matches!(SinkError::Closed, SinkError::Full));
 }
 

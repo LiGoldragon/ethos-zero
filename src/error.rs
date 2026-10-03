@@ -38,6 +38,7 @@ pub enum Problem {
     Empty,
     Depth,
     Role(String),
+    KindWanted(String),
     Intrinsic(String),
     Case(String),
 }

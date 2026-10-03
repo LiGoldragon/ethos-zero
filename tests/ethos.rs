@@ -14,7 +14,7 @@ fn read(source: &str) -> File {
 
 #[test]
 fn full_library_round_trips_and_generates_named_types_and_kinds() {
-    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ String ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
     let file = read(source);
     let repeated = read(&file.protosize().textualize());
     assert_eq!(file, repeated);
@@ -329,4 +329,96 @@ fn every_generated_item_carries_rustfmt_skip() {
             );
         }
     }
+}
+
+/// The generated Rust with its whitespace removed, so an assertion names the
+/// signature and not where prettyplease breaks it.
+trait Compact {
+    fn compact(&self) -> String;
+}
+
+impl Compact for str {
+    fn compact(&self) -> String {
+        match read(self).generate() {
+            Ok(rust) => rust
+                .chars()
+                .filter(|glyph| !glyph.is_whitespace())
+                .collect(),
+            Err(error) => panic!("{self} must generate: {error:?}"),
+        }
+    }
+}
+
+#[test]
+fn a_kind_in_an_input_becomes_a_parameter_bounded_by_it() {
+    let rust = "Library [] [] [ Textualizable.[ textualize.[ String ] ] Resolvable.[ resolve.{ [ Textualizable ] [ Self ] } ] ] []".compact();
+    assert!(
+        rust.contains("fnresolve<N:Textualizable>(&self,input:N)->SelfwhereSelf:Sized;"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn each_kind_in_the_inputs_takes_its_own_parameter() {
+    let rust = "Library [ protos:Textualizable ] [] [ Joinable.[ join!{ [ Textualizable Textualizable Self ] [ Integer ] } ] ] []".compact();
+    assert!(
+        rust.contains("fnjoin<N:protos::Textualizable,O:protos::Textualizable>(&mutself,input_0:N,input_1:O,input_2:Self,)->i64whereSelf:Sized;"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn a_kind_in_a_yield_becomes_a_parameter_bounded_by_it() {
+    let rust = "Library [] [] [ Textualizable.[ textualize.[ String ] ] Making.[ make:[ Textualizable ] ] ] []".compact();
+    assert!(rust.contains("fnmake<N:Textualizable>()->N;"), "{rust}");
+}
+
+#[test]
+fn a_kind_the_head_already_binds_stays_the_associated_type() {
+    let rust = "Library [] [] [ Textualizable.[ textualize.[ String ] ] Streamable.{ [] [ Item<Textualizable> ] [] [ push!{ [ Textualizable ] [ Self ] } ] } ] []".compact();
+    assert!(
+        rust.contains("fnpush(&mutself,input:Self::Item)->SelfwhereSelf:Sized;"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn self_and_the_kinds_own_parameters_stay_as_they_are() {
+    let rust = "Library [ serde:Serializable ] [] [ Processable<Serializable>.[ process.{ [ Serializable Self ] [ Self ] } ] ] []".compact();
+    assert!(
+        rust.contains("fnprocess(&self,input_0:A,input_1:Self)->SelfwhereSelf:Sized;"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn a_concrete_type_in_an_input_is_refused_as_wanting_a_kind() {
+    assert_eq!(
+        "Library [] [] [ Resolvable.[ resolve.{ [ String ] [ Self ] } ] ] []".refusal(),
+        (
+            vec![1, 2, 0, 1, 0, 1, 0, 0],
+            Problem::KindWanted("String".to_owned())
+        )
+    );
+    assert_eq!(
+        "Library [] [ Rec.String ] [ Resolvable.[ resolve.{ [ Self Rec ] [ Self ] } ] ] []"
+            .refusal(),
+        (
+            vec![1, 2, 0, 1, 0, 1, 0, 1],
+            Problem::KindWanted("Rec".to_owned())
+        )
+    );
+    assert_eq!(
+        "Library [] [] [ Fillable.[ push!{ [ Vector<Self> ] [ Self ] } ] ] []".refusal(),
+        (
+            vec![1, 2, 0, 1, 0, 1, 0, 0],
+            Problem::KindWanted("Vector".to_owned())
+        )
+    );
+    assert_eq!(
+        "Library [] [] [ Fillable.[ push!{ [ protos:String ] [ Self ] } ] ] []"
+            .refusal()
+            .1,
+        Problem::KindWanted("String".to_owned())
+    );
 }

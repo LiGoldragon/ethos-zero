@@ -9,6 +9,7 @@
 
 use datom_codec::{Integer, Path};
 
+use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, KindBody, KindDeclaration,
@@ -1526,14 +1527,40 @@ impl Checkable for AssociatedConstant {
     }
 }
 
+/// The kind whose capability checks a reference standing in a capability's signature.
+trait Signing {
+    fn sign(&self, scope: &Scope, place: Place) -> Result<(), Error>;
+}
+
+impl Signing for Reference {
+    fn sign(&self, scope: &Scope, place: Place) -> Result<(), Error> {
+        match self.stance(scope, place) {
+            Stance::Concrete if place == Place::Input => Err(Error::conceptual(
+                vec![],
+                Problem::KindWanted(self.name.0.clone()),
+            )),
+            Stance::Bounding | Stance::Bound(_) => self.refer(scope, Role::Kind),
+            Stance::Concrete | Stance::Kept => self.refer(scope, Role::Type),
+        }
+    }
+}
+
 impl Checkable for Capability {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.name.define().place(0)?;
         match &self.signature {
-            Signature::Yielding(yields) => yields.check(scope).beside(0).place(1),
+            Signature::Yielding(yields) => yields.sign(scope, Place::Yield).beside(0).place(1),
             Signature::Taking(inputs, yields) => {
-                inputs.check_each(scope, 0).place(1)?;
-                yields.check(scope).beside(0).place(1).place(1)
+                let mut at = 0;
+                for input in inputs {
+                    input
+                        .sign(scope, Place::Input)
+                        .beside(at)
+                        .place(0)
+                        .place(1)?;
+                    at += input.span();
+                }
+                yields.sign(scope, Place::Yield).beside(0).place(1).place(1)
             }
         }
     }
