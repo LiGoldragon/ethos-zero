@@ -2,6 +2,62 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 15.0.0: four roots, Memory and Operation
+
+What breaks:
+
+- The `Sema` root is renamed `Memory`: same sections (imports, record
+  types), same generation. A file headed `Sema` is refused as
+  `Rejected.{ file { 1 1 } Conceptual.{ [ 0 ] Renamed.Memory } }`. The
+  `Error` contract gains `Problem.Renamed.String`.
+- The `Operation` root is added: `Operation [ imports ] [ operations ]
+  [ outcomes ] [ types ]`, generating `pub enum Operation` and
+  `pub enum Outcome` the way a Signal generates `Query` and `Response`,
+  each variant carrying its declared payload (`Start.{ Voice Capsule }`
+  gives `Start(Start_Data)`). Its types derive the datom kinds
+  unconditionally and do not archive, as a Library's and a Memory's.
+  **The section order is proposed, pending the living's word** (ruling 3,
+  4b, of flow 3ec648); it may change before it is his.
+- A struct position may declare its type in place: `Brief.String`,
+  `State.[ Running Ended ]`, `Capsule.{ Home.String Login.Vector<String> }`.
+  The type takes its own name in the file's namespace and the position
+  holds it by name (`brief: Brief`). 14.x refused such a position as
+  `Expected.Reference`; a file that does not write one generates as before.
+- Library API: `File::Sema(Sema)` is `File::Memory(Memory)`; `File` and
+  `Root` gain `Operation`; `TypeDeclaration::Struct` and `Variant::Struct`
+  hold `Vec<Position>` (`Position::Referenced(Reference)` or
+  `Position::Declared(TypeDeclaration)`) where they held `Vec<Reference>`.
+  No consumer under `/git` names these types; the build-script consumers
+  only call `Potential<File>`, `Actualizing` and `Generating`.
+
+To deploy, in each consumer:
+
+1. Rename the head of every file headed `Sema` to `Memory`; nothing else in
+   the file changes. Rename the file where its name says `sema`, if the
+   consumer wants the generated module named for it.
+2. Regenerate the committed Rust and run its tests. The generated Rust of a
+   renamed file is byte-identical to 14.2.0's.
+3. Repin ethos-zero; bump the consumer's own version where it publishes the
+   generated module.
+
+Consumers to rename, found by reading the head of every `.ethos` under
+`/git` (2026-10-02, 141 files); none is changed by this release:
+
+- `github.com/LiGoldragon/spirit-ethos/sema.ethos`
+- `github.com/LiGoldragon/spirit/schema/sema.ethos`
+- `github.com/LiGoldragon/core-schema/tests/fixtures/bootstrap/sema.ethos`
+- `github.com/LiGoldragon/core-ethos/tests/fixtures/bootstrap/sema.ethos`
+- `github.com/LiGoldragon/primary-next/reports/spiritEthosFixtures/sema.ethos`
+- `github.com/LiGoldragon/primary-next/flows/f6db8d/witnesses/substrate/probe-ethos/sema-record.ethos`
+- `github.com/LiGoldragon/primary-next/flows/f6db8d/witnesses/substrate/probe-ethos/sema-plain.ethos`
+
+The Flow Nexus's four files under `fixtures/print/` now generate, Operation
+and Memory included, and still print back byte-identical; their generated
+Rust is committed under `tests/generated/flow-*.rs`. The Library, Operation
+and Memory modules compile and round-trip as datom text. The Signal's
+does not compile yet: its archived types carry the Library's `Voice`,
+`FlowId` and `Event`, and a Library type does not derive rkyv.
+
 ## 14.0.0: capability inputs are kinds
 
 What breaks: a concrete type in a capability's input is refused, where

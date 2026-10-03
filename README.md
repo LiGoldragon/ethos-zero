@@ -38,16 +38,37 @@ regenerates both and every fixture under `tests/generated/`.
 
 ## File variants
 
+Four roots: Library, Signal, Operation, Memory. Signal declares what a
+Nexus says; Operation what it does, one operation for every effect; Memory
+what it remembers; Library what they share.
+
 ```
-Library  [ imports ] [ types ] [ kinds ] [ associations ]
-Signal   [ imports ] [ queries ] [ responses ] [ types ]   ; Query and Response implied
-Sema     [ imports ] [ record types ]
+Library    [ imports ] [ types ] [ kinds ] [ associations ]
+Signal     [ imports ] [ queries ] [ responses ] [ types ]     ; Query and Response implied
+Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; Operation and Outcome implied
+Memory     [ imports ] [ record types ]
 ```
+
+Operation's sections are proposed, not yet the living's word.
 
 A Signal generates `pub enum Query` and `pub enum Response` from its
 first two sections, so those two names are the ones a Signal may not
-also declare. Sema generates nothing but its declared record types and
-reserves no name; a Sema record may be named `Record`.
+also declare; an Operation likewise generates `pub enum Operation` and
+`pub enum Outcome`, each variant carrying its declared payload. A Memory
+generates nothing but its declared record types and reserves no name; a
+Memory record may be named `Record`. A file headed `Sema`, Memory's head
+before 15.0.0, is refused as `Conceptual.{ [ 0 ] Renamed.Memory }`.
+
+A Signal's types archive (rkyv) and gate their datom derives behind the
+`datom` feature; a Library's, an Operation's and a Memory's derive the datom
+kinds unconditionally and do not archive.
+
+A struct position may declare its type in place: `Brief.String`,
+`State.[ Running Ended ]`, `Capsule.{ Home.String Login.Vector<String> }`.
+The type is named by its own name, shares the file's namespace (a second
+`Brief` anywhere in the file is a `Duplicate`), and the position holds it
+by name, so its field is `brief: Brief`. It is declared outside any
+enclosing identity, and emitted before the struct that holds it.
 
 An import names a Rust path prefix and the names taken from it:
 `std:clone:Clonable.Clone` imports one name, and
