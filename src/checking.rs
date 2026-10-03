@@ -9,12 +9,13 @@
 
 use datom_codec::{Integer, Path};
 
+use crate::sectioning::{Hoisting, Referencing, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, KindBody, KindDeclaration,
-    Name, Placing, Problem, Reference, Resolution, Resolving, Role, Scope, Sema, Signal, Signature,
-    TypeDeclaration, Variant,
+    Memory, Name, Operation, Placing, Position, Problem, Reference, Resolution, Resolving, Role,
+    Scope, Signal, Signature, TypeDeclaration, Variant,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -107,7 +108,8 @@ impl Resolving for [KindDeclaration] {
     }
 }
 
-/// The kind whose capability yields the names a file variant implies: a Signal's query and response types.
+/// The kind whose capability yields the names a file variant implies: a
+/// Signal's query and response types, an Operation's operation and outcome types.
 pub(crate) trait Implying {
     /// The implied type names.
     fn implied(&self) -> Vec<Name>;
@@ -115,28 +117,27 @@ pub(crate) trait Implying {
 
 impl Implying for File {
     fn implied(&self) -> Vec<Name> {
-        match self {
-            File::Library(_) => vec![],
-            File::Signal(_) => vec![
-                Name::try_from("Query").expect("static identifier"),
-                Name::try_from("Response").expect("static identifier"),
-            ],
-            File::Sema(_) => vec![],
+        let mut names = Vec::new();
+        for implied in self.implied_enums() {
+            names.push(implied.name);
         }
+        names
     }
 }
 
 impl Resolving for File {
     fn resolve(&self, name: &Name) -> Resolution {
-        let resolution = match self {
-            File::Library(library) => library
-                .types
-                .resolve(name)
-                .or(library.kinds.resolve(name))
-                .or(library.imports.resolve(name)),
-            File::Signal(signal) => signal.types.resolve(name).or(signal.imports.resolve(name)),
-            File::Sema(sema) => sema.types.resolve(name).or(sema.imports.resolve(name)),
-        };
+        let mut resolution = Resolution::Undeclared;
+        for placed in self.declarations() {
+            resolution = placed.declaration.resolve(name);
+            if resolution != Resolution::Undeclared {
+                break;
+            }
+        }
+        if let File::Library(library) = self {
+            resolution = resolution.or(library.kinds.resolve(name));
+        }
+        let resolution = resolution.or(self.imports().resolve(name));
         if resolution != Resolution::Undeclared {
             return resolution;
         }
@@ -386,6 +387,15 @@ impl Spanning for Variant {
     }
 }
 
+impl Spanning for Position {
+    fn span(&self) -> Integer {
+        match self {
+            Position::Referenced(reference) => reference.span(),
+            Position::Declared(declaration) => declaration.span(),
+        }
+    }
+}
+
 impl Spanning for AssociatedType {
     fn span(&self) -> Integer {
         if self.bounds.is_empty() { 1 } else { 2 }
@@ -560,7 +570,7 @@ impl Inhabiting for Variant {
             Variant::Typed(_, reference) => reference.inhabited(file, owner, known),
             Variant::Struct(_, positions) => positions
                 .iter()
-                .all(|position| position.inhabited(file, owner, known)),
+                .all(|position| position.reference().inhabited(file, owner, known)),
             Variant::Enum(_, variants) => {
                 variants.is_empty()
                     || variants
@@ -576,7 +586,7 @@ impl Inhabiting for TypeDeclaration {
         match self {
             TypeDeclaration::Struct(_, positions) => positions
                 .iter()
-                .all(|position| position.inhabited(file, owner, known)),
+                .all(|position| position.reference().inhabited(file, owner, known)),
             // An enum of no variants is declared empty on purpose, not by recursion.
             TypeDeclaration::Enum(_, variants) => {
                 variants.is_empty()
@@ -598,19 +608,17 @@ trait Finite {
 
 impl Finite for File {
     fn finite(&self) -> Result<(), Error> {
-        let (declarations, section) = match self {
-            File::Library(library) => (&library.types, 1),
-            File::Signal(signal) => (&signal.types, 3),
-            File::Sema(sema) => (&sema.types, 1),
-        };
+        let declarations = self.declarations();
         let mut known = Inhabitation {
             inhabited: Vec::new(),
         };
         loop {
             let mut grown = false;
-            for declaration in declarations {
-                let name = declaration.identity().name.clone();
-                if !known.inhabited.contains(&name) && declaration.inhabited(self, &name, &known) {
+            for placed in &declarations {
+                let name = placed.declaration.identity().name.clone();
+                if !known.inhabited.contains(&name)
+                    && placed.declaration.inhabited(self, &name, &known)
+                {
                     known.inhabited.push(name);
                     grown = true;
                 }
@@ -619,16 +627,13 @@ impl Finite for File {
                 break;
             }
         }
-        let mut at = 0;
-        for declaration in declarations {
-            let name = &declaration.identity().name;
+        for placed in declarations {
+            let name = &placed.declaration.identity().name;
             if !known.inhabited.contains(name) {
-                return Err(Error::conceptual(
-                    vec![section, at, 0],
-                    Problem::Cycle(name.0.clone()),
-                ));
+                let mut path = placed.path;
+                path.push(0);
+                return Err(Error::conceptual(path, Problem::Cycle(name.0.clone())));
             }
-            at += declaration.span();
         }
         Ok(())
     }
@@ -703,7 +708,8 @@ impl Checkable for File {
         let checked = match self {
             File::Library(library) => library.check(scope),
             File::Signal(signal) => signal.check(scope),
-            File::Sema(sema) => sema.check(scope),
+            File::Operation(operation) => operation.check(scope),
+            File::Memory(memory) => memory.check(scope),
         };
         checked.place(1)?;
         // The derived names come first, so an authored name that would
@@ -747,51 +753,28 @@ trait Rooting {
     fn inline_roots(&self) -> Vec<InlineRoot<'_>>;
 }
 
-/// The kind whose capability lists the enum declarations of a section at their paths.
-trait EnumSectioned {
-    fn enums_in(&self, section: Integer) -> Vec<InlineRoot<'_>>;
-}
-
-impl EnumSectioned for [TypeDeclaration] {
-    fn enums_in(&self, section: Integer) -> Vec<InlineRoot<'_>> {
+impl Rooting for File {
+    fn inline_roots(&self) -> Vec<InlineRoot<'_>> {
         let mut roots = Vec::new();
-        let mut at = 0;
-        for declaration in self {
-            if let TypeDeclaration::Enum(identity, variants) = declaration {
+        for implied in self.implied_enums() {
+            roots.push(InlineRoot {
+                owner: implied.name,
+                variants: implied.variants,
+                path: vec![implied.section],
+            });
+        }
+        for placed in self.declarations() {
+            if let TypeDeclaration::Enum(identity, variants) = placed.declaration {
+                let mut path = placed.path;
+                path.push(1);
                 roots.push(InlineRoot {
                     owner: identity.name.clone(),
                     variants,
-                    path: vec![section, at, 1],
+                    path,
                 });
             }
-            at += declaration.span();
         }
         roots
-    }
-}
-
-impl Rooting for File {
-    fn inline_roots(&self) -> Vec<InlineRoot<'_>> {
-        match self {
-            File::Library(library) => library.types.enums_in(1),
-            File::Sema(sema) => sema.types.enums_in(1),
-            File::Signal(signal) => {
-                let mut roots = vec![
-                    InlineRoot {
-                        owner: Name::try_from("Query").expect("static identifier"),
-                        variants: &signal.queries,
-                        path: vec![1],
-                    },
-                    InlineRoot {
-                        owner: Name::try_from("Response").expect("static identifier"),
-                        variants: &signal.responses,
-                        path: vec![2],
-                    },
-                ];
-                roots.extend(signal.types.enums_in(3));
-                roots
-            }
-        }
     }
 }
 
@@ -919,7 +902,25 @@ impl Declared for Signal {
     }
 }
 
-impl Declared for Sema {
+impl Declared for Operation {
+    fn declared(&self) -> Vec<DeclarationSite> {
+        let mut names = vec![
+            DeclarationSite {
+                name: Name::try_from("Operation").expect("static identifier"),
+                path: vec![1],
+            },
+            DeclarationSite {
+                name: Name::try_from("Outcome").expect("static identifier"),
+                path: vec![2],
+            },
+        ];
+        names.extend(self.imports.names_in(0));
+        names.extend(self.types.names_in(3));
+        names
+    }
+}
+
+impl Declared for Memory {
     fn declared(&self) -> Vec<DeclarationSite> {
         let mut names = self.imports.names_in(0);
         names.extend(self.types.names_in(1));
@@ -929,11 +930,22 @@ impl Declared for Sema {
 
 impl Declared for File {
     fn declared(&self) -> Vec<DeclarationSite> {
-        match self {
+        let mut names = match self {
             File::Library(library) => library.declared(),
             File::Signal(signal) => signal.declared(),
-            File::Sema(sema) => sema.declared(),
+            File::Operation(operation) => operation.declared(),
+            File::Memory(memory) => memory.declared(),
+        };
+        // A type declared in place is a declaration of the file, named at its head.
+        for placed in self.inlined() {
+            let mut path = placed.path;
+            path.push(0);
+            names.push(DeclarationSite {
+                name: placed.declaration.identity().name.clone(),
+                path,
+            });
         }
+        names
     }
 }
 
@@ -962,7 +974,19 @@ impl Checkable for Signal {
     }
 }
 
-impl Checkable for Sema {
+impl Checkable for Operation {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
+        self.declared().distinct()?;
+        self.imports.check_each(scope, 0)?;
+        self.operations.names_in(1).distinct()?;
+        self.outcomes.names_in(2).distinct()?;
+        self.operations.check_each(scope, 1)?;
+        self.outcomes.check_each(scope, 2)?;
+        self.types.check_each(scope, 3)
+    }
+}
+
+impl Checkable for Memory {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.declared().distinct()?;
         self.imports.check_each(scope, 0)?;
@@ -1183,6 +1207,21 @@ impl Checkable for Reference {
     }
 }
 
+/// A type declared in place is checked as a declaration of the file: outside
+/// the identity and kind that enclose it, which it does not take.
+impl Checkable for Position {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
+        match self {
+            Position::Referenced(reference) => reference.check(scope),
+            Position::Declared(declaration) => declaration.check(&Scope {
+                file: scope.file,
+                identity: None,
+                associated: &[],
+            }),
+        }
+    }
+}
+
 /// The kind whose capability tells whether an alias reaches a name through aliases and intrinsic containers alone.
 trait Cycling {
     fn cycles(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool;
@@ -1311,14 +1350,9 @@ pub(crate) trait Declaring {
 
 impl Declaring for File {
     fn declaration(&self, name: &Name) -> Option<&TypeDeclaration> {
-        let declarations = match self {
-            File::Library(library) => &library.types,
-            File::Signal(signal) => &signal.types,
-            File::Sema(sema) => &sema.types,
-        };
-        for declaration in declarations {
-            if declaration.resolve(name) != Resolution::Undeclared {
-                return Some(declaration);
+        for placed in self.declarations() {
+            if placed.declaration.resolve(name) != Resolution::Undeclared {
+                return Some(placed.declaration);
             }
         }
         None

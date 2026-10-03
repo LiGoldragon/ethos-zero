@@ -22,11 +22,12 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::checking::{Checkable, Declaring, Inlining};
+use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
-    Identity, Intrinsic, KindBody, KindDeclaration, Name, Receiver, Reference, Resolution,
-    Resolving, Scope, Signature, Source, TypeDeclaration, Variant,
+    Identity, Intrinsic, KindBody, KindDeclaration, Name, Position, Receiver, Reference,
+    Resolution, Resolving, Scope, Signature, Source, TypeDeclaration, Variant,
 };
 
 // ---------------------------------------------------------------------------
@@ -319,6 +320,23 @@ impl Reaching for [Reference] {
     }
 }
 
+impl Reaching for [Position] {
+    fn reaches(
+        &self,
+        target: &Name,
+        passage: Passage,
+        file: &File,
+        visited: &mut Vec<Name>,
+    ) -> bool {
+        for position in self {
+            if position.reference().reaches(target, passage, file, visited) {
+                return true;
+            }
+        }
+        false
+    }
+}
+
 impl Reaching for TypeDeclaration {
     fn reaches(
         &self,
@@ -396,14 +414,9 @@ trait Placing {
 
 impl Placing for File {
     fn place(&self, name: &Name) -> Option<usize> {
-        let declarations = match self {
-            File::Library(library) => &library.types,
-            File::Signal(signal) => &signal.types,
-            File::Sema(sema) => &sema.types,
-        };
-        declarations
+        self.declarations()
             .iter()
-            .position(|declaration| declaration.resolve(name) != Resolution::Undeclared)
+            .position(|placed| placed.declaration.resolve(name) != Resolution::Undeclared)
     }
 }
 
@@ -778,7 +791,7 @@ trait Enumerating {
 
 /// How a declaration's projection is carried. A Signal's types cross a wire,
 /// so they archive and their datom kinds are gated behind the `datom` feature
-/// the Nexus does not enable; a Library's or a Sema's do not.
+/// the Nexus does not enable; a Library's, an Operation's or a Memory's do not.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Carriage {
     Archived,
@@ -826,12 +839,15 @@ impl Carrying for File {
     fn carriage(&self) -> Carriage {
         match self {
             File::Signal(_) => Carriage::Archived,
-            File::Library(_) | File::Sema(_) => Carriage::Plain,
+            File::Library(_) | File::Operation(_) | File::Memory(_) => Carriage::Plain,
         }
     }
 }
 
-impl Structuring for [Reference] {
+/// A type declared in a position is emitted before the struct that holds
+/// it, as a declaration of the file outside the enclosing identity; the
+/// position then holds it by name.
+impl Structuring for [Position] {
     fn structure(
         &self,
         scope: &Scope,
@@ -841,15 +857,27 @@ impl Structuring for [Reference] {
     ) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
+        let outer = Scope {
+            file: scope.file,
+            identity: None,
+            associated: &[],
+        };
+        let mut declared = Vec::new();
+        for position in self {
+            if let Position::Declared(declaration) = position {
+                declared.push(declaration.emit(&outer));
+            }
+        }
+        let references = self.references();
         let mut types = Vec::with_capacity(self.len());
         let mut archivals = Vec::with_capacity(self.len());
         let mut recursive = false;
-        for position in self {
+        for position in &references {
             types.push(position.position(scope, owner));
             archivals.push(position.archival(scope, owner, carriage));
             recursive |= position.recursive(scope, owner);
         }
-        let fields = self.field_names(owner);
+        let fields = references.field_names(owner);
         let derive = carriage.datom_derives();
         let bounds = if recursive {
             carriage.recursion_bounds()
@@ -857,6 +885,7 @@ impl Structuring for [Reference] {
             TokenStream::new()
         };
         quote! {
+            #( #declared )*
             #derive
             #bounds
             pub struct #name #parameters { #( #archivals pub #fields: #types ),* }
@@ -1208,34 +1237,25 @@ impl Emitting for File {
                     items.push(quote! { #[rustfmt::skip] #item });
                 }
             }
-            File::Signal(signal) => {
-                for declaration in &signal.types {
+            File::Signal(_) | File::Operation(_) | File::Memory(_) => {
+                for declaration in self.types() {
                     items.push(declaration.emit(scope));
                 }
-                let query = TypeDeclaration::Enum(
-                    Identity {
-                        name: Name::try_from("Query").expect("static identifier"),
-                        constraints: vec![],
-                    },
-                    signal.queries.clone(),
-                );
-                let response = TypeDeclaration::Enum(
-                    Identity {
-                        name: Name::try_from("Response").expect("static identifier"),
-                        constraints: vec![],
-                    },
-                    signal.responses.clone(),
-                );
-                if !signal.queries.is_empty() {
-                    items.push(query.emit(scope));
-                }
-                if !signal.responses.is_empty() {
-                    items.push(response.emit(scope));
-                }
-            }
-            File::Sema(sema) => {
-                for declaration in &sema.types {
-                    items.push(declaration.emit(scope));
+                // A Signal's `Query` and `Response`, an Operation's
+                // `Operation` and `Outcome`: each an enum of its section's
+                // variants, emitted when it has any.
+                for implied in self.implied_enums() {
+                    if implied.variants.is_empty() {
+                        continue;
+                    }
+                    let enumeration = TypeDeclaration::Enum(
+                        Identity {
+                            name: implied.name,
+                            constraints: vec![],
+                        },
+                        implied.variants.to_vec(),
+                    );
+                    items.push(enumeration.emit(scope));
                 }
             }
         }

@@ -41,6 +41,7 @@ pub enum Problem {
     KindWanted(String),
     Intrinsic(String),
     Case(String),
+    Renamed(String),
 }
 #[rustfmt::skip]
 #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]

@@ -4,8 +4,8 @@ use protos::{Canonicalizable, Enclosure, Extent, Protos, Protosizable, Separator
 
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Identity,
-    Import, Imported, KindBody, KindDeclaration, Library, Receiver, Reference, Sema, Signal,
-    Signature, TypeDeclaration, Variant,
+    Import, Imported, KindBody, KindDeclaration, Library, Memory, Operation, Position, Receiver,
+    Reference, Signal, Signature, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Protosizing {
@@ -158,6 +158,28 @@ impl DeclarationsProtosizing for [TypeDeclaration] {
     }
 }
 
+/// A struct's positions: each reference, or each declaration in place, with
+/// the angled enclosure of its arguments beside it.
+trait PositionsProtosizing {
+    fn position_nodes(&self) -> Vec<Protos>;
+}
+impl PositionsProtosizing for [Position] {
+    fn position_nodes(&self) -> Vec<Protos> {
+        let mut nodes = Vec::new();
+        for position in self {
+            match position {
+                Position::Referenced(reference) => {
+                    nodes.extend(std::slice::from_ref(reference).reference_nodes())
+                }
+                Position::Declared(declaration) => {
+                    nodes.extend(std::slice::from_ref(declaration).declaration_nodes())
+                }
+            }
+        }
+        nodes
+    }
+}
+
 impl Protosizing for Reference {
     fn protos(&self) -> Protos {
         let base = self.name.as_ref().bare();
@@ -238,7 +260,7 @@ impl Protosizing for TypeDeclaration {
         match self {
             Self::Struct(identity, positions) => identity.heading(
                 Separator::Period,
-                "".enclosed(Enclosure::Braced, positions.reference_nodes()),
+                "".enclosed(Enclosure::Braced, positions.position_nodes()),
             ),
             Self::Enum(identity, variants) => identity.heading(
                 Separator::Period,
@@ -261,7 +283,7 @@ impl Protosizing for Variant {
             Self::Struct(name, positions) => name.as_ref().headed(
                 None,
                 Separator::Period,
-                "".enclosed(Enclosure::Braced, positions.reference_nodes()),
+                "".enclosed(Enclosure::Braced, positions.position_nodes()),
             ),
             Self::Enum(name, variants) => name.as_ref().headed(
                 None,
@@ -362,7 +384,20 @@ impl Protosizing for Signal {
         )
     }
 }
-impl Protosizing for Sema {
+impl Protosizing for Operation {
+    fn protos(&self) -> Protos {
+        "".enclosed(
+            Enclosure::Braced,
+            vec![
+                "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.operations.variant_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.outcomes.variant_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
+            ],
+        )
+    }
+}
+impl Protosizing for Memory {
     fn protos(&self) -> Protos {
         "".enclosed(
             Enclosure::Braced,
@@ -378,7 +413,10 @@ impl Protosizing for File {
         let raw = match self {
             Self::Library(library) => "Library".headed(None, Separator::Period, library.protos()),
             Self::Signal(signal) => "Signal".headed(None, Separator::Period, signal.protos()),
-            Self::Sema(sema) => "Sema".headed(None, Separator::Period, sema.protos()),
+            Self::Operation(operation) => {
+                "Operation".headed(None, Separator::Period, operation.protos())
+            }
+            Self::Memory(memory) => "Memory".headed(None, Separator::Period, memory.protos()),
         };
         // Shared Protos canonicalization assigns exact UTF-8 byte spans
         // without routing a valid conceptual ascent through a finite reader.

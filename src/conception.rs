@@ -6,8 +6,8 @@ use protos::{Enclosure, Protos, Separator, Symbol};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported, KindBody,
-    KindDeclaration, Library, Name, Placing, Problem, Receiver, Reference, Root, Sema, Signal,
-    Signature, Source, TypeDeclaration, Variant,
+    KindDeclaration, Library, Memory, Name, Named, Operation, Placing, Position, Problem, Receiver,
+    Reference, Root, Signal, Signature, Source, Succeeding, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Conceiving<C> {
@@ -84,8 +84,15 @@ impl Conceiving<File> for Protos {
         match Root::identify(&head.0) {
             Some(Root::Library) => Ok(File::Library(body.conceive().place(1)?)),
             Some(Root::Signal) => Ok(File::Signal(body.conceive().place(1)?)),
-            Some(Root::Sema) => Ok(File::Sema(body.conceive().place(1)?)),
-            _ => Err(Error::conceptual(vec![0], Problem::Root)),
+            Some(Root::Operation) => Ok(File::Operation(body.conceive().place(1)?)),
+            Some(Root::Memory) => Ok(File::Memory(body.conceive().place(1)?)),
+            None => match Root::successor(&head.0) {
+                Some(successor) => Err(Error::conceptual(
+                    vec![0],
+                    Problem::Renamed(successor.name().to_owned()),
+                )),
+                None => Err(Error::conceptual(vec![0], Problem::Root)),
+            },
         }
     }
 }
@@ -179,6 +186,35 @@ impl References for [Protos] {
         Ok(values)
     }
 }
+/// The kind whose capability reads the positions of a struct: a reference,
+/// or a type declared in place, which a period after a name says.
+trait Positions {
+    fn positions(&self) -> Result<Vec<Position>, Error>;
+}
+impl Positions for [Protos] {
+    fn positions(&self) -> Result<Vec<Position>, Error> {
+        let mut values = Vec::new();
+        for (node, arguments, index) in self.constrained() {
+            let declared = matches!(
+                node,
+                Protos::Headed {
+                    separator: Separator::Period,
+                    ..
+                }
+            );
+            if declared {
+                values.push(Position::Declared(node.declared(arguments, index)?));
+                continue;
+            }
+            let mut reference: Reference = node.conceive().place(index as Integer)?;
+            if let Some(children) = arguments {
+                reference.arguments = children.references().place((index + 1) as Integer)?;
+            }
+            values.push(Position::Referenced(reference));
+        }
+        Ok(values)
+    }
+}
 trait Declarations {
     fn declarations(&self) -> Result<Vec<TypeDeclaration>, Error>;
 }
@@ -186,19 +222,37 @@ impl Declarations for [Protos] {
     fn declarations(&self) -> Result<Vec<TypeDeclaration>, Error> {
         let mut values = Vec::new();
         for (node, arguments, index) in self.constrained() {
-            let mut declaration: TypeDeclaration = node.conceive().place(index as Integer)?;
-            if let Some(children) = arguments {
-                let TypeDeclaration::Alias(_, reference) = &mut declaration else {
-                    return Err(Error::conceptual(
-                        vec![(index + 1) as Integer],
-                        Problem::Expected(Form::Declaration),
-                    ));
-                };
-                reference.arguments = children.references().place((index + 1) as Integer)?;
-            }
-            values.push(declaration);
+            values.push(node.declared(arguments, index)?);
         }
         Ok(values)
+    }
+}
+/// The kind whose capability reads one declaration of a list, at its index,
+/// with the angled arguments written beside it.
+trait Declaring {
+    fn declared(
+        &self,
+        arguments: Option<&Vec<Protos>>,
+        index: usize,
+    ) -> Result<TypeDeclaration, Error>;
+}
+impl Declaring for Protos {
+    fn declared(
+        &self,
+        arguments: Option<&Vec<Protos>>,
+        index: usize,
+    ) -> Result<TypeDeclaration, Error> {
+        let mut declaration: TypeDeclaration = self.conceive().place(index as Integer)?;
+        if let Some(children) = arguments {
+            let TypeDeclaration::Alias(_, reference) = &mut declaration else {
+                return Err(Error::conceptual(
+                    vec![(index + 1) as Integer],
+                    Problem::Expected(Form::Declaration),
+                ));
+            };
+            reference.arguments = children.references().place((index + 1) as Integer)?;
+        }
+        Ok(declaration)
     }
 }
 trait Variants {
@@ -282,13 +336,33 @@ impl Conceiving<Signal> for Protos {
         })
     }
 }
-impl Conceiving<Sema> for Protos {
-    fn conceive(&self) -> Result<Sema, Error> {
+impl Conceiving<Operation> for Protos {
+    fn conceive(&self) -> Result<Operation, Error> {
+        let s = self.sections(4)?;
+        let Some(operations) = s[1].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
+        };
+        let Some(outcomes) = s[2].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![2], Problem::Expected(Form::Section)));
+        };
+        let Some(declarations) = s[3].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![3], Problem::Expected(Form::Section)));
+        };
+        Ok(Operation {
+            imports: s[0].bracket().place(0)?,
+            operations: operations.variants().place(1)?,
+            outcomes: outcomes.variants().place(2)?,
+            types: declarations.declarations().place(3)?,
+        })
+    }
+}
+impl Conceiving<Memory> for Protos {
+    fn conceive(&self) -> Result<Memory, Error> {
         let s = self.sections(2)?;
         let Some(types) = s[1].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
-        Ok(Sema {
+        Ok(Memory {
             imports: s[0].bracket().place(0)?,
             types: types.declarations().place(1)?,
         })
@@ -394,7 +468,7 @@ impl Conceiving<TypeDeclaration> for Protos {
             constraints: vec![],
         };
         if let Some(p) = body.children(Enclosure::Braced) {
-            Ok(TypeDeclaration::Struct(identity, p.references().place(1)?))
+            Ok(TypeDeclaration::Struct(identity, p.positions().place(1)?))
         } else if let Some(v) = body.children(Enclosure::Bracketed) {
             Ok(TypeDeclaration::Enum(identity, v.variants().place(1)?))
         } else {
@@ -414,7 +488,7 @@ impl Conceiving<Variant> for Protos {
             } => {
                 let n = head.name().place(0)?;
                 if let Some(p) = body.children(Enclosure::Braced) {
-                    Ok(Variant::Struct(n, p.references().place(1)?))
+                    Ok(Variant::Struct(n, p.positions().place(1)?))
                 } else if let Some(v) = body.children(Enclosure::Bracketed) {
                     Ok(Variant::Enum(n, v.variants().place(1)?))
                 } else {

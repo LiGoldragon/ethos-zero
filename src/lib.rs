@@ -140,27 +140,30 @@ impl AsRef<str> for Source {
     }
 }
 
-/// The unit of declaration: one file, one Rust module; an enum of its four variants.
+/// The unit of declaration: one file, one Rust module; an enum of its four roots.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum File {
     /// Library: imports, types, kinds and associations in that order.
     Library(Library),
     /// Signal: imports, the query variants, the response variants, the types carried.
     Signal(Signal),
-    /// Sema: imports, the record's positions, the types stored.
-    Sema(Sema),
+    /// Operation: imports, the operation variants, the outcome variants, the types they carry.
+    Operation(Operation),
+    /// Memory: imports, the record types stored.
+    Memory(Memory),
 }
 
 /// The head of a file: which variant of [`File`] it is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Root {
-    /// The library root.
+    /// The library root: what the others share.
     Library,
-    /// The types variant.
-    /// The signal variant.
+    /// The signal root: what a Nexus says.
     Signal,
-    /// The sema variant.
-    Sema,
+    /// The operation root: what a Nexus does.
+    Operation,
+    /// The memory root: what a Nexus remembers.
+    Memory,
 }
 
 /// A library's complete declaration surface.  Types and kinds share one
@@ -190,9 +193,24 @@ pub struct Signal {
     pub types: Vec<TypeDeclaration>,
 }
 
-/// The sema variant of a file: imports and record-type declarations.
+/// The operation variant of a file: what a Nexus does, one operation for
+/// every effect, whose type is `Operation`, and what each comes to, whose
+/// type is `Outcome`. The section order is proposed, pending the living's word.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Sema {
+pub struct Operation {
+    /// Where imported names come from.
+    pub imports: Vec<Import>,
+    /// The variants of the operation type `Operation`.
+    pub operations: Vec<Variant>,
+    /// The variants of the outcome type `Outcome`.
+    pub outcomes: Vec<Variant>,
+    /// The types the operations and outcomes carry.
+    pub types: Vec<TypeDeclaration>,
+}
+
+/// The memory variant of a file: imports and record-type declarations.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Memory {
     /// Where imported names come from.
     pub imports: Vec<Import>,
     /// The record type declarations.
@@ -246,11 +264,21 @@ pub enum Constraint {
     Many(Vec<Reference>),
 }
 
+/// A position of a struct: a reference to a type, or a type declared in
+/// place, `Brief.String`, which the position then holds.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Position {
+    /// A type named: `Voice`, `Vector<Event>`.
+    Referenced(Reference),
+    /// A type declared where it is used: `State.[ Running Ended ]`.
+    Declared(TypeDeclaration),
+}
+
 /// A type declaration: a struct of positions, an enum of variants, or an alias.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypeDeclaration {
     /// A headed brace: the positions in order.
-    Struct(Identity, Vec<Reference>),
+    Struct(Identity, Vec<Position>),
     /// A headed bracket: the variants.
     Enum(Identity, Vec<Variant>),
     /// A headed bare: the aliased type.
@@ -265,7 +293,7 @@ pub enum Variant {
     /// Carrying one type: `Lock.LockRequest`.
     Typed(Name, Reference),
     /// Carrying an inline struct, a tuple variant: `Node.{ Tree Tree }`.
-    Struct(Name, Vec<Reference>),
+    Struct(Name, Vec<Position>),
     /// Carrying an inline enum, a nested enum type: `Kind.[ A B ]`.
     Enum(Name, Vec<Variant>),
 }
@@ -490,6 +518,12 @@ pub trait Identifiable: Sized {
     fn identify(name: &str) -> Option<Self>;
 }
 
+/// The kind whose static capability names the variant that replaced a retired name.
+pub trait Succeeding: Sized {
+    /// The successor of the retired name, if it is one.
+    fn successor(name: &str) -> Option<Self>;
+}
+
 /// The kind whose capability yields which variant of [`File`] a value is.
 pub trait Rooted {
     /// The head the file is written under.
@@ -628,14 +662,15 @@ impl Named for Root {
         match self {
             Root::Library => "Library",
             Root::Signal => "Signal",
-            Root::Sema => "Sema",
+            Root::Operation => "Operation",
+            Root::Memory => "Memory",
         }
     }
 }
 
 impl Identifiable for Root {
     fn identify(name: &str) -> Option<Self> {
-        for root in [Root::Library, Root::Signal, Root::Sema] {
+        for root in [Root::Library, Root::Signal, Root::Operation, Root::Memory] {
             if root.name() == name {
                 return Some(root);
             }
@@ -644,12 +679,24 @@ impl Identifiable for Root {
     }
 }
 
+impl Succeeding for Root {
+    /// `Sema` was the memory root's head until 15.0.0.
+    fn successor(name: &str) -> Option<Self> {
+        if name == "Sema" {
+            Some(Root::Memory)
+        } else {
+            None
+        }
+    }
+}
+
 impl Rooted for File {
     fn root(&self) -> Root {
         match self {
             File::Library(_) => Root::Library,
             File::Signal(_) => Root::Signal,
-            File::Sema(_) => Root::Sema,
+            File::Operation(_) => Root::Operation,
+            File::Memory(_) => Root::Memory,
         }
     }
 }
@@ -705,13 +752,14 @@ mod generation;
 mod location;
 mod printing;
 mod protosization;
+mod sectioning;
 mod signature;
 
 #[cfg(test)]
 mod behavior {
     use super::{
         Actualizing, Canonicalizable, Error, File, Generating, Identity, Library, Name, Potential,
-        TypeDeclaration,
+        Problem, TypeDeclaration,
     };
     use protos::{Extent, Protosizable, Textualizable};
 
@@ -820,9 +868,15 @@ mod behavior {
     #[test]
     fn regenerate_library_fixtures() {
         let root = env!("CARGO_MANIFEST_DIR");
-        for entry in std::fs::read_dir(format!("{root}/fixtures")).expect("fixture directory") {
-            let entry = entry.expect("fixture entry");
-            let path = entry.path();
+        let mut paths = Vec::new();
+        for directory in ["fixtures", "fixtures/print"] {
+            for entry in
+                std::fs::read_dir(format!("{root}/{directory}")).expect("fixture directory")
+            {
+                paths.push(entry.expect("fixture entry").path());
+            }
+        }
+        for path in paths {
             if path.extension().and_then(|extension| extension.to_str()) != Some("ethos") {
                 continue;
             }
@@ -863,18 +917,44 @@ mod behavior {
     }
 
     #[test]
-    fn sema_has_imports_and_record_type_declarations_only() {
-        let source = "Sema [ crate:[ Handle ] ] [ Record.{ Handle String } ]";
+    fn memory_has_imports_and_record_type_declarations_only() {
+        let source = "Memory [ crate:[ Handle ] ] [ Record.{ Handle String } ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
-            Err(_) => panic!("approved Sema reads"),
+            Err(_) => panic!("approved Memory reads"),
         };
-        assert!(matches!(file, File::Sema(_)));
+        assert!(matches!(file, File::Memory(_)));
         let repeated = match Potential::<File>::from(file.protosize().textualize()).actualize() {
             Ok(file) => file,
-            Err(_) => panic!("Sema ascent reads"),
+            Err(_) => panic!("Memory ascent reads"),
         };
         assert_eq!(file, repeated);
+    }
+
+    #[test]
+    fn operation_reads_its_four_sections_and_ascends() {
+        let source = "Operation [ flow:[ Voice ] ] [ Start.{ Voice Capsule } ] [ Started Failed.String ] [ Capsule.{ Home.String } ]";
+        let file = match Potential::<File>::from(source).actualize() {
+            Ok(file) => file,
+            Err(_) => panic!("approved Operation reads"),
+        };
+        assert!(matches!(file, File::Operation(_)));
+        let repeated = match Potential::<File>::from(file.protosize().textualize()).actualize() {
+            Ok(file) => file,
+            Err(_) => panic!("Operation ascent reads"),
+        };
+        assert_eq!(file, repeated);
+    }
+
+    #[test]
+    fn a_file_headed_sema_is_refused_naming_memory() {
+        match Potential::<File>::from("Sema [] [ Record.{ String } ]").actualize() {
+            Err(Error::Conceptual(data)) => {
+                assert_eq!(data.integer_vector, vec![0]);
+                assert_eq!(data.problem, Problem::Renamed("Memory".to_owned()));
+            }
+            _ => panic!("a Sema file is refused at its head"),
+        }
     }
 
     #[test]
@@ -1009,10 +1089,11 @@ mod behavior {
     }
 
     #[test]
-    fn signal_sema_import_and_attached_generic_errors_keep_root_paths() {
+    fn signal_memory_import_and_attached_generic_errors_keep_root_paths() {
         let cases = [
             ("Signal [ 1 ] [] [] []", vec![1, 0, 0]),
-            ("Sema [] [ 1 ]", vec![1, 1, 0]),
+            ("Memory [] [ 1 ]", vec![1, 1, 0]),
+            ("Operation [ 1 ] [] [] []", vec![1, 0, 0]),
             ("Library [] [ Alias.Vector<1> ] [] []", vec![1, 1, 1, 0]),
         ];
         for (source, expected) in cases {
@@ -1051,7 +1132,8 @@ mod behavior {
         let cases = [
             "Library.{ [] [ 1 ] [] [] }",
             "Signal [ 1 ] [] [] []",
-            "Sema [] [ 1 ]",
+            "Memory [] [ 1 ]",
+            "Operation [] [ Go.Vector<Bogus> ] [] []",
             "Library [] [ Alias.Vector<1> ] [] []",
             "Library [] [] [ K.[ 1 ] ] []",
             "Library [] [] [ K.{ [ 1 ] [] [] [] } ] []",
