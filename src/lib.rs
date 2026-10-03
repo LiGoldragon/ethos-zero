@@ -460,6 +460,12 @@ pub struct Scope<'a> {
 // Kinds
 // ---------------------------------------------------------------------------
 
+/// The kind whose capability prints the canonical text: vertical, hanging, closers on the last line.
+pub trait Printable {
+    /// The canonical print.
+    fn print(&self) -> String;
+}
+
 /// The kind whose capability yields the canonical form of an ethos text.
 pub trait Canonicalizable {
     /// Open the sweet form into the braced form; the text is delineated to find its head.
@@ -697,6 +703,7 @@ mod checking;
 mod conception;
 mod generation;
 mod location;
+mod printing;
 mod protosization;
 mod signature;
 

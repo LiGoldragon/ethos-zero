@@ -1,0 +1,10 @@
+Signal
+[ flow:[ FlowId Voice Event ] ]
+[ Launch.{ Voice
+           Brief.String }
+  Report.{ FlowId Event } ]
+[ Launched.FlowId
+  Refused.[ NoCapsule
+            VoiceBusy.Voice ]
+  Reported ]
+[]

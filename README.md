@@ -16,7 +16,8 @@ types. Each pass is a module named for it.
 | checking | `Resolving`, `Checkable` | `File` | names resolved, duplicates and undeclared names refused |
 | generation | `Generating` | `File` | Rust text, or a whole-file error |
 | datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Composing` derives |
-| ascent | `Protosizable`, `Textualizable` | `File` | canonical text (cannot err) |
+| ascent | `Protosizable`, `Textualizable` | `File` | canonical text on one line (cannot err) |
+| printing | `Printable` | `File` or `protos::Protos` | the canonical print, vertical (cannot err) |
 | actualization | `Actualizing<File>` on `Potential<File>` | text | `File`, or an `Error` |
 
 Every error carries the Protos path of the structure in error, from the
@@ -114,6 +115,33 @@ The flat declaration budget applies to a Library's types section: it refuses
 more than 512 type declarations. The other roots retain their structural reader
 bounds and are not counted against it.
 
+## Print
+
+The canonical print expands vertically. A structure with more than one
+element, one of which has a next layer (a headed form or a brace or
+bracket), opens on its line and its elements hang beneath the first,
+aligned; the closing delimiter ends the last element's line. Elements that
+are all leaves sit on one line, one space apart. A space stands inside
+every non-empty bracket and brace; an empty one is `[]` or `{}`. An angled
+enclosure stays tight against the name it qualifies, `Vector<Event>`. A
+file prints in the sweet form, its root's head on the first line and each
+section on its own line; comments are not printed.
+
+```
+Memory
+[ flow:[ FlowId Voice Event ] ]
+[ Flow.{ FlowId
+         Voice
+         State.[ Running Ended ]
+         Vector<Event> } ]
+```
+
+`Printable::print` writes it for a `File` and for any `protos::Protos`
+read from ethos text; the reader accepts it and every other layout. The
+Flow Nexus's four files under `fixtures/print/` print back byte-identical.
+The crate's own `ethos-zero.ethos` and `error.ethos` are written in it, and
+the no-argument CLI prints `ethos-zero.ethos` through it.
+
 File ascent projects the File directly into its `protos::Protos`
 structure; it does not textualize and parse the result again.
 
@@ -133,7 +161,7 @@ from one), and the error; a rejected `Generate` creates no directory.
 
 One inline datom value, no flags; every reply is a value of the
 contract's `Response`. With no argument, `ethos-zero` prints its own
-ethos.
+ethos in the canonical print.
 
 ## Gates
 

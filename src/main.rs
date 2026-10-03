@@ -5,7 +5,8 @@ use std::process::ExitCode;
 
 use datom_codec::{Actualizing as _, Budget, Datomizable as _, Path, Potential};
 use ethos_zero::{
-    Actualizing as _, File, Generating, Locating as _, Potential as EthosPotential, Validating as _,
+    Actualizing as _, File, Generating, Locating as _, Potential as EthosPotential, Printable as _,
+    Validating as _,
 };
 use protos::{Protosizable, Textualizable};
 
@@ -183,11 +184,14 @@ impl Invoking for [String] {
     fn invoke(&self) -> ExitCode {
         let response = match self {
             [] => {
-                print!("{ETHOS}");
-                if !ETHOS.ends_with('\n') {
-                    println!();
-                }
-                return ExitCode::SUCCESS;
+                // The crate's own ethos, in the canonical print.
+                return match EthosPotential::<File>::from(ETHOS).actualize() {
+                    Ok(file) => {
+                        print!("{}", file.print());
+                        ExitCode::SUCCESS
+                    }
+                    Err(_) => ExitCode::FAILURE,
+                };
             }
             [argument] => {
                 let mut potential = Potential::<Query>::from(argument.as_str());

@@ -1,0 +1,12 @@
+Library
+[]
+[ FlowId.Integer
+  Voice.[ Psyche.Rank
+          Mind.Rank
+          Field.Rank ]
+  Rank.[ Primary Secondary Tertiary ]
+  Event.[ Started
+          ToolUsed.String
+          Stopped ] ]
+[]
+[]

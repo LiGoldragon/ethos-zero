@@ -48,7 +48,15 @@ fn generate(source: &str, directory: &str) -> String {
 fn no_argument_prints_the_crates_own_ethos_ending_with_a_newline() {
     let (success, output) = [].invoke();
     assert!(success);
-    assert_eq!(output, include_str!("../ethos-zero.ethos"));
+    // The canonical print of the crate's ethos: its source, which is
+    // written in the canonical print, without the comments that open it.
+    let source = include_str!("../ethos-zero.ethos");
+    let uncommented: String = source
+        .lines()
+        .filter(|line| !line.starts_with(';'))
+        .map(|line| format!("{line}\n"))
+        .collect();
+    assert_eq!(output, uncommented);
     assert!(output.ends_with('\n'));
     assert!(output.contains("Generate.Generation"));
     assert!(output.contains("Check.String"));

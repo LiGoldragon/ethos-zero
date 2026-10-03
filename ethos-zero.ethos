@@ -16,6 +16,7 @@ Library
              Unwritable.{ String String } ]
   Generation.{ String String }
   Generation_Error.[ Structural.protos:Error
-                      Conceptual.{ Vector<Integer> ethos_zero:Problem } ] ]
+                     Conceptual.{ Vector<Integer>
+                                  ethos_zero:Problem } ] ]
 []
 []

@@ -2,8 +2,10 @@
 ; and where an error lies in the source text, its line and column counted from one.
 Library
 [ protos:[ Extent Separator ] ]
-[ Structural_Error.{ Extent protos:Problem }
-  Error.[ Structural.Structural_Error  Conceptual.{ Vector<Integer> Problem } ]
+[ Structural_Error.{ Extent
+                     protos:Problem }
+  Error.[ Structural.Structural_Error
+          Conceptual.{ Vector<Integer> Problem } ]
   Problem.[ Root
             Arity.{ Integer Integer }
             Expected.Form

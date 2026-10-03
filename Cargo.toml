@@ -1,6 +1,6 @@
 [package]
 name         = "ethos-zero"
-version      = "14.0.0"
+version      = "14.1.0"
 edition      = "2024"
 rust-version = "1.89"
 license      = "MIT OR Apache-2.0"
@@ -50,6 +50,10 @@ path = "tests/freshness.rs"
 [[test]]
 name = "signal-without-datom"
 path = "tests/signal_without_datom.rs"
+
+[[test]]
+name = "print"
+path = "tests/print.rs"
 
 [[test]]
 name = "cli"

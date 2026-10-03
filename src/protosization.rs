@@ -96,7 +96,37 @@ impl AssociatedTypesProtosizing for [AssociatedType] {
         for associated in self {
             nodes.push(associated.name.as_ref().bare());
             if !associated.bounds.is_empty() {
-                nodes.push("".enclosed(Enclosure::Angled, associated.bounds.protos_list()));
+                nodes.push("".enclosed(Enclosure::Angled, associated.bounds.reference_nodes()));
+            }
+        }
+        nodes
+    }
+}
+/// A variant carrying a type with arguments is a headed name and the
+/// arguments' angled enclosure beside it in the list: `Many.Vector<Lock>`.
+trait VariantsProtosizing {
+    fn variant_nodes(&self) -> Vec<Protos>;
+}
+impl VariantsProtosizing for [Variant] {
+    fn variant_nodes(&self) -> Vec<Protos> {
+        let mut nodes = Vec::new();
+        for variant in self {
+            match variant {
+                Variant::Typed(name, reference) if !reference.arguments.is_empty() => {
+                    let body = match &reference.source {
+                        Some(source) => source.as_ref().headed(
+                            None,
+                            Separator::Colon,
+                            reference.name.as_ref().bare(),
+                        ),
+                        None => reference.name.as_ref().bare(),
+                    };
+                    nodes.push(name.as_ref().headed(None, Separator::Period, body));
+                    nodes.push(
+                        "".enclosed(Enclosure::Angled, reference.arguments.reference_nodes()),
+                    );
+                }
+                _ => nodes.push(variant.protos()),
             }
         }
         nodes
@@ -148,7 +178,9 @@ impl Protosizing for Constraint {
     fn protos(&self) -> Protos {
         match self {
             Self::One(reference) => reference.protos(),
-            Self::Many(references) => "".enclosed(Enclosure::Bracketed, references.protos_list()),
+            Self::Many(references) => {
+                "".enclosed(Enclosure::Bracketed, references.reference_nodes())
+            }
         }
     }
 }
@@ -210,7 +242,7 @@ impl Protosizing for TypeDeclaration {
             ),
             Self::Enum(identity, variants) => identity.heading(
                 Separator::Period,
-                "".enclosed(Enclosure::Bracketed, variants.protos_list()),
+                "".enclosed(Enclosure::Bracketed, variants.variant_nodes()),
             ),
             Self::Alias(identity, reference) => {
                 identity.heading(Separator::Period, reference.protos())
@@ -234,7 +266,7 @@ impl Protosizing for Variant {
             Self::Enum(name, variants) => name.as_ref().headed(
                 None,
                 Separator::Period,
-                "".enclosed(Enclosure::Bracketed, variants.protos_list()),
+                "".enclosed(Enclosure::Bracketed, variants.variant_nodes()),
             ),
         }
     }
@@ -286,7 +318,7 @@ impl Protosizing for KindDeclaration {
             } => "".enclosed(
                 Enclosure::Braced,
                 vec![
-                    "".enclosed(Enclosure::Bracketed, superkinds.protos_list()),
+                    "".enclosed(Enclosure::Bracketed, superkinds.reference_nodes()),
                     "".enclosed(Enclosure::Bracketed, types.associated_type_nodes()),
                     "".enclosed(Enclosure::Bracketed, constants.protos_list()),
                     "".enclosed(Enclosure::Bracketed, capabilities.protos_list()),
@@ -300,7 +332,7 @@ impl Protosizing for Association {
     fn protos(&self) -> Protos {
         self.identity.heading(
             Separator::Period,
-            "".enclosed(Enclosure::Bracketed, self.kinds.protos_list()),
+            "".enclosed(Enclosure::Bracketed, self.kinds.reference_nodes()),
         )
     }
 }
@@ -323,8 +355,8 @@ impl Protosizing for Signal {
             Enclosure::Braced,
             vec![
                 "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
-                "".enclosed(Enclosure::Bracketed, self.queries.protos_list()),
-                "".enclosed(Enclosure::Bracketed, self.responses.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.queries.variant_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.responses.variant_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
             ],
         )
