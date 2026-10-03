@@ -279,3 +279,32 @@ fn check_takes_a_kind_in_an_input_and_locates_a_concrete_type_there() {
         )
     );
 }
+
+#[test]
+fn a_file_headed_sema_is_rejected_naming_memory() {
+    let directory = "sema".scratch();
+    let source = directory.write_source("sema", "Sema\n[]\n[ Record.{ String } ]\n");
+    let argument = check(&source);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert_eq!(
+        output,
+        format!("Rejected.{{ {source} {{ 1 1 }} Conceptual.{{ [ 0 ] Renamed.Memory }} }}\n")
+    );
+}
+
+#[test]
+fn the_four_flow_nexus_files_check() {
+    for name in [
+        "flow-library",
+        "flow-signal",
+        "flow-operation",
+        "flow-memory",
+    ] {
+        let source = format!("{}/fixtures/print/{name}.ethos", env!("CARGO_MANIFEST_DIR"));
+        let argument = check(&source);
+        let (success, output) = [argument.as_str()].invoke();
+        assert!(success, "{output}");
+        assert_eq!(output, format!("Checked.{source}\n"));
+    }
+}

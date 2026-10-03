@@ -45,10 +45,108 @@ fn signal_generates_query_response_and_optional_datom_derives() {
 }
 
 #[test]
-fn sema_has_only_imports_and_record_type_sections() {
-    let file = read("Sema [ crate:[ Handle ] ] [ Record.{ Handle String } ]");
-    assert!(matches!(file, File::Sema(_)));
+fn memory_has_only_imports_and_record_type_sections() {
+    let file = read("Memory [ crate:[ Handle ] ] [ Record.{ Handle String } ]");
     assert_eq!(file, read(&file.protosize().textualize()));
+    assert!(
+        Potential::<File>::from("Memory [] [] []")
+            .actualize()
+            .is_err()
+    );
+}
+
+#[test]
+fn a_file_headed_sema_is_refused() {
+    assert!(
+        Potential::<File>::from("Sema [] [ Record.{ String } ]")
+            .actualize()
+            .is_err()
+    );
+}
+
+#[test]
+fn operation_generates_its_operation_and_outcome_enums_with_their_payloads() {
+    let file = read(
+        "Operation [] [ Start.{ Voice Brief } Stop.Voice Pause ] [ Started.Integer Failed.[ Busy Gone.String ] Done ] [ Voice.String Brief.String ]",
+    );
+    assert_eq!(file, read(&file.protosize().textualize()));
+    let rust = match file.generate() {
+        Ok(rust) => rust,
+        Err(_) => panic!("checked Operation generates"),
+    };
+    assert!(rust.contains("pub enum Operation {"), "{rust}");
+    assert!(rust.contains("Start(Start_Data)"), "{rust}");
+    assert!(rust.contains("pub struct Start_Data {"), "{rust}");
+    assert!(rust.contains("pub voice: Voice"), "{rust}");
+    assert!(rust.contains("Stop(Voice)"), "{rust}");
+    assert!(rust.contains("pub enum Outcome {"), "{rust}");
+    assert!(rust.contains("Started(i64)"), "{rust}");
+    assert!(rust.contains("Failed(Failed_Data)"), "{rust}");
+    assert!(rust.contains("pub enum Failed_Data {"), "{rust}");
+    assert!(!rust.contains("rkyv"), "{rust}");
+}
+
+#[test]
+fn an_operation_declaring_the_operation_or_outcome_type_is_refused() {
+    assert!(
+        read("Operation [] [ Go.Operation ] [ Gone ] [ Operation.{ String } ]")
+            .generate()
+            .is_err()
+    );
+    assert!(
+        read("Operation [] [ Go ] [ Gone.Outcome ] [ Outcome.{ String } ]")
+            .generate()
+            .is_err()
+    );
+}
+
+#[test]
+fn a_named_position_declares_its_type_in_place() {
+    let file = read(
+        "Memory [] [ Flow.{ Integer Brief.String State.[ Running Ended ] Capsule.{ Home.String Login.Vector<String> } } ]",
+    );
+    assert_eq!(file, read(&file.protosize().textualize()));
+    let rust = match file.generate() {
+        Ok(rust) => rust,
+        Err(_) => panic!("a struct with named positions generates"),
+    };
+    assert!(rust.contains("pub type Brief = String;"), "{rust}");
+    assert!(rust.contains("pub enum State {"), "{rust}");
+    assert!(rust.contains("pub struct Capsule {"), "{rust}");
+    assert!(
+        rust.contains("pub type Login = std::vec::Vec<String>;"),
+        "{rust}"
+    );
+    assert!(rust.contains("pub home: Home"), "{rust}");
+    assert!(rust.contains("pub login: Login"), "{rust}");
+    assert!(rust.contains("pub brief: Brief"), "{rust}");
+    assert!(rust.contains("pub state: State"), "{rust}");
+    assert!(rust.contains("pub capsule: Capsule"), "{rust}");
+}
+
+#[test]
+fn a_named_position_shares_the_file_namespace() {
+    assert!(
+        read("Memory [] [ A.{ Brief.String } B.{ Brief.Integer } ]")
+            .generate()
+            .is_err()
+    );
+    assert!(
+        read("Library [] [ Brief.String A.{ Brief.Integer } ] [] []")
+            .generate()
+            .is_err()
+    );
+}
+
+#[test]
+fn a_variant_payload_declares_named_positions_in_place() {
+    let rust =
+        match read("Signal [] [ Launch.{ Integer Brief.String } ] [ Launched ] []").generate() {
+            Ok(rust) => rust,
+            Err(_) => panic!("a payload with a named position generates"),
+        };
+    assert!(rust.contains("pub type Brief = String;"), "{rust}");
+    assert!(rust.contains("pub brief: Brief"), "{rust}");
 }
 
 #[test]
@@ -100,12 +198,12 @@ fn a_signal_declaring_the_response_type_is_refused() {
 }
 
 #[test]
-fn sema_generates_a_record_type_named_record() {
-    // Vision/sema.md names Sema's second section "record types" and reserves
-    // no name; Sema generates no implied type of its own.
-    let generated = match read("Sema [] [ Record.{ String Integer } ]").generate() {
+fn memory_generates_a_record_type_named_record() {
+    // Memory's second section is its record types and reserves no name;
+    // Memory generates no implied type of its own.
+    let generated = match read("Memory [] [ Record.{ String Integer } ]").generate() {
         Ok(generated) => generated,
-        Err(_) => panic!("a Sema record named Record generates"),
+        Err(_) => panic!("a Memory record named Record generates"),
     };
     assert!(generated.contains("pub struct Record"));
     assert!(generated.contains("pub string: String"));
@@ -113,16 +211,16 @@ fn sema_generates_a_record_type_named_record() {
 }
 
 #[test]
-fn sema_generates_every_declared_record_and_refuses_a_duplicate() {
+fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
     let generated =
-        match read("Sema [] [ Entry.{ String } Record.{ Entry Vector<Entry> } ]").generate() {
+        match read("Memory [] [ Entry.{ String } Record.{ Entry Vector<Entry> } ]").generate() {
             Ok(generated) => generated,
-            Err(_) => panic!("a two-record Sema generates"),
+            Err(_) => panic!("a two-record Memory generates"),
         };
     assert!(generated.contains("pub struct Entry"));
     assert!(generated.contains("pub entry_vector: std::vec::Vec<Entry>"));
     assert!(
-        read("Sema [] [ Entry.{ String } Entry.{ Integer } ]")
+        read("Memory [] [ Entry.{ String } Entry.{ Integer } ]")
             .generate()
             .is_err()
     );
@@ -244,7 +342,7 @@ fn a_lowercase_type_or_kind_name_is_refused() {
         (vec![1, 2, 0, 0], Problem::Case("runnable".to_owned()))
     );
     assert_eq!(
-        "Sema [] [ record.{ String } ]".refusal(),
+        "Memory [] [ record.{ String } ]".refusal(),
         (vec![1, 1, 0, 0], Problem::Case("record".to_owned()))
     );
 }
