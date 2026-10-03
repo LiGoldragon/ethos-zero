@@ -17,7 +17,7 @@ types. Each pass is a module named for it.
 | generation | `Generating` | `File` | Rust text, or a whole-file error |
 | datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Composing` derives |
 | ascent | `Protosizable`, `Textualizable` | `File` | canonical text on one line (cannot err) |
-| printing | `Printable` | `File` or `protos::Protos` | the canonical print, vertical (cannot err) |
+| printing | `Printable` | `File` or `protos::Protos` | the sweet form, each section in protos' vertical print (cannot err) |
 | actualization | `Actualizing<File>` on `Potential<File>` | text | `File`, or an `Error` |
 
 Every error carries the Protos path of the structure in error, from the
@@ -136,8 +136,10 @@ Memory
          Vector<Event> } ]
 ```
 
-`Printable::print` writes it for a `File` and for any `protos::Protos`
-read from ethos text; the reader accepts it and every other layout. The
+The layout is protos' canonical print (`protos::Textualizable`); this crate
+adds only the sweet form of a file. `Printable::print` writes it for a
+`File` and for any `protos::Protos` read from ethos text; the reader accepts
+it and every other layout. An empty `[]` or `{}` is a leaf. The
 Flow Nexus's four files under `fixtures/print/` print back byte-identical.
 The crate's own `ethos-zero.ethos` and `error.ethos` are written in it, and
 the no-argument CLI prints `ethos-zero.ethos` through it.
@@ -160,7 +162,7 @@ either query, names the file, the line and column of the error (counted
 from one), and the error; a rejected `Generate` creates no directory.
 
 One inline datom value, no flags; every reply is a value of the
-contract's `Response`. With no argument, `ethos-zero` prints its own
+contract's `Response`, written on one line. With no argument, `ethos-zero` prints its own
 ethos in the canonical print.
 
 ## Gates

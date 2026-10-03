@@ -238,7 +238,7 @@ fn generated_sema_records_round_trip_as_datom_text() {
         }],
     };
     let text = record.clone().datomize(vec![]).protosize().textualize();
-    assert_eq!(text, "{ root [ { first 1 } ] }");
+    assert_eq!(text, "{ root\n  [ { first 1 } ] }");
     let mut pending = Potential::<entry_sema::Record>::from(text);
     assert_eq!(
         pending

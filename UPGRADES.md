@@ -49,6 +49,28 @@ under `/git` with 13.0.0 and with 14.0.0 and comparing (2026-10-02):
 - Newly accepted: `primary-next/flows/f6db8d/witnesses/substrate/probe-ethos/sized-kind.ethos`
   (`c:[ Sized ]`, a kind in a yield).
 
-ethos-zero's own `dependency-ethos` check only generates these files, so
-it stays green; the break shows when protos or datom-codec regenerate
-their kinds with 14.0.0.
+Correction (14.2.0): `datom-codec/datom-codec.ethos` at 58474fd was refused
+by 14.x (`KindWanted.Path`, its second declaration of `Datomizable` with
+`Path` in the input), so the `dependency-ethos` check against it failed; the
+scan above missed it. datom-codec 0930abc gives the kinds one home in
+`datom-codec-kinds.ethos` and names them (`Branchable`, `Budgeted`,
+`Positional`, `Composable`); protos 0.32 names `Spendable`. Both kinds files
+now generate, and their generated Rust compiles in their own repositories.
+
+## 14.2.0: the print is protos'
+
+The vertical layout moved into protos 0.32, whose `textualize` is now the
+canonical vertical print; ethos-zero keeps only the sweet form of a file
+(its root's head, then each section from the first column) and writes each
+section with protos. One difference from 14.1.0: an empty `[]` or `{}` is a
+leaf, so a structure whose only elements with brackets are empty sits on one
+line. The CLI's datom replies stay on one line, through protos' `compact`.
+
+Pins: protos 109797e (0.32.1), datom-codec 0930abc (0.32.1); datom-codec
+renamed `Pathing`, `Budgeting`, `Positioning` to `Branchable`, `Budgeted`,
+`Positional`, and a datom written with `textualize` is vertical (a generated
+Sema record prints `{ root\n  [ { first 1 } ] }`).
+
+To deploy: a consumer of the library repins and runs its tests; an expected
+one-line datom text of a nested structure becomes the vertical print, or the
+consumer calls `protos::Compactable::compact`. CLI users see no change.

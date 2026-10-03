@@ -8,7 +8,7 @@ use ethos_zero::{
     Actualizing as _, File, Generating, Locating as _, Potential as EthosPotential, Printable as _,
     Validating as _,
 };
-use protos::{Protosizable, Textualizable};
+use protos::{Compactable, Protosizable};
 
 #[rustfmt::skip]
 #[path = "ethos-zero.rs"]
@@ -46,8 +46,9 @@ trait Rejecting {
 }
 
 impl Texting for Response {
+    /// A reply is one line, so a caller matching it line by line still can.
     fn text(&self) -> String {
-        self.datomize(Path::new()).protosize().textualize()
+        self.datomize(Path::new()).protosize().compact()
     }
 }
 

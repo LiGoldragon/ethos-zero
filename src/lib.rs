@@ -460,7 +460,7 @@ pub struct Scope<'a> {
 // Kinds
 // ---------------------------------------------------------------------------
 
-/// The kind whose capability prints the canonical text: vertical, hanging, closers on the last line.
+/// The kind whose capability prints an ethos file in the sweet form, each section in protos' canonical vertical print.
 pub trait Printable {
     /// The canonical print.
     fn print(&self) -> String;
