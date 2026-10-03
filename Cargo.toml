@@ -1,6 +1,6 @@
 [package]
 name = "protos"
-version = "0.32.1"
+version = "0.32.2"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
@@ -12,6 +12,15 @@ publish = false
 name = "protos"
 path = "src/lib.rs"
 
+[features]
+# An ethos contract may hold an extent, a separator or a reading error in a
+# position, and every generated contract type archives; these types' rkyv
+# derives live behind this feature.
+rkyv = ["dep:rkyv"]
+
+[dependencies]
+rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"], optional = true }
+
 [dev-dependencies]
 proptest = "1.6"
 
@@ -22,6 +31,11 @@ dead_code = "warn"
 
 # The size probes drive their own bounded child processes and report growth
 # rather than pass or fail per case, so they run without the test harness.
+[[test]]
+name = "archival"
+path = "tests/archival.rs"
+required-features = ["rkyv"]
+
 [[test]]
 name = "scale"
 path = "tests/scale.rs"

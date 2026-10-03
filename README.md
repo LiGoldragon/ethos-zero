@@ -115,6 +115,11 @@ that takes one line at a time. Writing cannot error.
 No free functions, no inherent impls, no zero-sized bearers, no variant rosters:
 `nix flake check` carries the guards, with build, test, fmt, clippy and doc.
 
+The `rkyv` feature archives `Extent`, `Separator`, `Error` and `Problem`, the
+types a generated ethos contract may hold in a position: every generated type
+archives, so a contract holding them crosses a wire. The `archival` check runs
+`tests/archival.rs` under it.
+
 `protos.ethos` and `protos-kinds.ethos` state the datom anatomy of the public
 types and kinds. The crate is hand-written because Ethos cannot yet state what
 it needs: `usize` extents, `char` payloads, borrowed receivers, and the

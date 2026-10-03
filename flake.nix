@@ -26,6 +26,7 @@
         checks = {
           build = craneLib.cargoBuild common;
           test = craneLib.cargoTest common;
+          archival = craneLib.cargoTest (common // { cargoExtraArgs = "--locked --features rkyv"; });
           no-production-free-functions = pkgs.runCommand "protos-no-production-free-functions" { } ''
             if grep -R -n -E '^(pub(\([^)]*\))? )?fn ' ${src}/src; then
               echo "production Rust must not use module-level free functions" >&2
