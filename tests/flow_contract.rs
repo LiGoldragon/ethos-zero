@@ -103,7 +103,11 @@ fn the_flow_nexus_contract_compiles_and_crosses_the_wire_with_and_without_datom(
 
     for features in [&[][..], &["--features", "datom"][..]] {
         let status = Command::new("cargo")
-            .args(["test", "--manifest-path", &format!("{directory}/Cargo.toml")])
+            .args([
+                "test",
+                "--manifest-path",
+                &format!("{directory}/Cargo.toml"),
+            ])
             .args(features)
             .status()
             .expect("cargo is available");

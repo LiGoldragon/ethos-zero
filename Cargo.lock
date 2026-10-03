@@ -45,8 +45,8 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "datom-codec"
-version = "0.32.1"
-source = "git+https://github.com/LiGoldragon/datom-codec?rev=0930abc38e6d04a8dfc5ae5565f7fde8ca5a000a#0930abc38e6d04a8dfc5ae5565f7fde8ca5a000a"
+version = "0.32.2"
+source = "git+https://github.com/LiGoldragon/datom-codec?rev=4dff16b4f7412febc3b71aac8b49680cd20988cb#4dff16b4f7412febc3b71aac8b49680cd20988cb"
 dependencies = [
  "datom-codec-derive",
  "protos",
@@ -56,7 +56,7 @@ dependencies = [
 [[package]]
 name = "datom-codec-derive"
 version = "0.32.0"
-source = "git+https://github.com/LiGoldragon/datom-codec?rev=0930abc38e6d04a8dfc5ae5565f7fde8ca5a000a#0930abc38e6d04a8dfc5ae5565f7fde8ca5a000a"
+source = "git+https://github.com/LiGoldragon/datom-codec?rev=4dff16b4f7412febc3b71aac8b49680cd20988cb#4dff16b4f7412febc3b71aac8b49680cd20988cb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -71,7 +71,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "ethos-zero"
-version = "15.0.0"
+version = "16.0.0"
 dependencies = [
  "datom-codec",
  "prettyplease",
@@ -187,8 +187,11 @@ dependencies = [
 
 [[package]]
 name = "protos"
-version = "0.32.1"
-source = "git+https://github.com/LiGoldragon/protos?rev=109797e9d81799630e981d214df49bbba1ed934f#109797e9d81799630e981d214df49bbba1ed934f"
+version = "0.32.2"
+source = "git+https://github.com/LiGoldragon/protos?rev=15b41da8f2579e73ead59bc0c2b97529b8ac32d3#15b41da8f2579e73ead59bc0c2b97529b8ac32d3"
+dependencies = [
+ "rkyv",
+]
 
 [[package]]
 name = "ptr_meta"

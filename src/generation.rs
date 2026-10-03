@@ -13,8 +13,8 @@
 //! the owner by value. The box sits immediately around the recursive
 //! argument (`std::option::Option<std::boxed::Box<Tree>>`).
 //!
-//! One rule decides archive bounds: in a Signal, a position that reaches its
-//! owner by any path, `Vector` included, omits its rkyv bounds, and its type
+//! One rule decides archive bounds: a position that reaches its owner by any
+//! path, `Vector` included, omits its rkyv bounds, and its type
 //! states the serializer, deserializer and validator bounds once instead, so
 //! a recursive type archives and restores.
 
@@ -58,7 +58,7 @@ impl Tokening for Intrinsic {
     fn tokens(&self) -> TokenStream {
         match self {
             Intrinsic::String => quote! { String },
-            // Signal contracts must compile without their optional `datom`
+            // Generated contracts must compile without their optional `datom`
             // feature.  The wire-level integer is therefore the ordinary
             // Rust scalar; Datom derives know how to compose it when enabled.
             Intrinsic::Integer => quote! { i64 },
@@ -477,7 +477,7 @@ pub(crate) trait Positioning {
     fn boxed(&self, scope: &Scope, owner: &Name) -> bool;
     fn recursive(&self, scope: &Scope, owner: &Name) -> bool;
     fn position(&self, scope: &Scope, owner: &Name) -> TokenStream;
-    fn archival(&self, scope: &Scope, owner: &Name, carriage: Carriage) -> TokenStream;
+    fn archival(&self, scope: &Scope, owner: &Name) -> TokenStream;
 }
 
 impl Positioning for Reference {
@@ -525,8 +525,8 @@ impl Positioning for Reference {
     // makes the bound depend on itself and the trait solver overflows. Such
     // a position omits its bound; its type then states the bounds its
     // containers need instead (`Recursing`).
-    fn archival(&self, scope: &Scope, owner: &Name, carriage: Carriage) -> TokenStream {
-        if carriage == Carriage::Archived && self.recursive(scope, owner) {
+    fn archival(&self, scope: &Scope, owner: &Name) -> TokenStream {
+        if self.recursive(scope, owner) {
             quote! { #[rkyv(omit_bounds)] }
         } else {
             TokenStream::new()
@@ -534,22 +534,20 @@ impl Positioning for Reference {
     }
 }
 
-/// The kind whose capability yields the archive bounds a type states once
-/// some position of it omits its own: what `Box` and `Vec` ask of the
-/// serializer, the deserializer and the validator, named once for the type.
+/// The kind whose capability yields the archive bounds a declared type
+/// states once some position of it omits its own: what `Box` and `Vec` ask
+/// of the serializer, the deserializer and the validator, named once for
+/// the type.
 trait Recursing {
     fn recursion_bounds(&self) -> TokenStream;
 }
 
-impl Recursing for Carriage {
+impl Recursing for Identity {
     fn recursion_bounds(&self) -> TokenStream {
-        match self {
-            Carriage::Archived => quote! {
-                #[rkyv(serialize_bounds(__S: rkyv::ser::Writer + rkyv::ser::Allocator, __S::Error: rkyv::rancor::Source))]
-                #[rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source))]
-                #[rkyv(bytecheck(bounds(__C: rkyv::validation::ArchiveContext, __C::Error: rkyv::rancor::Source)))]
-            },
-            Carriage::Plain => TokenStream::new(),
+        quote! {
+            #[rkyv(serialize_bounds(__S: rkyv::ser::Writer + rkyv::ser::Allocator, __S::Error: rkyv::rancor::Source))]
+            #[rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source))]
+            #[rkyv(bytecheck(bounds(__C: rkyv::validation::ArchiveContext, __C::Error: rkyv::rancor::Source)))]
         }
     }
 }
@@ -662,21 +660,9 @@ impl FieldNaming for [Reference] {
 
 /// The kind whose capabilities yield a variant's definition and the items its inline enum needs.
 trait Varianted {
-    fn definition(
-        &self,
-        scope: &Scope,
-        owner: &Name,
-        enclosing: &Identity,
-        carriage: Carriage,
-    ) -> TokenStream;
+    fn definition(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream;
     fn recursive(&self, scope: &Scope, owner: &Name) -> bool;
-    fn nested(
-        &self,
-        scope: &Scope,
-        owner: &Name,
-        enclosing: &Identity,
-        carriage: Carriage,
-    ) -> TokenStream;
+    fn nested(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream;
 }
 
 /// The kind whose capability yields the identity of the payload a variant
@@ -695,19 +681,13 @@ impl Nesting for Identity {
 }
 
 impl Varianted for Variant {
-    fn definition(
-        &self,
-        scope: &Scope,
-        owner: &Name,
-        enclosing: &Identity,
-        carriage: Carriage,
-    ) -> TokenStream {
+    fn definition(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream {
         match self {
             Variant::Bare(name) => {
                 let variant = name.tokens();
                 if scope.file.declaration(name).is_some() {
                     let carried = name.carried();
-                    let archival = carried.archival(scope, owner, carriage);
+                    let archival = carried.archival(scope, owner);
                     let ty = carried.position(scope, owner);
                     quote! { #variant(#archival #ty) }
                 } else {
@@ -716,7 +696,7 @@ impl Varianted for Variant {
             }
             Variant::Typed(name, reference) => {
                 let name = name.tokens();
-                let archival = reference.archival(scope, owner, carriage);
+                let archival = reference.archival(scope, owner);
                 let ty = reference.position(scope, owner);
                 quote! { #name(#archival #ty) }
             }
@@ -730,21 +710,15 @@ impl Varianted for Variant {
         }
     }
 
-    fn nested(
-        &self,
-        scope: &Scope,
-        owner: &Name,
-        enclosing: &Identity,
-        carriage: Carriage,
-    ) -> TokenStream {
+    fn nested(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream {
         match self {
             Variant::Struct(name, positions) => {
                 let nested = enclosing.nested_identity(scope, owner, name);
-                positions.structure(scope, owner, &nested, carriage)
+                positions.structure(scope, owner, &nested)
             }
             Variant::Enum(name, variants) => {
                 let nested = enclosing.nested_identity(scope, owner, name);
-                variants.enumeration(scope, owner, &nested, carriage)
+                variants.enumeration(scope, owner, &nested)
             }
             Variant::Bare(_) | Variant::Typed(_, _) => TokenStream::new(),
         }
@@ -769,40 +743,26 @@ impl Varianted for Variant {
 
 /// The kind whose capability emits a struct of these positions with its datomic machinery.
 trait Structuring {
-    fn structure(
-        &self,
-        scope: &Scope,
-        owner: &Name,
-        identity: &Identity,
-        carriage: Carriage,
-    ) -> TokenStream;
+    fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
 }
 
 /// The kind whose capability emits an enum of these variants with its datomic machinery.
 trait Enumerating {
-    fn enumeration(
-        &self,
-        scope: &Scope,
-        owner: &Name,
-        identity: &Identity,
-        carriage: Carriage,
-    ) -> TokenStream;
+    fn enumeration(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
 }
 
-/// How a declaration's projection is carried. A Signal's types cross a wire,
-/// so they archive and their datom kinds are gated behind the `datom` feature
-/// the Nexus does not enable; a Library's, an Operation's or a Memory's do not.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Carriage {
-    Archived,
-    Plain,
-}
-
+/// The kind whose capability yields what a declared type derives.
 trait DatomDeriving {
     fn datom_derives(&self) -> TokenStream;
 }
 
 /// What every declared type derives, and what none does.
+///
+/// Every root carries its types alike, a Library's, an Operation's and a
+/// Memory's as a Signal's: any of them can cross a wire, so each archives
+/// with rkyv, and its datom kinds sit behind the `datom` feature that a CLI
+/// enables where it textualizes and a Nexus does not, so a Nexus compiles
+/// its whole contract without datom-codec.
 ///
 /// `Clone`, `Debug` and `PartialEq` always. `Eq` and `Hash` always too: every
 /// intrinsic a position can hold is now `Eq` and `Hash`, `Decimal` included,
@@ -814,32 +774,12 @@ trait DatomDeriving {
 /// relying on it. Never `Default`: a default is a policy the consumer holds,
 /// not a value the wire carries, and a manufactured zero satisfies the type
 /// while violating the schema's invariants.
-impl DatomDeriving for Carriage {
+impl DatomDeriving for Identity {
     fn datom_derives(&self) -> TokenStream {
-        match self {
-            Carriage::Archived => quote! {
-                #[rustfmt::skip]
-                #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-                #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-            },
-            Carriage::Plain => quote! {
-                #[rustfmt::skip]
-                #[derive(datom_codec::Datomizable, datom_codec::Composing, Clone, Debug, PartialEq, Eq, Hash)]
-            },
-        }
-    }
-}
-
-/// A file says how the types it declares are carried.
-pub trait Carrying {
-    fn carriage(&self) -> Carriage;
-}
-
-impl Carrying for File {
-    fn carriage(&self) -> Carriage {
-        match self {
-            File::Signal(_) => Carriage::Archived,
-            File::Library(_) | File::Operation(_) | File::Memory(_) => Carriage::Plain,
+        quote! {
+            #[rustfmt::skip]
+            #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+            #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
         }
     }
 }
@@ -848,13 +788,7 @@ impl Carrying for File {
 /// it, as a declaration of the file outside the enclosing identity; the
 /// position then holds it by name.
 impl Structuring for [Position] {
-    fn structure(
-        &self,
-        scope: &Scope,
-        owner: &Name,
-        identity: &Identity,
-        carriage: Carriage,
-    ) -> TokenStream {
+    fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
         let outer = Scope {
@@ -874,13 +808,13 @@ impl Structuring for [Position] {
         let mut recursive = false;
         for position in &references {
             types.push(position.position(scope, owner));
-            archivals.push(position.archival(scope, owner, carriage));
+            archivals.push(position.archival(scope, owner));
             recursive |= position.recursive(scope, owner);
         }
         let fields = references.field_names(owner);
-        let derive = carriage.datom_derives();
+        let derive = identity.datom_derives();
         let bounds = if recursive {
-            carriage.recursion_bounds()
+            identity.recursion_bounds()
         } else {
             TokenStream::new()
         };
@@ -894,26 +828,20 @@ impl Structuring for [Position] {
 }
 
 impl Enumerating for [Variant] {
-    fn enumeration(
-        &self,
-        scope: &Scope,
-        owner: &Name,
-        identity: &Identity,
-        carriage: Carriage,
-    ) -> TokenStream {
+    fn enumeration(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
-        let derive = carriage.datom_derives();
+        let derive = identity.datom_derives();
         let mut definitions = Vec::with_capacity(self.len());
         let mut nested = Vec::new();
         let mut recursive = false;
         for variant in self {
-            definitions.push(variant.definition(scope, owner, identity, carriage));
-            nested.push(variant.nested(scope, owner, identity, carriage));
+            definitions.push(variant.definition(scope, owner, identity));
+            nested.push(variant.nested(scope, owner, identity));
             recursive |= variant.recursive(scope, owner);
         }
         let bounds = if recursive {
-            carriage.recursion_bounds()
+            identity.recursion_bounds()
         } else {
             TokenStream::new()
         };
@@ -935,7 +863,7 @@ impl Emitting for TypeDeclaration {
                     identity: Some(identity),
                     associated: scope.associated,
                 };
-                positions.structure(&inner, &identity.name, identity, scope.file.carriage())
+                positions.structure(&inner, &identity.name, identity)
             }
             TypeDeclaration::Enum(identity, variants) => {
                 let inner = Scope {
@@ -943,7 +871,7 @@ impl Emitting for TypeDeclaration {
                     identity: Some(identity),
                     associated: scope.associated,
                 };
-                variants.enumeration(&inner, &identity.name, identity, scope.file.carriage())
+                variants.enumeration(&inner, &identity.name, identity)
             }
             TypeDeclaration::Alias(identity, aliased) => {
                 let inner = Scope {

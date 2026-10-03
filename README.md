@@ -59,9 +59,16 @@ generates nothing but its declared record types and reserves no name; a
 Memory record may be named `Record`. A file headed `Sema`, Memory's head
 before 15.0.0, is refused as `Conceptual.{ [ 0 ] Renamed.Memory }`.
 
-A Signal's types archive (rkyv) and gate their datom derives behind the
-`datom` feature; a Library's, an Operation's and a Memory's derive the datom
-kinds unconditionally and do not archive.
+Every root's types archive (rkyv) and gate their datom derives behind the
+`datom` feature, a Library's, an Operation's and a Memory's as a Signal's:
+any type can cross a wire, and a Nexus compiles its whole contract without
+datom-codec. A crate holding generated Rust declares a `datom` feature and
+enables it where it textualizes (its CLI); it depends on rkyv always, and on
+datom-codec only under that feature (or with datom-codec's `rkyv` feature
+where a position holds a `Decimal`, a `Meaning` or a datom-codec `Error`).
+The `flow-contract` test compiles the Flow Nexus's four modules together in
+a separate package, with and without `datom`, and sends a value of each root
+through rkyv.
 
 A struct position may declare its type in place: `Brief.String`,
 `State.[ Running Ended ]`, `Capsule.{ Home.String Login.Vector<String> }`.
@@ -76,7 +83,7 @@ An import names a Rust path prefix and the names taken from it:
 where it closes a by-value cycle: it names, through aliases, `Option` and
 `Result` but not `Vector`, a type declared no later than its owner that
 reaches the owner by value; in `Twin.{ Twig Twig }  Twig.[ Tip  Grow.Twin ]`
-only `Grow` is boxed. In a Signal, every position that reaches its owner by
+only `Grow` is boxed. Every position that reaches its owner by
 any path, `Vector` included, carries `#[rkyv(omit_bounds)]`, and its type
 states the serializer, deserializer and validator bounds once, so a
 recursive contract archives and restores. The generated Rust writes

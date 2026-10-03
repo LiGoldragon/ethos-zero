@@ -1,6 +1,6 @@
 [package]
 name         = "ethos-zero"
-version      = "15.0.0"
+version      = "16.0.0"
 edition      = "2024"
 rust-version = "1.89"
 license      = "MIT OR Apache-2.0"
@@ -24,8 +24,8 @@ default = ["datom"]
 datom = []
 
 [dependencies]
-protos      = { git = "https://github.com/LiGoldragon/protos",  rev = "109797e9d81799630e981d214df49bbba1ed934f" }
-datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "0930abc38e6d04a8dfc5ae5565f7fde8ca5a000a", features = ["rkyv"] }
+protos      = { git = "https://github.com/LiGoldragon/protos",  rev = "15b41da8f2579e73ead59bc0c2b97529b8ac32d3", features = ["rkyv"] }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "4dff16b4f7412febc3b71aac8b49680cd20988cb", features = ["rkyv"] }
 quote       = "1"
 proc-macro2 = "1"
 syn         = { version = "3", features = ["full"] }

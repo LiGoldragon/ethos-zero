@@ -2,6 +2,64 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 16.0.0: every root archives and gates its datom kinds
+
+What breaks:
+
+- A Library's, an Operation's and a Memory's generated structs and enums now
+  carry what a Signal's carry: `#[derive(rkyv::Archive, rkyv::Serialize,
+  rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]` and
+  `#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable,
+  datom_codec::Composing))]`. Until 15.0.0 they derived the datom kinds
+  unconditionally and did not archive. Any type can now cross a wire, and a
+  Nexus compiles its whole contract without datom-codec (ruling 11 of flow
+  3ec648). The Flow Nexus's Signal, which holds the Library's `Voice`,
+  `FlowId` and `Event`, now compiles; the `flow-contract` test compiles the
+  four Flow modules together, with and without `datom`, and sends a value of
+  each root through rkyv.
+- A position holding a foreign type now needs that type to archive. protos
+  0.32.2 (`rkyv` feature) archives `Extent`, `Separator`, `Error` and
+  `Problem`; datom-codec 0.32.2 (`rkyv` feature, which enables protos's)
+  archives `Error`, `ErrorLayer` and `ErrorKind` besides `Decimal` and
+  `Meaning`. ethos-zero now pins protos 15b41da8 and datom-codec 4dff16b4.
+- Library API: the generator's `Carriage` and `Carrying` (never exported)
+  are gone.
+
+To deploy, in each consumer whose committed or build-script output comes
+from a Library, Operation or Memory file:
+
+1. Depend on rkyv 0.8 (`default-features = false`, features `std`,
+   `bytecheck`, `little_endian`, `pointer_width_32`, `unaligned`).
+2. Declare a `datom` feature, `datom = ["dep:datom-codec"]`, make
+   datom-codec optional, and enable `datom` where the crate textualizes:
+   its CLI, its tests that datomize, any code that names `Datomizable` or
+   `Composing` on a generated type. Where a position holds a datom-codec or
+   protos type, enable datom-codec's (or protos's) `rkyv` feature
+   unconditionally and repin them to 0.32.2.
+3. Regenerate the committed Rust, repin ethos-zero, and run the tests with
+   and without `datom`.
+
+Consumers, from a grep of the `.ethos` files of every repository under
+`/git` that depends on ethos-zero (2026-10-02); none is changed by this
+release, and each pins an ethos-zero older than 15.0.0, so each breaks only
+when it repins:
+
+- `github.com/LiGoldragon/chroma/chroma.ethos` (Library; pins b232d35e)
+- `github.com/LiGoldragon/claude-answers/claude-answers.ethos` (Library; b232d35e)
+- `github.com/LiGoldragon/clavifaber/ethos/clavifaber.ethos` (Library; 4bf73cae)
+- `github.com/LiGoldragon/curriculum-deploy/curriculum-deploy.ethos` (Library; b232d35e)
+- `github.com/LiGoldragon/lojix/ethos/ingress.ethos` (Library; de3d9928)
+- `github.com/LiGoldragon/meaning-language/ethos/meaning.ethos` (Library; 4bf73cae)
+- `github.com/LiGoldragon/orchestrate/crates/orchestrate/client.ethos` and
+  `crates/orchestrate-meta/client.ethos` (Library; cf7dd128)
+- `github.com/LiGoldragon/signal-5f4fea-word-identifiers/ethos/identifiers.ethos`
+  (Library; 4bf73cae; already gates datom-codec behind `datom`)
+
+No consumer generates from a Memory or Operation file. Signal consumers are
+unaffected; a Signal that holds a type from one of the crates above gains
+the rkyv it lacked. protos's and datom-codec's own `.ethos` files are read
+only by their checks (kinds, which carry no derive, and anatomy).
+
 ## 15.0.0: four roots, Memory and Operation
 
 What breaks:
@@ -40,23 +98,22 @@ To deploy, in each consumer:
 3. Repin ethos-zero; bump the consumer's own version where it publishes the
    generated module.
 
-Consumers to rename, found by reading the head of every `.ethos` under
-`/git` (2026-10-02, 141 files); none is changed by this release:
-
-- `github.com/LiGoldragon/spirit-ethos/sema.ethos`
-- `github.com/LiGoldragon/spirit/schema/sema.ethos`
-- `github.com/LiGoldragon/core-schema/tests/fixtures/bootstrap/sema.ethos`
-- `github.com/LiGoldragon/core-ethos/tests/fixtures/bootstrap/sema.ethos`
-- `github.com/LiGoldragon/primary-next/reports/spiritEthosFixtures/sema.ethos`
-- `github.com/LiGoldragon/primary-next/flows/f6db8d/witnesses/substrate/probe-ethos/sema-record.ethos`
-- `github.com/LiGoldragon/primary-next/flows/f6db8d/witnesses/substrate/probe-ethos/sema-plain.ethos`
+No live consumer uses the Sema root (corrected after 15.0.0; flow 3ec648
+report `sema-to-memory.md`). The seven `.ethos` files under `/git` headed
+`Sema` are not ethos-zero consumers: spirit-ethos and core-ethos (core-schema)
+are frozen, and core-ethos's fixture is its own bootstrap reader's; spirit's
+schema is deprecated; five of the seven are in an older dialect ethos-zero
+refuses under either head; primary-next holds one as report evidence and two
+as flow f6db8d's witnesses. None pins ethos-zero, and nothing is generated
+from any of them, so the rename has nowhere to deploy.
 
 The Flow Nexus's four files under `fixtures/print/` now generate, Operation
 and Memory included, and still print back byte-identical; their generated
 Rust is committed under `tests/generated/flow-*.rs`. The Library, Operation
 and Memory modules compile and round-trip as datom text. The Signal's
 does not compile yet: its archived types carry the Library's `Voice`,
-`FlowId` and `Event`, and a Library type does not derive rkyv.
+`FlowId` and `Event`, and a Library type does not derive rkyv (closed by
+16.0.0).
 
 ## 14.0.0: capability inputs are kinds
 

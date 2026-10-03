@@ -25,9 +25,9 @@
 //! numbered from 0, and each container prepends its child's index on
 //! the way up ([`Pathed::within`]).
 //!
-//! Declared structs and enums bear datom-codec's structural kinds through its
-//! derives. Signal declarations gate those derives behind their `datom`
-//! feature, so a Nexus can use its contract without a text codec.
+//! Declared structs and enums, of every root, archive with rkyv and bear
+//! datom-codec's structural kinds through its derives behind their `datom`
+//! feature, so a Nexus can use its whole contract without a text codec.
 
 // A walk over the variants of an enum is written as the loop it is, not
 // as an iterator adaptor with an inlined closure: no closure beyond what
@@ -806,9 +806,14 @@ mod behavior {
                 Err(_) => panic!("{source} generates"),
             };
             let derives: String = rust.chars().filter(|c| !c.is_whitespace()).collect();
-            let declared = derives.matches("pubstruct").count() + derives.matches("pubenum").count();
+            let declared =
+                derives.matches("pubstruct").count() + derives.matches("pubenum").count();
             assert!(declared > 0, "{source} declares a type");
-            assert_eq!(derives.matches(carried).count(), declared, "{source}: {rust}");
+            assert_eq!(
+                derives.matches(carried).count(),
+                declared,
+                "{source}: {rust}"
+            );
         }
     }
 

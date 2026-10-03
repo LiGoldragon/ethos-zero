@@ -83,7 +83,7 @@ fn operation_generates_its_operation_and_outcome_enums_with_their_payloads() {
     assert!(rust.contains("Started(i64)"), "{rust}");
     assert!(rust.contains("Failed(Failed_Data)"), "{rust}");
     assert!(rust.contains("pub enum Failed_Data {"), "{rust}");
-    assert!(!rust.contains("rkyv"), "{rust}");
+    assert!(rust.contains("rkyv::Archive"), "{rust}");
 }
 
 #[test]

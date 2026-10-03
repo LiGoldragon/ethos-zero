@@ -42,6 +42,8 @@ mod flow_library;
 mod flow_memory;
 #[path = "generated/flow-operation.rs"]
 mod flow_operation;
+#[path = "generated/flow-signal.rs"]
+mod flow_signal;
 #[path = "generated/generic-shadow.rs"]
 mod generic_shadow;
 #[path = "generated/inline-collision.rs"]
