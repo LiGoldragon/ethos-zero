@@ -85,6 +85,14 @@ fn the_flow_nexus_contract_compiles_and_crosses_the_wire_with_and_without_datom(
         ),
     )
     .expect("temporary manifest");
+    // A git source resolves against vendored sources (the Nix sandbox) only
+    // from a lock file, so the scratch package starts from this one's; cargo
+    // prunes it to what the scratch package needs.
+    std::fs::write(
+        format!("{directory}/Cargo.lock"),
+        include_str!("../Cargo.lock"),
+    )
+    .expect("temporary lock file");
     for (stem, source) in [
         ("library", include_str!("generated/flow-library.rs")),
         ("signal", include_str!("generated/flow-signal.rs")),
