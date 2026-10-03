@@ -21,3 +21,10 @@ To deploy: repin protos, then run the consumer's tests. Every expected text
 that asserted a one-line print of a nested structure fails; either update it
 to the vertical print or call `compact`. Reading is unchanged: both prints read
 back to the same structure.
+
+## 0.32.1
+
+An angled enclosure is written tight after a headed element too
+(`Generated.Vector<String>`), unless the element's last leaf ends on a
+separator, where tight angles would read back as a head's constraints. No
+reading changes; deploy by repinning.

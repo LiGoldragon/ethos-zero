@@ -59,7 +59,8 @@ pub(crate) trait Layered {
     /// or bracket enclosure.
     fn layered(&self) -> bool;
     /// An angled enclosure written tight after the element reads back as its
-    /// sibling: the element does not end on a head waiting for its body.
+    /// sibling: the element's last leaf does not end on a separator, which
+    /// would make the angles the constraints of a head.
     fn holds_tight(&self) -> bool;
 }
 impl Layered for [&Protos] {
@@ -75,7 +76,11 @@ impl Layered for [&Protos] {
         }
     }
     fn holds_tight(&self) -> bool {
-        match self.last() {
+        let mut last = self.last().copied();
+        while let Some(Protos::Headed { body, .. }) = last {
+            last = Some(body);
+        }
+        match last {
             Some(Protos::Bare { text, .. }) => !text.ends_with(['.', '!', ':']),
             Some(Protos::Enclosed { .. }) | Some(Protos::Opaque { .. }) => true,
             Some(Protos::Headed { .. }) | None => false,
