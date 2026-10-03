@@ -1,5 +1,10 @@
 //! Every generated fixture compiles with Datom enabled.
 
+// The Flow Nexus files import `flow:[ FlowId Voice Event ]`; here the crate
+// itself is `flow`, re-exporting the generated Flow Library.
+extern crate self as flow;
+pub use flow_library::{Event, FlowId, Voice};
+
 pub struct Wrapper<T>(pub T);
 
 /// What the kind fixtures import from `super`: the error a capability
@@ -29,8 +34,14 @@ mod capability_kinds;
 mod composition_types;
 #[path = "generated/empty-signal.rs"]
 mod empty_signal;
-#[path = "generated/entry-sema.rs"]
-mod entry_sema;
+#[path = "generated/entry-memory.rs"]
+mod entry_memory;
+#[path = "generated/flow-library.rs"]
+mod flow_library;
+#[path = "generated/flow-memory.rs"]
+mod flow_memory;
+#[path = "generated/flow-operation.rs"]
+mod flow_operation;
 #[path = "generated/generic-shadow.rs"]
 mod generic_shadow;
 #[path = "generated/inline-collision.rs"]
@@ -226,20 +237,20 @@ fn operation_free_signal_shared_record_archives_and_round_trips_as_datom_text() 
 }
 
 #[test]
-fn generated_sema_records_round_trip_as_datom_text() {
+fn generated_memory_records_round_trip_as_datom_text() {
     use datom_codec::{Actualizing, Budget, Datomizable, Potential};
     use protos::{Protosizable, ReaderBudget, Textualizable};
 
-    let record = entry_sema::Record {
+    let record = entry_memory::Record {
         string: "root".to_owned(),
-        entry_vector: vec![entry_sema::Entry {
+        entry_vector: vec![entry_memory::Entry {
             string: "first".to_owned(),
             integer: 1,
         }],
     };
     let text = record.clone().datomize(vec![]).protosize().textualize();
     assert_eq!(text, "{ root\n  [ { first 1 } ] }");
-    let mut pending = Potential::<entry_sema::Record>::from(text);
+    let mut pending = Potential::<entry_memory::Record>::from(text);
     assert_eq!(
         pending
             .actualize(&mut Budget {
@@ -248,7 +259,7 @@ fn generated_sema_records_round_trip_as_datom_text() {
                 depth: 0,
                 maximum_depth: 1024,
             })
-            .expect("restore sema record"),
+            .expect("restore memory record"),
         record
     );
 }
@@ -423,4 +434,48 @@ fn a_complex_kind_carries_its_superkind_type_and_constant() {
     assert_eq!(counter.next(), Some(1));
     assert_eq!(counter.next(), Some(2));
     assert_eq!(counter.next(), None);
+}
+
+#[test]
+fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
+    use datom_codec::{Actualizing, Budget, Datomizable, Potential};
+    use protos::{Protosizable, ReaderBudget, Textualizable};
+    let budget = || Budget {
+        remaining: 1024,
+        reader: ReaderBudget { remaining: 1024 },
+        depth: 0,
+        maximum_depth: 1024,
+    };
+    let operation = flow_operation::Operation::Start(flow_operation::Start_Data {
+        voice: Voice::Mind(flow_library::Rank::Primary),
+        capsule: flow_operation::Capsule {
+            home: "/home/flow".to_owned(),
+            login: vec!["claude".to_owned()],
+        },
+    });
+    let text = operation.datomize(vec![]).protosize().textualize();
+    let mut pending = Potential::<flow_operation::Operation>::from(text);
+    assert_eq!(
+        pending.actualize(&mut budget()).expect("restore operation"),
+        operation
+    );
+    let outcome = flow_operation::Outcome::Started(7);
+    assert!(matches!(outcome, flow_operation::Outcome::Started(7)));
+    let memory = flow_memory::Flow {
+        flow_id: 7,
+        voice: Voice::Psyche(flow_library::Rank::Secondary),
+        state: flow_memory::State::Running,
+        event_vector: vec![
+            Event::Started,
+            Event::ToolUsed("Bash".to_owned()),
+            Event::Stopped,
+        ],
+    };
+    let text = memory.datomize(vec![]).protosize().textualize();
+    let mut pending = Potential::<flow_memory::Flow>::from(text);
+    assert_eq!(
+        pending.actualize(&mut budget()).expect("restore memory"),
+        memory
+    );
+    let _: FlowId = memory.flow_id;
 }

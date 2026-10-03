@@ -1,0 +1,5 @@
+; A memory file: the record's positions in braces, then the types it stores
+Memory
+[]
+[ Record.{ String Vector<Entry> }
+  Entry.{ String Integer } ]

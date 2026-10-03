@@ -1,7 +1,8 @@
 //! Freshness: every committed generated module equals a fresh generation
 //! by the library. The text is the product here, so the text is what is
 //! asserted: src/error.rs from error.ethos, src/ethos-zero.rs from
-//! ethos-zero.ethos, and tests/generated/<stem>.rs from every fixture.
+//! ethos-zero.ethos, and tests/generated/<stem>.rs from every fixture,
+//! the four Flow Nexus files in fixtures/print included.
 
 use ethos_zero::{Actualizing, File, Generating, Potential};
 
@@ -54,5 +55,17 @@ fn every_fixture_module_is_fresh() {
     assert_eq!(fixtures.len(), 18);
     for stem in fixtures {
         format!("fixtures/{stem}.ethos").fresh(&format!("tests/generated/{stem}.rs"));
+    }
+}
+
+#[test]
+fn the_flow_nexus_modules_are_fresh() {
+    for stem in [
+        "flow-library",
+        "flow-signal",
+        "flow-operation",
+        "flow-memory",
+    ] {
+        format!("fixtures/print/{stem}.ethos").fresh(&format!("tests/generated/{stem}.rs"));
     }
 }
