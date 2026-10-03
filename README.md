@@ -13,8 +13,9 @@ composition ascends back to text. A capability is named by the layer it goes to.
 | capability | kind | goes to | borne by |
 |---|---|---|---|
 | `protosize` | `Protosizable` | Protos | `str`, `String` (may error); a dialect's concept (cannot) |
-| `protosize_with` | `BoundedProtosizable` | Protos | `str`, `String`, under a caller's `ReaderBudget` |
-| `textualize` | `Textualizable` | Text | `Protos`; a dialect's concept |
+| `protosize_with` | `BoundedProtosizable` | Protos | `str`, `String`, under a caller's `ReaderBudget`, which is `Spendable` |
+| `textualize` | `Textualizable` | Text, expanded vertically | `Protos`; a dialect's concept |
+| `compact` | `Compactable` | Text on one line | `Protos` |
 | `canonicalize` | `Canonicalizable` | — | `Protos`: assign the extents of the text it will print |
 
 Descent may error; ascent cannot.
@@ -81,24 +82,47 @@ built, printed, and read back to the same structure.
 
 ## Writing
 
-Canonical text: `{ a b }` and `[ a b ]` spaced, `{}` `[]` empty; `<a b>` tight;
-`Head.body` with nothing around the separator; siblings one space apart; opaque
-regions verbatim with their glyphs; one line. Writing cannot error.
+The canonical text expands vertically. A `{ }` or `[ ]` enclosure with more
+than one element, one of which has a next layer (headed, or a non-empty brace
+or bracket enclosure), opens on its line and its elements hang beneath the
+first, aligned; the closer ends the last element's line. Elements that are all
+leaves sit on one line, and so does a lone element with a next layer:
+
+```
+Locked.{ 442
+         MyLock
+         [ /abs/path ]
+         «why I hold it» }
+[ flow:[ FlowId Voice Event ] ]
+```
+
+`{ a b }` and `[ a b ]` spaced, `{}` `[]` empty; `<a b>` tight, and tight
+against the element it follows (`Vector<Event>`); `Head.body` with nothing
+around the separator; opaque regions verbatim with their glyphs. `textualize`
+writes it, and `canonicalize` assigns its extents. `compact` (`Compactable`)
+writes the same structure on one line, siblings one space apart, for a reader
+that takes one line at a time. Writing cannot error.
 
 ## Anatomy
 
 | module | what | kind |
 |---|---|---|
-| `core` | the types and the reader | `Protosizable`, `BoundedProtosizable`, `ReaderBudgeting`, `Escaping`, `Glyphing` |
-| `rendering` | one stack machine for printing, showing and canonical extents | `Rendering`, `Sinking`, `Settling` |
+| `core` | the types and the reader | `Protosizable`, `BoundedProtosizable`, `Spendable`, `Escaping`, `Glyphing` |
+| `rendering` | one stack machine for printing, compacting, showing and canonical extents | `Textualizable`, `Compactable`, `Canonicalizable`; `Rendering`, `Sinking`, `Settling` |
+| `layout` | the vertical layout: the current column, elements, next layers | `Advancing`, `Grouping`, `Layered` |
 | `traversing` | iterative `Clone`, `PartialEq` and `Drop` | `Structuring` |
 
 No free functions, no inherent impls, no zero-sized bearers, no variant rosters:
 `nix flake check` carries the guards, with build, test, fmt, clippy and doc.
 
 `protos.ethos` and `protos-kinds.ethos` state the datom anatomy of the public
-types and kinds; no Rust is generated from them. The crate is hand-written
-because Ethos cannot yet state what it needs: `usize` extents, `char`
-payloads, borrowed receivers, and the iterative `Clone`, `PartialEq` and `Drop`
-of `traversing`; and a generated contract would derive datom-codec's kinds,
-which depends on this crate.
+types and kinds. The crate is hand-written because Ethos cannot yet state what
+it needs: `usize` extents, `char` payloads, borrowed receivers, and the
+iterative `Clone`, `PartialEq` and `Drop` of `traversing`; and a generated
+contract of `protos.ethos` would derive datom-codec's kinds, which depends on
+this crate. The kinds file declares only kinds, so its Rust is generated into
+`generated/protos-kinds.rs` and committed: `tests/kinds.rs` compiles it against
+this crate's types, each associated type bearing the generated kind through the
+hand-written one, and the `generated-kinds` Nix check regenerates it with the
+pinned ethos-zero and holds the committed file to it. A capability's input is a
+kind (`protosize_with` takes a `Spendable`), never a concrete type.

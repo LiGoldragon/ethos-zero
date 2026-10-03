@@ -3,8 +3,8 @@
 
 use proptest::prelude::*;
 use protos::{
-    Boundary, Canonicalizable, Enclosure, Extent, Protos, Protosizable, Separator, Symbol,
-    Textualizable,
+    Boundary, Canonicalizable, Compactable, Enclosure, Extent, Protos, Protosizable, Separator,
+    Symbol, Textualizable,
 };
 
 /// Structures are built here, not read, so they start with no extent of their
@@ -218,13 +218,25 @@ fn an_opaque_leaf_keeps_its_siblings_apart() {
 #[test]
 fn a_read_tree_reprints_the_text_that_made_it() {
     for text in [
-        "{ Ada 1990 { «12 Rue de la Paix» Paris 75002 } [ Author Reviewer.{ 2024 17 } ] }",
-        "Processable<[ Clonable Sendable ] Serializable>.[ Vector <String> ]",
+        "{ Ada\n  1990\n  { «12 Rue de la Paix» Paris 75002 }\n  [ Author\n    Reviewer.{ 2024 17 } ] }",
+        "Processable<[ Clonable Sendable ] Serializable>.[ Vector<String> ]",
         "Some.(x (y) z)",
         "«a\\»b»",
     ] {
         let form = text.protosize().expect("structure");
         assert_eq!(form.textualize(), text, "{text:?}");
+    }
+}
+
+#[test]
+fn a_read_tree_compacts_to_the_one_line_text_that_made_it() {
+    for text in [
+        "{ Ada 1990 { «12 Rue de la Paix» Paris 75002 } [ Author Reviewer.{ 2024 17 } ] }",
+        "Processable<[ Clonable Sendable ] Serializable>.[ Vector <String> ]",
+        "Some.(x (y) z)",
+    ] {
+        let form = text.protosize().expect("structure");
+        assert_eq!(form.compact(), text, "{text:?}");
     }
 }
 

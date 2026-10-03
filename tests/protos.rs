@@ -343,7 +343,7 @@ fn qualified_names_are_one_structural_form() {
     let form = text.protosize().expect("qualified headed form");
     assert_eq!(
         form.textualize(),
-        "Processable<[ Clonable Sendable ] Serializable>.[ Vector <String> ]"
+        "Processable<[ Clonable Sendable ] Serializable>.[ Vector<String> ]"
     );
     let Protos::Headed {
         head,

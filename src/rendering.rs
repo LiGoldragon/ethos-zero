@@ -1,14 +1,22 @@
 //! One iterative machine for every textual traversal of a structural tree.
 //!
-//! Printing, showing and canonical measurement are the same walk: a node
-//! renders into pieces — literal text, and its children as further nodes —
-//! and a stack keeps the walk flat, so depth cannot exhaust the machine.
-//! The rendition says what the pieces are; the sink says what is done with
-//! them.
+//! Printing, compacting, showing and canonical measurement are the same walk:
+//! a node renders into pieces — literal text, line breaks, and its children as
+//! further nodes — and a stack keeps the walk flat, so depth cannot exhaust
+//! the machine. The rendition says what the pieces are; the sink says what is
+//! done with them.
+//!
+//! The canonical print expands vertically. A brace or bracket enclosure with
+//! more than one element, one of which has a next layer, opens on its line
+//! and its elements hang beneath the first, aligned; the closer ends the last
+//! element's line. Elements that are all leaves sit on one line. An element
+//! is a node and the angled enclosures that follow it tight; it has a next
+//! layer when its node is headed or a non-empty brace or bracket enclosure.
 
 use crate::core::{Escaping, Glyphing, Separating};
+use crate::layout::{Advancing, Column, Grouping, Layered};
 use crate::traversing::Structuring;
-use crate::{Canonicalizable, Enclosure, Extent, Protos, Textualizable};
+use crate::{Canonicalizable, Compactable, Enclosure, Extent, Protos, Textualizable};
 use std::fmt::{self, Write};
 
 /// One piece of a rendering.
@@ -19,12 +27,20 @@ enum Step<'a> {
     Node(&'a Protos),
     /// The end of the node opened at this index.
     Close(usize),
+    /// Elements that hang will hang at the current column.
+    Mark,
+    /// A new line, at the column of the innermost mark.
+    Hang,
+    /// The innermost mark is done with.
+    Unmark,
 }
 
 /// What a rendering makes of a tree.
 enum Rendition {
-    /// The canonical text of the tree.
+    /// The canonical text of the tree, expanded vertically.
     Printed,
+    /// The text of the tree on one line.
+    Compact,
     /// The one-line structural form, as a derived `Debug` would write it.
     Shown,
 }
@@ -87,6 +103,54 @@ impl Rendering for Rendition {
     fn steps<'a>(&self, node: &'a Protos) -> Vec<Step<'a>> {
         match self {
             Self::Printed => match node {
+                Protos::Enclosed {
+                    enclosure: enclosure @ (Enclosure::Braced | Enclosure::Bracketed),
+                    children,
+                    ..
+                } if !children.is_empty() => {
+                    let elements = children.elements();
+                    let hanging =
+                        elements.len() > 1 && elements.iter().any(|element| element.layered());
+                    let mut steps = vec![
+                        Step::Glyph(enclosure.opener()),
+                        Step::Glyph(' '),
+                        Step::Mark,
+                    ];
+                    for (index, element) in elements.into_iter().enumerate() {
+                        if index > 0 {
+                            steps.push(if hanging {
+                                Step::Hang
+                            } else {
+                                Step::Glyph(' ')
+                            });
+                        }
+                        steps.extend(element.into_iter().map(Step::Node));
+                    }
+                    steps.extend([
+                        Step::Unmark,
+                        Step::Glyph(' '),
+                        Step::Glyph(enclosure.closer()),
+                    ]);
+                    steps
+                }
+                Protos::Enclosed {
+                    enclosure: Enclosure::Angled,
+                    children,
+                    ..
+                } => {
+                    let mut steps = vec![Step::Glyph(Enclosure::Angled.opener())];
+                    for (index, element) in children.elements().into_iter().enumerate() {
+                        if index > 0 {
+                            steps.push(Step::Glyph(' '));
+                        }
+                        steps.extend(element.into_iter().map(Step::Node));
+                    }
+                    steps.push(Step::Glyph(Enclosure::Angled.closer()));
+                    steps
+                }
+                _ => Self::Compact.steps(node),
+            },
+            Self::Compact => match node {
                 Protos::Bare { text, .. } => vec![Step::Text(text)],
                 Protos::Opaque {
                     boundary, content, ..
@@ -190,11 +254,32 @@ impl Rendering for Rendition {
     fn render<S: Sinking>(&self, root: &Protos, sink: &mut S) -> fmt::Result {
         let mut steps = vec![Step::Node(root)];
         let mut opened = 0usize;
+        let mut column = Column { glyphs: 0 };
+        let mut marks: Vec<usize> = Vec::new();
         while let Some(step) = steps.pop() {
             match step {
-                Step::Glyph(glyph) => sink.take_glyph(glyph)?,
-                Step::Text(text) => sink.take(text)?,
-                Step::Owned(text) => sink.take(&text)?,
+                Step::Glyph(glyph) => {
+                    column.pass_glyph(glyph);
+                    sink.take_glyph(glyph)?
+                }
+                Step::Text(text) => {
+                    column.pass(text);
+                    sink.take(text)?
+                }
+                Step::Owned(text) => {
+                    column.pass(&text);
+                    sink.take(&text)?
+                }
+                Step::Mark => marks.push(column.glyphs),
+                Step::Unmark => {
+                    marks.pop();
+                }
+                Step::Hang => {
+                    let indent = marks.last().copied().unwrap_or(0);
+                    let line = format!("\n{}", " ".repeat(indent));
+                    column.pass(&line);
+                    sink.take(&line)?
+                }
                 Step::Close(index) => sink.close(index),
                 Step::Node(node) => {
                     let index = opened;
@@ -228,6 +313,15 @@ impl Textualizable for Protos {
     fn textualize(&self) -> String {
         let mut text = String::new();
         Rendition::Printed
+            .render(self, &mut Written { sink: &mut text })
+            .expect("a String accepts every write");
+        text
+    }
+}
+impl Compactable for Protos {
+    fn compact(&self) -> String {
+        let mut text = String::new();
+        Rendition::Compact
             .render(self, &mut Written { sink: &mut text })
             .expect("a String accepts every write");
         text

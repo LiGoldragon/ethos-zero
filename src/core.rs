@@ -69,10 +69,11 @@ pub enum Problem {
 pub struct ReaderBudget {
     pub remaining: usize,
 }
-pub trait ReaderBudgeting {
+/// A budget a reading spends from, one structural node at a time.
+pub trait Spendable {
     fn spend(&mut self) -> bool;
 }
-impl ReaderBudgeting for ReaderBudget {
+impl Spendable for ReaderBudget {
     fn spend(&mut self) -> bool {
         if self.remaining == 0 {
             false
@@ -89,8 +90,14 @@ pub trait Protosizable {
     type Output;
     fn protosize(&self) -> Self::Output;
 }
+/// The canonical text, expanded vertically: nothing with a next layer
+/// shares one line with a sibling that has one too.
 pub trait Textualizable {
     fn textualize(&self) -> String;
+}
+/// The same text on one line, for a reader that takes one line at a time.
+pub trait Compactable {
+    fn compact(&self) -> String;
 }
 /// Assign the UTF-8 byte extents of this tree's canonical textual form.
 ///

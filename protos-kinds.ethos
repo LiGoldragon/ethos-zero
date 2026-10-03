@@ -1,11 +1,18 @@
-; The representable public structural conversion kinds. Reader helpers and
+; The representable public structural conversion kinds. A budget a reading
+; spends from is Spendable, and ReaderBudget bears it. Reader helpers and
 ; unit-yield operational capabilities remain Rust implementation surface until
 ; Ethos can state them without inventing a yield type.
 Library
 [ crate:[ Protos Error ReaderBudget ] ]
 []
-[ BoundedProtosizable.[ protosize_with!{ [ ReaderBudget ] [ Result<Protos Error> ] } ]
-  Protosizable.{ [] [ Output ] [] [ protosize.[ Output ] ] }
+[ Spendable.[ spend![ Boolean ] ]
+  BoundedProtosizable.[ protosize_with.{ [ Spendable ]
+                                         [ Result<Protos Error> ] } ]
+  Protosizable.{ []
+                 [ Output ]
+                 []
+                 [ protosize.[ Output ] ] }
   Textualizable.[ textualize.[ String ] ]
+  Compactable.[ compact.[ String ] ]
   Canonicalizable.[] ]
-[]
+[ ReaderBudget.[ Spendable ] ]

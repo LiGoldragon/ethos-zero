@@ -8,9 +8,12 @@
       url = "github:LiGoldragon/rust-build";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    ethos-zero = {
+      url = "github:LiGoldragon/ethos-zero/2db764d200daff0da291a644155f4e475568394d";
+    };
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-build }:
+  outputs = { self, nixpkgs, flake-utils, rust-build, ethos-zero }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -51,6 +54,11 @@
             fi
             touch $out
           '';
+          generated-kinds = pkgs.runCommand "protos-generated-kinds" {
+            generator = ethos-zero.packages.${system}.default;
+            declaration = ./protos-kinds.ethos;
+            committed = ./generated/protos-kinds.rs;
+          } (builtins.readFile ./checks/generated-kinds.sh);
           doc = craneLib.cargoDoc (common // { RUSTDOCFLAGS = "-D warnings"; });
           fmt = craneLib.cargoFmt { inherit src; doInstallCargoArtifacts = false; };
           clippy = craneLib.cargoClippy (common // { cargoClippyExtraArgs = "--all-targets -- -D warnings"; });
