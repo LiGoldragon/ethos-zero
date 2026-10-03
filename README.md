@@ -124,5 +124,6 @@ this crate. The kinds file declares only kinds, so its Rust is generated into
 `generated/protos-kinds.rs` and committed: `tests/kinds.rs` compiles it against
 this crate's types, each associated type bearing the generated kind through the
 hand-written one, and the `generated-kinds` Nix check regenerates it with the
-pinned ethos-zero and holds the committed file to it. A capability's input is a
+pinned ethos-zero and holds the committed file to it; `checked-anatomy` checks
+`protos.ethos` with the same ethos-zero. A capability's input is a
 kind (`protosize_with` takes a `Spendable`), never a concrete type.

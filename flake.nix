@@ -9,7 +9,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     ethos-zero = {
-      url = "github:LiGoldragon/ethos-zero/2db764d200daff0da291a644155f4e475568394d";
+      url = "github:LiGoldragon/ethos-zero/06d73e07ec7a133348e9e46511011a50f641b776";
     };
   };
 
@@ -59,6 +59,10 @@
             declaration = ./protos-kinds.ethos;
             committed = ./generated/protos-kinds.rs;
           } (builtins.readFile ./checks/generated-kinds.sh);
+          checked-anatomy = pkgs.runCommand "protos-checked-anatomy" {
+            generator = ethos-zero.packages.${system}.default;
+            declaration = ./protos.ethos;
+          } (builtins.readFile ./checks/checked-anatomy.sh);
           doc = craneLib.cargoDoc (common // { RUSTDOCFLAGS = "-D warnings"; });
           fmt = craneLib.cargoFmt { inherit src; doInstallCargoArtifacts = false; };
           clippy = craneLib.cargoClippy (common // { cargoClippyExtraArgs = "--all-targets -- -D warnings"; });
