@@ -265,6 +265,13 @@ fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
         Err(_) => panic!("a lowercase inline source in a struct position generates"),
     };
     assert!(generated.contains("custom::Name"));
+
+    let memory_record = read("Memory [] [ Holder.{ Topic.custom:Name String } ]");
+    let generated = match memory_record.generate() {
+        Ok(generated) => generated,
+        Err(_) => panic!("a lowercase inline source in a record field generates"),
+    };
+    assert!(generated.contains("custom::Name"));
 }
 
 #[test]
