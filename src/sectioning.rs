@@ -158,7 +158,7 @@ impl Hoist for TypeDeclaration {
         match self {
             TypeDeclaration::Struct(_, positions) => positions.hoist_positions(body, placed),
             TypeDeclaration::Enum(_, variants) => variants.hoist_variants(body, placed),
-            TypeDeclaration::Alias(_, _) => {}
+            TypeDeclaration::NewType(_, _) => {}
         }
     }
 }

@@ -244,7 +244,7 @@ impl Declaring for Protos {
     ) -> Result<TypeDeclaration, Error> {
         let mut declaration: TypeDeclaration = self.conceive().place(index as Integer)?;
         if let Some(children) = arguments {
-            let TypeDeclaration::Alias(_, reference) = &mut declaration else {
+            let TypeDeclaration::NewType(_, reference) = &mut declaration else {
                 return Err(Error::conceptual(
                     vec![(index + 1) as Integer],
                     Problem::Expected(Form::Declaration),
@@ -478,7 +478,10 @@ impl Conceiving<TypeDeclaration> for Protos {
         } else if let Some(v) = body.children(Enclosure::Bracketed) {
             Ok(TypeDeclaration::Enum(identity, v.variants().place(1)?))
         } else {
-            Ok(TypeDeclaration::Alias(identity, body.conceive().place(1)?))
+            Ok(TypeDeclaration::NewType(
+                identity,
+                body.conceive().place(1)?,
+            ))
         }
     }
 }

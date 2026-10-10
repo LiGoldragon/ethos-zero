@@ -8,8 +8,8 @@ Signal
   Twin.{ Twig Twig }
   Twig.[ Tip  Grow.Twin ]
   Knot.[ End  Loop ]
-  Loop.{ Knot }
+  Loop.Knot
   Forest.Vector<Tree>
   Wrapped.{ Option<Integer> Result<String Integer> Vector<Option<String>> }
-  Nested.[ A.[ X Y.Integer ]  B.{ String } ]
+  Nested.[ A.[ X Y.Integer ]  B.String ]
   Deep.Vector<Vector<Vector<Option<Result<String Integer>>>>> ]

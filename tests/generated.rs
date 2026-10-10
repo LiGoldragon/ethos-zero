@@ -76,10 +76,14 @@ fn nested_inline_payloads_have_distinct_rust_types() {
     let left = nested_collision::Outer::A(nested_collision::A_Data::X(
         nested_collision::A_Data_X_Data {
             string: String::new(),
+            integer: 0,
         },
     ));
     let right = nested_collision::Outer::B(nested_collision::B_Data::X(
-        nested_collision::B_Data_X_Data { integer: 1 },
+        nested_collision::B_Data_X_Data {
+            string: String::new(),
+            integer: 1,
+        },
     ));
     assert!(matches!(left, nested_collision::Outer::A(_)));
     assert!(matches!(right, nested_collision::Outer::B(_)));
@@ -89,13 +93,20 @@ fn nested_inline_payloads_have_distinct_rust_types() {
 fn colliding_inline_payloads_are_named_for_their_enums() {
     let p = inline_collision::P::X(inline_collision::P_X_Data {
         string: String::new(),
+        integer: 0,
     });
     let nested = inline_collision::P::Y(inline_collision::Y_Data::X(
-        inline_collision::Y_Data_X_Data { integer: 2 },
+        inline_collision::Y_Data_X_Data {
+            string: String::new(),
+            integer: 2,
+        },
     ));
-    let q = inline_collision::Q::X(inline_collision::Q_X_Data { integer: 1 });
-    let authored: inline_collision::X_Data = String::new();
-    let unique = inline_collision::R::Z(inline_collision::Z_Data { string: authored });
+    let q = inline_collision::Q::X(inline_collision::Q_X_Data {
+        string: String::new(),
+        integer: 1,
+    });
+    let authored = inline_collision::X_Data(String::new());
+    let unique = inline_collision::R::Z(authored.0);
     assert!(matches!(p, inline_collision::P::X(_)));
     assert!(matches!(nested, inline_collision::P::Y(_)));
     assert!(matches!(q, inline_collision::Q::X(_)));
@@ -126,9 +137,9 @@ fn generated_signal_query_round_trips_as_a_portable_archive() {
 
 #[test]
 fn generated_decimal_signal_archives_and_bears_datom_derives() {
-    let query = signal_decimal::Query::Measure(signal_decimal::Measurement {
-        decimal: datom_codec::Decimal::try_from(1.25).expect("1.25 is finite"),
-    });
+    let query = signal_decimal::Query::Measure(signal_decimal::Measurement(
+        datom_codec::Decimal::try_from(1.25).expect("1.25 is finite"),
+    ));
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive decimal query");
     let restored = rkyv::from_bytes::<signal_decimal::Query, rkyv::rancor::Error>(&bytes)
         .expect("restore decimal query");
@@ -180,11 +191,9 @@ fn recursive_generated_signal_archives_and_restores() {
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&chain).expect("archive chain");
     let restored = rkyv::from_bytes::<Chain, rkyv::rancor::Error>(&bytes).expect("restore chain");
     assert_eq!(restored, chain);
-    let knot = tree_types::Knot::Loop(tree_types::Loop {
-        knot: Box::new(tree_types::Knot::Loop(tree_types::Loop {
-            knot: Box::new(tree_types::Knot::End),
-        })),
-    });
+    let knot = tree_types::Knot::Loop(Box::new(tree_types::Knot::Loop(Box::new(
+        tree_types::Knot::End,
+    ))));
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&knot).expect("archive knot");
     let restored =
         rkyv::from_bytes::<tree_types::Knot, rkyv::rancor::Error>(&bytes).expect("restore knot");
@@ -214,9 +223,7 @@ fn operation_free_signal_shared_record_archives_and_round_trips_as_datom_text() 
     use datom_codec::{Actualizing, Budget, Datomizable, Potential};
     use protos::{Protosizable, ReaderBudget, Textualizable};
 
-    let shared = empty_signal::Shared {
-        name: "domain".to_owned(),
-    };
+    let shared: empty_signal::Shared = empty_signal::Name("domain".to_owned());
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&shared).expect("archive shared record");
     assert_eq!(
         rkyv::from_bytes::<empty_signal::Shared, rkyv::rancor::Error>(&bytes)
@@ -268,9 +275,11 @@ fn generated_memory_records_round_trip_as_datom_text() {
 
 #[test]
 fn aliases_name_their_types() {
-    let short: alias_format::Short = String::new();
-    let provider: alias_format::OptionalSpiritGuardianProviderName = Some(short);
-    let tokens: alias_format::OptionalSpiritGuardianMaximumOutputTokens = Some(4_096);
+    let short = alias_format::Short(String::new());
+    let provider: alias_format::OptionalSpiritGuardianProviderName =
+        Some(alias_format::SpiritGuardianProviderName(short.0));
+    let tokens: alias_format::OptionalSpiritGuardianMaximumOutputTokens =
+        Some(alias_format::SpiritGuardianMaximumOutputTokens(4_096));
     let nested: alias_format::Nested = vec![Some(Ok(String::new())), Some(Err(1)), None];
     assert!(provider.is_some() && tokens.is_some());
     assert_eq!(nested.len(), 3);
@@ -335,15 +344,11 @@ fn declared_container_names_do_not_capture_the_generated_containers() {
             tree_option: None,
             vec_integer_result: Err(1),
         })),
-        vec_integer_result: Ok(composition_types::Vec {
-            string: String::new(),
-        }),
+        vec_integer_result: Ok(composition_types::Vec(String::new())),
     };
     let nested = composition_types::Nested::Choice(composition_types::Choice_Data::Item(
         composition_types::Choice_Data_Item_Data {
-            vec: composition_types::Vec {
-                string: String::new(),
-            },
+            vec: composition_types::Vec(String::new()),
             integer: 0,
         },
     ));
@@ -355,11 +360,9 @@ fn declared_container_names_do_not_capture_the_generated_containers() {
 fn a_declared_single_letter_type_is_not_shadowed() {
     let holder = generic_shadow::Holder {
         string: String::new(),
-        a: generic_shadow::A {
-            string: "a".to_owned(),
-        },
+        a: generic_shadow::A("a".to_owned()),
     };
-    assert_eq!(holder.a.string, "a");
+    assert_eq!(holder.a.0, "a");
 }
 
 #[test]
@@ -372,13 +375,13 @@ fn several_declarations_generate_side_by_side() {
         string: String::new(),
         integer_vector: vec![record.integer],
     };
-    let id: multi_types::LockId = 7;
+    let id = multi_types::LockId(7);
     assert_eq!(report.integer_vector, vec![1]);
     assert!(matches!(
         multi_types::SinkError::Closed,
         multi_types::SinkError::Closed
     ));
-    assert_eq!(id, 7);
+    assert_eq!(id.0, 7);
 }
 
 #[test]
@@ -451,7 +454,7 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
     let operation = flow_operation::Operation::Start(flow_operation::Start_Data {
         voice: Voice::Mind(flow_library::Rank::Primary),
         capsule: flow_operation::Capsule {
-            home: "/home/flow".to_owned(),
+            home: flow_operation::Home("/home/flow".to_owned()),
             login: vec!["claude".to_owned()],
         },
     });
@@ -461,10 +464,13 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
         pending.actualize(&mut budget()).expect("restore operation"),
         operation
     );
-    let outcome = flow_operation::Outcome::Started(7);
-    assert!(matches!(outcome, flow_operation::Outcome::Started(7)));
+    let outcome = flow_operation::Outcome::Started(FlowId(7));
+    assert!(matches!(
+        outcome,
+        flow_operation::Outcome::Started(FlowId(7))
+    ));
     let memory = flow_memory::Flow {
-        flow_id: 7,
+        flow_id: FlowId(7),
         voice: Voice::Psyche(flow_library::Rank::Secondary),
         state: flow_memory::State::Running,
         event_vector: vec![
@@ -480,4 +486,24 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
         memory
     );
     let _: FlowId = memory.flow_id;
+}
+
+#[test]
+fn a_new_type_has_its_value_size_and_reads_as_its_value_in_datom() {
+    use datom_codec::Datomizable;
+    use protos::{Protosizable, Textualizable};
+
+    assert_eq!(
+        std::mem::size_of::<orchestrate::FlowId>(),
+        std::mem::size_of::<String>()
+    );
+    assert_eq!(
+        std::mem::size_of::<flow_library::FlowId>(),
+        std::mem::size_of::<i64>()
+    );
+    let text = orchestrate::FlowId("abc123".to_owned())
+        .datomize(vec![])
+        .protosize()
+        .textualize();
+    assert_eq!(text.trim(), "abc123");
 }

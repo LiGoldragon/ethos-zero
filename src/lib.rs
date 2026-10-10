@@ -274,15 +274,16 @@ pub enum Position {
     Declared(TypeDeclaration),
 }
 
-/// A type declaration: a struct of positions, an enum of variants, or an alias.
+/// A type declaration: a struct of positions, an enum of variants, or a
+/// new type: a name over one type.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypeDeclaration {
     /// A headed brace: the positions in order.
     Struct(Identity, Vec<Position>),
     /// A headed bracket: the variants.
     Enum(Identity, Vec<Variant>),
-    /// A headed bare: the aliased type.
-    Alias(Identity, Reference),
+    /// A headed bare: the one type it holds, `FlowId.String`.
+    NewType(Identity, Reference),
 }
 
 /// A variant of an enum.
@@ -819,7 +820,7 @@ mod behavior {
 
     #[test]
     fn approved_declared_and_inline_payloads_generate_named_fields() {
-        let source = "Library [] [ Generation.{ String String } FilePath.String SyntaxError.Vector<FilePath> GenerationFailure.[ SyntaxError Unwritable ] Lock.{ String } LockRejection.[ DuplicateName.Lock PathOverlap.{ Lock Lock } ] ] [] []";
+        let source = "Library [] [ Generation.{ String String } FilePath.String SyntaxError.Vector<FilePath> GenerationFailure.[ SyntaxError Unwritable ] Lock.String LockRejection.[ DuplicateName.Lock PathOverlap.{ Lock Lock } ] ] [] []";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -844,7 +845,7 @@ mod behavior {
 
     #[test]
     fn library_traits_generate_trait_surfaces() {
-        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.String ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -998,7 +999,7 @@ mod behavior {
 
     #[test]
     fn constrained_data_declarations_are_rejected() {
-        let source = "Library [] [ Box<Sized>.{ String } ] [] []";
+        let source = "Library [] [ Box<Sized>.String ] [] []";
         assert!(matches!(
             Potential::<File>::from(source).actualize(),
             Err(Error::Conceptual(_))
@@ -1035,7 +1036,7 @@ mod behavior {
 
     #[test]
     fn nested_inline_data_names_include_ancestry_after_the_first_level() {
-        let source = "Library [] [ Outer.[ A.[ X.{ String } ] B.[ X.{ Integer } ] ] Rejection.[ PathOverlap.{ String String } ] ] [] []";
+        let source = "Library [] [ Outer.[ A.[ X.String ] B.[ X.String ] ] Rejection.[ PathOverlap.{ String String } ] ] [] []";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("nested collision source reads"),
@@ -1044,8 +1045,10 @@ mod behavior {
             Ok(rust) => rust,
             Err(_) => panic!("nested collision source generates"),
         };
-        assert!(rust.contains("struct A_Data_X_Data"));
-        assert!(rust.contains("struct B_Data_X_Data"));
+        assert!(rust.contains("pub enum A_Data"));
+        assert!(rust.contains("pub enum B_Data"));
+        assert_eq!(rust.matches("X(String)").count(), 2);
+        assert!(!rust.contains("X_Data"));
         assert!(rust.contains("struct PathOverlap_Data"));
         syn::parse_file(&rust).expect("generated nested data is Rust");
     }
@@ -1172,10 +1175,10 @@ mod behavior {
             "Library [] [ T.String ] [ K.[] ] [ T.[ 1 ] ]",
             "Library [] [ Rec.{ String Bogus } ] [] []",
             "Library [] [ Rec.{ Vector<String> Option<Bogus> } ] [] []",
-            "Library [] [ Rec.{ Vector<Option<Bogus>> } ] [] []",
+            "Library [] [ Rec.Vector<Option<Bogus>> ] [] []",
             "Library [] [ Alias.Result<String Bogus> ] [] []",
             "Library [] [ E.[ A.Vector<String> B.Option<Bogus> ] ] [] []",
-            "Library [ x:[ T ] ] [ Rec.{ x:T<Bogus> } ] [] []",
+            "Library [ x:[ T ] ] [ Rec.x:T<Bogus> ] [] []",
             "Library [] [] [ K.[ run.{ [ Self Bogus ] [ String ] } ] ] []",
             "Library [] [] [ K.[ run.{ [ Self ] [ Vector<Bogus> ] } ] ] []",
             "Library [] [] [ K.{ [] [ Item<Bogus> ] [] [] } ] []",
@@ -1197,7 +1200,7 @@ mod behavior {
                 .or_else(|| source.find("<1>").map(|at| at + 1))
                 .expect("one offending token");
             assert_eq!(
-                (location.line, location.column),
+                (location.line.0, location.column.0),
                 (1, offending as i64 + 1),
                 "{source}: {error:?}"
             );

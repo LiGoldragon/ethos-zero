@@ -137,7 +137,9 @@ impl DeclarationsProtosizing for [TypeDeclaration] {
         let mut nodes = Vec::new();
         for declaration in self {
             match declaration {
-                TypeDeclaration::Alias(identity, reference) if !reference.arguments.is_empty() => {
+                TypeDeclaration::NewType(identity, reference)
+                    if !reference.arguments.is_empty() =>
+                {
                     let body = match &reference.source {
                         Some(source) => source.as_ref().headed(
                             None,
@@ -266,7 +268,7 @@ impl Protosizing for TypeDeclaration {
                 Separator::Period,
                 "".enclosed(Enclosure::Bracketed, variants.variant_nodes()),
             ),
-            Self::Alias(identity, reference) => {
+            Self::NewType(identity, reference) => {
                 identity.heading(Separator::Period, reference.protos())
             }
         }

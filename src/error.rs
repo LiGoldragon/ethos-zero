@@ -47,6 +47,7 @@ pub enum Problem {
     Intrinsic(String),
     Case(String),
     Renamed(String),
+    SinglePosition,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -73,6 +74,10 @@ pub struct Location {
     pub column: Column,
 }
 #[rustfmt::skip]
-pub type Line = i64;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Line(pub i64);
 #[rustfmt::skip]
-pub type Column = i64;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Column(pub i64);

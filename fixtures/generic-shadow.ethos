@@ -1,1 +1,1 @@
-Library [] [ A.{ String } Holder.{ String A } ] [] []
+Library [] [ A.String Holder.{ String A } ] [] []

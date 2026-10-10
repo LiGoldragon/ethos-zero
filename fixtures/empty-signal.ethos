@@ -1,1 +1,1 @@
-Signal [] [] [] [ Shared.{ Name } Name.String ]
+Signal [] [] [] [ Shared.Name Name.String ]

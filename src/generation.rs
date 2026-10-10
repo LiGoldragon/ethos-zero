@@ -26,8 +26,8 @@ use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
-    Identity, Intrinsic, Name, Position, Receiver, Reference, Resolution, Resolving, Scope,
-    Signature, Source, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Identifiable, Identity, Intrinsic, Name, Position, Receiver, Reference, Resolution, Resolving,
+    Scope, Signature, Source, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 // ---------------------------------------------------------------------------
@@ -350,7 +350,7 @@ impl Reaching for TypeDeclaration {
                 positions.reaches(target, passage, file, visited)
             }
             TypeDeclaration::Enum(_, variants) => variants.reaches(target, passage, file, visited),
-            TypeDeclaration::Alias(_, aliased) => aliased.reaches(target, passage, file, visited),
+            TypeDeclaration::NewType(_, aliased) => aliased.reaches(target, passage, file, visited),
         }
     }
 }
@@ -442,7 +442,7 @@ impl Closing for Reference {
         match file.resolve(&self.name) {
             Resolution::Intrinsic(Intrinsic::Vector) => return false,
             Resolution::Type(name) => match file.declaration(&name) {
-                Some(TypeDeclaration::Alias(_, aliased)) => {
+                Some(TypeDeclaration::NewType(_, aliased)) => {
                     if aliased.closes(owner, file) {
                         return true;
                     }
@@ -784,6 +784,31 @@ impl DatomDeriving for Identity {
     }
 }
 
+/// The trait whose capability tells whether a reference names a plain value.
+trait Plain {
+    fn plain(&self) -> bool;
+}
+
+/// A plain value is a String, an Integer, a Decimal or a Boolean, named
+/// without a source or arguments. A new type over one is emitted as a struct
+/// of one unnamed position; a name over anything else stays an alias until
+/// its ruling.
+impl Plain for Reference {
+    fn plain(&self) -> bool {
+        self.source.is_none()
+            && self.arguments.is_empty()
+            && matches!(
+                Intrinsic::identify(&self.name.0),
+                Some(
+                    Intrinsic::String
+                        | Intrinsic::Integer
+                        | Intrinsic::Decimal
+                        | Intrinsic::Boolean
+                )
+            )
+    }
+}
+
 /// A type declared in a position is emitted before the struct that holds
 /// it, as a declaration of the file outside the enclosing identity; the
 /// position then holds it by name.
@@ -873,7 +898,7 @@ impl Emitting for TypeDeclaration {
                 };
                 variants.enumeration(&inner, &identity.name, identity)
             }
-            TypeDeclaration::Alias(identity, aliased) => {
+            TypeDeclaration::NewType(identity, held) => {
                 let inner = Scope {
                     file: scope.file,
                     identity: Some(identity),
@@ -881,8 +906,13 @@ impl Emitting for TypeDeclaration {
                 };
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
-                let aliased = aliased.emit(&inner);
-                quote! { #[rustfmt::skip] pub type #name #parameters = #aliased; }
+                let emitted = held.emit(&inner);
+                if held.plain() {
+                    let derive = identity.datom_derives();
+                    quote! { #derive pub struct #name #parameters (pub #emitted); }
+                } else {
+                    quote! { #[rustfmt::skip] pub type #name #parameters = #emitted; }
+                }
             }
         }
     }

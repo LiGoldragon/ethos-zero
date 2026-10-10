@@ -21,7 +21,8 @@ Library
             TraitWanted.String
             Intrinsic.String
             Case.String
-            Renamed.String ]
+            Renamed.String
+            SinglePosition ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association ]
   Location.{ Line Column }
   Line.Integer

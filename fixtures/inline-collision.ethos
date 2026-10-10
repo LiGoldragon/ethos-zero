@@ -1,11 +1,11 @@
 ; The audit's row-15 probe, grown: P and Q each declare a payload X in
 ; place, so each payload is named for its enum and the authored X_Data
-; stays free; a payload unique in the file keeps its short name.
+; stays free; R.Z is a newtype over String, so it has no payload struct.
 Library
 []
-[ P.[ X.{ String }  Y.[ X.{ Integer } ] ]
-  Q.[ X.{ Integer } ]
+[ P.[ X.{ String Integer }  Y.[ X.{ String Integer } ] ]
+  Q.[ X.{ String Integer } ]
   X_Data.String
-  R.[ Z.{ String } ] ]
+  R.[ Z.String ] ]
 []
 []

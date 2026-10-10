@@ -5,6 +5,6 @@
 ; enum's datomization, so a Box in the module captures it.
 Library
 []
-[ Vec.{ String } Tree.{ Option<Self> Result<Vec Integer> } Nested.[ Choice.[ Item.{ Vec Integer } ] ] ]
+[ Vec.String Tree.{ Option<Self> Result<Vec Integer> } Nested.[ Choice.[ Item.{ Vec Integer } ] ] ]
 []
 []

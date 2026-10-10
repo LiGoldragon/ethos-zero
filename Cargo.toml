@@ -25,7 +25,7 @@ datom = []
 
 [dependencies]
 protos      = { git = "https://github.com/LiGoldragon/protos",  rev = "15b41da8f2579e73ead59bc0c2b97529b8ac32d3", features = ["rkyv"] }
-datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "4dff16b4f7412febc3b71aac8b49680cd20988cb", features = ["rkyv"] }
+datom-codec = { git = "file:///tmp/datom-codec-item12b", rev = "296b256118e76cdfa6bb11628c4042ec4b294b4d", features = ["rkyv"] }
 quote       = "1"
 proc-macro2 = "1"
 syn         = { version = "3", features = ["full"] }

@@ -64,7 +64,7 @@ impl Resolving for TypeDeclaration {
         let declared = match self {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _) => &identity.name,
+            | TypeDeclaration::NewType(identity, _) => &identity.name,
         };
         if declared == name {
             Resolution::Type(name.clone())
@@ -283,7 +283,7 @@ impl Naming for TypeDeclaration {
         match self {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _) => vec![DeclarationSite {
+            | TypeDeclaration::NewType(identity, _) => vec![DeclarationSite {
                 name: identity.name.clone(),
                 path: vec![0],
             }],
@@ -372,7 +372,7 @@ impl Spanning for Reference {
 impl Spanning for TypeDeclaration {
     fn span(&self) -> Integer {
         match self {
-            TypeDeclaration::Alias(_, aliased) => aliased.span(),
+            TypeDeclaration::NewType(_, aliased) => aliased.span(),
             TypeDeclaration::Struct(_, _) | TypeDeclaration::Enum(_, _) => 1,
         }
     }
@@ -594,7 +594,7 @@ impl Inhabiting for TypeDeclaration {
                         .iter()
                         .any(|variant| variant.inhabited(file, owner, known))
             }
-            TypeDeclaration::Alias(_, aliased) => aliased.inhabited(file, owner, known),
+            TypeDeclaration::NewType(_, aliased) => aliased.inhabited(file, owner, known),
         }
     }
 }
@@ -649,7 +649,7 @@ impl Identified for TypeDeclaration {
         match self {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _) => identity,
+            | TypeDeclaration::NewType(identity, _) => identity,
         }
     }
 }
@@ -1154,7 +1154,9 @@ impl Referring for Reference {
                             .map(|declaration| match declaration {
                                 TypeDeclaration::Struct(identity, _)
                                 | TypeDeclaration::Enum(identity, _)
-                                | TypeDeclaration::Alias(identity, _) => identity.constraints.len(),
+                                | TypeDeclaration::NewType(identity, _) => {
+                                    identity.constraints.len()
+                                }
                             });
                     ReferenceRequirement {
                         role: Role::Type,
@@ -1262,15 +1264,16 @@ impl Cycling for Reference {
                 }
                 visited.push(name.clone());
                 match file.declaration(&name) {
-                    Some(TypeDeclaration::Alias(identity, aliased)) => aliased.cycles_substituting(
-                        target,
-                        file,
-                        visited,
-                        AliasApplication {
-                            identity,
-                            arguments: &self.arguments,
-                        },
-                    ),
+                    Some(TypeDeclaration::NewType(identity, aliased)) => aliased
+                        .cycles_substituting(
+                            target,
+                            file,
+                            visited,
+                            AliasApplication {
+                                identity,
+                                arguments: &self.arguments,
+                            },
+                        ),
                     _ => false,
                 }
             }
@@ -1319,15 +1322,16 @@ impl Cycling for Reference {
                 }
                 visited.push(name.clone());
                 match file.declaration(&name) {
-                    Some(TypeDeclaration::Alias(identity, aliased)) => aliased.cycles_substituting(
-                        target,
-                        file,
-                        visited,
-                        AliasApplication {
-                            identity,
-                            arguments: &self.arguments,
-                        },
-                    ),
+                    Some(TypeDeclaration::NewType(identity, aliased)) => aliased
+                        .cycles_substituting(
+                            target,
+                            file,
+                            visited,
+                            AliasApplication {
+                                identity,
+                                arguments: &self.arguments,
+                            },
+                        ),
                     _ => false,
                 }
             }
@@ -1415,7 +1419,7 @@ impl Checkable for TypeDeclaration {
         let identity = match self {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _) => identity,
+            | TypeDeclaration::NewType(identity, _) => identity,
         };
         if !identity.constraints.is_empty() {
             return Err(Error::conceptual(
@@ -1431,7 +1435,10 @@ impl Checkable for TypeDeclaration {
             associated: scope.associated,
         };
         match self {
-            TypeDeclaration::Struct(_, positions) => positions.check_children(&inner).place(1),
+            TypeDeclaration::Struct(_, positions) => {
+                positions.single()?;
+                positions.check_children(&inner).place(1)
+            }
             TypeDeclaration::Enum(_, variants) => {
                 let mut names = variants.names_in(0);
                 for declared in &mut names {
@@ -1441,7 +1448,7 @@ impl Checkable for TypeDeclaration {
                 names.distinct()?;
                 variants.check_children(&inner).place(1)
             }
-            TypeDeclaration::Alias(identity, aliased) => {
+            TypeDeclaration::NewType(identity, aliased) => {
                 aliased.check(&inner).lifted(1)?;
                 if aliased.cycles(&identity.name, scope.file, &mut vec![]) {
                     return Err(Error::conceptual(
@@ -1455,6 +1462,21 @@ impl Checkable for TypeDeclaration {
     }
 }
 
+/// The trait whose capability refuses a struct of one position: a type that
+/// holds one other type is written as its name, a dot and that type.
+trait Single {
+    fn single(&self) -> Result<(), Error>;
+}
+
+impl Single for [Position] {
+    fn single(&self) -> Result<(), Error> {
+        if self.len() == 1 {
+            return Err(Error::conceptual(vec![], Problem::SinglePosition));
+        }
+        Ok(())
+    }
+}
+
 impl Checkable for Variant {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
@@ -1465,6 +1487,7 @@ impl Checkable for Variant {
             }
             Variant::Struct(name, positions) => {
                 name.define().place(0)?;
+                positions.single()?;
                 positions.check_children(scope).place(1)
             }
             Variant::Enum(name, variants) => {

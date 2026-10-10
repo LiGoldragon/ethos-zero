@@ -118,27 +118,10 @@ pub enum Twig {
 )]
 pub enum Knot {
     End,
-    Loop(#[rkyv(omit_bounds)] Loop),
+    Loop(#[rkyv(omit_bounds)] std::boxed::Box<Loop>),
 }
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-#[rkyv(
-    serialize_bounds(
-        __S:rkyv::ser::Writer+rkyv::ser::Allocator,
-        __S::Error:rkyv::rancor::Source
-    )
-)]
-#[rkyv(deserialize_bounds(__D::Error:rkyv::rancor::Source))]
-#[rkyv(
-    bytecheck(
-        bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
-    )
-)]
-pub struct Loop {
-    #[rkyv(omit_bounds)]
-    pub knot: std::boxed::Box<Knot>,
-}
+pub type Loop = Knot;
 #[rustfmt::skip]
 pub type Forest = std::vec::Vec<Tree>;
 #[rustfmt::skip]
@@ -159,15 +142,9 @@ pub enum A_Data {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct B_Data {
-    pub string: String,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Nested {
     A(A_Data),
-    B(B_Data),
+    B(String),
 }
 #[rustfmt::skip]
 pub type Deep = std::vec::Vec<

@@ -217,7 +217,7 @@ fn check_locates_a_duplicate_at_its_second_declaration() {
     let directory = "duplicate".scratch();
     let source = directory.write_source(
         "duplicate",
-        "Library\n[]\n[ Record.{ String }\n  Record.{ Integer } ]\n[]\n[]\n",
+        "Library\n[]\n[ Record.String\n  Record.Integer ]\n[]\n[]\n",
     );
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();

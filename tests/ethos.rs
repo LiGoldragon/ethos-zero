@@ -14,7 +14,7 @@ fn read(source: &str) -> File {
 
 #[test]
 fn full_library_round_trips_and_generates_named_types_and_traits() {
-    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.String ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
     let file = read(source);
     let repeated = read(&file.protosize().textualize());
     assert_eq!(file, repeated);
@@ -23,8 +23,7 @@ fn full_library_round_trips_and_generates_named_types_and_traits() {
         Ok(rust) => rust,
         Err(_) => panic!("checked Library generates"),
     };
-    assert!(rust.contains("pub struct Sink"));
-    assert!(rust.contains("pub string: String"));
+    assert!(rust.contains("pub struct Sink(pub String);"));
     assert!(rust.contains("std::result::Result<i64, SinkError>"));
     assert!(rust.contains("pub trait Streamable"));
     assert!(rust.contains("pub trait Processable"));
@@ -41,7 +40,7 @@ fn signal_generates_query_response_and_optional_datom_derives() {
     assert!(rust.contains("pub enum Response"));
     assert!(rust.contains("feature = \"datom\""));
     assert!(rust.contains("datom_codec::Datomizable, datom_codec::Composing"));
-    assert!(rust.contains("pub type LockId = i64"));
+    assert!(rust.contains("pub struct LockId(pub i64);"));
 }
 
 #[test]
@@ -89,12 +88,12 @@ fn operation_generates_its_operation_and_outcome_enums_with_their_payloads() {
 #[test]
 fn an_operation_declaring_the_operation_or_outcome_type_is_refused() {
     assert!(
-        read("Operation [] [ Go.Operation ] [ Gone ] [ Operation.{ String } ]")
+        read("Operation [] [ Go.Operation ] [ Gone ] [ Operation.String ]")
             .generate()
             .is_err()
     );
     assert!(
-        read("Operation [] [ Go ] [ Gone.Outcome ] [ Outcome.{ String } ]")
+        read("Operation [] [ Go ] [ Gone.Outcome ] [ Outcome.String ]")
             .generate()
             .is_err()
     );
@@ -110,7 +109,7 @@ fn a_named_position_declares_its_type_in_place() {
         Ok(rust) => rust,
         Err(_) => panic!("a struct with named positions generates"),
     };
-    assert!(rust.contains("pub type Brief = String;"), "{rust}");
+    assert!(rust.contains("pub struct Brief(pub String);"), "{rust}");
     assert!(rust.contains("pub enum State {"), "{rust}");
     assert!(rust.contains("pub struct Capsule {"), "{rust}");
     assert!(
@@ -145,7 +144,7 @@ fn a_variant_payload_declares_named_positions_in_place() {
             Ok(rust) => rust,
             Err(_) => panic!("a payload with a named position generates"),
         };
-    assert!(rust.contains("pub type Brief = String;"), "{rust}");
+    assert!(rust.contains("pub struct Brief(pub String);"), "{rust}");
     assert!(rust.contains("pub brief: Brief"), "{rust}");
 }
 
@@ -161,11 +160,11 @@ fn retired_roots_are_not_accepted() {
 
 #[test]
 fn operation_free_signal_generates_only_its_declared_shared_data() {
-    let generated = match read("Signal [] [] [] [ Shared.{ Name } Name.String ]").generate() {
+    let generated = match read("Signal [] [] [] [ Shared.Name Name.String ]").generate() {
         Ok(generated) => generated,
         Err(_) => panic!("operation-free Signal generates"),
     };
-    assert!(generated.contains("pub struct Shared"));
+    assert!(generated.contains("pub type Shared = Name;"));
     assert!(!generated.contains("pub enum Query"));
     assert!(!generated.contains("pub enum Response"));
 }
@@ -175,15 +174,14 @@ fn a_signal_declaring_the_query_type_is_refused() {
     // The generator emits `pub enum Query` (Vision/ethos.md: "pub enum Query
     // { Lock(LockRequest), Release(LockId) }"), so `Query` is the name a
     // Signal may not also declare.
-    let signal = read("Signal [] [ Ask.Query ] [ Told.Query ] [ Query.{ String } ]");
+    let signal = read("Signal [] [ Ask.Query ] [ Told.Query ] [ Query.String ]");
     assert!(signal.generate().is_err());
     // `Request` is an ordinary name: nothing is generated under it.
-    let generated = match read("Signal [] [ Ask.Request ] [ Told.Request ] [ Request.{ String } ]")
-        .generate()
-    {
-        Ok(generated) => generated,
-        Err(_) => panic!("a Signal declaring Request generates"),
-    };
+    let generated =
+        match read("Signal [] [ Ask.Request ] [ Told.Request ] [ Request.String ]").generate() {
+            Ok(generated) => generated,
+            Err(_) => panic!("a Signal declaring Request generates"),
+        };
     assert!(generated.contains("pub struct Request"));
     assert_eq!(generated.matches("pub enum Query").count(), 1);
 }
@@ -191,7 +189,7 @@ fn a_signal_declaring_the_query_type_is_refused() {
 #[test]
 fn a_signal_declaring_the_response_type_is_refused() {
     assert!(
-        read("Signal [] [ Ask.Response ] [ Told.Response ] [ Response.{ String } ]")
+        read("Signal [] [ Ask.Response ] [ Told.Response ] [ Response.String ]")
             .generate()
             .is_err()
     );
@@ -213,14 +211,14 @@ fn memory_generates_a_record_type_named_record() {
 #[test]
 fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
     let generated =
-        match read("Memory [] [ Entry.{ String } Record.{ Entry Vector<Entry> } ]").generate() {
+        match read("Memory [] [ Entry.String Record.{ Entry Vector<Entry> } ]").generate() {
             Ok(generated) => generated,
             Err(_) => panic!("a two-record Memory generates"),
         };
     assert!(generated.contains("pub struct Entry"));
     assert!(generated.contains("pub entry_vector: std::vec::Vec<Entry>"));
     assert!(
-        read("Memory [] [ Entry.{ String } Entry.{ Integer } ]")
+        read("Memory [] [ Entry.String Entry.Integer ]")
             .generate()
             .is_err()
     );
@@ -241,13 +239,13 @@ fn self_in_a_data_position_is_named_for_the_enclosing_type() {
 fn a_sourced_generic_in_a_data_position_reads_and_reprints() {
     // ethos-zero's own printer emits `external:Vector<String>`; its reader
     // must take that shape back.
-    let file = read("Library [ external:[ Vector ] ] [ Record.{ external:Vector<String> } ] [] []");
+    let file = read("Library [ external:[ Vector ] ] [ Record.external:Vector<String> ] [] []");
     assert_eq!(file, read(&file.protosize().textualize()));
     let generated = match file.generate() {
         Ok(generated) => generated,
         Err(_) => panic!("a sourced generic position generates"),
     };
-    assert!(generated.contains("pub string_vector: external::Vector<String>"));
+    assert!(generated.contains("pub type Record = external::Vector<String>;"));
 }
 
 #[test]
@@ -300,40 +298,24 @@ fn a_second_inline_source_is_refused_instead_of_overwriting_the_first() {
 }
 
 #[test]
-fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
-    // The audit's row-15 probe: two enums each declare X in place, and an
-    // authored X_Data would capture the short name. The authored name is
-    // the occurrence refused, at its declaration.
-    let probe = "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] X_Data.String ] [] []";
-    assert!(read(probe).generate().is_ok());
-    let captured = "Library [] [ P.[ X.{ String } ] P_X_Data.String ] [] []";
-    assert!(read(captured).generate().is_ok());
-    let captured = "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] P_X_Data.String ] [] []";
-    match read(captured).generate() {
-        Err(Error::Conceptual(data)) => {
-            assert_eq!(data.problem, Problem::Duplicate("P_X_Data".to_owned()));
-            assert_eq!(data.integer_vector, vec![1, 1, 2, 0]);
-        }
-        _ => panic!("an authored name capturing a derived one is refused"),
+fn a_variant_carrying_one_type_derives_no_inline_name() {
+    // The audit's row-15 probe, rewritten: X.String is a variant carrying a
+    // String, so no X_Data, P_X_Data or Query_Ask_Data is derived, and an
+    // authored name of that shape captures nothing.
+    for source in [
+        "Library [] [ P.[ X.String ] Q.[ X.String ] X_Data.String ] [] []",
+        "Library [] [ P.[ X.String ] P_X_Data.String ] [] []",
+        "Library [] [ P.[ X.String ] Q.[ X.String ] P_X_Data.String ] [] []",
+        "Library [] [ P.[ X.String ] X_Data.String ] [] []",
+    ] {
+        assert!(read(source).generate().is_ok(), "{source} generates");
     }
-    let captured = "Library [] [ P.[ X.{ String } ] X_Data.String ] [] []";
-    match read(captured).generate() {
-        Err(Error::Conceptual(data)) => {
-            assert_eq!(data.problem, Problem::Duplicate("X_Data".to_owned()));
-            assert_eq!(data.integer_vector, vec![1, 1, 1, 0]);
-        }
-        _ => panic!("an authored X_Data beside a unique inline X is refused"),
-    }
-}
-
-#[test]
-fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
-    let generated = match read("Signal [] [ Ask.{ String } ] [ Ask.{ Integer } ] []").generate() {
+    let generated = match read("Signal [] [ Ask.String ] [ Ask.String ] []").generate() {
         Ok(generated) => generated,
-        Err(_) => panic!("Query and Response each declaring Ask in place generate"),
+        Err(_) => panic!("Query and Response each carrying Ask generate"),
     };
-    assert!(generated.contains("pub struct Query_Ask_Data"));
-    assert!(generated.contains("pub struct Response_Ask_Data"));
+    assert_eq!(generated.matches("Ask(String)").count(), 2);
+    assert!(!generated.contains("Ask_Data"));
     syn::parse_file(&generated).expect("generated Rust parses");
 }
 
@@ -357,7 +339,7 @@ fn a_declared_intrinsic_name_is_refused_by_name() {
     // Declaring Result used to shadow the intrinsic, and the later
     // Result<String Integer> failed as an obscure Arity.{ 0 2 }.
     assert_eq!(
-        "Library [] [ Result.{ String } Pair.{ Result<String Integer> } ] [] []".refusal(),
+        "Library [] [ Result.String Pair.Result<String Integer> ] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Intrinsic("Result".to_owned()))
     );
     assert_eq!(
@@ -375,7 +357,7 @@ fn a_declared_intrinsic_name_is_refused_by_name() {
         Problem::Intrinsic("Vector".to_owned())
     );
     assert_eq!(
-        "Signal [] [] [] [ Integer.{ String } ]".refusal(),
+        "Signal [] [] [] [ Integer.String ]".refusal(),
         (vec![1, 3, 0, 0], Problem::Intrinsic("Integer".to_owned()))
     );
 }
@@ -383,7 +365,7 @@ fn a_declared_intrinsic_name_is_refused_by_name() {
 #[test]
 fn a_lowercase_type_or_trait_name_is_refused() {
     assert_eq!(
-        "Library [] [ a.{ String } ] [] []".refusal(),
+        "Library [] [ a.String ] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Case("a".to_owned()))
     );
     assert_eq!(
@@ -391,7 +373,7 @@ fn a_lowercase_type_or_trait_name_is_refused() {
         (vec![1, 2, 0, 0], Problem::Case("runnable".to_owned()))
     );
     assert_eq!(
-        "Memory [] [ record.{ String } ]".refusal(),
+        "Memory [] [ record.String ]".refusal(),
         (vec![1, 1, 0, 0], Problem::Case("record".to_owned()))
     );
 }
@@ -399,42 +381,46 @@ fn a_lowercase_type_or_trait_name_is_refused() {
 #[test]
 fn a_type_with_no_finite_value_is_refused() {
     assert_eq!(
-        "Library [] [ S.{ Self } ] [] []".refusal(),
+        "Library [] [ S.Self ] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Cycle("S".to_owned()))
     );
     assert_eq!(
-        "Library [] [ Leaf.String A.{ Leaf B } B.{ A } ] [] []".refusal(),
+        "Library [] [ Leaf.String A.{ Leaf B } B.A ] [] []".refusal(),
         (vec![1, 1, 1, 0], Problem::Cycle("A".to_owned()))
     );
     assert_eq!(
         "Library [] [ E.[ Only.E ] ] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Cycle("E".to_owned()))
     );
-    // A Vector, an Option or another variant is a way out.
+    // Another variant is a way out.
     for finite in [
-        "Library [] [ S.{ Vector<Self> } ] [] []",
-        "Library [] [ S.{ Option<Self> } ] [] []",
         "Library [] [ E.[ Leaf Node.{ E E } ] ] [] []",
-        "Library [] [ S.{ Result<Self String> } ] [] []",
-        "Library [] [ Never.[] Holder.{ Never } ] [] []",
+        "Library [] [ Never.[] Holder.Never ] [] []",
     ] {
         assert!(read(finite).generate().is_ok(), "{finite} generates");
+    }
+    // A struct of one position holding itself through a container is
+    // refused for its one position before its finiteness is weighed.
+    for single in [
+        "Library [] [ S.{ Vector<Self> } ] [] []",
+        "Library [] [ S.{ Option<Self> } ] [] []",
+        "Library [] [ S.{ Result<Self String> } ] [] []",
+    ] {
+        assert_eq!(single.refusal(), (vec![1, 1, 0], Problem::SinglePosition));
     }
 }
 
 #[test]
 fn outer_option_and_result_are_written_fully_qualified() {
-    let generated = match read(
-        "Library [] [ Wrapped.{ Option<Integer> Result<String Integer> } Chain.{ Option<Chain> } ] [] []",
-    )
-    .generate()
-    {
-        Ok(generated) => generated,
-        Err(_) => panic!("outer containers generate"),
-    };
+    let generated =
+        match read("Library [] [ Wrapped.{ Option<Integer> Result<String Integer> } ] [] []")
+            .generate()
+        {
+            Ok(generated) => generated,
+            Err(_) => panic!("outer containers generate"),
+        };
     assert!(generated.contains("pub integer_option: std::option::Option<i64>"));
     assert!(generated.contains("pub string_integer_result: std::result::Result<String, i64>"));
-    assert!(generated.contains("std::option::Option<std::boxed::Box<Chain>>"));
     assert!(!generated.contains(" Option<"));
     assert!(!generated.contains(" Result<"));
 }
@@ -568,4 +554,48 @@ fn a_concrete_type_in_an_input_is_refused_as_wanting_a_trait() {
             .1,
         Problem::TraitWanted("String".to_owned())
     );
+}
+
+#[test]
+fn a_struct_of_one_position_is_refused() {
+    assert_eq!(
+        "Library [] [ Age.{ Integer } ] [] []".refusal(),
+        (vec![1, 1, 0], Problem::SinglePosition)
+    );
+    assert!(read("Library [] [ Age.Integer ] [] []").generate().is_ok());
+    assert_eq!(
+        "Library [] [ Event.[ Started.{ String } ] ] [] []".refusal(),
+        (vec![1, 1, 0, 1, 0], Problem::SinglePosition)
+    );
+    assert_eq!(
+        "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] X_Data.String ] [] []".refusal(),
+        (vec![1, 1, 0, 1, 0], Problem::SinglePosition)
+    );
+    assert_eq!(
+        "Signal [] [ Ask.{ String } ] [ Ask.{ Integer } ] []".refusal(),
+        (vec![1, 1, 0], Problem::SinglePosition)
+    );
+    assert_eq!(
+        "Library [] [ Chain.{ Option<Chain> } ] [] []".refusal(),
+        (vec![1, 1, 0], Problem::SinglePosition)
+    );
+}
+
+#[test]
+fn a_new_type_over_a_plain_value_is_a_struct_of_one_unnamed_position() {
+    let generated = match read("Library [] [ FlowId.String Age.Integer ] [] []").generate() {
+        Ok(generated) => generated,
+        Err(_) => panic!("plain new types generate"),
+    };
+    assert!(
+        generated.contains("pub struct FlowId(pub String);"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("pub struct Age(pub i64);"),
+        "{generated}"
+    );
+    assert_eq!(generated.matches("datom_codec::Datomizable").count(), 2);
+    assert!(!generated.contains("pub type"));
+    syn::parse_file(&generated).expect("generated Rust parses");
 }
