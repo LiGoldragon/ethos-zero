@@ -2,7 +2,7 @@
 //!
 //! Each declaration emits itself: a struct declaration its struct and
 //! its datomic machinery, an enum declaration its enum and its
-//! machinery, a kind declaration its trait, an association its
+//! machinery, a trait declaration its trait, an association its
 //! assertion; the file emits by walking its variant's sections. Names
 //! are resolved through the scope, never a table; the generated Rust
 //! carries no `use` and writes every foreign name fully qualified.
@@ -26,7 +26,7 @@ use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
-    Identity, Intrinsic, KindBody, KindDeclaration, Name, Position, Receiver, Reference,
+    Identity, Intrinsic, TraitBody, TraitDeclaration, Name, Position, Receiver, Reference,
     Resolution, Resolving, Scope, Signature, Source, TypeDeclaration, Variant,
 };
 
@@ -34,7 +34,7 @@ use crate::{
 // Tokens of names and sources
 // ---------------------------------------------------------------------------
 
-/// The kind whose capability yields a value's Rust tokens without any scope.
+/// The trait whose capability yields a value's Rust tokens without any scope.
 pub(crate) trait Tokening {
     fn tokens(&self) -> TokenStream;
 }
@@ -78,7 +78,7 @@ impl Tokening for Intrinsic {
     }
 }
 
-/// The kind whose capability yields the name of the parameter at an index: A, B, C.
+/// The trait whose capability yields the name of the parameter at an index: A, B, C.
 trait Lettering {
     fn letter(&self, scope: &Scope) -> Ident;
 }
@@ -102,7 +102,7 @@ impl Lettering for usize {
     }
 }
 
-/// The kind whose capability lowercases a name for an assertion function.
+/// The trait whose capability lowercases a name for an assertion function.
 trait Lowering {
     fn lowered(&self) -> String;
 }
@@ -122,7 +122,7 @@ impl Lowering for Reference {
 // Emitting: Rust tokens in a scope
 // ---------------------------------------------------------------------------
 
-/// The kind whose capability yields a value's Rust tokens in a scope.
+/// The trait whose capability yields a value's Rust tokens in a scope.
 pub(crate) trait Emitting {
     fn emit(&self, scope: &Scope) -> TokenStream;
 }
@@ -162,7 +162,7 @@ impl Emitting for Reference {
                 quote! { #source :: #emitted #applied }
             }
             Resolution::Type(_)
-            | Resolution::Kind(_)
+            | Resolution::Trait(_)
             | Resolution::Ambiguous(_)
             | Resolution::Undeclared => {
                 quote! { #name #applied }
@@ -179,7 +179,7 @@ impl Emitting for Reference {
     }
 }
 
-/// The kind whose capability yields the bounds of a constraint: `A + B`.
+/// The trait whose capability yields the bounds of a constraint: `A + B`.
 trait Bounding {
     fn bounds(&self, scope: &Scope) -> TokenStream;
 }
@@ -204,7 +204,7 @@ impl Bounding for [Reference] {
     }
 }
 
-/// The kind whose capabilities yield an identity's generics: the parameters with their bounds, and the arguments.
+/// The trait whose capabilities yield an identity's generics: the parameters with their bounds, and the arguments.
 pub(crate) trait Parametrizing {
     fn parameters(&self, scope: &Scope) -> TokenStream;
     fn arguments(&self, scope: &Scope) -> TokenStream;
@@ -215,7 +215,7 @@ impl Parametrizing for Identity {
         if self.constraints.is_empty() {
             return TokenStream::new();
         }
-        // The bounds name kinds outside the identity they bound.
+        // The bounds name traits outside the identity they bound.
         let outer = Scope {
             file: scope.file,
             identity: None,
@@ -256,7 +256,7 @@ enum Passage {
     Any,
 }
 
-/// The kind whose capability tells whether a value holds the target type, through declared types, aliases, Option and Result, and Vector when the passage allows it.
+/// The trait whose capability tells whether a value holds the target type, through declared types, aliases, Option and Result, and Vector when the passage allows it.
 trait Reaching {
     fn reaches(
         &self,
@@ -392,7 +392,7 @@ impl Reaching for [Variant] {
     }
 }
 
-/// The kind whose capability yields the reference a bare variant naming a declared type carries.
+/// The trait whose capability yields the reference a bare variant naming a declared type carries.
 trait Carried {
     fn carried(&self) -> Reference;
 }
@@ -407,7 +407,7 @@ impl Carried for Name {
     }
 }
 
-/// The kind whose capability gives a declared type's place in its file's declaration order.
+/// The trait whose capability gives a declared type's place in its file's declaration order.
 trait Placing {
     fn place(&self, name: &Name) -> Option<usize>;
 }
@@ -420,7 +420,7 @@ impl Placing for File {
     }
 }
 
-/// The kind whose capability tells whether a reference closes a by-value
+/// The trait whose capability tells whether a reference closes a by-value
 /// cycle back to its owner: it names, by value, a struct or enum declared no
 /// later than the owner that reaches the owner by value. Every by-value cycle
 /// has at least one edge that does not move forward in declaration order, so
@@ -471,7 +471,7 @@ impl Closing for Reference {
     }
 }
 
-/// The kind whose capabilities yield a position's Rust type, boxed where it
+/// The trait whose capabilities yield a position's Rust type, boxed where it
 /// closes a by-value cycle, and the archive attribute it bears.
 pub(crate) trait Positioning {
     fn boxed(&self, scope: &Scope, owner: &Name) -> bool;
@@ -534,7 +534,7 @@ impl Positioning for Reference {
     }
 }
 
-/// The kind whose capability yields the archive bounds a declared type
+/// The trait whose capability yields the archive bounds a declared type
 /// states once some position of it omits its own: what `Box` and `Vec` ask
 /// of the serializer, the deserializer and the validator, named once for
 /// the type.
@@ -552,7 +552,7 @@ impl Recursing for Identity {
     }
 }
 
-/// The kind whose capability yields the stem a position's field name is built from.
+/// The trait whose capability yields the stem a position's field name is built from.
 trait Fielding {
     fn field_base(&self, owner: &Name) -> String;
 }
@@ -622,7 +622,7 @@ impl Ordinaling for usize {
     }
 }
 
-/// The kind whose capability names every field of a struct of these positions.
+/// The trait whose capability names every field of a struct of these positions.
 trait FieldNaming {
     fn field_names(&self, owner: &Name) -> Vec<Ident>;
 }
@@ -658,14 +658,14 @@ impl FieldNaming for [Reference] {
     }
 }
 
-/// The kind whose capabilities yield a variant's definition and the items its inline enum needs.
+/// The trait whose capabilities yield a variant's definition and the items its inline enum needs.
 trait Varianted {
     fn definition(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream;
     fn recursive(&self, scope: &Scope, owner: &Name) -> bool;
     fn nested(&self, scope: &Scope, owner: &Name, enclosing: &Identity) -> TokenStream;
 }
 
-/// The kind whose capability yields the identity of the payload a variant
+/// The trait whose capability yields the identity of the payload a variant
 /// declares in place, named file-wide unique by the file ([`Inlining`]).
 trait Nesting {
     fn nested_identity(&self, scope: &Scope, owner: &Name, name: &Name) -> Identity;
@@ -741,17 +741,17 @@ impl Varianted for Variant {
 // Declaring: the items a type declaration emits
 // ---------------------------------------------------------------------------
 
-/// The kind whose capability emits a struct of these positions with its datomic machinery.
+/// The trait whose capability emits a struct of these positions with its datomic machinery.
 trait Structuring {
     fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
 }
 
-/// The kind whose capability emits an enum of these variants with its datomic machinery.
+/// The trait whose capability emits an enum of these variants with its datomic machinery.
 trait Enumerating {
     fn enumeration(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
 }
 
-/// The kind whose capability yields what a declared type derives.
+/// The trait whose capability yields what a declared type derives.
 trait DatomDeriving {
     fn datom_derives(&self) -> TokenStream;
 }
@@ -760,7 +760,7 @@ trait DatomDeriving {
 ///
 /// Every root carries its types alike, a Library's, an Operation's and a
 /// Memory's as a Signal's: any of them can cross a wire, so each archives
-/// with rkyv, and its datom kinds sit behind the `datom` feature that a CLI
+/// with rkyv, and its datom derives sit behind the `datom` feature that a CLI
 /// enables where it textualizes and a Nexus does not, so a Nexus compiles
 /// its whole contract without datom-codec.
 ///
@@ -889,38 +889,38 @@ impl Emitting for TypeDeclaration {
 }
 
 // ---------------------------------------------------------------------------
-// Kinds: traits
+// Traits: traits
 // ---------------------------------------------------------------------------
 
-/// The named sections that compose a kind declaration.
-struct KindContents<'a> {
-    superkinds: &'a [Reference],
+/// The named sections that compose a trait declaration.
+struct TraitContents<'a> {
+    supertraits: &'a [Reference],
     types: &'a [AssociatedType],
     constants: &'a [AssociatedConstant],
     capabilities: &'a [Capability],
 }
 
-/// The kind whose capability exposes a declaration's named kind sections.
+/// The trait whose capability exposes a declaration's named trait sections.
 trait Containing {
-    fn contents(&self) -> KindContents<'_>;
+    fn contents(&self) -> TraitContents<'_>;
 }
 
-impl Containing for KindDeclaration {
-    fn contents(&self) -> KindContents<'_> {
+impl Containing for TraitDeclaration {
+    fn contents(&self) -> TraitContents<'_> {
         match &self.body {
-            KindBody::Simple(capabilities) => KindContents {
-                superkinds: &[],
+            TraitBody::Simple(capabilities) => TraitContents {
+                supertraits: &[],
                 types: &[],
                 constants: &[],
                 capabilities,
             },
-            KindBody::Complex {
-                superkinds,
+            TraitBody::Complex {
+                supertraits,
                 types,
                 constants,
                 capabilities,
-            } => KindContents {
-                superkinds,
+            } => TraitContents {
+                supertraits,
                 types,
                 constants,
                 capabilities,
@@ -949,15 +949,15 @@ impl Emitting for AssociatedConstant {
     }
 }
 
-/// The method's own parameters: one per kind its signature names, lettered
-/// from N past the kind's head parameters.
+/// The method's own parameters: one per trait its signature names, lettered
+/// from N past the trait's head parameters.
 struct MethodParameters {
     first: usize,
     declared: Vec<TokenStream>,
 }
 
-/// The kind whose capability yields a signature reference's Rust type,
-/// taking a method parameter where the reference names a kind.
+/// The trait whose capability yields a signature reference's Rust type,
+/// taking a method parameter where the reference names a trait.
 trait Signing {
     fn sign(&self, scope: &Scope, place: Place, method: &mut MethodParameters) -> TokenStream;
 }
@@ -1052,10 +1052,10 @@ impl SelfContaining for Capability {
     }
 }
 
-impl Emitting for KindDeclaration {
+impl Emitting for TraitDeclaration {
     fn emit(&self, scope: &Scope) -> TokenStream {
-        let KindContents {
-            superkinds,
+        let TraitContents {
+            supertraits,
             types,
             constants,
             capabilities,
@@ -1067,10 +1067,10 @@ impl Emitting for KindDeclaration {
         };
         let name = self.identity.name.tokens();
         let parameters = self.identity.parameters(&inner);
-        let extends = if superkinds.is_empty() {
+        let extends = if supertraits.is_empty() {
             TokenStream::new()
         } else {
-            let bounds = superkinds.bounds(&inner);
+            let bounds = supertraits.bounds(&inner);
             quote! { : #bounds }
         };
         let mut items = Vec::new();
@@ -1108,17 +1108,17 @@ impl Emitting for Association {
         let ty = subject.emit(scope);
         let arguments = self.identity.arguments(&inner);
         let parameters = self.identity.parameters(&inner);
-        let mut assertions = Vec::with_capacity(self.kinds.len());
-        for kind in &self.kinds {
+        let mut assertions = Vec::with_capacity(self.traits.len());
+        for trait_definition in &self.traits {
             let assertion = Ident::new(
                 &format!(
                     "assert_{}_{}",
                     self.identity.name.0.to_lowercase(),
-                    kind.lowered()
+                    trait_definition.lowered()
                 ),
                 Span::call_site(),
             );
-            let bound = kind.emit(scope);
+            let bound = trait_definition.emit(scope);
             if self.identity.constraints.is_empty() {
                 assertions.push(quote! {
                     fn #assertion<T: #bound>() {}
@@ -1148,7 +1148,7 @@ impl Emitting for File {
         // generated item is excluded individually while every authored Rust
         // item remains checked by the repository formatter. A type declaration
         // may emit several items (its inline payloads before it), so each
-        // struct, enum and alias bears its own skip; kinds and associations
+        // struct, enum and alias bears its own skip; traits and associations
         // are one item each and receive it here.
         let mut items = Vec::new();
         match self {
@@ -1156,7 +1156,7 @@ impl Emitting for File {
                 for declaration in &library.types {
                     items.push(declaration.emit(scope));
                 }
-                for declaration in &library.kinds {
+                for declaration in &library.traits {
                     let item = declaration.emit(scope);
                     items.push(quote! { #[rustfmt::skip] #item });
                 }

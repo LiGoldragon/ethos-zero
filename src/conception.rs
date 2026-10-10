@@ -5,8 +5,8 @@ use protos::{Enclosure, Protos, Separator, Symbol};
 
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
-    Constraint, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported, KindBody,
-    KindDeclaration, Library, Memory, Name, Named, Operation, Placing, Position, Problem, Receiver,
+    Constraint, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported, TraitBody,
+    TraitDeclaration, Library, Memory, Name, Named, Operation, Placing, Position, Problem, Receiver,
     Reference, Root, Signal, Signature, Source, Succeeding, TypeDeclaration, Variant,
 };
 
@@ -129,7 +129,7 @@ impl Brackets for Protos {
         Protos::list(children)
     }
 }
-/// The kind whose capability pairs each node of a list with the angle-bracketed
+/// The trait whose capability pairs each node of a list with the angle-bracketed
 /// constraints written against it.
 ///
 /// `Vector<Integer>` is one type in Ethos and two sibling protos structures: a
@@ -186,7 +186,7 @@ impl References for [Protos] {
         Ok(values)
     }
 }
-/// The kind whose capability reads the positions of a struct: a reference,
+/// The trait whose capability reads the positions of a struct: a reference,
 /// or a type declared in place, which a period after a name says.
 trait Positions {
     fn positions(&self) -> Result<Vec<Position>, Error>;
@@ -227,7 +227,7 @@ impl Declarations for [Protos] {
         Ok(values)
     }
 }
-/// The kind whose capability reads one declaration of a list, at its index,
+/// The trait whose capability reads one declaration of a list, at its index,
 /// with the angled arguments written beside it.
 trait Declaring {
     fn declared(
@@ -287,7 +287,7 @@ impl AssociatedTypes for [Protos] {
             let Protos::Bare { text, .. } = node else {
                 return Err(Error::conceptual(
                     vec![index as Integer],
-                    Problem::Expected(Form::Kind),
+                    Problem::Expected(Form::Trait),
                 ));
             };
             let bounds = match arguments {
@@ -311,7 +311,7 @@ impl Conceiving<Library> for Protos {
         Ok(Library {
             imports: s[0].bracket().place(0)?,
             types: declarations.declarations().place(1)?,
-            kinds: s[2].bracket().place(2)?,
+            traits: s[2].bracket().place(2)?,
             associations: s[3].bracket().place(3)?,
         })
     }
@@ -540,7 +540,7 @@ impl Conceiving<AssociatedType> for Protos {
                     _ => vec![],
                 },
             }),
-            _ => Err(Error::conceptual(vec![], Problem::Expected(Form::Kind))),
+            _ => Err(Error::conceptual(vec![], Problem::Expected(Form::Trait))),
         }
     }
 }
@@ -613,8 +613,8 @@ impl Conceiving<Capability> for Protos {
         })
     }
 }
-impl Conceiving<KindDeclaration> for Protos {
-    fn conceive(&self) -> Result<KindDeclaration, Error> {
+impl Conceiving<TraitDeclaration> for Protos {
+    fn conceive(&self) -> Result<TraitDeclaration, Error> {
         let Protos::Headed {
             head,
             constraints,
@@ -623,7 +623,7 @@ impl Conceiving<KindDeclaration> for Protos {
             ..
         } = self
         else {
-            return Err(Error::conceptual(vec![], Problem::Expected(Form::Kind)));
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::Trait)));
         };
         let identity = Identity {
             name: head.name().place(0)?,
@@ -633,19 +633,19 @@ impl Conceiving<KindDeclaration> for Protos {
             },
         };
         if let Some(c) = body.children(Enclosure::Bracketed) {
-            return Ok(KindDeclaration {
+            return Ok(TraitDeclaration {
                 identity,
-                body: KindBody::Simple(Protos::list(c).place(1)?),
+                body: TraitBody::Simple(Protos::list(c).place(1)?),
             });
         };
         let s = body.sections(4).place(1)?;
         let Some(types) = s[1].children(Enclosure::Bracketed) else {
-            return Err(Error::conceptual(vec![1, 1], Problem::Expected(Form::Kind)));
+            return Err(Error::conceptual(vec![1, 1], Problem::Expected(Form::Trait)));
         };
-        Ok(KindDeclaration {
+        Ok(TraitDeclaration {
             identity,
-            body: KindBody::Complex {
-                superkinds: s[0].bracket().place(0).place(1)?,
+            body: TraitBody::Complex {
+                supertraits: s[0].bracket().place(0).place(1)?,
                 types: types.associated_types().place(1).place(1)?,
                 constants: s[2].bracket().place(2).place(1)?,
                 capabilities: s[3].bracket().place(3).place(1)?,
@@ -672,7 +672,7 @@ impl Conceiving<Association> for Protos {
                 name: head.name().place(0)?,
                 constraints: vec![],
             },
-            kinds: body.bracket().place(1)?,
+            traits: body.bracket().place(1)?,
         })
     }
 }

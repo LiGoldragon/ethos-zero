@@ -2,10 +2,10 @@
 //!
 //! Ethos specifies the types, datom fills them with data, and ethos
 //! generates the Rust. This crate reads an ethos file and generates
-//! its Rust module. The layers, top to bottom, and the kind that
+//! its Rust module. The layers, top to bottom, and the trait that
 //! carries a value from one to the next:
 //!
-//! | layer | type | kind borne | yields |
+//! | layer | type | trait borne | yields |
 //! |---|---|---|---|
 //! | Text, as written (the sweet form) | `String` | [`Canonicalizable`] | [`Canonical`] |
 //! | Text, canonical (the braced form) | [`Canonical`] | `protos::Protosizable` | `protos::Protos` |
@@ -25,9 +25,9 @@
 //! numbered from 0, and each container prepends its child's index on
 //! the way up ([`Pathed::within`]).
 //!
-//! Declared structs and enums, of every root, archive with rkyv and bear
-//! datom-codec's structural kinds through its derives behind their `datom`
-//! feature, so a Nexus can use its whole contract without a text codec.
+//! Declared structs and enums of every root archive with rkyv. Their
+//! datom-codec structural derives are gated by `datom`, so a Nexus can
+//! compile its whole contract without a text codec.
 
 // A walk over the variants of an enum is written as the loop it is, not
 // as an iterator adaptor with an inlined closure: no closure beyond what
@@ -53,7 +53,7 @@ pub use error::{
 // The concept: the File and its declarations
 // ---------------------------------------------------------------------------
 
-/// A validated identifier: the name of a type, kind, variant, capability or constant.
+/// A validated identifier: the name of a type, trait, variant, capability or constant.
 ///
 /// Construct it with [`TryFrom<&str>`]; `AsRef<str>` reads its validated text.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -143,7 +143,7 @@ impl AsRef<str> for Source {
 /// The unit of declaration: one file, one Rust module; an enum of its four roots.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum File {
-    /// Library: imports, types, kinds and associations in that order.
+    /// Library: imports, types, traits and associations in that order.
     Library(Library),
     /// Signal: imports, the query variants, the response variants, the types carried.
     Signal(Signal),
@@ -166,17 +166,17 @@ pub enum Root {
     Memory,
 }
 
-/// A library's complete declaration surface.  Types and kinds share one
-/// namespace and associations bind those declared types to declared kinds.
+/// A library's complete declaration surface.  Types and traits share one
+/// namespace and associations bind those declared types to declared traits.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Library {
     /// Where imported names come from.
     pub imports: Vec<Import>,
     /// The declared data types.
     pub types: Vec<TypeDeclaration>,
-    /// The declared capability kinds.
-    pub kinds: Vec<KindDeclaration>,
-    /// The type-to-kind assertions.
+    /// The declared capability traits.
+    pub traits: Vec<TraitDeclaration>,
+    /// The type-to-trait assertions.
     pub associations: Vec<Association>,
 }
 
@@ -235,7 +235,7 @@ pub struct Imported {
     pub emitted: Name,
 }
 
-/// A reference to a type or a kind by name: an optional inline source, the name, and its arguments.
+/// A reference to a type or a trait by name: an optional inline source, the name, and its arguments.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reference {
     /// An inline source qualifying the name: `protos:Error`.
@@ -246,7 +246,7 @@ pub struct Reference {
     pub arguments: Vec<Reference>,
 }
 
-/// The identity of a type or a kind: its name and its constraints, written as one head.
+/// The identity of a type or a trait: its name and its constraints, written as one head.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Identity {
     /// The name.
@@ -255,12 +255,12 @@ pub struct Identity {
     pub constraints: Vec<Constraint>,
 }
 
-/// A constraint: a kind, or a bracket of kinds, bounding one parameter.
+/// A constraint: a trait, or a bracket of traits, bounding one parameter.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Constraint {
-    /// One kind: `Serializable`.
+    /// One trait: `Serializable`.
     One(Reference),
-    /// A bracket of kinds: `[Clonable Sendable]`.
+    /// A bracket of traits: `[Clonable Sendable]`.
     Many(Vec<Reference>),
 }
 
@@ -294,28 +294,28 @@ pub enum Variant {
     Typed(Name, Reference),
     /// Carrying an inline struct, a tuple variant: `Node.{ Tree Tree }`.
     Struct(Name, Vec<Position>),
-    /// Carrying an inline enum, a nested enum type: `Kind.[ A B ]`.
+    /// Carrying an inline enum, a nested enum type: `Trait.[ A B ]`.
     Enum(Name, Vec<Variant>),
 }
 
-/// A kind declaration: the bearer of capabilities, a trait in the Rust.
+/// A trait declaration: capabilities emitted as one Rust trait.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct KindDeclaration {
+pub struct TraitDeclaration {
     /// Its identity: the name and the constraints.
     pub identity: Identity,
     /// Its definition.
-    pub body: KindBody,
+    pub body: TraitBody,
 }
 
-/// The definition of a kind: simple, a bracket of capabilities; or complex, a brace of four brackets.
+/// The definition of a trait: simple, a bracket of capabilities; or complex, a brace of four brackets.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum KindBody {
+pub enum TraitBody {
     /// `Name.[ capabilities ]`.
     Simple(Vec<Capability>),
-    /// `Name.{ [ superkinds ] [ associated types ] [ associated constants ] [ capabilities ] }`.
+    /// `Name.{ [ supertraits ] [ associated types ] [ associated constants ] [ capabilities ] }`.
     Complex {
-        /// The kinds it extends.
-        superkinds: Vec<Reference>,
+        /// The traits it extends.
+        supertraits: Vec<Reference>,
         /// Its associated types.
         types: Vec<AssociatedType>,
         /// Its associated constants.
@@ -325,7 +325,7 @@ pub enum KindBody {
     },
 }
 
-/// An associated type of a kind, with the kinds bounding it.
+/// An associated type of a trait, with the traits bounding it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AssociatedType {
     /// The name.
@@ -334,7 +334,7 @@ pub struct AssociatedType {
     pub bounds: Vec<Reference>,
 }
 
-/// An associated constant of a kind: its name and its type.
+/// An associated constant of a trait: its name and its type.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AssociatedConstant {
     /// The upper-case name.
@@ -343,7 +343,7 @@ pub struct AssociatedConstant {
     pub ty: Reference,
 }
 
-/// A capability: a function a kind has.
+/// A capability: a function a trait has.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Capability {
     /// The name.
@@ -374,13 +374,13 @@ pub enum Receiver {
     Static,
 }
 
-/// An association: a type, by its identity, bears kinds.
+/// An association: a type, by its identity, bears traits.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Association {
     /// The type's identity.
     pub identity: Identity,
-    /// The kinds it bears.
-    pub kinds: Vec<Reference>,
+    /// The traits it bears.
+    pub traits: Vec<Reference>,
 }
 
 // ---------------------------------------------------------------------------
@@ -449,8 +449,8 @@ pub enum Resolution {
     Imported(Source, Name),
     /// A type declared in this file, written bare.
     Type(Name),
-    /// A kind declared in this file, written bare.
-    Kind(Name),
+    /// A trait declared in this file, written bare.
+    Trait(Name),
     /// The parameter bounded by the enclosing identity's constraint at this index.
     Parameter(Integer),
     /// More than one enclosing parameter has this name among its bounds.
@@ -458,19 +458,19 @@ pub enum Resolution {
     /// A body reference cannot say which parameter it means, even when the
     /// constraints differ as whole groups.
     Ambiguous(Name),
-    /// An associated type of the enclosing kind, written `Self::Name`.
+    /// An associated type of the enclosing trait, written `Self::Name`.
     Associated(Name),
     /// A name nothing declares.
     Undeclared,
 }
 
-/// What a reference is asked to be: a type in a type position, a kind in a bound.
+/// What a reference is asked to be: a type in a type position, a trait in a bound.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Role {
     /// A type: a position, an alias, an input, a yield, an argument.
     Type,
-    /// A kind: a constraint, a superkind, a bound, an association.
-    Kind,
+    /// A trait: a constraint, a supertrait, a bound, an association.
+    Trait,
 }
 
 /// The scope a reference resolves in: the file, and the identity and associated types of the enclosing declaration.
@@ -478,77 +478,77 @@ pub enum Role {
 pub struct Scope<'a> {
     /// The file whose imports and declarations are in scope.
     pub file: &'a File,
-    /// The enclosing identity, whose single-kind constraints name parameters.
+    /// The enclosing identity, whose single-trait constraints name parameters.
     pub identity: Option<&'a Identity>,
-    /// The enclosing kind's associated types.
+    /// The enclosing trait's associated types.
     pub associated: &'a [AssociatedType],
 }
 
 // ---------------------------------------------------------------------------
-// Kinds
+// Traits
 // ---------------------------------------------------------------------------
 
-/// The kind whose capability prints an ethos file in the sweet form, each section in protos' canonical vertical print.
+/// The trait whose capability prints an ethos file in the sweet form, each section in protos' canonical vertical print.
 pub trait Printable {
     /// The canonical print.
     fn print(&self) -> String;
 }
 
-/// The kind whose capability yields the canonical form of an ethos text.
+/// The trait whose capability yields the canonical form of an ethos text.
 pub trait Canonicalizable {
     /// Open the sweet form into the braced form; the text is delineated to find its head.
     fn canonicalize(&self) -> Result<Canonical, protos::Error>;
 }
 
-/// The kind whose capability maps an extent of the canonical text back onto the source text.
+/// The trait whose capability maps an extent of the canonical text back onto the source text.
 pub trait Resituating {
     /// Map an extent across the seam.
     fn resituate(&self, extent: Extent) -> Extent;
 }
 
-/// The kind whose capability yields the ethos name of a value.
+/// The trait whose capability yields the ethos name of a value.
 pub trait Named {
     /// The name as ethos writes it.
     fn name(&self) -> &'static str;
 }
 
-/// The kind whose static capability identifies a variant from its ethos name, walking the variants.
+/// The trait whose static capability identifies a variant from its ethos name, walking the variants.
 pub trait Identifiable: Sized {
     /// Identify the variant named.
     fn identify(name: &str) -> Option<Self>;
 }
 
-/// The kind whose static capability names the variant that replaced a retired name.
+/// The trait whose static capability names the variant that replaced a retired name.
 pub trait Succeeding: Sized {
     /// The successor of the retired name, if it is one.
     fn successor(name: &str) -> Option<Self>;
 }
 
-/// The kind whose capability yields which variant of [`File`] a value is.
+/// The trait whose capability yields which variant of [`File`] a value is.
 pub trait Rooted {
     /// The head the file is written under.
     fn root(&self) -> Root;
 }
 
-/// The kind whose capability resolves a name to what it names.
+/// The trait whose capability resolves a name to what it names.
 pub trait Resolving {
     /// Resolve a name.
     fn resolve(&self, name: &Name) -> Resolution;
 }
 
-/// The kind whose capability checks a whole file and generates its Rust module.
+/// The trait whose capability checks a whole file and generates its Rust module.
 pub trait Generating {
     /// The formatted Rust text, or the whole-file error that prevents generation.
     fn generate(&self) -> Result<String, Error>;
 }
 
-/// The kind whose capability checks a whole file without generating it.
+/// The trait whose capability checks a whole file without generating it.
 pub trait Validating {
     /// The whole-file error that would prevent generation, if any.
     fn validate(&self) -> Result<(), Error>;
 }
 
-/// The kind whose capability situates an error in the source text it was raised from.
+/// The trait whose capability situates an error in the source text it was raised from.
 pub trait Locating {
     /// The line and column, counted from one, where the error lies: a
     /// structural error at its extent, a conceptual one at the start of the
@@ -556,7 +556,7 @@ pub trait Locating {
     fn locate(&self, error: &Error) -> Location;
 }
 
-/// The kind whose capability actualizes Ethos text into its conceptual value.
+/// The trait whose capability actualizes Ethos text into its conceptual value.
 pub trait Actualizing<T> {
     type Error;
     fn actualize(&self) -> Result<T, Self::Error>;
@@ -568,7 +568,7 @@ pub trait Ethosizable<T> {
     fn ethosize(&self) -> Result<T, Self::Error>;
 }
 
-/// The kind whose capability yields a conceptual error's path and places it below a child.
+/// The trait whose capability yields a conceptual error's path and places it below a child.
 pub trait Pathed {
     /// The path from the root form to this error.
     fn path(&self) -> &[Integer];
@@ -576,19 +576,19 @@ pub trait Pathed {
     fn within(self, index: Integer) -> Self;
 }
 
-/// The kind whose capability places a result's error under a child index.
+/// The trait whose capability places a result's error under a child index.
 pub trait Placing {
     /// Prepend the index to the error's path.
     fn place(self, index: Integer) -> Self;
 }
 
-/// The kind whose capability constructs a situated conceptual error.
+/// The trait whose capability constructs a situated conceptual error.
 pub trait ConceptualErroring {
     /// Construct the error from its path and problem.
     fn conceptual(integer_vector: Vec<Integer>, problem: Problem) -> Self;
 }
 
-/// The kind whose capability constructs an arity problem.
+/// The trait whose capability constructs an arity problem.
 pub trait ArityProblem {
     /// Construct the problem from expected and actual arity.
     fn arity(first_integer: Integer, second_integer: Integer) -> Self;
@@ -785,11 +785,11 @@ mod behavior {
         assert!(rust.contains("pub integer: i64"));
     }
 
-    /// Every root carries its types alike: rkyv always, the datom kinds
+    /// Every root carries its types alike: rkyv always, the datom derives
     /// behind the `datom` feature, so any type can cross the wire and a
     /// Nexus compiles its whole contract without datom-codec.
     #[test]
-    fn every_root_archives_and_gates_its_datom_kinds() {
+    fn every_root_archives_and_gates_its_datom_derives() {
         let carried = "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]";
         for source in [
             "Library [] [ Record.{ String Integer } ] [] []",
@@ -843,18 +843,18 @@ mod behavior {
     }
 
     #[test]
-    fn library_kinds_generate_trait_surfaces() {
+    fn library_traits_generate_trait_surfaces() {
         let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
                 let canonical = source.to_owned().canonicalize().unwrap();
-                panic!("approved kinds read: {:?}", canonical.text.protosize())
+                panic!("approved traits read: {:?}", canonical.text.protosize())
             }
         };
         let rust = match file.generate() {
             Ok(rust) => rust,
-            Err(_) => panic!("approved kinds generate"),
+            Err(_) => panic!("approved traits generate"),
         };
         assert!(rust.contains("pub trait Fillable"));
         assert!(rust.contains("fn push<N: std::Serializable>("));
@@ -990,8 +990,8 @@ mod behavior {
     }
 
     #[test]
-    fn retired_type_and_kind_roots_are_rejected() {
-        for source in ["Types [] [] []", "Kinds [] []"] {
+    fn retired_type_and_trait_roots_are_rejected() {
+        for source in ["Types [] [] []", "Traits [] []"] {
             assert!(Potential::<File>::from(source).actualize().is_err());
         }
     }
@@ -1022,7 +1022,7 @@ mod behavior {
                 },
                 vec![],
             )],
-            kinds: vec![],
+            traits: vec![],
             associations: vec![],
         });
         let scope = Scope {
@@ -1109,7 +1109,7 @@ mod behavior {
         let file = File::Library(Library {
             imports: vec![],
             types,
-            kinds: vec![],
+            traits: vec![],
             associations: vec![],
         });
         let protos = file.protosize();
@@ -1137,7 +1137,7 @@ mod behavior {
     }
 
     #[test]
-    fn kind_capability_and_association_errors_keep_all_structural_parents() {
+    fn trait_capability_and_association_errors_keep_all_structural_parents() {
         let cases = [
             ("Library [] [] [ K.[ 1 ] ] []", vec![1, 2, 0, 1, 0]),
             (

@@ -4,7 +4,7 @@ use protos::{Canonicalizable, Enclosure, Extent, Protos, Protosizable, Separator
 
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Identity,
-    Import, Imported, KindBody, KindDeclaration, Library, Memory, Operation, Position, Receiver,
+    Import, Imported, TraitBody, TraitDeclaration, Library, Memory, Operation, Position, Receiver,
     Reference, Signal, Signature, TypeDeclaration, Variant,
 };
 
@@ -326,21 +326,21 @@ impl Protosizing for Capability {
         self.name.as_ref().headed(None, separator, body)
     }
 }
-impl Protosizing for KindDeclaration {
+impl Protosizing for TraitDeclaration {
     fn protos(&self) -> Protos {
         let body = match &self.body {
-            KindBody::Simple(capabilities) => {
+            TraitBody::Simple(capabilities) => {
                 "".enclosed(Enclosure::Bracketed, capabilities.protos_list())
             }
-            KindBody::Complex {
-                superkinds,
+            TraitBody::Complex {
+                supertraits,
                 types,
                 constants,
                 capabilities,
             } => "".enclosed(
                 Enclosure::Braced,
                 vec![
-                    "".enclosed(Enclosure::Bracketed, superkinds.reference_nodes()),
+                    "".enclosed(Enclosure::Bracketed, supertraits.reference_nodes()),
                     "".enclosed(Enclosure::Bracketed, types.associated_type_nodes()),
                     "".enclosed(Enclosure::Bracketed, constants.protos_list()),
                     "".enclosed(Enclosure::Bracketed, capabilities.protos_list()),
@@ -354,7 +354,7 @@ impl Protosizing for Association {
     fn protos(&self) -> Protos {
         self.identity.heading(
             Separator::Period,
-            "".enclosed(Enclosure::Bracketed, self.kinds.reference_nodes()),
+            "".enclosed(Enclosure::Bracketed, self.traits.reference_nodes()),
         )
     }
 }
@@ -365,7 +365,7 @@ impl Protosizing for Library {
             vec![
                 "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
-                "".enclosed(Enclosure::Bracketed, self.kinds.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.traits.protos_list()),
                 "".enclosed(Enclosure::Bracketed, self.associations.protos_list()),
             ],
         )

@@ -2,7 +2,24 @@
 
 How to deploy each breaking change of ethos-zero.
 
-## 16.0.0: every root archives and gates its datom kinds
+## 17.0.0: capability declarations are traits
+
+What breaks:
+
+- A Library's third section is named `traits`; its position and the
+  four-section shape do not change.
+- The public model renames the declaration and body types, Library and
+  Association fields, role, resolution and form variants, and refusal
+  variant to trait-named forms. The refusal is now `TraitWanted`. Consumers
+  update Rust references and regenerate output.
+- Fixture paths and generated fixture modules use `-traits`; no old name is
+  kept as an alias.
+
+To deploy, update source references, regenerate committed Rust, repin
+  ethos-zero to 17.0.0 and bump a consumer's major version where its
+  generated public surface changes.
+
+## 16.0.0: every root archives and gates its datom derives
 
 What breaks:
 
@@ -10,10 +27,10 @@ What breaks:
   carry what a Signal's carry: `#[derive(rkyv::Archive, rkyv::Serialize,
   rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]` and
   `#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable,
-  datom_codec::Composing))]`. Until 15.0.0 they derived the datom kinds
-  unconditionally and did not archive. Any type can now cross a wire, and a
-  Nexus compiles its whole contract without datom-codec (ruling 11 of flow
-  3ec648). The Flow Nexus's Signal, which holds the Library's `Voice`,
+  datom_codec::Composing))]`. Until 15.0.0 the datom-codec derives were
+  unconditional and the types did not archive. Any type can now cross a
+  wire, and a Nexus compiles its whole contract without datom-codec (ruling
+  11 of flow 3ec648). The Flow Nexus's Signal, which holds the Library's `Voice`,
   `FlowId` and `Event`, now compiles; the `flow-contract` test compiles the
   four Flow modules together, with and without `datom`, and sends a value of
   each root through rkyv.
@@ -58,7 +75,7 @@ when it repins:
 No consumer generates from a Memory or Operation file. Signal consumers are
 unaffected; a Signal that holds a type from one of the crates above gains
 the rkyv it lacked. protos's and datom-codec's own `.ethos` files are read
-only by their checks (kinds, which carry no derive, and anatomy).
+only by their checks (traits, which carry no derive, and anatomy).
 
 ## 15.0.0: four roots, Memory and Operation
 
@@ -72,8 +89,8 @@ What breaks:
   [ outcomes ] [ types ]`, generating `pub enum Operation` and
   `pub enum Outcome` the way a Signal generates `Query` and `Response`,
   each variant carrying its declared payload (`Start.{ Voice Capsule }`
-  gives `Start(Start_Data)`). Its types derive the datom kinds
-  unconditionally and do not archive, as a Library's and a Memory's.
+  gives `Start(Start_Data)`). Its datom-codec derives are unconditional and
+  its types do not archive, as a Library's and a Memory's.
   **The section order is proposed, pending the living's word** (ruling 3,
   4b, of flow 3ec648); it may change before it is his.
 - A struct position may declare its type in place: `Brief.String`,
@@ -115,33 +132,33 @@ does not compile yet: its archived types carry the Library's `Voice`,
 `FlowId` and `Event`, and a Library type does not derive rkyv (closed by
 16.0.0).
 
-## 14.0.0: capability inputs are kinds
+## 14.0.0: capability inputs are traits
 
 What breaks: a concrete type in a capability's input is refused, where
 13.0.0 accepted it and wrote it as the parameter's type. The refusal is
-`Rejected.{ file { line column } Conceptual.{ [ path ] KindWanted.<Name> } }`,
-the line and column naming the input. A kind name in an input, which
-13.0.0 refused as `Role.<Kind>`, now generates a method parameter bounded
-by that kind (`fn resolve<N: Textualizable>(&self, input: N) -> Self`), or
-the kind's associated type where one is already bounded by that kind.
-An imported name in an input is taken as a kind: where it names a type,
+`Rejected.{ file { line column } Conceptual.{ [ path ] TraitWanted.<Name> } }`,
+the line and column naming the input. A trait name in an input, which
+13.0.0 refused as `Role.<Trait>`, now generates a method parameter bounded
+by that trait (`fn resolve<N: Textualizable>(&self, input: N) -> Self`), or
+the trait's associated type where one is already bounded by that trait.
+An imported name in an input is taken as a trait: where it names a type,
 the generated bound names a type and rustc refuses the generated module.
-The `Error` contract gains `Problem.KindWanted.String`.
+The `Error` contract gains `Problem.TraitWanted.String`.
 
 To deploy, in each consumer:
 
 1. Run `ethos-zero 'Check./abs/file.ethos'` on every ethos file it owns.
-2. For each `KindWanted`, name the kind the input wants and put it in the
+2. For each `TraitWanted`, name the trait the input wants and put it in the
    input: declare it (`Textualizable.[ textualize.[ String ] ]`) or import
-   it, or use `Self` or a parameter of the kind's head. The implementer
-   then writes `fn name<N: Kind>(…, input: N)` and calls the kind's
+   it, or use `Self` or a parameter of the trait's head. The implementer
+   then writes `fn name<N: Trait>(…, input: N)` and calls the trait's
    capabilities on the input.
 3. For an imported type in an input, which Check cannot see, regenerate
    and compile: rustc's `expected trait, found struct` names it; replace
    it as in step 2.
 4. Regenerate the committed Rust, update the hand-written implementations
    to the generic signatures, and bump the consumer's own major version
-   where the generated kind is public.
+   where the generated trait is public.
 
 Contracts that depend on this, found by generating every `.ethos` file
 under `/git` with 13.0.0 and with 14.0.0 and comparing (2026-10-02):
@@ -160,14 +177,14 @@ under `/git` with 13.0.0 and with 14.0.0 and comparing (2026-10-02):
   - The vendored copies of both in
     `github.com/LiGoldragon/primary-next/tools/messaging-codec/vendor/`.
 - Newly accepted: `primary-next/flows/f6db8d/witnesses/substrate/probe-ethos/sized-kind.ethos`
-  (`c:[ Sized ]`, a kind in a yield).
+  (`c:[ Sized ]`, a trait in a yield).
 
 Correction (14.2.0): `datom-codec/datom-codec.ethos` at 58474fd was refused
-by 14.x (`KindWanted.Path`, its second declaration of `Datomizable` with
+by 14.x (`TraitWanted.Path`, its second declaration of `Datomizable` with
 `Path` in the input), so the `dependency-ethos` check against it failed; the
-scan above missed it. datom-codec 0930abc gives the kinds one home in
+scan above missed it. datom-codec 0930abc gives its declarations one home in
 `datom-codec-kinds.ethos` and names them (`Branchable`, `Budgeted`,
-`Positional`, `Composable`); protos 0.32 names `Spendable`. Both kinds files
+`Positional`, `Composable`); protos 0.32 names `Spendable`. Both schema files
 now generate, and their generated Rust compiles in their own repositories.
 
 ## 14.2.0: the print is protos'

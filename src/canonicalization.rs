@@ -68,7 +68,7 @@ impl Canonicalizable for String {
     }
 }
 
-/// The kind whose capability maps one position across the seam.
+/// The trait whose capability maps one position across the seam.
 trait Shifting {
     fn shift(&self, position: usize) -> usize;
 }

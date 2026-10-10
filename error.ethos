@@ -18,11 +18,11 @@ Library
             Empty
             Depth
             Role.String
-            KindWanted.String
+            TraitWanted.String
             Intrinsic.String
             Case.String
             Renamed.String ]
-  Form.[ File Section Import Name Declaration Variant Reference Constraint Kind Capability Constant Association ]
+  Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association ]
   Location.{ Line Column }
   Line.Integer
   Column.Integer ]

@@ -1,4 +1,4 @@
-; Sink associations from Vision/ethos.md; the kinds are the enclosing module's, the interactions hand-written there
+; Sink associations from Vision/ethos.md; the traits are the enclosing module's, the interactions hand-written there
 Library
 [ super:[ Summarizable Fillable ] ]
 [ Sink.{ String Vector<String> }

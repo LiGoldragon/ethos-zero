@@ -13,7 +13,7 @@ fn read(source: &str) -> File {
 }
 
 #[test]
-fn full_library_round_trips_and_generates_named_types_and_kinds() {
+fn full_library_round_trips_and_generates_named_types_and_traits() {
     let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
     let file = read(source);
     let repeated = read(&file.protosize().textualize());
@@ -156,7 +156,7 @@ fn retired_roots_are_not_accepted() {
             .actualize()
             .is_err()
     );
-    assert!(Potential::<File>::from("Kinds [] []").actualize().is_err());
+    assert!(Potential::<File>::from("Traits [] []").actualize().is_err());
 }
 
 #[test]
@@ -337,7 +337,7 @@ fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
     syn::parse_file(&generated).expect("generated Rust parses");
 }
 
-/// The kind whose capability yields the conceptual refusal a source meets on generation.
+/// The trait whose capability yields the conceptual refusal a source meets on generation.
 trait Refusing {
     fn refusal(&self) -> (Vec<i64>, Problem);
 }
@@ -381,7 +381,7 @@ fn a_declared_intrinsic_name_is_refused_by_name() {
 }
 
 #[test]
-fn a_lowercase_type_or_kind_name_is_refused() {
+fn a_lowercase_type_or_trait_name_is_refused() {
     assert_eq!(
         "Library [] [ a.{ String } ] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Case("a".to_owned()))
@@ -497,7 +497,7 @@ impl Compact for str {
 }
 
 #[test]
-fn a_kind_in_an_input_becomes_a_parameter_bounded_by_it() {
+fn a_trait_in_an_input_becomes_a_parameter_bounded_by_it() {
     let rust = "Library [] [] [ Textualizable.[ textualize.[ String ] ] Resolvable.[ resolve.{ [ Textualizable ] [ Self ] } ] ] []".compact();
     assert!(
         rust.contains("fnresolve<N:Textualizable>(&self,input:N)->SelfwhereSelf:Sized;"),
@@ -506,7 +506,7 @@ fn a_kind_in_an_input_becomes_a_parameter_bounded_by_it() {
 }
 
 #[test]
-fn each_kind_in_the_inputs_takes_its_own_parameter() {
+fn each_trait_in_the_inputs_takes_its_own_parameter() {
     let rust = "Library [ protos:Textualizable ] [] [ Joinable.[ join!{ [ Textualizable Textualizable Self ] [ Integer ] } ] ] []".compact();
     assert!(
         rust.contains("fnjoin<N:protos::Textualizable,O:protos::Textualizable>(&mutself,input_0:N,input_1:O,input_2:Self,)->i64whereSelf:Sized;"),
@@ -515,13 +515,13 @@ fn each_kind_in_the_inputs_takes_its_own_parameter() {
 }
 
 #[test]
-fn a_kind_in_a_yield_becomes_a_parameter_bounded_by_it() {
+fn a_trait_in_a_yield_becomes_a_parameter_bounded_by_it() {
     let rust = "Library [] [] [ Textualizable.[ textualize.[ String ] ] Making.[ make:[ Textualizable ] ] ] []".compact();
     assert!(rust.contains("fnmake<N:Textualizable>()->N;"), "{rust}");
 }
 
 #[test]
-fn a_kind_the_head_already_binds_stays_the_associated_type() {
+fn a_trait_the_head_already_binds_stays_the_associated_type() {
     let rust = "Library [] [] [ Textualizable.[ textualize.[ String ] ] Streamable.{ [] [ Item<Textualizable> ] [] [ push!{ [ Textualizable ] [ Self ] } ] } ] []".compact();
     assert!(
         rust.contains("fnpush(&mutself,input:Self::Item)->SelfwhereSelf:Sized;"),
@@ -530,7 +530,7 @@ fn a_kind_the_head_already_binds_stays_the_associated_type() {
 }
 
 #[test]
-fn self_and_the_kinds_own_parameters_stay_as_they_are() {
+fn self_and_the_traits_own_parameters_stay_as_they_are() {
     let rust = "Library [ serde:Serializable ] [] [ Processable<Serializable>.[ process.{ [ Serializable Self ] [ Self ] } ] ] []".compact();
     assert!(
         rust.contains("fnprocess(&self,input_0:A,input_1:Self)->SelfwhereSelf:Sized;"),
@@ -539,12 +539,12 @@ fn self_and_the_kinds_own_parameters_stay_as_they_are() {
 }
 
 #[test]
-fn a_concrete_type_in_an_input_is_refused_as_wanting_a_kind() {
+fn a_concrete_type_in_an_input_is_refused_as_wanting_a_trait() {
     assert_eq!(
         "Library [] [] [ Resolvable.[ resolve.{ [ String ] [ Self ] } ] ] []".refusal(),
         (
             vec![1, 2, 0, 1, 0, 1, 0, 0],
-            Problem::KindWanted("String".to_owned())
+            Problem::TraitWanted("String".to_owned())
         )
     );
     assert_eq!(
@@ -552,20 +552,20 @@ fn a_concrete_type_in_an_input_is_refused_as_wanting_a_kind() {
             .refusal(),
         (
             vec![1, 2, 0, 1, 0, 1, 0, 1],
-            Problem::KindWanted("Rec".to_owned())
+            Problem::TraitWanted("Rec".to_owned())
         )
     );
     assert_eq!(
         "Library [] [] [ Fillable.[ push!{ [ Vector<Self> ] [ Self ] } ] ] []".refusal(),
         (
             vec![1, 2, 0, 1, 0, 1, 0, 0],
-            Problem::KindWanted("Vector".to_owned())
+            Problem::TraitWanted("Vector".to_owned())
         )
     );
     assert_eq!(
         "Library [] [] [ Fillable.[ push!{ [ protos:String ] [ Self ] } ] ] []"
             .refusal()
             .1,
-        Problem::KindWanted("String".to_owned())
+        Problem::TraitWanted("String".to_owned())
     );
 }

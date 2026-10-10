@@ -7,7 +7,7 @@
 use ethos_zero::{Actualizing, Canonicalizable, File, Potential, Printable};
 use protos::Protosizable;
 
-/// The kind whose capability reads ethos text to its structure and prints it.
+/// The trait whose capability reads ethos text to its structure and prints it.
 trait Reprinting {
     fn reprint(&self) -> String;
 }
@@ -20,7 +20,7 @@ impl Reprinting for str {
     }
 }
 
-/// The kind whose capability reads a fixture of this crate.
+/// The trait whose capability reads a fixture of this crate.
 trait Fixture {
     fn fixture(&self) -> String;
 }

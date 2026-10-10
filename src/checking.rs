@@ -2,7 +2,7 @@
 //!
 //! Resolution is borne by the declarations: an import resolves the
 //! names it carries, a declaration its own name, an identity its
-//! parameters, a kind its associated types, and the file walks its
+//! parameters, a trait its associated types, and the file walks its
 //! variant's sections in turn, then the intrinsics. Checking walks the
 //! concept as the structure was laid out, so every error is at the
 //! path of the structure in error, relative to the checked value.
@@ -13,7 +13,7 @@ use crate::sectioning::{Hoisting, Referencing, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
-    Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, KindBody, KindDeclaration,
+    Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, TraitBody, TraitDeclaration,
     Memory, Name, Operation, Placing, Position, Problem, Reference, Resolution, Resolving, Role,
     Scope, Signal, Signature, TypeDeclaration, Variant,
 };
@@ -86,17 +86,17 @@ impl Resolving for [TypeDeclaration] {
     }
 }
 
-impl Resolving for KindDeclaration {
+impl Resolving for TraitDeclaration {
     fn resolve(&self, name: &Name) -> Resolution {
         if &self.identity.name == name {
-            Resolution::Kind(name.clone())
+            Resolution::Trait(name.clone())
         } else {
             Resolution::Undeclared
         }
     }
 }
 
-impl Resolving for [KindDeclaration] {
+impl Resolving for [TraitDeclaration] {
     fn resolve(&self, name: &Name) -> Resolution {
         for declaration in self {
             let resolution = declaration.resolve(name);
@@ -108,7 +108,7 @@ impl Resolving for [KindDeclaration] {
     }
 }
 
-/// The kind whose capability yields the names a file variant implies: a
+/// The trait whose capability yields the names a file variant implies: a
 /// Signal's query and response types, an Operation's operation and outcome types.
 pub(crate) trait Implying {
     /// The implied type names.
@@ -135,7 +135,7 @@ impl Resolving for File {
             }
         }
         if let File::Library(library) = self {
-            resolution = resolution.or(library.kinds.resolve(name));
+            resolution = resolution.or(library.traits.resolve(name));
         }
         let resolution = resolution.or(self.imports().resolve(name));
         if resolution != Resolution::Undeclared {
@@ -151,7 +151,7 @@ impl Resolving for File {
     }
 }
 
-/// The kind whose capability yields the first resolution that is not undeclared.
+/// The trait whose capability yields the first resolution that is not undeclared.
 trait Falling {
     fn or(self, other: Resolution) -> Resolution;
 }
@@ -219,7 +219,7 @@ impl Resolving for Scope<'_> {
 // Intrinsic arity
 // ---------------------------------------------------------------------------
 
-/// The kind whose capability yields how many arguments an intrinsic takes.
+/// The trait whose capability yields how many arguments an intrinsic takes.
 pub(crate) trait Taking {
     /// The argument count.
     fn arity(&self) -> usize;
@@ -245,7 +245,7 @@ impl Taking for Intrinsic {
 // Naming: every name a value declares, with the path it was declared at
 // ---------------------------------------------------------------------------
 
-/// The kind whose capability lists the names a value declares, each at its path relative to the value.
+/// The trait whose capability lists the names a value declares, each at its path relative to the value.
 trait Naming {
     /// The declared names and their paths.
     fn names(&self) -> Vec<DeclarationSite>;
@@ -291,7 +291,7 @@ impl Naming for TypeDeclaration {
     }
 }
 
-impl Naming for KindDeclaration {
+impl Naming for TraitDeclaration {
     fn names(&self) -> Vec<DeclarationSite> {
         vec![DeclarationSite {
             name: self.identity.name.clone(),
@@ -355,7 +355,7 @@ impl Naming for Capability {
 /// resolves it to the index after the node's.
 const BESIDE: Integer = -1;
 
-/// The kind whose capability yields how many Protos siblings an element of
+/// The trait whose capability yields how many Protos siblings an element of
 /// a list occupies: two when its arguments stand in the enclosure beside it.
 pub(crate) trait Spanning {
     fn span(&self) -> Integer {
@@ -404,12 +404,12 @@ impl Spanning for AssociatedType {
 
 impl Spanning for Import {}
 impl Spanning for crate::Imported {}
-impl Spanning for KindDeclaration {}
+impl Spanning for TraitDeclaration {}
 impl Spanning for AssociatedConstant {}
 impl Spanning for Capability {}
 impl Spanning for Association {}
 
-/// The kind whose capabilities place an element's error in its list, and
+/// The trait whose capabilities place an element's error in its list, and
 /// carry a beside step through the node it names.
 trait Siting {
     /// Place the error under the element at Protos index `at`, resolving a
@@ -441,7 +441,7 @@ impl<T> Siting for Result<T, Error> {
     }
 }
 
-/// The kind whose capability lists the names of every element of a section, each under its Protos index.
+/// The trait whose capability lists the names of every element of a section, each under its Protos index.
 trait Sectioned {
     fn names_in(&self, section: Integer) -> Vec<DeclarationSite>;
 }
@@ -465,7 +465,7 @@ impl<N: Naming + Spanning> Sectioned for [N] {
     }
 }
 
-/// The kind whose capability errs on the second occurrence of a name.
+/// The trait whose capability errs on the second occurrence of a name.
 trait Distinct {
     fn distinct(&self) -> Result<(), Error>;
 }
@@ -486,7 +486,7 @@ impl Distinct for [DeclarationSite] {
     }
 }
 
-/// The kind whose capability makes sure a name can occupy a Rust declaration
+/// The trait whose capability makes sure a name can occupy a Rust declaration
 /// position. `Self` remains a valid unsourced type reference, but is never a
 /// declaration or imported emitted name.
 trait Defining {
@@ -502,8 +502,8 @@ impl Defining for Name {
     }
 }
 
-/// The kind whose capability makes sure a name can be declared as a type or a
-/// kind: a name a Rust declaration may take, not an intrinsic's, which a
+/// The trait whose capability makes sure a name can be declared as a type or a
+/// trait: a name a Rust declaration may take, not an intrinsic's, which a
 /// declaration would shadow for every later reference, and capitalized.
 trait Typing {
     fn declare(&self) -> Result<(), Error>;
@@ -534,7 +534,7 @@ struct Inhabitation {
     inhabited: Vec<Name>,
 }
 
-/// The kind whose capability tells whether a value has a finite value, given the types known to.
+/// The trait whose capability tells whether a value has a finite value, given the types known to.
 trait Inhabiting {
     fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool;
 }
@@ -599,7 +599,7 @@ impl Inhabiting for TypeDeclaration {
     }
 }
 
-/// The kind whose capability refuses a declared type that has no finite value,
+/// The trait whose capability refuses a declared type that has no finite value,
 /// such as `S.{ Self }`: it reaches itself with no `Vector`, `Option` or
 /// variant to stop at.
 trait Finite {
@@ -639,7 +639,7 @@ impl Finite for File {
     }
 }
 
-/// The kind whose capability yields a type declaration's identity.
+/// The trait whose capability yields a type declaration's identity.
 pub(crate) trait Identified {
     fn identity(&self) -> &Identity;
 }
@@ -658,13 +658,13 @@ impl Identified for TypeDeclaration {
 // Checking
 // ---------------------------------------------------------------------------
 
-/// The kind whose capability checks a value in a scope, erring at a path relative to the value.
+/// The trait whose capability checks a value in a scope, erring at a path relative to the value.
 pub(crate) trait Checkable {
     /// Check the value whole.
     fn check(&self, scope: &Scope) -> Result<(), Error>;
 }
 
-/// The kind whose capabilities check enclosed children, or a section that
+/// The trait whose capabilities check enclosed children, or a section that
 /// contains enclosed children.
 trait Checking {
     fn check_children(&self, scope: &Scope) -> Result<(), Error>;
@@ -733,7 +733,7 @@ struct InlineRoot<'a> {
     path: Path,
 }
 
-/// The kind whose capabilities name every inline payload of a file.
+/// The trait whose capabilities name every inline payload of a file.
 ///
 /// A payload a variant `X` declares in place is named `X_Data`. Where two
 /// declared enums each declare an `X` in place, `X_Data` would be two
@@ -748,7 +748,7 @@ pub(crate) trait Inlining {
     fn inline_sites(&self) -> Vec<DeclarationSite>;
 }
 
-/// The kind whose capability lists the enums of a file whose variants are named first-level.
+/// The trait whose capability lists the enums of a file whose variants are named first-level.
 trait Rooting {
     fn inline_roots(&self) -> Vec<InlineRoot<'_>>;
 }
@@ -778,7 +778,7 @@ impl Rooting for File {
     }
 }
 
-/// The kind whose capability names a payload declared in place, if the variant declares one.
+/// The trait whose capability names a payload declared in place, if the variant declares one.
 trait Payloading {
     fn payload(&self) -> Option<&Name>;
 }
@@ -792,7 +792,7 @@ impl Payloading for Variant {
     }
 }
 
-/// The kind whose capability walks the derived names below an enclosing enum.
+/// The trait whose capability walks the derived names below an enclosing enum.
 trait InlineWalking {
     fn walk_inline(
         &self,
@@ -869,8 +869,8 @@ impl Inlining for File {
     }
 }
 
-/// The kind whose capability lists every name a file root declares by
-/// authorship: its imports, its types and kinds, and the types it implies.
+/// The trait whose capability lists every name a file root declares by
+/// authorship: its imports, its types and traits, and the types it implies.
 trait Declared {
     fn declared(&self) -> Vec<DeclarationSite>;
 }
@@ -879,7 +879,7 @@ impl Declared for crate::Library {
     fn declared(&self) -> Vec<DeclarationSite> {
         let mut names = self.imports.names_in(0);
         names.extend(self.types.names_in(1));
-        names.extend(self.kinds.names_in(2));
+        names.extend(self.traits.names_in(2));
         names
     }
 }
@@ -957,7 +957,7 @@ impl Checkable for crate::Library {
         self.declared().distinct()?;
         self.imports.check_each(scope, 0)?;
         self.types.check_each(scope, 1)?;
-        self.kinds.check_each(scope, 2)?;
+        self.traits.check_each(scope, 2)?;
         self.associations.check_each(scope, 3)
     }
 }
@@ -1026,13 +1026,13 @@ impl Checkable for Identity {
 impl Checkable for Constraint {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
-            Constraint::One(reference) => reference.refer(scope, Role::Kind),
+            Constraint::One(reference) => reference.refer(scope, Role::Trait),
             Constraint::Many(references) => {
                 if references.is_empty() {
                     return Err(Error::conceptual(vec![], Problem::Empty));
                 }
                 for (index, reference) in references.iter().enumerate() {
-                    reference.refer(scope, Role::Kind).place(index as Integer)?;
+                    reference.refer(scope, Role::Trait).place(index as Integer)?;
                 }
                 Ok(())
             }
@@ -1040,7 +1040,7 @@ impl Checkable for Constraint {
     }
 }
 
-/// The kind whose capability yields whether an intrinsic is a type or a kind.
+/// The trait whose capability yields whether an intrinsic is a type or a trait.
 trait Roled {
     fn role(&self) -> Role;
 }
@@ -1048,7 +1048,7 @@ trait Roled {
 impl Roled for Intrinsic {
     fn role(&self) -> Role {
         match self {
-            Intrinsic::Sized => Role::Kind,
+            Intrinsic::Sized => Role::Trait,
             Intrinsic::String
             | Intrinsic::Integer
             | Intrinsic::Decimal
@@ -1062,9 +1062,9 @@ impl Roled for Intrinsic {
     }
 }
 
-/// The kind whose capability checks a reference in the role its position gives it.
+/// The trait whose capability checks a reference in the role its position gives it.
 pub(crate) trait Referring {
-    /// Check the reference as a type or as a kind.
+    /// Check the reference as a type or as a trait.
     fn refer(&self, scope: &Scope, role: Role) -> Result<(), Error>;
 }
 
@@ -1074,7 +1074,7 @@ struct ReferenceRequirement {
     arity: Option<usize>,
 }
 
-/// The kind whose capability checks every reference of a section in one role.
+/// The trait whose capability checks every reference of a section in one role.
 trait ReferringEach {
     fn refer_each(&self, scope: &Scope, role: Role, section: Integer) -> Result<(), Error>;
 }
@@ -1159,8 +1159,8 @@ impl Referring for Reference {
                         arity,
                     }
                 }
-                Resolution::Kind(_) => ReferenceRequirement {
-                    role: Role::Kind,
+                Resolution::Trait(_) => ReferenceRequirement {
+                    role: Role::Trait,
                     arity: None,
                 },
                 Resolution::Imported(source, emitted)
@@ -1208,7 +1208,7 @@ impl Checkable for Reference {
 }
 
 /// A type declared in place is checked as a declaration of the file: outside
-/// the identity and kind that enclose it, which it does not take.
+/// the identity and trait that enclose it, which it does not take.
 impl Checkable for Position {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
@@ -1222,7 +1222,7 @@ impl Checkable for Position {
     }
 }
 
-/// The kind whose capability tells whether an alias reaches a name through aliases and intrinsic containers alone.
+/// The trait whose capability tells whether an alias reaches a name through aliases and intrinsic containers alone.
 trait Cycling {
     fn cycles(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool;
     fn cycles_substituting(
@@ -1280,7 +1280,7 @@ impl Cycling for Reference {
                 }
                 false
             }
-            Resolution::Kind(_)
+            Resolution::Trait(_)
             | Resolution::Parameter(_)
             | Resolution::Associated(_)
             | Resolution::Ambiguous(_)
@@ -1333,7 +1333,7 @@ impl Cycling for Reference {
                 .arguments
                 .iter()
                 .any(|argument| argument.cycles_substituting(target, file, visited, application)),
-            Resolution::Kind(_)
+            Resolution::Trait(_)
             | Resolution::Parameter(_)
             | Resolution::Associated(_)
             | Resolution::Ambiguous(_)
@@ -1342,7 +1342,7 @@ impl Cycling for Reference {
     }
 }
 
-/// The kind whose capability finds the declaration of a name in a file.
+/// The trait whose capability finds the declaration of a name in a file.
 pub(crate) trait Declaring {
     /// The type declaration named, if the file declares one.
     fn declaration(&self, name: &Name) -> Option<&TypeDeclaration>;
@@ -1359,30 +1359,30 @@ impl Declaring for File {
     }
 }
 
-/// The kind whose capability finds a kind declaration in a kinds file.
-trait KindDeclaring {
-    fn kind_declaration(&self, name: &Name) -> Option<&KindDeclaration>;
+/// The trait whose capability finds a trait declaration in a traits file.
+trait TraitDeclaring {
+    fn trait_declaration(&self, name: &Name) -> Option<&TraitDeclaration>;
 }
 
-impl KindDeclaring for File {
-    fn kind_declaration(&self, name: &Name) -> Option<&KindDeclaration> {
+impl TraitDeclaring for File {
+    fn trait_declaration(&self, name: &Name) -> Option<&TraitDeclaration> {
         let File::Library(library) = self else {
             return None;
         };
         library
-            .kinds
+            .traits
             .iter()
             .find(|declaration| declaration.identity.name == *name)
     }
 }
 
-/// The kind whose capability finds an indirect superkind cycle.
+/// The trait whose capability finds an indirect supertrait cycle.
 trait Supercycling {
-    fn reaches_superkind(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool;
+    fn reaches_supertrait(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool;
 }
 
 impl Supercycling for Reference {
-    fn reaches_superkind(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
+    fn reaches_supertrait(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
         if self.source.is_some() {
             return false;
         }
@@ -1392,15 +1392,15 @@ impl Supercycling for Reference {
         if visited.contains(&self.name) {
             return false;
         }
-        let Some(declaration) = file.kind_declaration(&self.name) else {
+        let Some(declaration) = file.trait_declaration(&self.name) else {
             return false;
         };
-        let KindBody::Complex { superkinds, .. } = &declaration.body else {
+        let TraitBody::Complex { supertraits, .. } = &declaration.body else {
             return false;
         };
         visited.push(self.name.clone());
-        for superkind in superkinds {
-            if superkind.reaches_superkind(target, file, visited) {
+        for supertrait in supertraits {
+            if supertrait.reaches_supertrait(target, file, visited) {
                 return true;
             }
         }
@@ -1479,7 +1479,7 @@ impl Checkable for Variant {
     }
 }
 
-impl Checkable for KindDeclaration {
+impl Checkable for TraitDeclaration {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.identity.name.declare().place(0)?;
         self.identity.check(scope).place(0)?;
@@ -1487,12 +1487,12 @@ impl Checkable for KindDeclaration {
             file: scope.file,
             identity: Some(&self.identity),
             associated: match &self.body {
-                KindBody::Simple(_) => &[],
-                KindBody::Complex { types, .. } => types,
+                TraitBody::Simple(_) => &[],
+                TraitBody::Complex { types, .. } => types,
             },
         };
         match &self.body {
-            KindBody::Simple(capabilities) => {
+            TraitBody::Simple(capabilities) => {
                 let mut names = capabilities.names_in(0);
                 for declared in &mut names {
                     declared.path.remove(0);
@@ -1501,14 +1501,14 @@ impl Checkable for KindDeclaration {
                 names.distinct()?;
                 capabilities.check_children(&inner).place(1)
             }
-            KindBody::Complex {
-                superkinds,
+            TraitBody::Complex {
+                supertraits,
                 types,
                 constants,
                 capabilities,
             } => {
-                for (index, superkind) in superkinds.iter().enumerate() {
-                    if superkind.reaches_superkind(
+                for (index, supertrait) in supertraits.iter().enumerate() {
+                    if supertrait.reaches_supertrait(
                         &self.identity.name,
                         scope.file,
                         &mut vec![self.identity.name.clone()],
@@ -1526,7 +1526,7 @@ impl Checkable for KindDeclaration {
                     declared.path.insert(0, 1);
                 }
                 names.distinct()?;
-                superkinds.refer_each(&inner, Role::Kind, 0).place(1)?;
+                supertraits.refer_each(&inner, Role::Trait, 0).place(1)?;
                 types.check_each(&inner, 1).place(1)?;
                 constants.check_each(&inner, 2).place(1)?;
                 capabilities.check_each(&inner, 3).place(1)
@@ -1541,7 +1541,7 @@ impl Checkable for AssociatedType {
         // The bounds stand in the angled enclosure beside the name.
         let mut at = 0;
         for bound in &self.bounds {
-            bound.refer(scope, Role::Kind).beside(at).place(BESIDE)?;
+            bound.refer(scope, Role::Trait).beside(at).place(BESIDE)?;
             at += bound.span();
         }
         Ok(())
@@ -1561,7 +1561,7 @@ impl Checkable for AssociatedConstant {
     }
 }
 
-/// The kind whose capability checks a reference standing in a capability's signature.
+/// The trait whose capability checks a reference standing in a capability's signature.
 trait Signing {
     fn sign(&self, scope: &Scope, place: Place) -> Result<(), Error>;
 }
@@ -1571,9 +1571,9 @@ impl Signing for Reference {
         match self.stance(scope, place) {
             Stance::Concrete if place == Place::Input => Err(Error::conceptual(
                 vec![],
-                Problem::KindWanted(self.name.0.clone()),
+                Problem::TraitWanted(self.name.0.clone()),
             )),
-            Stance::Bounding | Stance::Bound(_) => self.refer(scope, Role::Kind),
+            Stance::Bounding | Stance::Bound(_) => self.refer(scope, Role::Trait),
             Stance::Concrete | Stance::Kept => self.refer(scope, Role::Type),
         }
     }
@@ -1609,8 +1609,8 @@ impl Checkable for Association {
             ));
         }
         self.identity.check(scope).place(0)?;
-        // The kinds borne are named outside the identity that bears them.
-        self.kinds.refer_each(scope, Role::Kind, 0).place(1)
+        // The traits borne are named outside the identity that bears them.
+        self.traits.refer_each(scope, Role::Trait, 0).place(1)
     }
 }
 

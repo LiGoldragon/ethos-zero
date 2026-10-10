@@ -11,7 +11,7 @@ use protos::{Extent, Protos, Protosizable};
 
 use crate::{Canonicalizable, Error, File, Locating, Location, Potential, Resituating};
 
-/// The kind whose capability finds the extent of the node a path names.
+/// The trait whose capability finds the extent of the node a path names.
 trait Finding {
     fn find(&self, path: &[Integer]) -> Extent;
 }
@@ -52,7 +52,7 @@ impl Finding for Protos {
     }
 }
 
-/// The kind whose capability yields a node's own extent.
+/// The trait whose capability yields a node's own extent.
 trait Whole {
     fn whole(&self) -> Extent;
 }
@@ -68,7 +68,7 @@ impl Whole for Protos {
     }
 }
 
-/// The kind whose capability counts a byte offset of a text in lines and columns.
+/// The trait whose capability counts a byte offset of a text in lines and columns.
 trait Lining {
     fn location(&self, offset: usize) -> Location;
 }
