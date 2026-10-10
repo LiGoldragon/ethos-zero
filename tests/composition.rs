@@ -400,3 +400,48 @@ fn a_decimal_holds_only_what_a_decimal_position_reads_back() {
         "the sign of zero is not a distinction a decimal carries"
     );
 }
+
+#[derive(Debug, PartialEq, Composing, Datomizable)]
+struct Line(i64);
+
+#[derive(Debug, PartialEq, Composing, Datomizable)]
+struct Name(String);
+
+#[derive(Debug, PartialEq, Composing, Datomizable)]
+struct Location {
+    line: Line,
+    column: Line,
+}
+
+#[test]
+fn a_new_type_prints_and_reads_as_the_value_it_holds() {
+    let text = Line(3).datomize(Path::new()).protosize().textualize();
+    assert_eq!(text, "3");
+    let composed: Line = Potential::from(text.as_str())
+        .actualize(&mut budget(4))
+        .unwrap_or_else(|error| panic!("{text} composes: {error:?}"));
+    assert_eq!(composed, Line(3));
+
+    let text = Name("abc123".to_owned())
+        .datomize(Path::new())
+        .protosize()
+        .textualize();
+    assert_eq!(text, "abc123");
+
+    let location = Location {
+        line: Line(3),
+        column: Line(19),
+    };
+    let text = location.datomize(Path::new()).protosize().textualize();
+    assert_eq!(text, "{ 3 19 }");
+    let composed: Location = Potential::from(text.as_str())
+        .actualize(&mut budget(8))
+        .unwrap_or_else(|error| panic!("{text} composes: {error:?}"));
+    assert_eq!(composed, location);
+    assert!(
+        Potential::<Line>::from("{ 3 }")
+            .actualize(&mut budget(4))
+            .is_err(),
+        "a new type is not a struct of one position"
+    );
+}
