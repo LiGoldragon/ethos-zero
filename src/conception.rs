@@ -5,9 +5,9 @@ use protos::{Enclosure, Protos, Separator, Symbol};
 
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
-    Constraint, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported, TraitBody,
-    TraitDeclaration, Library, Memory, Name, Named, Operation, Placing, Position, Problem, Receiver,
-    Reference, Root, Signal, Signature, Source, Succeeding, TypeDeclaration, Variant,
+    Constraint, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported, Library,
+    Memory, Name, Named, Operation, Placing, Position, Problem, Receiver, Reference, Root, Signal,
+    Signature, Source, Succeeding, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Conceiving<C> {
@@ -640,7 +640,10 @@ impl Conceiving<TraitDeclaration> for Protos {
         };
         let s = body.sections(4).place(1)?;
         let Some(types) = s[1].children(Enclosure::Bracketed) else {
-            return Err(Error::conceptual(vec![1, 1], Problem::Expected(Form::Trait)));
+            return Err(Error::conceptual(
+                vec![1, 1],
+                Problem::Expected(Form::Trait),
+            ));
         };
         Ok(TraitDeclaration {
             identity,

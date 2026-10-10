@@ -4,8 +4,8 @@ use protos::{Canonicalizable, Enclosure, Extent, Protos, Protosizable, Separator
 
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Identity,
-    Import, Imported, TraitBody, TraitDeclaration, Library, Memory, Operation, Position, Receiver,
-    Reference, Signal, Signature, TypeDeclaration, Variant,
+    Import, Imported, Library, Memory, Operation, Position, Receiver, Reference, Signal, Signature,
+    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Protosizing {

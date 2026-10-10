@@ -13,9 +13,9 @@ use crate::sectioning::{Hoisting, Referencing, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
-    Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, TraitBody, TraitDeclaration,
-    Memory, Name, Operation, Placing, Position, Problem, Reference, Resolution, Resolving, Role,
-    Scope, Signal, Signature, TypeDeclaration, Variant,
+    Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name, Operation,
+    Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal, Signature,
+    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -1032,7 +1032,9 @@ impl Checkable for Constraint {
                     return Err(Error::conceptual(vec![], Problem::Empty));
                 }
                 for (index, reference) in references.iter().enumerate() {
-                    reference.refer(scope, Role::Trait).place(index as Integer)?;
+                    reference
+                        .refer(scope, Role::Trait)
+                        .place(index as Integer)?;
                 }
                 Ok(())
             }

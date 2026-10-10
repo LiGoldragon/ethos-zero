@@ -26,8 +26,8 @@ use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
-    Identity, Intrinsic, TraitBody, TraitDeclaration, Name, Position, Receiver, Reference,
-    Resolution, Resolving, Scope, Signature, Source, TypeDeclaration, Variant,
+    Identity, Intrinsic, Name, Position, Receiver, Reference, Resolution, Resolving, Scope,
+    Signature, Source, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 // ---------------------------------------------------------------------------
