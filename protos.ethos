@@ -14,7 +14,7 @@ Library
            Bare.{ Extent String } ]
   Error.{ Extent Problem }
   Problem.[ Empty Multiple Unclosed.String Unexpected.String MissingHead MissingBody Budget Depth ]
-  ReaderBudget.{ Integer } ]
+  ReaderBudget.Integer ]
 [ Textualizable.[ textualize.[ String ] ]
   Canonicalizable.[] ]
 []
