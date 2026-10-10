@@ -1,6 +1,7 @@
 Library
 []
-[ FlowId.Integer
+[ FlowId.String  ; the String is unideal:
+                 ;   a real hash-based id is the target
   Voice.[ Psyche.Rank
           Mind.Rank
           Field.Rank ]

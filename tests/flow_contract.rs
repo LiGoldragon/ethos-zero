@@ -26,7 +26,7 @@ mod wire {
     fn every_root_crosses_the_wire() {
         crosses(library::Voice::Mind(library::Rank::Primary));
         crosses(signal::Query::Report(signal::Report_Data {
-            flow_id: library::FlowId(7),
+            flow_id: library::FlowId("7".to_owned()),
             event: library::Event::ToolUsed("Bash".to_owned()),
         }));
         crosses(signal::Response::Refused(signal::Refused_Data::VoiceBusy(
@@ -41,7 +41,7 @@ mod wire {
         }));
         crosses(operation::Outcome::Failed("no capsule".to_owned()));
         crosses(memory::Flow {
-            flow_id: library::FlowId(7),
+            flow_id: library::FlowId("7".to_owned()),
             voice: library::Voice::Mind(library::Rank::Primary),
             state: memory::State::Ended,
             event_vector: vec![library::Event::Started, library::Event::Stopped],

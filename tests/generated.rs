@@ -464,13 +464,13 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
         pending.actualize(&mut budget()).expect("restore operation"),
         operation
     );
-    let outcome = flow_operation::Outcome::Started(FlowId(7));
-    assert!(matches!(
+    let outcome = flow_operation::Outcome::Started(FlowId("7".to_owned()));
+    assert_eq!(
         outcome,
-        flow_operation::Outcome::Started(FlowId(7))
-    ));
+        flow_operation::Outcome::Started(FlowId("7".to_owned()))
+    );
     let memory = flow_memory::Flow {
-        flow_id: FlowId(7),
+        flow_id: FlowId("7".to_owned()),
         voice: Voice::Psyche(flow_library::Rank::Secondary),
         state: flow_memory::State::Running,
         event_vector: vec![
@@ -498,7 +498,7 @@ fn a_new_type_has_its_value_size_and_reads_as_its_value_in_datom() {
         std::mem::size_of::<String>()
     );
     assert_eq!(
-        std::mem::size_of::<flow_library::FlowId>(),
+        std::mem::size_of::<orchestrate::LockId>(),
         std::mem::size_of::<i64>()
     );
     let text = orchestrate::FlowId("abc123".to_owned())

@@ -32,16 +32,37 @@ impl Fixture for str {
     }
 }
 
+/// The comment beside `FlowId.String` in the Flow Library. The print drops
+/// it until invariants Proposal 3 (comments) lands.
+const FLOW_ID_COMMENT: [&str; 2] = [
+    "; the String is unideal:",
+    ";   a real hash-based id is the target",
+];
+
+/// The comment as it stands in the Flow Library source, with the spaces
+/// that set it beside `FlowId.String`; the source without it is the print.
+const FLOW_ID_COMMENT_SPAN: &str =
+    "  ; the String is unideal:\n                 ;   a real hash-based id is the target";
+
 #[test]
 fn the_flow_nexus_four_files_round_trip_byte_identical() {
-    for name in [
-        "flow-library",
-        "flow-signal",
-        "flow-operation",
-        "flow-memory",
-    ] {
+    for name in ["flow-signal", "flow-operation", "flow-memory"] {
         let source = name.fixture();
         assert_eq!(source.reprint(), source, "{name}");
+    }
+    let source = "flow-library".fixture();
+    let reprint = source.reprint();
+    assert_eq!(
+        reprint,
+        source.replace(FLOW_ID_COMMENT_SPAN, ""),
+        "flow-library"
+    );
+    for comment in FLOW_ID_COMMENT {
+        assert!(source.contains(comment), "the source holds {comment:?}");
+        assert!(
+            !reprint.contains(comment),
+            "invariants Proposal 3 (comments) has landed: the reprint keeps {comment:?}"
+        );
     }
 }
 
@@ -52,7 +73,15 @@ fn a_checked_file_prints_as_it_was_written_in_the_canonical_form() {
         Ok(file) => file,
         Err(error) => panic!("the Library reads: {error:?}"),
     };
-    assert_eq!(file.print(), source);
+    let printed = file.print();
+    assert_eq!(printed, source.replace(FLOW_ID_COMMENT_SPAN, ""));
+    for comment in FLOW_ID_COMMENT {
+        assert!(source.contains(comment), "the source holds {comment:?}");
+        assert!(
+            !printed.contains(comment),
+            "invariants Proposal 3 (comments) has landed: the print keeps {comment:?}"
+        );
+    }
 }
 
 #[test]
