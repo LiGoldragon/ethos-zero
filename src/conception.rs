@@ -429,6 +429,12 @@ impl Conceiving<Reference> for Protos {
                 ..
             } => {
                 let mut r: Reference = body.conceive().place(1)?;
+                if r.source.is_some() {
+                    return Err(Error::conceptual(
+                        vec![1],
+                        Problem::Expected(Form::Reference),
+                    ));
+                }
                 r.source = Some(
                     Source::try_from(head.0.as_str())
                         .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?,

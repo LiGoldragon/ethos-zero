@@ -2,7 +2,7 @@
 //! the constructs that consumers write; detailed parser failures live beside
 //! the reader in `src/lib.rs`.
 
-use ethos_zero::{Actualizing, Error, File, Generating, Potential, Problem};
+use ethos_zero::{Actualizing, Error, File, Form, Generating, Potential, Problem};
 use protos::{Protosizable, Textualizable};
 
 fn read(source: &str) -> File {
@@ -248,6 +248,48 @@ fn a_sourced_generic_in_a_data_position_reads_and_reprints() {
         Err(_) => panic!("a sourced generic position generates"),
     };
     assert!(generated.contains("pub string_vector: external::Vector<String>"));
+}
+
+#[test]
+fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
+    let type_declaration = read("Library [] [ Topic.custom:Name ] [] []");
+    let generated = match type_declaration.generate() {
+        Ok(generated) => generated,
+        Err(_) => panic!("a lowercase inline source in a type declaration generates"),
+    };
+    assert!(generated.contains("custom::Name"));
+
+    let struct_position = read("Library [] [ Holder.{ Topic.custom:Name String } ] [] []");
+    let generated = match struct_position.generate() {
+        Ok(generated) => generated,
+        Err(_) => panic!("a lowercase inline source in a struct position generates"),
+    };
+    assert!(generated.contains("custom::Name"));
+}
+
+#[test]
+fn a_second_inline_source_is_refused_instead_of_overwriting_the_first() {
+    for source in [
+        "Library [] [ Holder.{ Topic:custom:Name String } ] [] []",
+        "Library [] [ Holder.{ std:sync:Mutex<String> String } ] [] []",
+    ] {
+        match Potential::<File>::from(source).actualize() {
+            Err(Error::Conceptual(data)) => {
+                assert_eq!(data.problem, Problem::Expected(Form::Reference));
+                assert_eq!(data.integer_vector, vec![1, 1, 0, 1, 0, 1]);
+            }
+            Err(Error::Structural(_)) => panic!("{source} is a conceptual refusal"),
+            Ok(_) => panic!("{source} must be refused"),
+        }
+    }
+
+    match Potential::<File>::from("Library [] [ MyType.std.custom:Mutex ] [] []").actualize() {
+        Err(Error::Conceptual(data)) => {
+            assert_eq!(data.problem, Problem::Expected(Form::Reference));
+        }
+        Err(Error::Structural(_)) => panic!("the dotted source form is a conceptual refusal"),
+        Ok(_) => panic!("the dotted source form remains refused"),
+    }
 }
 
 #[test]

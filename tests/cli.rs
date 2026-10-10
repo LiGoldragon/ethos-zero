@@ -195,6 +195,24 @@ fn check_locates_an_undeclared_name_below_a_comment() {
 }
 
 #[test]
+fn check_refuses_a_second_inline_source_at_the_inner_reference() {
+    let directory = "inline-source".scratch();
+    let source = directory.write_source(
+        "inline-source",
+        "Library\n[]\n[ Holder.{ Topic:custom:Name String } ]\n[]\n[]\n",
+    );
+    let argument = check(&source);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert_eq!(
+        output,
+        format!(
+            "Rejected.{{ {source} {{ 3 18 }} Conceptual.{{ [ 1 1 0 1 0 1 ] Expected.Reference }} }}\n"
+        )
+    );
+}
+
+#[test]
 fn check_locates_a_duplicate_at_its_second_declaration() {
     let directory = "duplicate".scratch();
     let source = directory.write_source(
