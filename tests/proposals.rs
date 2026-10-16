@@ -331,3 +331,22 @@ fn an_imported_type_is_read_from_a_sibling_file() {
         .expect_err("Exploded is no Event");
     assert_eq!(error.path, vec![1, 1]);
 }
+
+#[test]
+fn an_explicit_protos_import_names_the_intrinsic() {
+    let library = read(
+        "Library.{ [ protos:[ String Integer Boolean ] ] [ FlowId.String Event.[ Started.FlowId Counted.{ Integer Boolean } Named.protos:String ] ] [] [] }",
+    );
+    for text in [
+        "Started.quietRiverStone",
+        "Started.flow-000000000000000a",
+        "Started.«quiet river stone»",
+        "Counted.{ 3 True }",
+        "Named.«a name»",
+    ] {
+        library
+            .conform("Event", text)
+            .unwrap_or_else(|error| panic!("{text} conforms: {error:?}"));
+    }
+    assert!(library.conform("Event", "Counted.{ x True }").is_err());
+}

@@ -22,7 +22,8 @@ use protos::BoundedProtosizable;
 use crate::checking::Declaring;
 use crate::sectioning::{Referencing, Sectioning};
 use crate::{
-    File, Intrinsic, Name, Position, Reference, Resolution, Resolving, TypeDeclaration, Variant,
+    File, Identifiable, Intrinsic, Name, Position, Reference, Resolution, Resolving,
+    TypeDeclaration, Variant,
 };
 
 /// The trait whose capability checks a datom text against a declared type.
@@ -170,7 +171,26 @@ impl Shaping for Context<'_> {
         datom: &Datom,
         budget: &mut Budget,
     ) -> Result<(), Error> {
-        if let Some(source) = &reference.source {
+        // `protos:String` and an imported `protos:[ String … ]` name the
+        // intrinsic, as the checker reads them.
+        let resolution = match (&reference.source, self.file.resolve(&reference.name)) {
+            (Some(source), _) if source.as_ref() == "protos" => {
+                match Intrinsic::identify(reference.name.as_ref()) {
+                    Some(intrinsic) => Resolution::Intrinsic(intrinsic),
+                    None => Resolution::Undeclared,
+                }
+            }
+            (None, Resolution::Imported(source, emitted)) if source.as_ref() == "protos" => {
+                match Intrinsic::identify(emitted.as_ref()) {
+                    Some(intrinsic) => Resolution::Intrinsic(intrinsic),
+                    None => Resolution::Imported(source, emitted),
+                }
+            }
+            (_, resolution) => resolution,
+        };
+        if let Some(source) = &reference.source
+            && source.as_ref() != "protos"
+        {
             return match self.imported(source, &reference.name) {
                 Some(file) => Context {
                     file,
@@ -181,7 +201,7 @@ impl Shaping for Context<'_> {
             };
         }
         let argument = reference.arguments.first();
-        match (self.file.resolve(&reference.name), argument) {
+        match (resolution, argument) {
             (Resolution::Intrinsic(Intrinsic::String), _) => {
                 datom.compose::<String>(budget).map(drop)
             }
