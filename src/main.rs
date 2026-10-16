@@ -165,8 +165,55 @@ impl Inspecting for String {
     }
 }
 
-impl Serving for Conformance {
-    fn serve(&mut self) -> Response {
+/// The trait whose capability reads the ethos files beside a file, each with its stem.
+trait Neighbouring {
+    fn siblings(&self) -> Vec<(String, File)>;
+}
+
+impl Neighbouring for String {
+    /// Every other `.ethos` file of the directory that reads; one that does
+    /// not read is passed over, as nothing to import from.
+    fn siblings(&self) -> Vec<(String, File)> {
+        let path = FilePath::new(self);
+        let directory = match path.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => parent,
+            _ => FilePath::new("."),
+        };
+        let mut siblings = Vec::new();
+        let Ok(entries) = std::fs::read_dir(directory) else {
+            return siblings;
+        };
+        for entry in entries.flatten() {
+            let sibling = entry.path();
+            if sibling.extension().and_then(std::ffi::OsStr::to_str) != Some("ethos")
+                || sibling.file_name() == path.file_name()
+            {
+                continue;
+            }
+            let Ok(text) = std::fs::read_to_string(&sibling) else {
+                continue;
+            };
+            if let Ok(file) = EthosPotential::<File>::from(text).actualize() {
+                let stem = sibling
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned();
+                siblings.push((stem, file));
+            }
+        }
+        siblings.sort_by(|first, second| first.0.cmp(&second.0));
+        siblings
+    }
+}
+
+/// The trait whose capability conforms a datom text to the conformance's file and type.
+trait Conformant {
+    fn conformed(&self, text: &str) -> Response;
+}
+
+impl Conformant for Conformance {
+    fn conformed(&self, text: &str) -> Response {
         let source = &self.first_string;
         let (potential, file) = match source.source() {
             Ok(read) => read,
@@ -175,7 +222,7 @@ impl Serving for Conformance {
         if let Err(error) = file.validate() {
             return source.reject(&potential, error);
         }
-        match file.conform(&self.second_string, &self.third_string) {
+        match file.conform_among(&source.siblings(), &self.second_string, text) {
             Ok(datom) => Response::Conformed(Conformed_Data {
                 first_string: self.second_string.clone(),
                 second_string: datom.protosize().textualize(),
@@ -188,13 +235,31 @@ impl Serving for Conformance {
     }
 }
 
+/// The trait whose capability reads the datom text from a file before conforming it.
+trait Reading {
+    fn read_conformed(&self) -> Response;
+}
+
+impl Reading for Conformance {
+    fn read_conformed(&self) -> Response {
+        match std::fs::read_to_string(&self.third_string) {
+            Ok(text) => self.conformed(&text),
+            Err(error) => Response::Unreadable(Unreadable_Data {
+                first_string: self.third_string.clone(),
+                second_string: error.to_string(),
+            }),
+        }
+    }
+}
+
 impl Serving for Query {
     fn serve(&mut self) -> Response {
         match self {
             Self::Generate(generation) => generation.serve(),
             Self::Check(source) => source.serve(),
             Self::Inspect(source) => source.inspect(),
-            Self::Conform(conformance) => conformance.serve(),
+            Self::Conform(conformance) => conformance.conformed(&conformance.third_string),
+            Self::ConformFile(conformance) => conformance.read_conformed(),
         }
     }
 }

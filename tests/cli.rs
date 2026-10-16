@@ -377,3 +377,39 @@ fn conform_reads_a_datom_as_its_declared_type() {
         "Unconformed.{ Response Error.{ Composition [ 1 1 0 ] Form.{ Struct Bare } } }\n"
     );
 }
+
+/// A datom holding «…» strings is read from a file, and the imported types of
+/// a Signal from its sibling ethos files.
+#[test]
+fn conform_file_reads_the_datom_from_a_file_and_imports_from_siblings() {
+    let directory = "conform-file".scratch();
+    std::fs::create_dir_all(&directory).unwrap();
+    let datom = format!("{directory}/report.datom");
+    std::fs::write(&datom, "Report.{ 7\n         ToolUsed.«a tool» }\n").unwrap();
+    let source = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/fixtures/print/flow-signal.ethos"
+    );
+    let argument = format!(
+        "ConformFile.{{ {} Query {} }}",
+        opaque(source),
+        opaque(&datom)
+    );
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(success, "{output}");
+    assert_eq!(
+        output,
+        "Conformed.{ Query «Report.{ 7\n         ToolUsed.«a tool\\» }» }\n"
+    );
+
+    let missing = format!(
+        "ConformFile.{{ {} Query «/nowhere/x.datom» }}",
+        opaque(source)
+    );
+    let (success, output) = [missing.as_str()].invoke();
+    assert!(!success);
+    assert!(
+        output.starts_with("Unreadable.{ /nowhere/x.datom "),
+        "{output}"
+    );
+}

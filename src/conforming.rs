@@ -7,8 +7,11 @@
 //! enum in place carries that payload; an alias is its aliased type. The
 //! intrinsic scalars are composed by datom-codec itself (`String`,
 //! `Integer`, `Decimal`, `Boolean`, `Meaning`); `Vector`, `Option` and
-//! `Result` by their forms. A type the file only imports, or a parameter,
-//! cannot be checked here and is refused as a `Form` error naming it.
+//! `Result` by their forms. A type the file imports
+//! is read from the sibling ethos files given (`conform_among`): a source's
+//! own `<source>.ethos` first, then any sibling declaring the name. One no
+//! sibling declares, or a parameter, cannot be checked here and is refused
+//! as a `Form` error naming it.
 
 use datom_codec::{
     Budget, Composable, Datom, DatomForming, Decimal, Error, ErrorKind, ErrorLayer, Form, Meaning,
@@ -27,6 +30,50 @@ pub trait Conforming {
     /// The datom read from `text` if it is a value of the type `name`, or
     /// the datom error, its layer, path and kind, if it is not.
     fn conform(&self, name: &str, text: &str) -> Result<Datom, Error>;
+    /// The same, an imported type read from the sibling files given, each
+    /// with its file stem: a source's own `<source>.ethos` first, then any
+    /// sibling that declares the name.
+    fn conform_among(
+        &self,
+        siblings: &[(String, File)],
+        name: &str,
+        text: &str,
+    ) -> Result<Datom, Error>;
+}
+
+/// A file being conformed to, and the sibling files its imports resolve in.
+struct Context<'a> {
+    file: &'a File,
+    siblings: &'a [(String, File)],
+}
+
+/// The trait whose capability finds the sibling file declaring an imported name.
+trait Importing {
+    fn imported(&self, source: &crate::Source, name: &Name) -> Option<&File>;
+}
+
+impl Importing for Context<'_> {
+    fn imported(&self, source: &crate::Source, name: &Name) -> Option<&File> {
+        let stem = source.as_ref().rsplit("::").next().unwrap_or_default();
+        let mut found = None;
+        for (sibling, file) in self.siblings {
+            let declares = file.declaration(name).is_some()
+                || file
+                    .implied_enums()
+                    .iter()
+                    .any(|implied| &implied.name == name);
+            if !declares {
+                continue;
+            }
+            if sibling == stem {
+                return Some(file);
+            }
+            if found.is_none() {
+                found = Some(file);
+            }
+        }
+        found
+    }
 }
 
 /// The trait whose capabilities check one datom against one shape.
@@ -78,6 +125,15 @@ impl Refusing for Datom {
 
 impl Conforming for File {
     fn conform(&self, name: &str, text: &str) -> Result<Datom, Error> {
+        self.conform_among(&[], name, text)
+    }
+
+    fn conform_among(
+        &self,
+        siblings: &[(String, File)],
+        name: &str,
+        text: &str,
+    ) -> Result<Datom, Error> {
         let mut budget = Budget {
             remaining: 4_096,
             reader: protos::ReaderBudget { remaining: 4_096 },
@@ -98,23 +154,34 @@ impl Conforming for File {
                 found: name.to_owned(),
             }));
         };
-        self.named(&name, &datom, &mut budget)?;
+        Context {
+            file: self,
+            siblings,
+        }
+        .named(&name, &datom, &mut budget)?;
         Ok(datom)
     }
 }
 
-impl Shaping for File {
+impl Shaping for Context<'_> {
     fn reference(
         &self,
         reference: &Reference,
         datom: &Datom,
         budget: &mut Budget,
     ) -> Result<(), Error> {
-        if reference.source.is_some() {
-            return Err(datom.form(reference.name.as_ref()));
+        if let Some(source) = &reference.source {
+            return match self.imported(source, &reference.name) {
+                Some(file) => Context {
+                    file,
+                    siblings: self.siblings,
+                }
+                .named(&reference.name, datom, budget),
+                None => Err(datom.form(reference.name.as_ref())),
+            };
         }
         let argument = reference.arguments.first();
-        match (self.resolve(&reference.name), argument) {
+        match (self.file.resolve(&reference.name), argument) {
             (Resolution::Intrinsic(Intrinsic::String), _) => {
                 datom.compose::<String>(budget).map(drop)
             }
@@ -165,17 +232,25 @@ impl Shaping for File {
                 _ => Err(datom.form("Variant")),
             },
             (Resolution::Type(name), _) => self.named(&name, datom, budget),
+            (Resolution::Imported(source, emitted), _) => match self.imported(&source, &emitted) {
+                Some(file) => Context {
+                    file,
+                    siblings: self.siblings,
+                }
+                .named(&emitted, datom, budget),
+                None => Err(datom.form(reference.name.as_ref())),
+            },
             _ => Err(datom.form(reference.name.as_ref())),
         }
     }
 
     fn named(&self, name: &Name, datom: &Datom, budget: &mut Budget) -> Result<(), Error> {
-        for implied in self.implied_enums() {
+        for implied in self.file.implied_enums() {
             if &implied.name == name {
                 return self.variants(name, implied.variants, datom, budget);
             }
         }
-        match self.declaration(name) {
+        match self.file.declaration(name) {
             Some(TypeDeclaration::Struct(_, positions) | TypeDeclaration::Sealed(_, positions)) => {
                 self.positions(positions, datom, budget)
             }
@@ -223,7 +298,7 @@ impl Shaping for File {
         for variant in variants {
             match (variant, body) {
                 (Variant::Bare(name), None)
-                    if name.as_ref() == head && self.declaration(name).is_none() =>
+                    if name.as_ref() == head && self.file.declaration(name).is_none() =>
                 {
                     return Ok(());
                 }

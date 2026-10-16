@@ -310,3 +310,24 @@ fn a_datom_is_refused_with_its_typed_error() {
         }
     ));
 }
+
+#[test]
+fn an_imported_type_is_read_from_a_sibling_file() {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let print = |name: &str| {
+        std::fs::read_to_string(format!("{root}/fixtures/print/{name}.ethos")).expect(name)
+    };
+    let signal = read(&print("flow-signal"));
+    let library = read(&print("flow-library"));
+    let text = "Report.{ 7 ToolUsed.«a tool» }";
+    // Alone, the imported FlowId and Event cannot be checked.
+    assert!(signal.conform("Query", text).is_err());
+    let siblings = vec![("flow-library".to_owned(), library)];
+    signal
+        .conform_among(&siblings, "Query", text)
+        .expect("the imported types conform");
+    let error = signal
+        .conform_among(&siblings, "Query", "Report.{ 7 Exploded }")
+        .expect_err("Exploded is no Event");
+    assert_eq!(error.path, vec![1, 1]);
+}

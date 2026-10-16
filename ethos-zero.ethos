@@ -4,7 +4,9 @@
 ; file, the line and column of the error in it, and the error.
 ; Inspect (proposal) reads, validates and generates a file, answering with the
 ; generated Rust; Conform (proposal) reads a file, then a datom text as the
-; type it names, answering with the datom's canonical print or its datom error.
+; type it names, answering with the datom's canonical print or its datom error;
+; ConformFile reads the datom text from the file its third String names. An
+; imported type is read from the sibling .ethos files of the file.
 ; The files read are of five roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
 ;   Signal     [ imports ] [ queries ] [ responses ] [ types ]
@@ -20,7 +22,8 @@ Library.
 [ Query.[ Generate.Generation
           Check.String
           Inspect.String
-          Conform.Conformance ]
+          Conform.Conformance
+          ConformFile.Conformance ]
   Response.[ Generated.Vector<String>
              Checked.String
              Arguments.Integer
