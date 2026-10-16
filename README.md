@@ -3,6 +3,72 @@
 The ethos schema language, version zero. Ethos specifies the types,
 datom fills them with data, and ethos generates the Rust.
 
+## Proposal branch: `ethos-proposals`
+
+This branch reads the proposed syntax, so a book's example can be checked
+against the real reader. It builds on protos and datom-codec's own
+`ethos-proposals` branches, which carry the reader changes.
+
+1. **Whitespace after a separator.** After `.`, `!` or `:`, any whitespace,
+   line breaks and comments included, may stand before the body (protos):
+   `Observed.\n   Locks.\n      []` is `Observed.Locks.[]`, in datom and in
+   ethos alike. A run ending in a separator with nothing after it but a
+   closer stays one bare word (`[ a. ]`); `[ a. b ]`, two words on main, is
+   now `a.b`.
+2. **A file is an ordinary datom.** Its root's variant, the dot, then the
+   braced sections; the brace may sit on the next line. The sweet form
+   (bare head, sections as siblings) is replaced and no longer reads: it is
+   refused as `Structural … Multiple`. The print puts the brace alone on the
+   second line and every section from the first column, the last closing
+   the brace:
+
+   ```
+   Library.
+   {
+   [ protos:String ]
+   [ Record.{ String Integer } ]
+   []
+   [] }
+   ```
+3. **The type ethos.** `Type.` is a fifth root, a single-field variant
+   carrying one declaration: `Type.CommitMessage.[ Landing.{ String Integer }
+   Fix.String ]`. It has no imports, traits or associations, so it names only
+   intrinsics, itself and what it declares in place. Its enum needs at least
+   two variants (`Arity.{ 2 1 }` at `[ 1 1 ]`); the rule holds for the type
+   file only, not for enums in other roots.
+4. **Sealed types.** `Name.Sealed.{ positions }` in a types section (or in
+   place). Only a struct may be sealed (`Sealed.[ … ]` is `Expected.Declaration`).
+   Its fields are generated `pub(super)`: hidden from every module but the
+   one holding the generated module, where the hand-written trait impl
+   lives. The file must associate the type with a trait it declares that
+   has a `:` capability yielding `Self` or `Result<Self X>`; otherwise it is
+   refused as `Sealed.Name` at the type's head. Only a Library can.
+5. **`⟦ T ⟧` is `Vector<T>`** in every type position: positions, aliases,
+   variant payloads, capability inputs and yields, arguments, nested
+   (`⟦ ⟦ Integer ⟧ ⟧`). Protos reads `⟦ ⟧` as an enclosure; ethos rewrites a
+   listed one into `Vector` and its angled arguments before conception
+   (`sugaring`), so error paths and locations are those of the source. The
+   print spells it `Vector<T>` except for a `Type.` file's alias, which has no
+   list to hold the angles beside it.
+
+### Checking a snippet
+
+```
+ethos-zero 'Inspect.«path/to/snippet.ethos»'
+# -> Inspected.{ path/to/snippet.ethos «…generated Rust…» }
+# -> Rejected.{ path/to/snippet.ethos { line column } Conceptual.{ [ path ] Problem } }
+ethos-zero 'Conform.{ «path/to/file.ethos» TypeName «datom text» }'
+# -> Conformed.{ TypeName «canonical datom» }
+# -> Unconformed.{ TypeName Error.{ layer [ path ] kind } }
+```
+
+`Inspect` reads, checks and generates; `Conform` reads the file, checks it,
+then reads the datom as the named type (a Signal's `Query` and `Response`
+included) by the rules the generated derives compose by, without compiling
+anything. A type only imported, or a generic parameter, cannot be checked
+by `Conform` and is refused as a `Form` error naming it. From a checkout:
+`nix run .# -- 'Inspect.«snippet.ethos»'`.
+
 ## Anatomy
 
 `src/lib.rs` is the ontology: the layers, the traits, the declaration
@@ -10,14 +76,14 @@ types. Each pass is a module named for it.
 
 | pass | trait | from | to |
 |---|---|---|---|
-| canonicalization | `Canonicalizable` | sweet text | `Canonical`, the braced form, with its seam |
+| canonicalization | `Canonicalizable` | text | `Canonical`, the text as written (the seam is empty on this branch) |
 | protosization (protos) | `Protosizable` | canonical text | `protos::Protos` |
 | conception | `Ethosizable<File>` | `protos::Protos` | `File`, checked whole |
 | checking | `Resolving`, `Checkable` | `File` | names resolved, duplicates and undeclared names refused |
 | generation | `Generating` | `File` | Rust text, or a whole-file error |
 | datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Composing` derives |
 | ascent | `Protosizable`, `Textualizable` | `File` | canonical text on one line (cannot err) |
-| printing | `Printable` | `File` or `protos::Protos` | the sweet form, each section in protos' vertical print (cannot err) |
+| printing | `Printable` | `File` or `protos::Protos` | `Root.`, the brace, each section in protos' vertical print (cannot err) |
 | actualization | `Actualizing<File>` on `Potential<File>` | text | `File`, or an `Error` |
 
 Every error carries the Protos path of the structure in error, from the
@@ -153,20 +219,22 @@ aligned; the closing delimiter ends the last element's line. Elements that
 are all leaves sit on one line, one space apart. A space stands inside
 every non-empty bracket and brace; an empty one is `[]` or `{}`. An angled
 enclosure stays tight against the name it qualifies, `Vector<Event>`. A
-file prints in the sweet form, its root's head on the first line and each
-section on its own line; comments are not printed.
+file prints as a datom, its root's variant and the dot on the first line,
+the brace on the second, each section on its own line from the first
+column; comments are not printed.
 
 ```
-Memory
+Memory.
+{
 [ flow:[ FlowId Voice Event ] ]
 [ Flow.{ FlowId
          Voice
          State.[ Running Ended ]
-         Vector<Event> } ]
+         Vector<Event> } ] }
 ```
 
 The layout is protos' canonical print (`protos::Textualizable`); this crate
-adds only the sweet form of a file. `Printable::print` writes it for a
+adds only the file's brace and sections. `Printable::print` writes it for a
 `File` and for any `protos::Protos` read from ethos text; the reader accepts
 it and every other layout. An empty `[]` or `{}` is a leaf. The
 Flow Nexus's four files under `fixtures/print/` print back byte-identical.

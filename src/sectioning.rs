@@ -34,8 +34,9 @@ pub(crate) trait Sectioning {
     fn imports(&self) -> &[Import];
     /// The types section's declarations.
     fn types(&self) -> &[TypeDeclaration];
-    /// The index of the types section.
-    fn types_section(&self) -> Integer;
+    /// The path, from the file's body, of the declaration at Protos index
+    /// `at` of the types section; a `Type` file's one declaration is the body.
+    fn type_path(&self, at: Integer) -> Path;
     /// The enums the root implies, in section order.
     fn implied_enums(&self) -> Vec<Implied<'_>>;
 }
@@ -47,6 +48,7 @@ impl Sectioning for File {
             File::Signal(signal) => &signal.imports,
             File::Operation(operation) => &operation.imports,
             File::Memory(memory) => &memory.imports,
+            File::Type(_) => &[],
         }
     }
 
@@ -56,19 +58,21 @@ impl Sectioning for File {
             File::Signal(signal) => &signal.types,
             File::Operation(operation) => &operation.types,
             File::Memory(memory) => &memory.types,
+            File::Type(declaration) => std::slice::from_ref(declaration),
         }
     }
 
-    fn types_section(&self) -> Integer {
+    fn type_path(&self, at: Integer) -> Path {
         match self {
-            File::Library(_) | File::Memory(_) => 1,
-            File::Signal(_) | File::Operation(_) => 3,
+            File::Library(_) | File::Memory(_) => vec![1, at],
+            File::Signal(_) | File::Operation(_) => vec![3, at],
+            File::Type(_) => vec![],
         }
     }
 
     fn implied_enums(&self) -> Vec<Implied<'_>> {
         let (request, requests, reply, replies) = match self {
-            File::Library(_) | File::Memory(_) => return vec![],
+            File::Library(_) | File::Memory(_) | File::Type(_) => return vec![],
             File::Signal(signal) => ("Query", &signal.queries, "Response", &signal.responses),
             File::Operation(operation) => (
                 "Operation",
@@ -105,10 +109,9 @@ pub(crate) trait Hoisting {
 impl Hoisting for File {
     fn declarations(&self) -> Vec<Placed<'_>> {
         let mut placed = Vec::new();
-        let section = self.types_section();
         let mut at = 0;
         for declaration in self.types() {
-            declaration.hoist(vec![section, at], &mut placed);
+            declaration.hoist(self.type_path(at), &mut placed);
             at += declaration.span();
         }
         for implied in self.implied_enums() {
@@ -119,12 +122,18 @@ impl Hoisting for File {
         placed
     }
 
-    // A declaration of the types section sits at `[ section at ]`; one
+    // A declaration of the types section sits at its `type_path`; one
     // declared in place sits deeper.
     fn inlined(&self) -> Vec<Placed<'_>> {
+        let mut tops = Vec::new();
+        let mut at = 0;
+        for declaration in self.types() {
+            tops.push(self.type_path(at));
+            at += declaration.span();
+        }
         let mut inlined = Vec::new();
         for placed in self.declarations() {
-            if placed.path.len() > 2 {
+            if !tops.contains(&placed.path) {
                 inlined.push(placed);
             }
         }
@@ -157,6 +166,11 @@ impl Hoist for TypeDeclaration {
         });
         match self {
             TypeDeclaration::Struct(_, positions) => positions.hoist_positions(body, placed),
+            TypeDeclaration::Sealed(_, positions) => {
+                let mut shape = body;
+                shape.push(1);
+                positions.hoist_positions(shape, placed)
+            }
             TypeDeclaration::Enum(_, variants) => variants.hoist_variants(body, placed),
             TypeDeclaration::Alias(_, _) => {}
         }

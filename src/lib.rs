@@ -7,7 +7,7 @@
 //!
 //! | layer | type | trait borne | yields |
 //! |---|---|---|---|
-//! | Text, as written (the sweet form) | `String` | [`Canonicalizable`] | [`Canonical`] |
+//! | Text, as written (an ordinary datom) | `String` | [`Canonicalizable`] | [`Canonical`] |
 //! | Text, canonical (the braced form) | [`Canonical`] | `protos::Protosizable` | `protos::Protos` |
 //! | Structure | `protos::Protos` | [`Ethosizable`]<[`File`]> | [`File`], checked whole |
 //! | Concept | [`File`] | [`Generating`] | Rust text, or a whole-file error |
@@ -45,6 +45,7 @@ use std::marker::PhantomData;
 #[rustfmt::skip]
 mod error;
 
+pub use conforming::Conforming;
 pub use error::{
     Arity_Data, Column, Conceptual_Data, Error, Form, Line, Location, Problem, Structural_Error,
 };
@@ -151,6 +152,8 @@ pub enum File {
     Operation(Operation),
     /// Memory: imports, the record types stored.
     Memory(Memory),
+    /// Type: one type declaration alone, `Type.CommitMessage.[ Landing Fix.String ]`.
+    Type(TypeDeclaration),
 }
 
 /// The head of a file: which variant of [`File`] it is.
@@ -164,6 +167,8 @@ pub enum Root {
     Operation,
     /// The memory root: what a Nexus remembers.
     Memory,
+    /// The type root: one declaration, a single-field variant of the file.
+    Type,
 }
 
 /// A library's complete declaration surface.  Types and traits share one
@@ -283,6 +288,11 @@ pub enum TypeDeclaration {
     Enum(Identity, Vec<Variant>),
     /// A headed bare: the aliased type.
     Alias(Identity, Reference),
+    /// A sealed struct, `Name.Sealed.{ positions }`: its positions are
+    /// private in the generated Rust, and it is built only by a `:`
+    /// capability yielding `Self` or `Result<Self X>` of a trait it is
+    /// associated with in the same file.
+    Sealed(Identity, Vec<Position>),
 }
 
 /// A variant of an enum.
@@ -387,7 +397,7 @@ pub struct Association {
 // The text layer: the canonical form
 // ---------------------------------------------------------------------------
 
-/// The canonical text of a file, and the seam where the sweet form was opened into braces.
+/// The canonical text of a file, and its seam: empty, the text being read as written (proposal).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Canonical {
     /// The braced form the reader sees.
@@ -488,7 +498,7 @@ pub struct Scope<'a> {
 // Traits
 // ---------------------------------------------------------------------------
 
-/// The trait whose capability prints an ethos file in the sweet form, each section in protos' canonical vertical print.
+/// The trait whose capability prints an ethos file as a datom, `Root.` then the brace, each section in protos' canonical vertical print.
 pub trait Printable {
     /// The canonical print.
     fn print(&self) -> String;
@@ -496,7 +506,7 @@ pub trait Printable {
 
 /// The trait whose capability yields the canonical form of an ethos text.
 pub trait Canonicalizable {
-    /// Open the sweet form into the braced form; the text is delineated to find its head.
+    /// The text as the reader sees it; on the proposal branch, the text as written.
     fn canonicalize(&self) -> Result<Canonical, protos::Error>;
 }
 
@@ -664,13 +674,20 @@ impl Named for Root {
             Root::Signal => "Signal",
             Root::Operation => "Operation",
             Root::Memory => "Memory",
+            Root::Type => "Type",
         }
     }
 }
 
 impl Identifiable for Root {
     fn identify(name: &str) -> Option<Self> {
-        for root in [Root::Library, Root::Signal, Root::Operation, Root::Memory] {
+        for root in [
+            Root::Library,
+            Root::Signal,
+            Root::Operation,
+            Root::Memory,
+            Root::Type,
+        ] {
             if root.name() == name {
                 return Some(root);
             }
@@ -697,6 +714,7 @@ impl Rooted for File {
             File::Signal(_) => Root::Signal,
             File::Operation(_) => Root::Operation,
             File::Memory(_) => Root::Memory,
+            File::Type(_) => Root::Type,
         }
     }
 }
@@ -748,12 +766,14 @@ mod actualization;
 mod canonicalization;
 mod checking;
 mod conception;
+mod conforming;
 mod generation;
 mod location;
 mod printing;
 mod protosization;
 mod sectioning;
 mod signature;
+mod sugaring;
 
 #[cfg(test)]
 mod behavior {
@@ -765,12 +785,13 @@ mod behavior {
 
     #[test]
     fn library_record_generates_named_datom_fields() {
-        let file = match Potential::<File>::from("Library [] [ Record.{ String Integer } ] [] []")
-            .actualize()
-        {
-            Ok(file) => file,
-            Err(_) => panic!("approved Library record reads"),
-        };
+        let file =
+            match Potential::<File>::from("Library.{ [] [ Record.{ String Integer } ] [] [] }")
+                .actualize()
+            {
+                Ok(file) => file,
+                Err(_) => panic!("approved Library record reads"),
+            };
         let rust = match file.generate() {
             Ok(rust) => rust,
             Err(_) => panic!("approved Library record generates"),
@@ -792,10 +813,10 @@ mod behavior {
     fn every_root_archives_and_gates_its_datom_derives() {
         let carried = "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]";
         for source in [
-            "Library [] [ Record.{ String Integer } ] [] []",
-            "Signal [] [ Ask.{ String Integer } ] [ Told ] []",
-            "Operation [] [ Do.{ String Integer } ] [ Done ] []",
-            "Memory [] [ Record.{ String Integer } ]",
+            "Library.{ [] [ Record.{ String Integer } ] [] [] }",
+            "Signal.{ [] [ Ask.{ String Integer } ] [ Told ] [] }",
+            "Operation.{ [] [ Do.{ String Integer } ] [ Done ] [] }",
+            "Memory.{ [] [ Record.{ String Integer } ] }",
         ] {
             let file = match Potential::<File>::from(source).actualize() {
                 Ok(file) => file,
@@ -819,7 +840,7 @@ mod behavior {
 
     #[test]
     fn approved_declared_and_inline_payloads_generate_named_fields() {
-        let source = "Library [] [ Generation.{ String String } FilePath.String SyntaxError.Vector<FilePath> GenerationFailure.[ SyntaxError Unwritable ] Lock.{ String } LockRejection.[ DuplicateName.Lock PathOverlap.{ Lock Lock } ] ] [] []";
+        let source = "Library.{ [] [ Generation.{ String String } FilePath.String SyntaxError.Vector<FilePath> GenerationFailure.[ SyntaxError Unwritable ] Lock.{ String } LockRejection.[ DuplicateName.Lock PathOverlap.{ Lock Lock } ] ] [] [] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -844,7 +865,7 @@ mod behavior {
 
     #[test]
     fn library_traits_generate_trait_surfaces() {
-        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+        let source = "Library.{ [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -932,8 +953,8 @@ mod behavior {
 
     #[test]
     fn canonical_ascent_round_trips_nonempty_library_and_signal() {
-        let library = "Library [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.Vector<FilePath> External.external:Vector<FilePath> Record.{ Vector<Option<String>> Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Capability ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ]";
-        let signal = "Signal [ datom_codec:[ Error Path ] ] [ Generate.Generation ] [ Generated.String Malformed.Error ] [ Generation.{ String String } ]";
+        let library = "Library.{ [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.Vector<FilePath> External.external:Vector<FilePath> Record.{ Vector<Option<String>> Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Capability ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ] }";
+        let signal = "Signal.{ [ datom_codec:[ Error Path ] ] [ Generate.Generation ] [ Generated.String Malformed.Error ] [ Generation.{ String String } ] }";
         for source in [library, signal] {
             let file = match Potential::<File>::from(source).actualize() {
                 Ok(file) => file,
@@ -950,7 +971,7 @@ mod behavior {
 
     #[test]
     fn memory_has_imports_and_record_type_declarations_only() {
-        let source = "Memory [ crate:[ Handle ] ] [ Record.{ Handle String } ]";
+        let source = "Memory.{ [ crate:[ Handle ] ] [ Record.{ Handle String } ] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("approved Memory reads"),
@@ -965,7 +986,7 @@ mod behavior {
 
     #[test]
     fn operation_reads_its_four_sections_and_ascends() {
-        let source = "Operation [ flow:[ Voice ] ] [ Start.{ Voice Capsule } ] [ Started Failed.String ] [ Capsule.{ Home.String } ]";
+        let source = "Operation.{ [ flow:[ Voice ] ] [ Start.{ Voice Capsule } ] [ Started Failed.String ] [ Capsule.{ Home.String } ] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("approved Operation reads"),
@@ -980,7 +1001,7 @@ mod behavior {
 
     #[test]
     fn a_file_headed_sema_is_refused_naming_memory() {
-        match Potential::<File>::from("Sema [] [ Record.{ String } ]").actualize() {
+        match Potential::<File>::from("Sema.{ [] [ Record.{ String } ] }").actualize() {
             Err(Error::Conceptual(data)) => {
                 assert_eq!(data.integer_vector, vec![0]);
                 assert_eq!(data.problem, Problem::Renamed("Memory".to_owned()));
@@ -991,14 +1012,14 @@ mod behavior {
 
     #[test]
     fn retired_type_and_trait_roots_are_rejected() {
-        for source in ["Types [] [] []", "Traits [] []"] {
+        for source in ["Types.{ [] [] [] }", "Traits.{ [] [] }"] {
             assert!(Potential::<File>::from(source).actualize().is_err());
         }
     }
 
     #[test]
     fn constrained_data_declarations_are_rejected() {
-        let source = "Library [] [ Box<Sized>.{ String } ] [] []";
+        let source = "Library.{ [] [ Box<Sized>.{ String } ] [] [] }";
         assert!(matches!(
             Potential::<File>::from(source).actualize(),
             Err(Error::Conceptual(_))
@@ -1035,7 +1056,7 @@ mod behavior {
 
     #[test]
     fn nested_inline_data_names_include_ancestry_after_the_first_level() {
-        let source = "Library [] [ Outer.[ A.[ X.{ String } ] B.[ X.{ Integer } ] ] Rejection.[ PathOverlap.{ String String } ] ] [] []";
+        let source = "Library.{ [] [ Outer.[ A.[ X.{ String } ] B.[ X.{ Integer } ] ] Rejection.[ PathOverlap.{ String String } ] ] [] [] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("nested collision source reads"),
@@ -1060,11 +1081,23 @@ mod behavior {
     }
 
     #[test]
-    fn sweet_structural_errors_resituate_to_the_authored_source() {
-        let source = "Library\n[]\n[ Record.{ String ]\n[]\n[]";
+    fn the_sweet_form_is_refused_as_more_than_one_structure() {
+        let source = "Library\n[]\n[ Record.{ String } ]\n[]\n[]";
         match Potential::<File>::from(source).actualize() {
             Err(Error::Structural(data)) => {
-                assert_eq!(data.extent, Extent { start: 29, end: 29 });
+                assert_eq!(data.problem, protos::Problem::Multiple);
+                assert_eq!(data.extent.start, 8);
+            }
+            _ => panic!("the sweet form no longer reads"),
+        }
+    }
+
+    #[test]
+    fn structural_errors_sit_at_the_authored_source() {
+        let source = "Library.\n{\n[]\n[ Record.{ String ]\n[]\n[] }";
+        match Potential::<File>::from(source).actualize() {
+            Err(Error::Structural(data)) => {
+                assert_eq!(data.extent, Extent { start: 32, end: 32 });
                 assert_eq!(source.as_bytes()[data.extent.start], b']');
             }
             _ => panic!("expected structural error"),
@@ -1073,7 +1106,7 @@ mod behavior {
 
     #[test]
     fn public_file_protosization_has_the_shared_exact_canonical_extents() {
-        let source = "Library [] [ Alias.Vector<Option<String>> Record.{ Vector<Option<String>> Result<String Integer> } ] [ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] []";
+        let source = "Library.{ [] [ Alias.Vector<Option<String>> Record.{ Vector<Option<String>> Result<String Integer> } ] [ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("generic source reads"),
@@ -1123,10 +1156,10 @@ mod behavior {
     #[test]
     fn signal_memory_import_and_attached_generic_errors_keep_root_paths() {
         let cases = [
-            ("Signal [ 1 ] [] [] []", vec![1, 0, 0]),
-            ("Memory [] [ 1 ]", vec![1, 1, 0]),
-            ("Operation [ 1 ] [] [] []", vec![1, 0, 0]),
-            ("Library [] [ Alias.Vector<1> ] [] []", vec![1, 1, 1, 0]),
+            ("Signal.{ [ 1 ] [] [] [] }", vec![1, 0, 0]),
+            ("Memory.{ [] [ 1 ] }", vec![1, 1, 0]),
+            ("Operation.{ [ 1 ] [] [] [] }", vec![1, 0, 0]),
+            ("Library.{ [] [ Alias.Vector<1> ] [] [] }", vec![1, 1, 1, 0]),
         ];
         for (source, expected) in cases {
             match Potential::<File>::from(source).actualize() {
@@ -1139,13 +1172,13 @@ mod behavior {
     #[test]
     fn trait_capability_and_association_errors_keep_all_structural_parents() {
         let cases = [
-            ("Library [] [] [ K.[ 1 ] ] []", vec![1, 2, 0, 1, 0]),
+            ("Library.{ [] [] [ K.[ 1 ] ] [] }", vec![1, 2, 0, 1, 0]),
             (
-                "Library [] [] [ K.{ [ 1 ] [] [] [] } ] []",
+                "Library.{ [] [] [ K.{ [ 1 ] [] [] [] } ] [] }",
                 vec![1, 2, 0, 1, 0, 0],
             ),
             (
-                "Library [] [ T.String ] [ K.[] ] [ T.[ 1 ] ]",
+                "Library.{ [] [ T.String ] [ K.[] ] [ T.[ 1 ] ] }",
                 vec![1, 3, 0, 1, 0],
             ),
         ];
@@ -1163,23 +1196,23 @@ mod behavior {
         // Each source holds exactly one `1` or `Bogus`, which is the error.
         let cases = [
             "Library.{ [] [ 1 ] [] [] }",
-            "Signal [ 1 ] [] [] []",
-            "Memory [] [ 1 ]",
-            "Operation [] [ Go.Vector<Bogus> ] [] []",
-            "Library [] [ Alias.Vector<1> ] [] []",
-            "Library [] [] [ K.[ 1 ] ] []",
-            "Library [] [] [ K.{ [ 1 ] [] [] [] } ] []",
-            "Library [] [ T.String ] [ K.[] ] [ T.[ 1 ] ]",
-            "Library [] [ Rec.{ String Bogus } ] [] []",
-            "Library [] [ Rec.{ Vector<String> Option<Bogus> } ] [] []",
-            "Library [] [ Rec.{ Vector<Option<Bogus>> } ] [] []",
-            "Library [] [ Alias.Result<String Bogus> ] [] []",
-            "Library [] [ E.[ A.Vector<String> B.Option<Bogus> ] ] [] []",
-            "Library [ x:[ T ] ] [ Rec.{ x:T<Bogus> } ] [] []",
-            "Library [] [] [ K.[ run.{ [ Self Bogus ] [ String ] } ] ] []",
-            "Library [] [] [ K.[ run.{ [ Self ] [ Vector<Bogus> ] } ] ] []",
-            "Library [] [] [ K.{ [] [ Item<Bogus> ] [] [] } ] []",
-            "Signal [] [ Ask.Vector<Bogus> ] [] []",
+            "Signal.{ [ 1 ] [] [] [] }",
+            "Memory.{ [] [ 1 ] }",
+            "Operation.{ [] [ Go.Vector<Bogus> ] [] [] }",
+            "Library.{ [] [ Alias.Vector<1> ] [] [] }",
+            "Library.{ [] [] [ K.[ 1 ] ] [] }",
+            "Library.{ [] [] [ K.{ [ 1 ] [] [] [] } ] [] }",
+            "Library.{ [] [ T.String ] [ K.[] ] [ T.[ 1 ] ] }",
+            "Library.{ [] [ Rec.{ String Bogus } ] [] [] }",
+            "Library.{ [] [ Rec.{ Vector<String> Option<Bogus> } ] [] [] }",
+            "Library.{ [] [ Rec.{ Vector<Option<Bogus>> } ] [] [] }",
+            "Library.{ [] [ Alias.Result<String Bogus> ] [] [] }",
+            "Library.{ [] [ E.[ A.Vector<String> B.Option<Bogus> ] ] [] [] }",
+            "Library.{ [ x:[ T ] ] [ Rec.{ x:T<Bogus> } ] [] [] }",
+            "Library.{ [] [] [ K.[ run.{ [ Self Bogus ] [ String ] } ] ] [] }",
+            "Library.{ [] [] [ K.[ run.{ [ Self ] [ Vector<Bogus> ] } ] ] [] }",
+            "Library.{ [] [] [ K.{ [] [ Item<Bogus> ] [] [] } ] [] }",
+            "Signal.{ [] [ Ask.Vector<Bogus> ] [] [] }",
         ];
         for source in cases {
             let potential = Potential::<File>::from(source);

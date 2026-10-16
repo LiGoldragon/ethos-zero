@@ -1,0 +1,2 @@
+; A type file: one declaration, a single-field variant of the file (proposal).
+Type.CommitMessage.[ Landing.{ String Integer } Fix.String ]

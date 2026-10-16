@@ -86,6 +86,20 @@ impl Conceiving<File> for Protos {
             Some(Root::Signal) => Ok(File::Signal(body.conceive().place(1)?)),
             Some(Root::Operation) => Ok(File::Operation(body.conceive().place(1)?)),
             Some(Root::Memory) => Ok(File::Memory(body.conceive().place(1)?)),
+            Some(Root::Type) => {
+                let declaration: TypeDeclaration = body.conceive().place(1)?;
+                // A type file declares one type whole; an enum of it needs at
+                // least two variants, or it would be a struct or an alias.
+                if let TypeDeclaration::Enum(_, variants) = &declaration
+                    && variants.len() < 2
+                {
+                    return Err(Error::conceptual(
+                        vec![1, 1],
+                        Problem::arity(2, variants.len() as Integer),
+                    ));
+                }
+                Ok(File::Type(declaration))
+            }
             None => match Root::successor(&head.0) {
                 Some(successor) => Err(Error::conceptual(
                     vec![0],
@@ -441,6 +455,17 @@ impl Conceiving<Reference> for Protos {
                 );
                 Ok(r)
             }
+            // `⟦ T ⟧` with no list around it, as a `Type.` file's alias body:
+            // a listed one is already `Vector<T>` (`sugaring`).
+            Protos::Enclosed {
+                enclosure: Enclosure::Vectored,
+                children,
+                ..
+            } => Ok(Reference {
+                source: None,
+                name: "Vector".name()?,
+                arguments: children.references()?,
+            }),
             _ => Err(Error::conceptual(
                 vec![],
                 Problem::Expected(Form::Reference),
@@ -473,6 +498,28 @@ impl Conceiving<TypeDeclaration> for Protos {
             name: head.name().place(0)?,
             constraints: vec![],
         };
+        if let Protos::Headed {
+            head: seal,
+            constraints: None,
+            separator: Separator::Period,
+            body: shape,
+            ..
+        } = body.as_ref()
+            && seal.0 == "Sealed"
+        {
+            // `Name.Sealed.{ positions }`: only a struct is sealed, its
+            // positions being what a sealed type keeps private.
+            let Some(p) = shape.children(Enclosure::Braced) else {
+                return Err(Error::conceptual(
+                    vec![1, 1],
+                    Problem::Expected(Form::Declaration),
+                ));
+            };
+            return Ok(TypeDeclaration::Sealed(
+                identity,
+                p.positions().place(1).place(1)?,
+            ));
+        }
         if let Some(p) = body.children(Enclosure::Braced) {
             Ok(TypeDeclaration::Struct(identity, p.positions().place(1)?))
         } else if let Some(v) = body.children(Enclosure::Bracketed) {

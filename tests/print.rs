@@ -14,7 +14,10 @@ trait Reprinting {
 
 impl Reprinting for str {
     fn reprint(&self) -> String {
-        let canonical = self.to_owned().canonicalize().expect("sweet form opens");
+        let canonical = self
+            .to_owned()
+            .canonicalize()
+            .expect("the text is canonical");
         let protos = canonical.text.protosize().expect("canonical text reads");
         protos.print()
     }
@@ -58,36 +61,36 @@ fn a_checked_file_prints_as_it_was_written_in_the_canonical_form() {
 #[test]
 fn a_one_line_layout_expands_to_the_canonical_print() {
     let written =
-        "Library [] [ Flow.{ FlowId Voice State.[ Running Ended ] Vector<Event> } ] [] []";
+        "Library.{ [] [ Flow.{ FlowId Voice State.[ Running Ended ] Vector<Event> } ] [] [] }";
     assert_eq!(
         written.reprint(),
-        "Library\n[]\n[ Flow.{ FlowId\n         Voice\n         State.[ Running Ended ]\n         Vector<Event> } ]\n[]\n[]\n"
+        "Library.\n{\n[]\n[ Flow.{ FlowId\n         Voice\n         State.[ Running Ended ]\n         Vector<Event> } ]\n[]\n[] }\n"
     );
 }
 
 #[test]
 fn leaves_stay_on_one_line_and_angles_stay_tight() {
     assert_eq!(
-        "Memory [ crate:[ Handle ] ] [ Pair.{ Vector<Option<String>> Result<String Integer> } ]"
+        "Memory.{ [ crate:[ Handle ] ] [ Pair.{ Vector<Option<String>> Result<String Integer> } ] }"
             .reprint(),
-        "Memory\n[ crate:[ Handle ] ]\n[ Pair.{ Vector<Option<String>> Result<String Integer> } ]\n"
+        "Memory.\n{\n[ crate:[ Handle ] ]\n[ Pair.{ Vector<Option<String>> Result<String Integer> } ] }\n"
     );
 }
 
 #[test]
 fn a_capability_hangs_its_inputs_and_yield() {
     assert_eq!(
-        "Library [] [] [ Fillable.[ push!{ [ Summarizable ] [ Result<Integer SinkError> ] } create:[ Self ] ] ] []".reprint(),
-        "Library\n[]\n[]\n[ Fillable.[ push!{ [ Summarizable ]\n                    [ Result<Integer SinkError> ] }\n             create:[ Self ] ] ]\n[]\n"
+        "Library.{ [] [] [ Fillable.[ push!{ [ Summarizable ] [ Result<Integer SinkError> ] } create:[ Self ] ] ] [] }".reprint(),
+        "Library.\n{\n[]\n[]\n[ Fillable.[ push!{ [ Summarizable ]\n                    [ Result<Integer SinkError> ] }\n             create:[ Self ] ] ]\n[] }\n"
     );
 }
 
 #[test]
 fn a_badly_hung_layout_is_realigned() {
-    let written = "Library\n[]\n[ E.[ A.String\n          B.String ] ]\n[]\n[]\n";
+    let written = "Library.\n{\n[]\n[ E.[ A.String\n          B.String ] ]\n[]\n[] }\n";
     assert_eq!(
         written.reprint(),
-        "Library\n[]\n[ E.[ A.String\n      B.String ] ]\n[]\n[]\n"
+        "Library.\n{\n[]\n[ E.[ A.String\n      B.String ] ]\n[]\n[] }\n"
     );
 }
 
@@ -104,7 +107,7 @@ fn every_fixture_prints_to_a_text_that_reads_back_to_it_and_prints_the_same() {
             sources.push(path.display().to_string());
         }
     }
-    assert_eq!(sources.len(), 20);
+    assert_eq!(sources.len(), 22);
     for path in sources {
         let source = std::fs::read_to_string(&path).expect("fixture reads");
         let file = match Potential::<File>::from(source).actualize() {
@@ -123,7 +126,7 @@ fn every_fixture_prints_to_a_text_that_reads_back_to_it_and_prints_the_same() {
 
 #[test]
 fn a_reference_with_arguments_prints_as_it_was_written() {
-    let source = "Library\n[]\n[ Lock.String\n  Locks.Vector<Lock>\n  Reply.[ Many.Vector<Lock>\n          Nothing ] ]\n[ Holding.{ [ Fillable ]\n            [ Item<Fillable> ]\n            [ LIMIT.Integer ]\n            [ take![ Option<Item> ] ] }\n  Fillable.[ fill![ Vector<Lock> ] ] ]\n[]\n";
+    let source = "Library.\n{\n[]\n[ Lock.String\n  Locks.Vector<Lock>\n  Reply.[ Many.Vector<Lock>\n          Nothing ] ]\n[ Holding.{ [ Fillable ]\n            [ Item<Fillable> ]\n            [ LIMIT.Integer ]\n            [ take![ Option<Item> ] ] }\n  Fillable.[ fill![ Vector<Lock> ] ] ]\n[] }\n";
     let file = match Potential::<File>::from(source).actualize() {
         Ok(file) => file,
         Err(error) => panic!("the Library reads: {error:?}"),

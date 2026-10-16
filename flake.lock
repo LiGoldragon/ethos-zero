@@ -119,17 +119,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1791003860,
-        "narHash": "sha256-5yoo6p3mS/du8ajWob4y0SiIZvdh2enVyxnriSy8rjo=",
+        "lastModified": 1792192089,
+        "narHash": "sha256-Q+AK4lSdAyR9fCYYQYqmrJr7XhPXvVMx9QOQy1WnVjg=",
         "owner": "LiGoldragon",
         "repo": "datom-codec",
-        "rev": "4dff16b4f7412febc3b71aac8b49680cd20988cb",
+        "rev": "dfecb24df5ce28c0b4ecfc3abc9663b42e2c1895",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
         "repo": "datom-codec",
-        "rev": "4dff16b4f7412febc3b71aac8b49680cd20988cb",
+        "rev": "dfecb24df5ce28c0b4ecfc3abc9663b42e2c1895",
         "type": "github"
       }
     },
@@ -1159,17 +1159,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1791003800,
-        "narHash": "sha256-Sf0CeqeUnfNkPAjz/a5CbJK4Kx1eM+429zll3qtV1VA=",
+        "lastModified": 1792192021,
+        "narHash": "sha256-hQGIhVsqap6+piddfknNFIKB4Mik3bx+OGqA+l19+XE=",
         "owner": "LiGoldragon",
         "repo": "protos",
-        "rev": "15b41da8f2579e73ead59bc0c2b97529b8ac32d3",
+        "rev": "e667546f8cf80a98876df2165b2c9e3c413e40d2",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
         "repo": "protos",
-        "rev": "15b41da8f2579e73ead59bc0c2b97529b8ac32d3",
+        "rev": "e667546f8cf80a98876df2165b2c9e3c413e40d2",
         "type": "github"
       }
     },

@@ -346,7 +346,7 @@ impl Reaching for TypeDeclaration {
         visited: &mut Vec<Name>,
     ) -> bool {
         match self {
-            TypeDeclaration::Struct(_, positions) => {
+            TypeDeclaration::Struct(_, positions) | TypeDeclaration::Sealed(_, positions) => {
                 positions.reaches(target, passage, file, visited)
             }
             TypeDeclaration::Enum(_, variants) => variants.reaches(target, passage, file, visited),
@@ -744,6 +744,19 @@ impl Varianted for Variant {
 /// The trait whose capability emits a struct of these positions with its datomic machinery.
 trait Structuring {
     fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
+    /// The same struct, its positions sealed: `pub(super)`, a sealed type.
+    fn sealed_structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
+}
+
+/// The trait whose capability emits a struct with its positions at a visibility.
+trait Exposing {
+    fn fielded(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        identity: &Identity,
+        visibility: TokenStream,
+    ) -> TokenStream;
 }
 
 /// The trait whose capability emits an enum of these variants with its datomic machinery.
@@ -789,6 +802,25 @@ impl DatomDeriving for Identity {
 /// position then holds it by name.
 impl Structuring for [Position] {
     fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
+        self.fielded(scope, owner, identity, quote! { pub })
+    }
+
+    // A sealed type's positions are hidden from everything but the module
+    // that holds the generated one, where the hand-written impl of the
+    // trait whose `:` capability builds it lives.
+    fn sealed_structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
+        self.fielded(scope, owner, identity, quote! { pub(super) })
+    }
+}
+
+impl Exposing for [Position] {
+    fn fielded(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        identity: &Identity,
+        visibility: TokenStream,
+    ) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
         let outer = Scope {
@@ -822,7 +854,7 @@ impl Structuring for [Position] {
             #( #declared )*
             #derive
             #bounds
-            pub struct #name #parameters { #( #archivals pub #fields: #types ),* }
+            pub struct #name #parameters { #( #archivals #visibility #fields: #types ),* }
         }
     }
 }
@@ -864,6 +896,14 @@ impl Emitting for TypeDeclaration {
                     associated: scope.associated,
                 };
                 positions.structure(&inner, &identity.name, identity)
+            }
+            TypeDeclaration::Sealed(identity, positions) => {
+                let inner = Scope {
+                    file: scope.file,
+                    identity: Some(identity),
+                    associated: scope.associated,
+                };
+                positions.sealed_structure(&inner, &identity.name, identity)
             }
             TypeDeclaration::Enum(identity, variants) => {
                 let inner = Scope {
@@ -1165,7 +1205,7 @@ impl Emitting for File {
                     items.push(quote! { #[rustfmt::skip] #item });
                 }
             }
-            File::Signal(_) | File::Operation(_) | File::Memory(_) => {
+            File::Signal(_) | File::Operation(_) | File::Memory(_) | File::Type(_) => {
                 for declaration in self.types() {
                     items.push(declaration.emit(scope));
                 }

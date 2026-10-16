@@ -2,27 +2,39 @@
 ; Generate reads an ethos file and writes its Rust module into a directory;
 ; Check reads and validates it whole, writing nothing. A rejection names the
 ; file, the line and column of the error in it, and the error.
-; The files read are of four roots, each section in this order:
+; Inspect (proposal) reads, validates and generates a file, answering with the
+; generated Rust; Conform (proposal) reads a file, then a datom text as the
+; type it names, answering with the datom's canonical print or its datom error.
+; The files read are of five roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
 ;   Signal     [ imports ] [ queries ] [ responses ] [ types ]
 ;   Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; proposed, pending the living's word
 ;   Memory     [ imports ] [ record types ]
-; A file headed Sema is refused as Renamed.Memory.
-Library
+;   Type       one declaration                               ; proposed
+; A file headed Sema is refused as Renamed.Memory. A file is an ordinary datom:
+; its root's variant, the dot, then the braced sections (proposal).
+Library.
+{
 [ datom_codec:[ Error ]
   ethos_zero:[ Problem Location ] ]
 [ Query.[ Generate.Generation
-          Check.String ]
+          Check.String
+          Inspect.String
+          Conform.Conformance ]
   Response.[ Generated.Vector<String>
              Checked.String
              Arguments.Integer
              Malformed.Error
              Unreadable.{ String String }
              Rejected.{ String Location Generation_Error }
-             Unwritable.{ String String } ]
+             Unwritable.{ String String }
+             Inspected.{ String String }
+             Conformed.{ String String }
+             Unconformed.{ String Error } ]
   Generation.{ String String }
+  Conformance.{ String String String }
   Generation_Error.[ Structural.protos:Error
                      Conceptual.{ Vector<Integer>
                                   ethos_zero:Problem } ] ]
 []
-[]
+[] }

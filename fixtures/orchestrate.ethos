@@ -1,5 +1,6 @@
 ; Orchestrate lock signal
-Signal
+Signal.
+{
 []
 [ Lock.LockRequest  Release.LockId  Observe.ObserveSelection ]
 [ Locked.Lock  LockRejected.LockRejection  Released.Lock  ReleaseRejected.ReleaseRejection  Observed.Observation ]
@@ -17,4 +18,4 @@ Signal
   ReleaseRejection.[ UnknownLockId ]
   ObserveSelection.[ Locks ]
   Locks.Vector<Lock>
-  Observation.[ Locks.Locks ] ]
+  Observation.[ Locks.Locks ] ] }

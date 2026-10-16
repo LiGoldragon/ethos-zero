@@ -2,6 +2,22 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## ethos-proposals (proposal branch, unreleased)
+
+What breaks:
+
+- The sweet form no longer reads: write `Root.` then the braced sections
+  (`Library.\n{\n[] … [] }`). The print follows.
+- Protos and datom-codec are pinned to their `ethos-proposals` branches:
+  whitespace may follow a separator before its body, so a bare word ending
+  in one separator followed by another structure (`[ a. b ]`) now reads as
+  a headed `a.b`; `⟦ ⟧` is an enclosure, so a bare run can no longer hold it.
+- `File` gains `Type`, `Root` gains `Type`, `TypeDeclaration` gains
+  `Sealed`, `Problem` gains `Sealed`, protos' `Enclosure` gains `Vectored`;
+  exhaustive matches add the arms.
+- The CLI contract gains `Inspect`, `Conform`, `Inspected`, `Conformed` and
+  `Unconformed`.
+
 ## 17.0.0: capability declarations are traits
 
 What breaks:

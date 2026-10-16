@@ -64,7 +64,8 @@ impl Resolving for TypeDeclaration {
         let declared = match self {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _) => &identity.name,
+            | TypeDeclaration::Alias(identity, _)
+            | TypeDeclaration::Sealed(identity, _) => &identity.name,
         };
         if declared == name {
             Resolution::Type(name.clone())
@@ -283,7 +284,8 @@ impl Naming for TypeDeclaration {
         match self {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _) => vec![DeclarationSite {
+            | TypeDeclaration::Alias(identity, _)
+            | TypeDeclaration::Sealed(identity, _) => vec![DeclarationSite {
                 name: identity.name.clone(),
                 path: vec![0],
             }],
@@ -373,7 +375,9 @@ impl Spanning for TypeDeclaration {
     fn span(&self) -> Integer {
         match self {
             TypeDeclaration::Alias(_, aliased) => aliased.span(),
-            TypeDeclaration::Struct(_, _) | TypeDeclaration::Enum(_, _) => 1,
+            TypeDeclaration::Struct(_, _)
+            | TypeDeclaration::Sealed(_, _)
+            | TypeDeclaration::Enum(_, _) => 1,
         }
     }
 }
@@ -584,9 +588,11 @@ impl Inhabiting for Variant {
 impl Inhabiting for TypeDeclaration {
     fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool {
         match self {
-            TypeDeclaration::Struct(_, positions) => positions
-                .iter()
-                .all(|position| position.reference().inhabited(file, owner, known)),
+            TypeDeclaration::Struct(_, positions) | TypeDeclaration::Sealed(_, positions) => {
+                positions
+                    .iter()
+                    .all(|position| position.reference().inhabited(file, owner, known))
+            }
             // An enum of no variants is declared empty on purpose, not by recursion.
             TypeDeclaration::Enum(_, variants) => {
                 variants.is_empty()
@@ -649,7 +655,8 @@ impl Identified for TypeDeclaration {
         match self {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _) => identity,
+            | TypeDeclaration::Alias(identity, _)
+            | TypeDeclaration::Sealed(identity, _) => identity,
         }
     }
 }
@@ -710,6 +717,7 @@ impl Checkable for File {
             File::Signal(signal) => signal.check(scope),
             File::Operation(operation) => operation.check(scope),
             File::Memory(memory) => memory.check(scope),
+            File::Type(declaration) => declaration.check(scope),
         };
         checked.place(1)?;
         // The derived names come first, so an authored name that would
@@ -717,7 +725,102 @@ impl Checkable for File {
         let mut names = self.inline_sites();
         names.extend(self.declared());
         names.distinct().place(1)?;
-        self.finite().place(1)
+        self.finite().place(1)?;
+        self.sealed().place(1)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sealed types (proposal): built only by a constructor of a borne trait
+// ---------------------------------------------------------------------------
+
+/// The trait whose capability refuses a sealed type no trait of the file can build.
+///
+/// A sealed type's positions are private, so it is built only by a `:`
+/// capability yielding `Self` or `Result<Self X>` of a trait declared in the
+/// same file and associated with the type there. A file with no traits, any
+/// root but a Library, cannot build one.
+trait Sealing {
+    fn sealed(&self) -> Result<(), Error>;
+}
+
+/// The trait whose capability says whether a trait declares a constructor.
+trait Constructing {
+    /// A `:` capability yielding `Self` or `Result<Self X>`.
+    fn constructs(&self) -> bool;
+}
+
+/// The trait whose capability says whether a reference is bare `Self`.
+trait Selfing {
+    fn itself(&self) -> bool;
+}
+
+impl Selfing for Reference {
+    fn itself(&self) -> bool {
+        self.source.is_none() && self.name.0 == "Self" && self.arguments.is_empty()
+    }
+}
+
+impl Constructing for TraitDeclaration {
+    fn constructs(&self) -> bool {
+        let capabilities = match &self.body {
+            TraitBody::Simple(capabilities) => capabilities,
+            TraitBody::Complex { capabilities, .. } => capabilities,
+        };
+        for capability in capabilities {
+            if capability.receiver != crate::Receiver::Static {
+                continue;
+            }
+            let yielded = match &capability.signature {
+                Signature::Yielding(yielded) | Signature::Taking(_, yielded) => yielded,
+            };
+            if yielded.itself()
+                || (yielded.source.is_none()
+                    && yielded.name.0 == "Result"
+                    && yielded.arguments.len() == 2
+                    && yielded.arguments[0].itself())
+            {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+impl Sealing for File {
+    fn sealed(&self) -> Result<(), Error> {
+        for placed in self.declarations() {
+            let TypeDeclaration::Sealed(identity, _) = placed.declaration else {
+                continue;
+            };
+            let mut built = false;
+            if let File::Library(library) = self {
+                for association in &library.associations {
+                    if association.identity.name != identity.name {
+                        continue;
+                    }
+                    for borne in &association.traits {
+                        for declared in &library.traits {
+                            if borne.source.is_none()
+                                && declared.identity.name == borne.name
+                                && declared.constructs()
+                            {
+                                built = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if !built {
+                let mut path = placed.path;
+                path.push(0);
+                return Err(Error::conceptual(
+                    path,
+                    Problem::Sealed(identity.name.0.clone()),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -935,6 +1038,7 @@ impl Declared for File {
             File::Signal(signal) => signal.declared(),
             File::Operation(operation) => operation.declared(),
             File::Memory(memory) => memory.declared(),
+            File::Type(declaration) => declaration.names(),
         };
         // A type declared in place is a declaration of the file, named at its head.
         for placed in self.inlined() {
@@ -1154,7 +1258,10 @@ impl Referring for Reference {
                             .map(|declaration| match declaration {
                                 TypeDeclaration::Struct(identity, _)
                                 | TypeDeclaration::Enum(identity, _)
-                                | TypeDeclaration::Alias(identity, _) => identity.constraints.len(),
+                                | TypeDeclaration::Alias(identity, _)
+                                | TypeDeclaration::Sealed(identity, _) => {
+                                    identity.constraints.len()
+                                }
                             });
                     ReferenceRequirement {
                         role: Role::Type,
@@ -1415,7 +1522,8 @@ impl Checkable for TypeDeclaration {
         let identity = match self {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _) => identity,
+            | TypeDeclaration::Alias(identity, _)
+            | TypeDeclaration::Sealed(identity, _) => identity,
         };
         if !identity.constraints.is_empty() {
             return Err(Error::conceptual(
@@ -1432,6 +1540,9 @@ impl Checkable for TypeDeclaration {
         };
         match self {
             TypeDeclaration::Struct(_, positions) => positions.check_children(&inner).place(1),
+            TypeDeclaration::Sealed(_, positions) => {
+                positions.check_children(&inner).place(1).place(1)
+            }
             TypeDeclaration::Enum(_, variants) => {
                 let mut names = variants.names_in(0);
                 for declared in &mut names {

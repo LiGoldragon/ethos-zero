@@ -1,7 +1,8 @@
 ; Named fields use type-first names for intrinsic and container positions.
-Library
+Library.
+{
 []
 [ Placed.{ Option<Integer> Integer }
   Score.{ Decimal Boolean Meaning } ]
 []
-[]
+[] }

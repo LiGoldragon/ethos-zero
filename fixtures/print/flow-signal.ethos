@@ -1,4 +1,5 @@
-Signal
+Signal.
+{
 [ flow:[ FlowId Voice Event ] ]
 [ Launch.{ Voice
            Brief.String }
@@ -7,4 +8,4 @@ Signal
   Refused.[ NoCapsule
             VoiceBusy.Voice ]
   Reported ]
-[]
+[] }

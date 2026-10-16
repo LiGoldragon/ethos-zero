@@ -1,6 +1,7 @@
 ; Trait identity constraints use the standard imported traits.
-Library
+Library.
+{
 [ std:Clonable.Clone  std:Sendable.Send  serde:Serializable.Serialize ]
 []
 [ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ]
-[]
+[] }

@@ -1,0 +1,12 @@
+; A sealed type built only by its trait's constructor, and every type bearing a trait (proposal).
+Library.
+{
+[]
+[ VerifiedContext.Sealed.{ String Integer }
+  Rejection.[ Empty Malformed.String ]
+  Locks.{ ⟦ String ⟧ } ]
+[ Verifying.[ verify:[ Result<Self Rejection> ] ]
+  Describing.[ describe.[ String ] ] ]
+[ VerifiedContext.[ Verifying Describing ]
+  Rejection.[ Describing ]
+  Locks.[ Describing ] ] }

@@ -1,9 +1,10 @@
 ; Streamable complex trait from Vision/ethos.md; its supertrait and bound are the enclosing module's
-Library
+Library.
+{
 [ super:[ Fillable Serializable ] ]
 []
 [ Streamable.{ [ Fillable ]
                [ Item<Serializable> ]
                [ CAPACITY.Integer ]
                [ next![ Option<Item> ] ] } ]
-[]
+[] }

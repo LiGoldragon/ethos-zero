@@ -2,6 +2,7 @@
 
 use protos::Protosizable;
 
+use crate::sugaring::Sugaring;
 use crate::{
     Actualizing, Canonicalizable, Error, Ethosizable, File, Potential, Resituating,
     Structural_Error,
@@ -23,6 +24,6 @@ impl Actualizing<File> for Potential<File> {
                 problem: error.problem,
             })
         })?;
-        protos.ethosize()
+        protos.desugar().ethosize()
     }
 }

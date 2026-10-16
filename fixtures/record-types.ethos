@@ -1,6 +1,7 @@
 ; Types example from Vision/ethos.md
-Library
+Library.
+{
 []
 [ Record.{ String Integer } ]
 []
-[]
+[] }

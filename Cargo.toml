@@ -24,8 +24,8 @@ default = ["datom"]
 datom = []
 
 [dependencies]
-protos      = { git = "https://github.com/LiGoldragon/protos",  rev = "15b41da8f2579e73ead59bc0c2b97529b8ac32d3", features = ["rkyv"] }
-datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "4dff16b4f7412febc3b71aac8b49680cd20988cb", features = ["rkyv"] }
+protos      = { git = "https://github.com/LiGoldragon/protos",  rev = "e667546f8cf80a98876df2165b2c9e3c413e40d2", features = ["rkyv"] }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "dfecb24df5ce28c0b4ecfc3abc9663b42e2c1895", features = ["rkyv"] }
 quote       = "1"
 proc-macro2 = "1"
 syn         = { version = "3", features = ["full"] }
@@ -62,6 +62,10 @@ path = "tests/print.rs"
 [[test]]
 name = "cli"
 path = "tests/cli.rs"
+
+[[test]]
+name = "proposals"
+path = "tests/proposals.rs"
 
 [lints.rust]
 unsafe_code = "forbid"

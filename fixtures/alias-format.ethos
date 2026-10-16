@@ -1,4 +1,5 @@
-Library
+Library.
+{
 []
 [ Short.String
   OptionalSpiritGuardianProviderName.Option<SpiritGuardianProviderName>
@@ -7,4 +8,4 @@ Library
   SpiritGuardianProviderName.String
   SpiritGuardianMaximumOutputTokens.Integer ]
 []
-[]
+[] }

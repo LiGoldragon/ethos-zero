@@ -1,4 +1,5 @@
-Operation
+Operation.
+{
 [ flow:[ FlowId Voice Event ] ]
 [ Start.{ Voice Capsule }
   Record.{ FlowId Event } ]
@@ -6,4 +7,4 @@ Operation
   Recorded
   Failed.String ]
 [ Capsule.{ Home.String
-            Login.Vector<String> } ]
+            Login.Vector<String> } ] }

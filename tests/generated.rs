@@ -30,6 +30,8 @@ impl Fillable for sink_associations::Sink {}
 mod alias_format;
 #[path = "generated/capability-traits.rs"]
 mod capability_traits;
+#[path = "generated/commit-message.rs"]
+mod commit_message;
 #[path = "generated/composition-types.rs"]
 mod composition_types;
 #[path = "generated/empty-signal.rs"]
@@ -60,6 +62,8 @@ mod placed_types;
 mod processable_traits;
 #[path = "generated/record-types.rs"]
 mod record_types;
+#[path = "generated/sealed-library.rs"]
+mod sealed_library;
 #[path = "generated/self-traits.rs"]
 mod self_traits;
 #[path = "generated/signal-decimal.rs"]
@@ -480,4 +484,59 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
         memory
     );
     let _: FlowId = memory.flow_id;
+}
+
+/// The sealed type's constructor lives beside the generated module, the one
+/// place its `pub(super)` positions are visible (proposal).
+impl sealed_library::Verifying for sealed_library::VerifiedContext {
+    fn verify() -> Result<Self, sealed_library::Rejection> {
+        Ok(Self {
+            string: "verified".to_owned(),
+            integer: 1,
+        })
+    }
+}
+impl sealed_library::Describing for sealed_library::VerifiedContext {
+    fn describe(&self) -> String {
+        format!("{} {}", self.string, self.integer)
+    }
+}
+impl sealed_library::Describing for sealed_library::Rejection {
+    fn describe(&self) -> String {
+        match self {
+            Self::Empty => "empty".to_owned(),
+            Self::Malformed(why) => why.clone(),
+        }
+    }
+}
+impl sealed_library::Describing for sealed_library::Locks {
+    fn describe(&self) -> String {
+        self.string_vector.join(" ")
+    }
+}
+
+#[test]
+fn a_sealed_type_is_built_by_its_traits_constructor() {
+    use sealed_library::{Describing, Verifying};
+    let context = sealed_library::VerifiedContext::verify().expect("verified");
+    assert_eq!(context.describe(), "verified 1");
+    let locks = sealed_library::Locks {
+        string_vector: vec!["a".to_owned(), "b".to_owned()],
+    };
+    assert_eq!(locks.describe(), "a b");
+}
+
+#[test]
+fn a_type_file_generates_its_one_declaration() {
+    use datom_codec::Datomizable;
+    use protos::{Protosizable, Textualizable};
+    let landing = commit_message::CommitMessage::Landing(commit_message::Landing_Data {
+        string: "landed".to_owned(),
+        integer: 42,
+    });
+    let text = landing
+        .datomize(datom_codec::Path::new())
+        .protosize()
+        .textualize();
+    assert_eq!(text, "Landing.{ landed 42 }");
 }

@@ -1,7 +1,11 @@
-//! Printing: an ethos file in the sweet form. Its root's head stands on the
-//! first line and each section on a line of its own, from the first column;
-//! each section is written by the protos writer, whose canonical print
-//! expands vertically. This pass places the sections and nothing else.
+//! Printing: an ethos file as the ordinary datom it is (proposal branch).
+//!
+//! The root's variant and the dot stand on the first line, the brace opens
+//! the second, and each section follows on a line of its own from the first
+//! column, the last closing the brace: the first struct of a file is not
+//! indented. Each section is written by the protos writer, whose canonical
+//! print expands vertically. A `Type` file's one declaration needs no break
+//! and follows its dot on the same line.
 
 use protos::{Enclosure, Protos, Protosizable, Separator, Textualizable};
 
@@ -21,12 +25,14 @@ impl Printable for Protos {
                     enclosure: Enclosure::Braced,
                     children,
                     ..
-                } => {
+                } if !children.is_empty() => {
                     let mut text = head.0.clone();
+                    text.push_str(".\n{");
                     for section in children {
                         text.push('\n');
                         text.push_str(&section.textualize());
                     }
+                    text.push_str(" }");
                     text
                 }
                 _ => self.textualize(),

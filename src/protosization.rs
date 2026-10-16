@@ -269,6 +269,37 @@ impl Protosizing for TypeDeclaration {
             Self::Alias(identity, reference) => {
                 identity.heading(Separator::Period, reference.protos())
             }
+            Self::Sealed(identity, positions) => identity.heading(
+                Separator::Period,
+                "Sealed".headed(
+                    None,
+                    Separator::Period,
+                    "".enclosed(Enclosure::Braced, positions.position_nodes()),
+                ),
+            ),
+        }
+    }
+}
+/// The trait whose capability ascends a declaration with no list around it,
+/// a `Type` file's: an alias of `Vector<T>` is written `⟦ T ⟧`, since there
+/// is no list to hold the angled enclosure beside it.
+trait Alone {
+    fn alone(&self) -> Protos;
+}
+impl Alone for TypeDeclaration {
+    fn alone(&self) -> Protos {
+        match self {
+            Self::Alias(identity, reference)
+                if reference.source.is_none()
+                    && reference.name.as_ref() == "Vector"
+                    && reference.arguments.len() == 1 =>
+            {
+                identity.heading(
+                    Separator::Period,
+                    "".enclosed(Enclosure::Vectored, reference.arguments.reference_nodes()),
+                )
+            }
+            other => other.protos(),
         }
     }
 }
@@ -417,6 +448,7 @@ impl Protosizing for File {
                 "Operation".headed(None, Separator::Period, operation.protos())
             }
             Self::Memory(memory) => "Memory".headed(None, Separator::Period, memory.protos()),
+            Self::Type(declaration) => "Type".headed(None, Separator::Period, declaration.alone()),
         };
         // Shared Protos canonicalization assigns exact UTF-8 byte spans
         // without routing a valid conceptual ascent through a finite reader.

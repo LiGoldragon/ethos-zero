@@ -47,6 +47,7 @@ pub enum Problem {
     Intrinsic(String),
     Case(String),
     Renamed(String),
+    Sealed(String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

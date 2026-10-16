@@ -5,24 +5,29 @@ use std::process::ExitCode;
 
 use datom_codec::{Actualizing as _, Budget, Datomizable as _, Path, Potential};
 use ethos_zero::{
-    Actualizing as _, File, Generating, Locating as _, Potential as EthosPotential, Printable as _,
-    Validating as _,
+    Actualizing as _, Conforming as _, File, Generating, Locating as _,
+    Potential as EthosPotential, Printable as _, Validating as _,
 };
-use protos::{Compactable, Protosizable};
+use protos::{Compactable, Protosizable, Textualizable};
 
 #[rustfmt::skip]
 #[path = "ethos-zero.rs"]
 mod contract;
 
 use contract::{
-    Conceptual_Data as Generation_Conceptual_Data, Generation, Generation_Error, Query,
-    Rejected_Data, Response, Unreadable_Data, Unwritable_Data,
+    Conceptual_Data as Generation_Conceptual_Data, Conformance, Conformed_Data, Generation,
+    Generation_Error, Inspected_Data, Query, Rejected_Data, Response, Unconformed_Data,
+    Unreadable_Data, Unwritable_Data,
 };
 
 const ETHOS: &str = include_str!("../ethos-zero.ethos");
 
 trait Serving {
     fn serve(&mut self) -> Response;
+}
+/// The trait whose capability reads, validates and generates a file, answering with its Rust.
+trait Inspecting {
+    fn inspect(&self) -> Response;
 }
 trait Exiting {
     fn exit(&self) -> ExitCode;
@@ -144,11 +149,52 @@ impl Serving for String {
     }
 }
 
+impl Inspecting for String {
+    fn inspect(&self) -> Response {
+        let (potential, file) = match self.source() {
+            Ok(read) => read,
+            Err(response) => return response,
+        };
+        match file.generate() {
+            Ok(generated) => Response::Inspected(Inspected_Data {
+                first_string: self.clone(),
+                second_string: generated,
+            }),
+            Err(error) => self.reject(&potential, error),
+        }
+    }
+}
+
+impl Serving for Conformance {
+    fn serve(&mut self) -> Response {
+        let source = &self.first_string;
+        let (potential, file) = match source.source() {
+            Ok(read) => read,
+            Err(response) => return response,
+        };
+        if let Err(error) = file.validate() {
+            return source.reject(&potential, error);
+        }
+        match file.conform(&self.second_string, &self.third_string) {
+            Ok(datom) => Response::Conformed(Conformed_Data {
+                first_string: self.second_string.clone(),
+                second_string: datom.protosize().textualize(),
+            }),
+            Err(error) => Response::Unconformed(Unconformed_Data {
+                string: self.second_string.clone(),
+                error,
+            }),
+        }
+    }
+}
+
 impl Serving for Query {
     fn serve(&mut self) -> Response {
         match self {
             Self::Generate(generation) => generation.serve(),
             Self::Check(source) => source.serve(),
+            Self::Inspect(source) => source.inspect(),
+            Self::Conform(conformance) => conformance.serve(),
         }
     }
 }
@@ -171,8 +217,11 @@ impl Serving for Potential<Query> {
 impl Exiting for Response {
     fn exit(&self) -> ExitCode {
         match self {
-            Self::Generated(_) | Self::Checked(_) => ExitCode::SUCCESS,
-            Self::Arguments(_)
+            Self::Generated(_) | Self::Checked(_) | Self::Inspected(_) | Self::Conformed(_) => {
+                ExitCode::SUCCESS
+            }
+            Self::Unconformed(_)
+            | Self::Arguments(_)
             | Self::Malformed(_)
             | Self::Unreadable(_)
             | Self::Rejected(_)

@@ -9,6 +9,7 @@
 use datom_codec::Integer;
 use protos::{Extent, Protos, Protosizable};
 
+use crate::sugaring::Sugaring;
 use crate::{Canonicalizable, Error, File, Locating, Location, Potential, Resituating};
 
 /// The trait whose capability finds the extent of the node a path names.
@@ -98,7 +99,11 @@ impl Locating for Potential<File> {
             Error::Structural(error) => error.extent.start,
             Error::Conceptual(data) => match self.0.canonicalize() {
                 Ok(canonical) => match canonical.text.protosize() {
-                    Ok(protos) => canonical.resituate(protos.find(&data.integer_vector)).start,
+                    Ok(protos) => {
+                        canonical
+                            .resituate(protos.desugar().find(&data.integer_vector))
+                            .start
+                    }
                     Err(_) => 0,
                 },
                 Err(_) => 0,

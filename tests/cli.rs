@@ -152,7 +152,7 @@ fn a_bad_ethos_file_is_rejected_at_its_line_and_column_and_nothing_is_written() 
     let directory = "erroneous".scratch();
     let source = directory.write_source(
         "erroneous",
-        "Library\n[]\n[ Record.{ String Bogus } ]\n[]\n[]\n",
+        "Library.\n{\n[]\n[ Record.{ String Bogus } ]\n[]\n[] }\n",
     );
     let target = format!("{directory}/out");
     let argument = generate(&source, &target);
@@ -161,7 +161,7 @@ fn a_bad_ethos_file_is_rejected_at_its_line_and_column_and_nothing_is_written() 
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 3 19 }} Conceptual.{{ [ 1 1 0 1 1 ] Undeclared.Bogus }} }}\n"
+            "Rejected.{{ {source} {{ 4 19 }} Conceptual.{{ [ 1 1 0 1 1 ] Undeclared.Bogus }} }}\n"
         )
     );
     assert!(!std::path::Path::new(&target).exists());
@@ -181,7 +181,7 @@ fn check_locates_an_undeclared_name_below_a_comment() {
     let directory = "undeclared".scratch();
     let source = directory.write_source(
         "undeclared",
-        "; The comment and the sweet form's seam are counted too.\nLibrary\n[]\n[ Record.{ String\n           Vector<Option<Bogus>> } ]\n[]\n[]\n",
+        "; The comment and the brace's own line are counted too.\nLibrary.\n{\n[]\n[ Record.{ String\n           Vector<Option<Bogus>> } ]\n[]\n[] }\n",
     );
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
@@ -189,7 +189,7 @@ fn check_locates_an_undeclared_name_below_a_comment() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 5 26 }} Conceptual.{{ [ 1 1 0 1 2 1 0 ] Undeclared.Bogus }} }}\n"
+            "Rejected.{{ {source} {{ 6 26 }} Conceptual.{{ [ 1 1 0 1 2 1 0 ] Undeclared.Bogus }} }}\n"
         )
     );
 }
@@ -199,7 +199,7 @@ fn check_refuses_a_second_inline_source_at_the_inner_reference() {
     let directory = "inline-source".scratch();
     let source = directory.write_source(
         "inline-source",
-        "Library\n[]\n[ Holder.{ Topic:custom:Name String } ]\n[]\n[]\n",
+        "Library.\n{\n[]\n[ Holder.{ Topic:custom:Name String } ]\n[]\n[] }\n",
     );
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
@@ -207,7 +207,7 @@ fn check_refuses_a_second_inline_source_at_the_inner_reference() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 3 18 }} Conceptual.{{ [ 1 1 0 1 0 1 ] Expected.Reference }} }}\n"
+            "Rejected.{{ {source} {{ 4 18 }} Conceptual.{{ [ 1 1 0 1 0 1 ] Expected.Reference }} }}\n"
         )
     );
 }
@@ -217,7 +217,7 @@ fn check_locates_a_duplicate_at_its_second_declaration() {
     let directory = "duplicate".scratch();
     let source = directory.write_source(
         "duplicate",
-        "Library\n[]\n[ Record.{ String }\n  Record.{ Integer } ]\n[]\n[]\n",
+        "Library.\n{\n[]\n[ Record.{ String }\n  Record.{ Integer } ]\n[]\n[] }\n",
     );
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
@@ -225,7 +225,7 @@ fn check_locates_a_duplicate_at_its_second_declaration() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 4 3 }} Conceptual.{{ [ 1 1 1 0 ] Duplicate.Record }} }}\n"
+            "Rejected.{{ {source} {{ 5 3 }} Conceptual.{{ [ 1 1 1 0 ] Duplicate.Record }} }}\n"
         )
     );
 }
@@ -235,7 +235,7 @@ fn check_locates_an_arity_error_at_the_reference() {
     let directory = "arity".scratch();
     let source = directory.write_source(
         "arity",
-        "Library\n[]\n[ Pair.{ Integer\n         Result<String> } ]\n[]\n[]\n",
+        "Library.\n{\n[]\n[ Pair.{ Integer\n         Result<String> } ]\n[]\n[] }\n",
     );
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
@@ -243,7 +243,7 @@ fn check_locates_an_arity_error_at_the_reference() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 4 10 }} Conceptual.{{ [ 1 1 0 1 1 ] Arity.{{ 2 1 }} }} }}\n"
+            "Rejected.{{ {source} {{ 5 10 }} Conceptual.{{ [ 1 1 0 1 1 ] Arity.{{ 2 1 }} }} }}\n"
         )
     );
 }
@@ -251,12 +251,15 @@ fn check_locates_an_arity_error_at_the_reference() {
 #[test]
 fn check_locates_a_structural_error_at_its_extent() {
     let directory = "structural".scratch();
-    let source = directory.write_source("structural", "Library\n[]\n[ Record.{ String ]\n[]\n[]\n");
+    let source = directory.write_source(
+        "structural",
+        "Library.\n{\n[]\n[ Record.{ String ]\n[]\n[] }\n",
+    );
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
     assert!(!success);
     assert!(
-        output.starts_with(&format!("Rejected.{{ {source} {{ 3 19 }} Structural.")),
+        output.starts_with(&format!("Rejected.{{ {source} {{ 4 19 }} Structural.")),
         "{output}"
     );
 }
@@ -276,7 +279,7 @@ fn check_takes_a_trait_in_an_input_and_locates_a_concrete_type_there() {
     let directory = "traits".scratch();
     let taken = directory.write_source(
         "taken",
-        "Library\n[]\n[]\n[ Textualizable.[ textualize.[ String ] ]\n  Resolvable.[ resolve.{ [ Textualizable ]\n                         [ Self ] } ] ]\n[]\n",
+        "Library.\n{\n[]\n[]\n[ Textualizable.[ textualize.[ String ] ]\n  Resolvable.[ resolve.{ [ Textualizable ]\n                         [ Self ] } ] ]\n[] }\n",
     );
     let argument = check(&taken);
     let (success, output) = [argument.as_str()].invoke();
@@ -285,7 +288,7 @@ fn check_takes_a_trait_in_an_input_and_locates_a_concrete_type_there() {
 
     let refused = directory.write_source(
         "refused",
-        "Library\n[]\n[ Rec.String ]\n[ Resolvable.[ resolve.{ [ Rec ]\n                         [ Self ] } ] ]\n[]\n",
+        "Library.\n{\n[]\n[ Rec.String ]\n[ Resolvable.[ resolve.{ [ Rec ]\n                         [ Self ] } ] ]\n[] }\n",
     );
     let argument = check(&refused);
     let (success, output) = [argument.as_str()].invoke();
@@ -293,7 +296,7 @@ fn check_takes_a_trait_in_an_input_and_locates_a_concrete_type_there() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {refused} {{ 4 28 }} Conceptual.{{ [ 1 2 0 1 0 1 0 0 ] TraitWanted.Rec }} }}\n"
+            "Rejected.{{ {refused} {{ 5 28 }} Conceptual.{{ [ 1 2 0 1 0 1 0 0 ] TraitWanted.Rec }} }}\n"
         )
     );
 }
@@ -301,7 +304,7 @@ fn check_takes_a_trait_in_an_input_and_locates_a_concrete_type_there() {
 #[test]
 fn a_file_headed_sema_is_rejected_naming_memory() {
     let directory = "sema".scratch();
-    let source = directory.write_source("sema", "Sema\n[]\n[ Record.{ String } ]\n");
+    let source = directory.write_source("sema", "Sema.\n{\n[]\n[ Record.{ String } ] }\n");
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
     assert!(!success);
@@ -325,4 +328,52 @@ fn the_four_flow_nexus_files_check() {
         assert!(success, "{output}");
         assert_eq!(output, format!("Checked.{source}\n"));
     }
+}
+
+/// Proposal: one plain way to check a snippet. `Inspect` reads, checks and
+/// generates an ethos file; `Conform` reads a datom as a type a file declares.
+#[test]
+fn inspect_answers_with_the_generated_rust_or_the_located_error() {
+    let source = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/commit-message.ethos");
+    let argument = format!("Inspect.{}", opaque(source));
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(success, "{output}");
+    assert!(
+        output.starts_with(&format!("Inspected.{{ {source} «")),
+        "{output}"
+    );
+    assert!(output.contains("pub enum CommitMessage"), "{output}");
+
+    let directory = "inspect".scratch();
+    let refused = directory.write_source("refused", "Type.Lonely.[ Only ]\n");
+    let argument = format!("Inspect.{}", opaque(&refused));
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert_eq!(
+        output,
+        format!("Rejected.{{ {refused} {{ 1 13 }} Conceptual.{{ [ 1 1 ] Arity.{{ 2 1 }} }} }}\n")
+    );
+}
+
+#[test]
+fn conform_reads_a_datom_as_its_declared_type() {
+    let source = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/orchestrate.ethos");
+    let argument = format!(
+        "Conform.{{ {} Response «Observed.\n   Locks.\n      []» }}",
+        opaque(source)
+    );
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(success, "{output}");
+    assert_eq!(output, "Conformed.{ Response «Observed.Locks.[]» }\n");
+
+    let argument = format!(
+        "Conform.{{ {} Response «Observed.Locks.[ x ]» }}",
+        opaque(source)
+    );
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert_eq!(
+        output,
+        "Unconformed.{ Response Error.{ Composition [ 1 1 0 ] Form.{ Struct Bare } } }\n"
+    );
 }

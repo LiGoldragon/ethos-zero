@@ -3,8 +3,9 @@
 ; name, such as Result, is refused as a declaration. A declared Box is not
 ; shown here: datom-codec's derive writes Box::new unqualified in every
 ; enum's datomization, so a Box in the module captures it.
-Library
+Library.
+{
 []
 [ Vec.{ String } Tree.{ Option<Self> Result<Vec Integer> } Nested.[ Choice.[ Item.{ Vec Integer } ] ] ]
 []
-[]
+[] }

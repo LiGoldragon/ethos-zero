@@ -5,6 +5,8 @@
 pub enum Query {
     Generate(Generation),
     Check(String),
+    Inspect(String),
+    Conform(Conformance),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -31,6 +33,27 @@ pub struct Unwritable_Data {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Inspected_Data {
+    pub first_string: String,
+    pub second_string: String,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Conformed_Data {
+    pub first_string: String,
+    pub second_string: String,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Unconformed_Data {
+    pub string: String,
+    pub error: datom_codec::Error,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Response {
     Generated(std::vec::Vec<String>),
     Checked(String),
@@ -39,6 +62,9 @@ pub enum Response {
     Unreadable(Unreadable_Data),
     Rejected(Rejected_Data),
     Unwritable(Unwritable_Data),
+    Inspected(Inspected_Data),
+    Conformed(Conformed_Data),
+    Unconformed(Unconformed_Data),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -46,6 +72,14 @@ pub enum Response {
 pub struct Generation {
     pub first_string: String,
     pub second_string: String,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Conformance {
+    pub first_string: String,
+    pub second_string: String,
+    pub third_string: String,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
