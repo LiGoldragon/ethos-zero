@@ -70,12 +70,16 @@ mod self_traits;
 mod signal_decimal;
 #[path = "generated/sink-associations.rs"]
 mod sink_associations;
+#[path = "generated/std-clock.rs"]
+mod std_clock;
 #[path = "generated/streamable-trait.rs"]
 mod streamable_trait;
 #[path = "generated/tree-types.rs"]
 mod tree_types;
 #[path = "generated/wake-waits.rs"]
 mod wake_waits;
+#[path = "generated/yieldless-waits.rs"]
+mod yieldless_waits;
 
 #[test]
 fn nested_inline_payloads_have_distinct_rust_types() {
@@ -583,4 +587,76 @@ fn every_clone_of_a_shared_handle_sees_the_one_state() {
     assert_eq!(subscriptions.wait(Pane("pane-1".to_owned())), 1);
     let waker = std::thread::spawn(move || wake.waits());
     assert_eq!(waker.join().expect("joined"), vec!["pane-1".to_owned()]);
+}
+
+impl yieldless_waits::Paned for yieldless_waits::Pane {
+    fn pane(&self) -> String {
+        self.string.clone()
+    }
+}
+impl yieldless_waits::Waiting for yieldless_waits::WakeWaits {
+    fn waits(&self) -> Vec<String> {
+        self.state.lock().expect("unpoisoned").string_vector.clone()
+    }
+    fn touch(&self) {
+        self.state.lock().expect("unpoisoned").integer += 1;
+    }
+    fn wait<N: yieldless_waits::Paned>(&self, input: N) {
+        self.state
+            .lock()
+            .expect("unpoisoned")
+            .string_vector
+            .push(input.pane());
+    }
+    fn create() -> Self {
+        Self {
+            state: std::sync::Arc::new(std::sync::Mutex::new(yieldless_waits::WakeWaits_State {
+                string_vector: vec![],
+                integer: 0,
+            })),
+        }
+    }
+}
+
+struct Lap(i64);
+impl std_clock::Lapping for Lap {
+    fn lap(&self) -> i64 {
+        self.0
+    }
+}
+impl std_clock::Clocking for std_clock::Clock {
+    fn started(&self) -> std::time::Instant {
+        self.state.lock().expect("unpoisoned").instant
+    }
+    fn lap<N: std_clock::Lapping>(&self, input: N) {
+        let state = self.state.lock().expect("unpoisoned");
+        state
+            .integer_vector_mutex
+            .lock()
+            .expect("unpoisoned")
+            .push(input.lap());
+    }
+    fn start() -> Self {
+        Self {
+            state: std::sync::Arc::new(std::sync::Mutex::new(std_clock::Clock_State {
+                instant: std::time::Instant::now(),
+                integer_vector_mutex: std::sync::Mutex::new(vec![]),
+            })),
+        }
+    }
+}
+
+#[test]
+fn yieldless_capabilities_and_a_std_import_compile_and_run() {
+    use std_clock::Clocking;
+    use yieldless_waits::Waiting;
+    let waits = yieldless_waits::WakeWaits::create();
+    waits.touch();
+    waits.wait(yieldless_waits::Pane {
+        string: "pane-1".to_owned(),
+    });
+    assert_eq!(waits.waits(), vec!["pane-1".to_owned()]);
+    let clock = std_clock::Clock::start();
+    clock.lap(Lap(3));
+    assert!(clock.started() <= std::time::Instant::now());
 }

@@ -419,13 +419,35 @@ impl Conceiving<Import> for Protos {
         else {
             return Err(Error::conceptual(vec![], Problem::Expected(Form::Import)));
         };
-        let source = Source::try_from(head.0.as_str())
-            .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?;
-        if let Some(children) = body.children(Enclosure::Bracketed) {
-            Ok(Import::Many(source, Protos::list(children).place(1)?))
-        } else {
-            Ok(Import::One(source, body.conceive().place(1)?))
+        // A colon chain is one source path (proposal): `std:sync:[ Mutex ]`
+        // imports from `std::sync`; its names sit at the chain's last body.
+        let mut path = head.0.clone();
+        let mut body = body.as_ref();
+        let mut depth = 1;
+        while let Protos::Headed {
+            head: segment,
+            constraints: None,
+            separator: Separator::Colon,
+            body: inner,
+            ..
+        } = body
+        {
+            path.push_str("::");
+            path.push_str(&segment.0);
+            body = inner.as_ref();
+            depth += 1;
         }
+        let source = Source::try_from(path.as_str())
+            .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?;
+        let mut import = if let Some(children) = body.children(Enclosure::Bracketed) {
+            Protos::list(children).map(|names| Import::Many(source, names))
+        } else {
+            body.conceive().map(|name| Import::One(source, name))
+        };
+        for _ in 0..depth {
+            import = import.place(1);
+        }
+        import
     }
 }
 impl Conceiving<Reference> for Protos {
@@ -628,13 +650,14 @@ impl Conceiving<Capability> for Protos {
         let receiver = separator.conceive()?;
         if let Some(y) = body.children(Enclosure::Bracketed) {
             let yields = y.references().place(1)?;
-            if yields.len() != 1 {
+            // An empty yield bracket yields nothing (proposal): `touch![]`.
+            if yields.len() > 1 {
                 return Err(Error::conceptual(vec![1], Problem::Yield));
             };
             return Ok(Capability {
                 name,
                 receiver,
-                signature: Signature::Yielding(yields.into_iter().next().expect("one yield")),
+                signature: Signature::Yielding(yields.into_iter().next()),
             });
         };
         let sections = body.sections(2).place(1)?;
@@ -652,13 +675,13 @@ impl Conceiving<Capability> for Protos {
             ));
         };
         let yields = y.references().place(1).place(1)?;
-        if yields.len() != 1 {
+        if yields.len() > 1 {
             return Err(Error::conceptual(vec![1, 1], Problem::Yield));
         };
         Ok(Capability {
             name,
             receiver,
-            signature: Signature::Taking(inputs, yields.into_iter().next().expect("one yield")),
+            signature: Signature::Taking(inputs, yields.into_iter().next()),
         })
     }
 }

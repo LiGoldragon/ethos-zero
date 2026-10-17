@@ -33,6 +33,14 @@ impl Structuring for str {
         }
     }
     fn headed(&self, constraints: Option<Protos>, separator: Separator, body: Protos) -> Protos {
+        // A source path ascends as the colon chain it was read from:
+        // `std::sync` before `[ Mutex ]` is `std:sync:[ Mutex ]`.
+        if separator == Separator::Colon
+            && constraints.is_none()
+            && let Some((outer, inner)) = self.split_once("::")
+        {
+            return outer.headed(None, Separator::Colon, inner.headed(None, separator, body));
+        }
         Protos::Headed {
             extent: Extent { start: 0, end: 0 },
             head: Symbol(self.to_owned()),
@@ -347,18 +355,14 @@ impl Protosizing for Capability {
             Receiver::Static => Separator::Colon,
         };
         let body = match &self.signature {
-            Signature::Yielding(yielding) => "".enclosed(
-                Enclosure::Bracketed,
-                std::slice::from_ref(yielding).reference_nodes(),
-            ),
+            Signature::Yielding(yielding) => {
+                "".enclosed(Enclosure::Bracketed, yielding.as_slice().reference_nodes())
+            }
             Signature::Taking(inputs, yielding) => "".enclosed(
                 Enclosure::Braced,
                 vec![
                     "".enclosed(Enclosure::Bracketed, inputs.reference_nodes()),
-                    "".enclosed(
-                        Enclosure::Bracketed,
-                        std::slice::from_ref(yielding).reference_nodes(),
-                    ),
+                    "".enclosed(Enclosure::Bracketed, yielding.as_slice().reference_nodes()),
                 ],
             ),
         };

@@ -373,9 +373,9 @@ pub struct Capability {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Signature {
     /// `name.[ Yield ]`.
-    Yielding(Reference),
+    Yielding(Option<Reference>),
     /// `name.{ [ inputs ] [ Yield ] }`.
-    Taking(Vec<Reference>, Reference),
+    Taking(Vec<Reference>, Option<Reference>),
 }
 
 /// Who a capability is called on, said by its separator.

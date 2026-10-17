@@ -453,3 +453,62 @@ fn a_mutable_capability_of_a_trait_a_shared_type_bears_takes_shared_self() {
     let plain = generated("Library.{ [] [] [ Counting.[ count![ Integer ] ] ] [] }");
     assert!(plain.contains("fn count(&mut self) -> i64;"), "{plain}");
 }
+
+// A capability with no yield, a std import ---------------------------------
+
+#[test]
+fn an_empty_yield_bracket_yields_nothing() {
+    let source = fixture("yieldless-waits");
+    let file = read(&source);
+    assert_eq!(read(&file.print()), file);
+    assert!(file.print().contains("touch![]"));
+    assert!(file.print().contains("wait!{ [ Paned ]"));
+    let rust = generated(&source);
+    assert!(rust.contains("fn touch(&self);"), "{rust}");
+    assert!(
+        rust.contains("fn wait<N: Paned>(&self, input: N);"),
+        "{rust}"
+    );
+    let plain = generated("Library.{ [] [] [ Resetting.[ reset![] begin:[] ] ] [] }");
+    assert!(plain.contains("fn reset(&mut self);"), "{plain}");
+    assert!(plain.contains("fn begin();"), "{plain}");
+    assert_eq!(
+        refusal("Library.{ [] [] [ K.[ two.[ String Integer ] ] ] [] }").1,
+        Problem::Yield
+    );
+}
+
+#[test]
+fn a_std_type_imports_through_a_colon_chain_into_shared_state_only() {
+    let source = fixture("std-clock");
+    let file = read(&source);
+    assert_eq!(read(&file.print()), file);
+    let rust = generated(&source);
+    assert!(
+        rust.contains("pub(super) instant: std::time::Instant"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("std::sync::Mutex<std::vec::Vec<i64>>"),
+        "{rust}"
+    );
+    let traits = "[ K.[ make:[ Self ] ] ]";
+    let travels = format!(
+        "Library.{{ [ std:sync:[ Mutex ] ] [ Record.{{ Mutex<Integer> }} ] {traits} [ Record.[ K ] ] }}"
+    );
+    assert_eq!(
+        refusal(&travels),
+        (vec![1, 1, 0, 0], Problem::Foreign("Record".to_owned()))
+    );
+    let sealed = format!(
+        "Library.{{ [ std:time:Instant ] [ V.Sealed.{{ Instant }} ] {traits} [ V.[ K ] ] }}"
+    );
+    assert_eq!(refusal(&sealed).1, Problem::Foreign("V".to_owned()));
+    let signal = "Signal.{ [ std:time:[ Instant ] ] [ Ask.Instant ] [] [] }";
+    assert_eq!(refusal(signal).1, Problem::Foreign("Query".to_owned()));
+    // A source that is not std keeps its ordinary meaning.
+    assert!(
+        generated("Library.{ [ crate:inner:[ Thing ] ] [ Holder.{ Thing } ] [] [] }")
+            .contains("pub thing: crate::inner::Thing")
+    );
+}

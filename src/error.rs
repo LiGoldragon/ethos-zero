@@ -49,6 +49,7 @@ pub enum Problem {
     Renamed(String),
     Sealed(String),
     Shared(String),
+    Foreign(String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

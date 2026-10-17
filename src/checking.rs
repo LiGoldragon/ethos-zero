@@ -732,7 +732,65 @@ impl Checkable for File {
         names.distinct().place(1)?;
         self.finite().place(1)?;
         self.sealed().place(1)?;
-        self.shared().place(1)
+        self.shared().place(1)?;
+        self.foreign().place(1)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Foreign types (proposal): a std type, held only where nothing travels
+// ---------------------------------------------------------------------------
+
+/// The trait whose capability refuses a std type in a type that travels.
+///
+/// A name imported from `std`, `core` or `alloc` (`std:sync:[ Mutex ]`) bears
+/// no datom or rkyv derive, so only a shared type's state, which travels
+/// nowhere, may hold it; a type deriving them, a sealed type or an implied
+/// enum holding it is refused as `Foreign.Name`, naming that type.
+trait Fencing {
+    fn foreign(&self) -> Result<(), Error>;
+}
+
+impl Fencing for File {
+    fn foreign(&self) -> Result<(), Error> {
+        let mut foreign = Vec::new();
+        for import in self.imports() {
+            let (source, names) = match import {
+                Import::One(source, imported) => (source, std::slice::from_ref(imported)),
+                Import::Many(source, imported) => (source, imported.as_slice()),
+            };
+            let root = source.as_ref().split("::").next().unwrap_or_default();
+            if matches!(root, "std" | "core" | "alloc") {
+                for imported in names {
+                    foreign.push(imported.name.clone());
+                }
+            }
+        }
+        if foreign.is_empty() {
+            return Ok(());
+        }
+        for placed in self.declarations() {
+            if matches!(placed.declaration, TypeDeclaration::Shared(_, _)) {
+                continue;
+            }
+            if placed.declaration.holds(&foreign) {
+                let name = &placed.declaration.identity().name;
+                let mut path = placed.path;
+                path.push(0);
+                return Err(Error::conceptual(path, Problem::Foreign(name.0.clone())));
+            }
+        }
+        for implied in self.implied_enums() {
+            for variant in implied.variants {
+                if variant.holds(&foreign) {
+                    return Err(Error::conceptual(
+                        vec![implied.section],
+                        Problem::Foreign(implied.name.0.clone()),
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -952,7 +1010,8 @@ impl Constructing for TraitDeclaration {
                 continue;
             }
             let yielded = match &capability.signature {
-                Signature::Yielding(yielded) | Signature::Taking(_, yielded) => yielded,
+                Signature::Yielding(Some(yielded)) | Signature::Taking(_, Some(yielded)) => yielded,
+                Signature::Yielding(None) | Signature::Taking(_, None) => continue,
             };
             if yielded.itself()
                 || (yielded.source.is_none()
@@ -1912,7 +1971,10 @@ impl Checkable for Capability {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.name.define().place(0)?;
         match &self.signature {
-            Signature::Yielding(yields) => yields.sign(scope, Place::Yield).beside(0).place(1),
+            Signature::Yielding(None) => Ok(()),
+            Signature::Yielding(Some(yields)) => {
+                yields.sign(scope, Place::Yield).beside(0).place(1)
+            }
             Signature::Taking(inputs, yields) => {
                 let mut at = 0;
                 for input in inputs {
@@ -1923,7 +1985,10 @@ impl Checkable for Capability {
                         .place(1)?;
                     at += input.span();
                 }
-                yields.sign(scope, Place::Yield).beside(0).place(1).place(1)
+                match yields {
+                    Some(yields) => yields.sign(scope, Place::Yield).beside(0).place(1).place(1),
+                    None => Ok(()),
+                }
             }
         }
     }

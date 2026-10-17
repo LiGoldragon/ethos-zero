@@ -1,0 +1,11 @@
+; A std type imported through a colon chain, held only by shared state (proposal).
+Library.
+{
+[ std:sync:[ Mutex ]
+  std:time:[ Instant ] ]
+[ Clock.Shared.{ Instant Mutex<Vector<Integer>> } ]
+[ Clocking.[ started.[ Instant ]
+             lap!{ [ Lapping ] [] }
+             start:[ Self ] ]
+  Lapping.[ lap.[ Integer ] ] ]
+[ Clock.[ Clocking ] ] }

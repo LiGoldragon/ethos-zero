@@ -1,0 +1,13 @@
+; Capabilities that yield nothing: an empty yield bracket, with and without inputs (proposal).
+Library.
+{
+[]
+[ Pane.{ String }
+  WakeWaits.Shared.{ Vector<String> Integer } ]
+[ Paned.[ pane.[ String ] ]
+  Waiting.[ waits.[ Vector<String> ]
+            touch![]
+            wait!{ [ Paned ] [] }
+            create:[ Self ] ] ]
+[ Pane.[ Paned ]
+  WakeWaits.[ Waiting ] ] }
