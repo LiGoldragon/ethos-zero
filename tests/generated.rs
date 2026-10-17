@@ -559,7 +559,7 @@ impl wake_waits::Waiting for wake_waits::WakeWaits {
             .pane_id_vector
             .clone()
     }
-    fn wait<N: wake_waits::Paned>(&mut self, input: N) -> i64 {
+    fn wait<N: wake_waits::Paned>(&self, input: N) -> i64 {
         let mut state = self.state.lock().expect("unpoisoned");
         state.pane_id_vector.push(input.pane());
         state.integer += 1;
@@ -578,7 +578,7 @@ impl wake_waits::Waiting for wake_waits::WakeWaits {
 #[test]
 fn every_clone_of_a_shared_handle_sees_the_one_state() {
     use wake_waits::Waiting;
-    let mut subscriptions = wake_waits::WakeWaits::create();
+    let subscriptions = wake_waits::WakeWaits::create();
     let wake = subscriptions.clone();
     assert_eq!(subscriptions.wait(Pane("pane-1".to_owned())), 1);
     let waker = std::thread::spawn(move || wake.waits());

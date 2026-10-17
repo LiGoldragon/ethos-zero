@@ -761,6 +761,7 @@ trait Exposing {
         owner: &Name,
         identity: &Identity,
         visibility: TokenStream,
+        derive: TokenStream,
     ) -> TokenStream;
 }
 
@@ -807,14 +808,29 @@ impl DatomDeriving for Identity {
 /// position then holds it by name.
 impl Structuring for [Position] {
     fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
-        self.fielded(scope, owner, identity, quote! { pub })
+        self.fielded(
+            scope,
+            owner,
+            identity,
+            quote! { pub },
+            identity.datom_derives(),
+        )
     }
 
     // A sealed type's positions are hidden from everything but the module
     // that holds the generated one, where the hand-written impl of the
     // trait whose `:` capability builds it lives.
     fn sealed_structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
-        self.fielded(scope, owner, identity, quote! { pub(super) })
+        // Nothing read from data builds a sealed type: no rkyv `Deserialize`
+        // and no datom `Composing`. It still archives and prints outward
+        // (`Archive`, `Serialize`, `Datomizable`), and `Clone` copies a value
+        // its constructor already verified.
+        let derive = quote! {
+            #[rustfmt::skip]
+            #[derive(rkyv::Archive, rkyv::Serialize, Clone, Debug, PartialEq, Eq, Hash)]
+            #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable))]
+        };
+        self.fielded(scope, owner, identity, quote! { pub(super) }, derive)
     }
 
     // The state is reached only by the hand-written impls of its traits,
@@ -861,6 +877,7 @@ impl Exposing for [Position] {
         owner: &Name,
         identity: &Identity,
         visibility: TokenStream,
+        derive: TokenStream,
     ) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
@@ -885,7 +902,6 @@ impl Exposing for [Position] {
             recursive |= position.recursive(scope, owner);
         }
         let fields = references.field_names(owner);
-        let derive = identity.datom_derives();
         let bounds = if recursive {
             identity.recursion_bounds()
         } else {
@@ -1069,6 +1085,33 @@ impl Signing for Reference {
     }
 }
 
+/// The trait whose capability says whether a trait is borne by a shared type of the file.
+trait Locked {
+    fn locks(&self, name: &Name) -> bool;
+}
+
+impl Locked for File {
+    fn locks(&self, name: &Name) -> bool {
+        let File::Library(library) = self else {
+            return false;
+        };
+        for association in &library.associations {
+            if !matches!(
+                self.declaration(&association.identity.name),
+                Some(TypeDeclaration::Shared(_, _))
+            ) {
+                continue;
+            }
+            for borne in &association.traits {
+                if borne.source.is_none() && &borne.name == name {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
+
 impl Emitting for Capability {
     fn emit(&self, scope: &Scope) -> TokenStream {
         let name = self.name.tokens();
@@ -1082,7 +1125,14 @@ impl Emitting for Capability {
         let mut parameters = Vec::new();
         match self.receiver {
             Receiver::Shared => parameters.push(quote! { &self }),
-            Receiver::Mutable => parameters.push(quote! { &mut self }),
+            // A shared type's handle is held across threads; its lock gives
+            // the mutation, so `!` on a trait it bears takes `&self`.
+            Receiver::Mutable => match scope.identity {
+                Some(identity) if scope.file.locks(&identity.name) => {
+                    parameters.push(quote! { &self })
+                }
+                _ => parameters.push(quote! { &mut self }),
+            },
             Receiver::Static => {}
         }
         let yields = match &self.signature {

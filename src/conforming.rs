@@ -271,9 +271,9 @@ impl Shaping for Context<'_> {
             }
         }
         match self.file.declaration(name) {
-            Some(TypeDeclaration::Struct(_, positions) | TypeDeclaration::Sealed(_, positions)) => {
-                self.positions(positions, datom, budget)
-            }
+            Some(TypeDeclaration::Struct(_, positions)) => self.positions(positions, datom, budget),
+            // Nothing read from data builds a sealed type.
+            Some(TypeDeclaration::Sealed(_, _)) => Err(datom.form("Sealed")),
             Some(TypeDeclaration::Enum(_, variants)) => {
                 self.variants(name, variants, datom, budget)
             }

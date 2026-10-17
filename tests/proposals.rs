@@ -404,3 +404,52 @@ fn a_shared_type_must_be_borne_and_never_travels() {
         Problem::Duplicate("S_State".to_owned())
     );
 }
+
+#[test]
+fn nothing_read_from_data_builds_a_sealed_type() {
+    let rust = generated(SEALED);
+    let sealed = &rust[..rust.find("pub struct VerifiedContext").unwrap()];
+    let derives = &sealed[sealed.rfind("#[rustfmt::skip]").unwrap()..];
+    assert!(
+        derives.contains("rkyv::Archive, rkyv::Serialize, Clone"),
+        "{rust}"
+    );
+    assert!(!derives.contains("Deserialize"), "{rust}");
+    assert!(!derives.contains("Composing"), "{rust}");
+    assert!(
+        derives.contains("derive(datom_codec::Datomizable)"),
+        "{rust}"
+    );
+    assert!(read(SEALED).conform("VerifiedContext", "{ a 1 }").is_err());
+
+    let traits = "[ K.[ make:[ Self ] ] ]";
+    let held =
+        format!("Library.{{ [] [ V.Sealed.{{ String }} Holder.{{ V }} ] {traits} [ V.[ K ] ] }}");
+    assert_eq!(
+        refusal(&held),
+        (vec![1, 1, 1, 0], Problem::Sealed("Holder".to_owned()))
+    );
+    let aliased = format!("Library.{{ [] [ V.Sealed.{{ String }} W.V ] {traits} [ V.[ K ] ] }}");
+    assert_eq!(refusal(&aliased).1, Problem::Sealed("W".to_owned()));
+    let carried =
+        format!("Library.{{ [] [ V.Sealed.{{ String }} E.[ Has.V None ] ] {traits} [ V.[ K ] ] }}");
+    assert_eq!(refusal(&carried).1, Problem::Sealed("E".to_owned()));
+    // A sealed or shared type, read from no data, may hold one.
+    let nested = format!(
+        "Library.{{ [] [ V.Sealed.{{ String }} U.Sealed.{{ V }} S.Shared.{{ V }} ] {traits} [ V.[ K ] U.[ K ] S.[ K ] ] }}"
+    );
+    generated(&nested);
+}
+
+#[test]
+fn a_mutable_capability_of_a_trait_a_shared_type_bears_takes_shared_self() {
+    let rust = generated(&fixture("wake-waits"));
+    assert!(
+        rust.contains("fn wait<N: Paned>(&self, input: N) -> i64;"),
+        "{rust}"
+    );
+    assert!(!rust.contains("&mut self"), "{rust}");
+    // A trait no shared type bears keeps `&mut self`.
+    let plain = generated("Library.{ [] [] [ Counting.[ count![ Integer ] ] ] [] }");
+    assert!(plain.contains("fn count(&mut self) -> i64;"), "{plain}");
+}

@@ -969,6 +969,40 @@ impl Constructing for TraitDeclaration {
 
 impl Sealing for File {
     fn sealed(&self) -> Result<(), Error> {
+        // A type read from data, one deriving `Composing` and `Deserialize`,
+        // may not hold a sealed type, which nothing read from data builds.
+        let mut sealed = Vec::new();
+        for placed in self.declarations() {
+            if let TypeDeclaration::Sealed(identity, _) = placed.declaration {
+                sealed.push(identity.name.clone());
+            }
+        }
+        if !sealed.is_empty() {
+            for placed in self.declarations() {
+                if matches!(
+                    placed.declaration,
+                    TypeDeclaration::Sealed(_, _) | TypeDeclaration::Shared(_, _)
+                ) {
+                    continue;
+                }
+                if placed.declaration.holds(&sealed) {
+                    let name = &placed.declaration.identity().name;
+                    let mut path = placed.path;
+                    path.push(0);
+                    return Err(Error::conceptual(path, Problem::Sealed(name.0.clone())));
+                }
+            }
+            for implied in self.implied_enums() {
+                for variant in implied.variants {
+                    if variant.holds(&sealed) {
+                        return Err(Error::conceptual(
+                            vec![implied.section],
+                            Problem::Sealed(implied.name.0.clone()),
+                        ));
+                    }
+                }
+            }
+        }
         for placed in self.declarations() {
             let TypeDeclaration::Sealed(identity, _) = placed.declaration else {
                 continue;

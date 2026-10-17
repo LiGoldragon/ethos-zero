@@ -18,7 +18,7 @@ pub trait Paned {
 #[rustfmt::skip]
 pub trait Waiting {
     fn waits(&self) -> std::vec::Vec<PaneId>;
-    fn wait<N: Paned>(&mut self, input: N) -> i64;
+    fn wait<N: Paned>(&self, input: N) -> i64;
     fn create() -> Self
     where
         Self: Sized;
