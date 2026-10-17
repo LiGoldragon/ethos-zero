@@ -561,3 +561,31 @@ fn an_error_inside_white_braces_is_located_there() {
     let column = line[..line.find("Bogus").unwrap()].chars().count() as i64 + 1;
     assert_eq!((location.line, location.column), (3, column), "{error:?}");
 }
+
+#[test]
+fn an_imported_struct_in_a_vector_in_a_struct_conforms() {
+    let library = read(
+        "Library.{ [] [ Topic.String Subaspect.[ Vision Intent ] Key.{ Subaspect Topic } ] [] [] }",
+    );
+    let placements = read(
+        "Library.{ [ flow:[ Key ] ] [ SystemPrompt.⟦ Key ⟧ StartupPrompt.⟦ Key ⟧ Placements.⦃ SystemPrompt StartupPrompt ⦄ ] [] [] }",
+    );
+    let text = "{ [ { Intent core } ] [ { Vision book } ] }";
+    let siblings = vec![("flow".to_owned(), library)];
+    placements
+        .conform_among(&siblings, "Placements", text)
+        .expect("the imported Key conforms inside the vectors");
+    let error = placements
+        .conform_among(&siblings, "Placements", "{ [ { Mission core } ] [] }")
+        .expect_err("Mission is no Subaspect");
+    assert_eq!(error.path, vec![0, 0, 0]);
+    // With no sibling to read it from, the error names the import.
+    let error = placements
+        .conform("Placements", text)
+        .expect_err("Key is unresolved");
+    assert_eq!(error.path, vec![0, 0]);
+    assert!(
+        matches!(&error.kind, datom_codec::ErrorKind::Variant { expected, .. } if expected == "flow:Key declared in a sibling .ethos file"),
+        "{error:?}"
+    );
+}

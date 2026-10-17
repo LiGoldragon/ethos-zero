@@ -105,6 +105,8 @@ trait Shaping {
 trait Refusing {
     fn refuse(&self, kind: ErrorKind) -> Error;
     fn form(&self, expected: &str) -> Error;
+    /// An imported type no sibling ethos file declares (or none read).
+    fn unresolved(&self, source: &crate::Source, name: &Name) -> Error;
 }
 
 impl Refusing for Datom {
@@ -114,6 +116,17 @@ impl Refusing for Datom {
             path: self.path.clone(),
             kind,
         }
+    }
+
+    fn unresolved(&self, source: &crate::Source, name: &Name) -> Error {
+        self.refuse(ErrorKind::Variant {
+            expected: format!(
+                "{}:{} declared in a sibling .ethos file",
+                source.as_ref().replace("::", ":"),
+                name.as_ref()
+            ),
+            found: "no sibling declaring it".to_owned(),
+        })
     }
 
     fn form(&self, expected: &str) -> Error {
@@ -197,7 +210,7 @@ impl Shaping for Context<'_> {
                     siblings: self.siblings,
                 }
                 .named(&reference.name, datom, budget),
-                None => Err(datom.form(reference.name.as_ref())),
+                None => Err(datom.unresolved(source, &reference.name)),
             };
         }
         let argument = reference.arguments.first();
@@ -258,7 +271,7 @@ impl Shaping for Context<'_> {
                     siblings: self.siblings,
                 }
                 .named(&emitted, datom, budget),
-                None => Err(datom.form(reference.name.as_ref())),
+                None => Err(datom.unresolved(&source, &emitted)),
             },
             _ => Err(datom.form(reference.name.as_ref())),
         }
