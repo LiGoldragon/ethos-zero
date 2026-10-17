@@ -1,0 +1,11 @@
+; White braces for a struct and white square brackets for a vector, in type positions (proposal).
+Library.{
+[]
+[ Point.⦃ Integer Integer ⦄
+  Path.⦃ ⟦ Point ⟧ Label.⦃ String ⦄ ⦄
+  Shape.[ Dot.Point Line.⦃ Point Point ⦄ Polygon.⟦ Point ⟧ ] ]
+[ Measuring.[ length.[ Integer ] ] ]
+[ Point.[ Measuring ]
+  Path.[ Measuring ]
+  Label.[ Measuring ]
+  Shape.[ Measuring ] ] }

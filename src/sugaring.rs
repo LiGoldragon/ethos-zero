@@ -1,4 +1,5 @@
-//! Sugaring (proposal): `⟦ T ⟧` is `Vector<T>` in a type position.
+//! Sugaring (proposal): `⟦ T ⟧` is `Vector<T>` in a type position, and the
+//! white braces `⦃ A B ⦄` are the brace `{ A B }`, wherever a brace reads.
 //!
 //! Protos reads `⟦ ⟧` as an enclosure of its own. Before conception, every
 //! vector bracket standing in a list, alone or as the innermost body of a
@@ -54,6 +55,16 @@ impl Sugaring for Protos {
                 constraints: constraints.clone(),
                 separator: *separator,
                 body: Box::new(body.desugar()),
+            },
+            // `⦃ A B ⦄` is a brace, `{ A B }`, at the same extent.
+            Protos::Enclosed {
+                extent,
+                enclosure: Enclosure::Structured,
+                children,
+            } => Protos::Enclosed {
+                extent: *extent,
+                enclosure: Enclosure::Braced,
+                children: children.desugar_each(),
             },
             Protos::Enclosed {
                 extent,

@@ -512,3 +512,52 @@ fn a_std_type_imports_through_a_colon_chain_into_shared_state_only() {
             .contains("pub thing: crate::inner::Thing")
     );
 }
+
+// White braces ⦃ ⦄ ----------------------------------------------------------
+
+#[test]
+fn white_braces_are_a_struct_and_white_brackets_a_vector() {
+    let source = fixture("white-brackets");
+    let sugared = read(&source);
+    let spelled = read(
+        "Library.\n{\n[]\n[ Point.{ Integer Integer }\n  Path.{ Vector<Point> Label.{ String } }\n  Shape.[ Dot.Point Line.{ Point Point } Polygon.Vector<Point> ] ]\n[ Measuring.[ length.[ Integer ] ] ]\n[ Point.[ Measuring ] Path.[ Measuring ] Label.[ Measuring ] Shape.[ Measuring ] ] }",
+    );
+    assert_eq!(sugared, spelled);
+    let File::Library(library) = &sugared else {
+        panic!("a Library")
+    };
+    for declaration in &library.types {
+        let (TypeDeclaration::Struct(identity, _) | TypeDeclaration::Enum(identity, _)) =
+            declaration
+        else {
+            panic!("a struct or an enum")
+        };
+        assert!(
+            library
+                .associations
+                .iter()
+                .any(|association| association.identity.name == identity.name),
+            "{} bears no trait",
+            identity.name.as_ref()
+        );
+    }
+    let rust = generated(&source);
+    assert!(rust.contains("pub struct Point"), "{rust}");
+    assert!(
+        rust.contains("pub point_vector: std::vec::Vec<Point>"),
+        "{rust}"
+    );
+    assert!(rust.contains("Line(Line_Data)"), "{rust}");
+}
+
+#[test]
+fn an_error_inside_white_braces_is_located_there() {
+    use ethos_zero::Locating;
+    let source = "Library.{\n[]\n[ Holder.⦃ ⟦ String ⟧ Bogus ⦄ ]\n[]\n[] }";
+    let potential = Potential::<File>::from(source);
+    let error = read(source).generate().expect_err("Bogus is undeclared");
+    let location = potential.locate(&error);
+    let line = &source[source.find("[ Holder").unwrap()..];
+    let column = line[..line.find("Bogus").unwrap()].chars().count() as i64 + 1;
+    assert_eq!((location.line, location.column), (3, column), "{error:?}");
+}

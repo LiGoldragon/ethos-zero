@@ -78,6 +78,8 @@ mod streamable_trait;
 mod tree_types;
 #[path = "generated/wake-waits.rs"]
 mod wake_waits;
+#[path = "generated/white-brackets.rs"]
+mod white_brackets;
 #[path = "generated/yieldless-waits.rs"]
 mod yieldless_waits;
 
@@ -659,4 +661,41 @@ fn yieldless_capabilities_and_a_std_import_compile_and_run() {
     let clock = std_clock::Clock::start();
     clock.lap(Lap(3));
     assert!(clock.started() <= std::time::Instant::now());
+}
+
+impl white_brackets::Measuring for white_brackets::Point {
+    fn length(&self) -> i64 {
+        self.first_integer.abs() + self.second_integer.abs()
+    }
+}
+impl white_brackets::Measuring for white_brackets::Label {
+    fn length(&self) -> i64 {
+        self.string.len() as i64
+    }
+}
+impl white_brackets::Measuring for white_brackets::Path {
+    fn length(&self) -> i64 {
+        self.point_vector.len() as i64
+    }
+}
+impl white_brackets::Measuring for white_brackets::Shape {
+    fn length(&self) -> i64 {
+        match self {
+            Self::Dot(_) => 0,
+            Self::Line(_) => 1,
+            Self::Polygon(points) => points.len() as i64,
+        }
+    }
+}
+
+#[test]
+fn white_brackets_generate_structs_and_vectors() {
+    use white_brackets::Measuring;
+    let point = white_brackets::Point {
+        first_integer: 3,
+        second_integer: -4,
+    };
+    assert_eq!(point.length(), 7);
+    let shape = white_brackets::Shape::Polygon(vec![point.clone(), point]);
+    assert_eq!(shape.length(), 2);
 }

@@ -43,6 +43,10 @@ against the real reader. It builds on protos and datom-codec's own
    lives. The file must associate the type with a trait it declares that
    has a `:` capability yielding `Self` or `Result<Self X>`; otherwise it is
    refused as `Sealed.Name` at the type's head. Only a Library can.
+7. **White braces.** `⦃ A B ⦄` (U+2983, U+2984) is the brace `{ A B }`,
+   read as a protos enclosure and rewritten in place before conception, so
+   locations stay on the source. It reads wherever a brace reads, not only
+   in type positions; the print spells it `{ }`.
 6. **Shared state.** `Name.Shared.{ positions }`: the positions become
    `Name_State` (fields `pub(super)`, no derives) behind
    `std::sync::Arc<std::sync::Mutex<…>>` in a `#[derive(Clone)]` handle
