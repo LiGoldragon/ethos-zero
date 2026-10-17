@@ -278,6 +278,8 @@ impl Shaping for Context<'_> {
                 self.variants(name, variants, datom, budget)
             }
             Some(TypeDeclaration::Alias(_, aliased)) => self.reference(aliased, datom, budget),
+            // Shared state never travels as text.
+            Some(TypeDeclaration::Shared(_, _)) => Err(datom.form("Shared")),
             None => Err(datom.form(name.as_ref())),
         }
     }

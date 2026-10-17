@@ -505,20 +505,22 @@ impl Conceiving<TypeDeclaration> for Protos {
             body: shape,
             ..
         } = body.as_ref()
-            && seal.0 == "Sealed"
+            && (seal.0 == "Sealed" || seal.0 == "Shared")
         {
-            // `Name.Sealed.{ positions }`: only a struct is sealed, its
-            // positions being what a sealed type keeps private.
+            // `Name.Sealed.{ positions }` and `Name.Shared.{ positions }`: only a
+            // struct is sealed or shared, its positions being what it keeps.
             let Some(p) = shape.children(Enclosure::Braced) else {
                 return Err(Error::conceptual(
                     vec![1, 1],
                     Problem::Expected(Form::Declaration),
                 ));
             };
-            return Ok(TypeDeclaration::Sealed(
-                identity,
-                p.positions().place(1).place(1)?,
-            ));
+            let positions = p.positions().place(1).place(1)?;
+            return Ok(if seal.0 == "Sealed" {
+                TypeDeclaration::Sealed(identity, positions)
+            } else {
+                TypeDeclaration::Shared(identity, positions)
+            });
         }
         if let Some(p) = body.children(Enclosure::Braced) {
             Ok(TypeDeclaration::Struct(identity, p.positions().place(1)?))

@@ -43,6 +43,14 @@ against the real reader. It builds on protos and datom-codec's own
    lives. The file must associate the type with a trait it declares that
    has a `:` capability yielding `Self` or `Result<Self X>`; otherwise it is
    refused as `Sealed.Name` at the type's head. Only a Library can.
+6. **Shared state.** `Name.Shared.{ positions }`: the positions become
+   `Name_State` (fields `pub(super)`, no derives) behind
+   `std::sync::Arc<std::sync::Mutex<…>>` in a `#[derive(Clone)]` handle
+   `Name { pub(super) state }`, so every clone shares the one state. It
+   bears no datom or rkyv traits, so no travelling type may hold it
+   (`Shared.Holder`), and it must be associated with a trait of the file
+   (`Shared.Name`). The hand-written impls lock `state`: `.` reads, `!`
+   changes, `:` creates. `Name_State` is a derived name of the file.
 5. **`⟦ T ⟧` is `Vector<T>`** in every type position: positions, aliases,
    variant payloads, capability inputs and yields, arguments, nested
    (`⟦ ⟦ Integer ⟧ ⟧`). Protos reads `⟦ ⟧` as an enclosure; ethos rewrites a

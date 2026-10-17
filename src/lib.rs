@@ -293,6 +293,11 @@ pub enum TypeDeclaration {
     /// capability yielding `Self` or `Result<Self X>` of a trait it is
     /// associated with in the same file.
     Sealed(Identity, Vec<Position>),
+    /// Shared mutable state, `Name.Shared.{ positions }`: its positions live
+    /// behind one lock in a cloneable handle, it bears no datom or rkyv
+    /// traits, and it is reached only through the traits it is associated
+    /// with in the same file.
+    Shared(Identity, Vec<Position>),
 }
 
 /// A variant of an enum.

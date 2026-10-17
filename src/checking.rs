@@ -65,7 +65,8 @@ impl Resolving for TypeDeclaration {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
             | TypeDeclaration::Alias(identity, _)
-            | TypeDeclaration::Sealed(identity, _) => &identity.name,
+            | TypeDeclaration::Sealed(identity, _)
+            | TypeDeclaration::Shared(identity, _) => &identity.name,
         };
         if declared == name {
             Resolution::Type(name.clone())
@@ -285,7 +286,8 @@ impl Naming for TypeDeclaration {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
             | TypeDeclaration::Alias(identity, _)
-            | TypeDeclaration::Sealed(identity, _) => vec![DeclarationSite {
+            | TypeDeclaration::Sealed(identity, _)
+            | TypeDeclaration::Shared(identity, _) => vec![DeclarationSite {
                 name: identity.name.clone(),
                 path: vec![0],
             }],
@@ -377,6 +379,7 @@ impl Spanning for TypeDeclaration {
             TypeDeclaration::Alias(_, aliased) => aliased.span(),
             TypeDeclaration::Struct(_, _)
             | TypeDeclaration::Sealed(_, _)
+            | TypeDeclaration::Shared(_, _)
             | TypeDeclaration::Enum(_, _) => 1,
         }
     }
@@ -588,11 +591,11 @@ impl Inhabiting for Variant {
 impl Inhabiting for TypeDeclaration {
     fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool {
         match self {
-            TypeDeclaration::Struct(_, positions) | TypeDeclaration::Sealed(_, positions) => {
-                positions
-                    .iter()
-                    .all(|position| position.reference().inhabited(file, owner, known))
-            }
+            TypeDeclaration::Struct(_, positions)
+            | TypeDeclaration::Sealed(_, positions)
+            | TypeDeclaration::Shared(_, positions) => positions
+                .iter()
+                .all(|position| position.reference().inhabited(file, owner, known)),
             // An enum of no variants is declared empty on purpose, not by recursion.
             TypeDeclaration::Enum(_, variants) => {
                 variants.is_empty()
@@ -656,7 +659,8 @@ impl Identified for TypeDeclaration {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
             | TypeDeclaration::Alias(identity, _)
-            | TypeDeclaration::Sealed(identity, _) => identity,
+            | TypeDeclaration::Sealed(identity, _)
+            | TypeDeclaration::Shared(identity, _) => identity,
         }
     }
 }
@@ -723,10 +727,186 @@ impl Checkable for File {
         // The derived names come first, so an authored name that would
         // capture one is the occurrence refused.
         let mut names = self.inline_sites();
+        names.extend(self.shared_sites());
         names.extend(self.declared());
         names.distinct().place(1)?;
         self.finite().place(1)?;
-        self.sealed().place(1)
+        self.sealed().place(1)?;
+        self.shared().place(1)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared types (proposal): mutable state behind one lock, reached by its traits
+// ---------------------------------------------------------------------------
+
+/// The trait whose capabilities name and refuse a file's shared types.
+///
+/// A shared type's positions live in a derived `Name_State` behind one lock,
+/// so that name is the file's like an inline payload's. It bears no datom or
+/// rkyv traits, so no type that does may hold it, and it is reached only
+/// through the traits of the file it is associated with, so it must be
+/// associated with at least one.
+pub(crate) trait Sharing {
+    /// The derived state names, each at its shared type's head.
+    fn shared_sites(&self) -> Vec<DeclarationSite>;
+    /// The shared types' names.
+    fn shared_names(&self) -> Vec<Name>;
+    /// Refuse a shared type borne by no trait of the file, or held by a type that travels.
+    fn shared(&self) -> Result<(), Error>;
+}
+
+/// The trait whose capability says whether a shape holds a shared type by name.
+trait Holding {
+    fn holds(&self, shared: &[Name]) -> bool;
+}
+
+impl Holding for Reference {
+    fn holds(&self, shared: &[Name]) -> bool {
+        if self.source.is_none() && shared.contains(&self.name) {
+            return true;
+        }
+        for argument in &self.arguments {
+            if argument.holds(shared) {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+impl Holding for Variant {
+    fn holds(&self, shared: &[Name]) -> bool {
+        match self {
+            Variant::Bare(name) => shared.contains(name),
+            Variant::Typed(_, reference) => reference.holds(shared),
+            Variant::Struct(_, positions) => {
+                for position in positions {
+                    if position.reference().holds(shared) {
+                        return true;
+                    }
+                }
+                false
+            }
+            Variant::Enum(_, variants) => {
+                for variant in variants {
+                    if variant.holds(shared) {
+                        return true;
+                    }
+                }
+                false
+            }
+        }
+    }
+}
+
+impl Holding for TypeDeclaration {
+    fn holds(&self, shared: &[Name]) -> bool {
+        match self {
+            // The state behind the lock travels nowhere; it may hold anything.
+            TypeDeclaration::Shared(_, _) => false,
+            TypeDeclaration::Struct(_, positions) | TypeDeclaration::Sealed(_, positions) => {
+                for position in positions {
+                    if position.reference().holds(shared) {
+                        return true;
+                    }
+                }
+                false
+            }
+            TypeDeclaration::Enum(_, variants) => {
+                for variant in variants {
+                    if variant.holds(shared) {
+                        return true;
+                    }
+                }
+                false
+            }
+            TypeDeclaration::Alias(_, aliased) => aliased.holds(shared),
+        }
+    }
+}
+
+impl Sharing for File {
+    fn shared_sites(&self) -> Vec<DeclarationSite> {
+        let mut sites = Vec::new();
+        for placed in self.declarations() {
+            if let TypeDeclaration::Shared(identity, _) = placed.declaration {
+                let mut path = placed.path;
+                path.push(0);
+                sites.push(DeclarationSite {
+                    name: Name::try_from(format!("{}_State", identity.name.0))
+                        .expect("derived state identifiers are identifiers"),
+                    path,
+                });
+            }
+        }
+        sites
+    }
+
+    fn shared_names(&self) -> Vec<Name> {
+        let mut names = Vec::new();
+        for placed in self.declarations() {
+            if let TypeDeclaration::Shared(identity, _) = placed.declaration {
+                names.push(identity.name.clone());
+            }
+        }
+        names
+    }
+
+    fn shared(&self) -> Result<(), Error> {
+        let shared = self.shared_names();
+        if shared.is_empty() {
+            return Ok(());
+        }
+        for placed in self.declarations() {
+            if placed.declaration.holds(&shared) {
+                let name = &placed.declaration.identity().name;
+                let mut path = placed.path;
+                path.push(0);
+                return Err(Error::conceptual(path, Problem::Shared(name.0.clone())));
+            }
+        }
+        for implied in self.implied_enums() {
+            for variant in implied.variants {
+                if variant.holds(&shared) {
+                    return Err(Error::conceptual(
+                        vec![implied.section],
+                        Problem::Shared(implied.name.0.clone()),
+                    ));
+                }
+            }
+        }
+        for placed in self.declarations() {
+            let TypeDeclaration::Shared(identity, _) = placed.declaration else {
+                continue;
+            };
+            let mut borne = false;
+            if let File::Library(library) = self {
+                for association in &library.associations {
+                    if association.identity.name != identity.name {
+                        continue;
+                    }
+                    for reference in &association.traits {
+                        for declared in &library.traits {
+                            if reference.source.is_none()
+                                && declared.identity.name == reference.name
+                            {
+                                borne = true;
+                            }
+                        }
+                    }
+                }
+            }
+            if !borne {
+                let mut path = placed.path;
+                path.push(0);
+                return Err(Error::conceptual(
+                    path,
+                    Problem::Shared(identity.name.0.clone()),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -1259,7 +1439,8 @@ impl Referring for Reference {
                                 TypeDeclaration::Struct(identity, _)
                                 | TypeDeclaration::Enum(identity, _)
                                 | TypeDeclaration::Alias(identity, _)
-                                | TypeDeclaration::Sealed(identity, _) => {
+                                | TypeDeclaration::Sealed(identity, _)
+                                | TypeDeclaration::Shared(identity, _) => {
                                     identity.constraints.len()
                                 }
                             });
@@ -1523,7 +1704,8 @@ impl Checkable for TypeDeclaration {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
             | TypeDeclaration::Alias(identity, _)
-            | TypeDeclaration::Sealed(identity, _) => identity,
+            | TypeDeclaration::Sealed(identity, _)
+            | TypeDeclaration::Shared(identity, _) => identity,
         };
         if !identity.constraints.is_empty() {
             return Err(Error::conceptual(
@@ -1540,7 +1722,7 @@ impl Checkable for TypeDeclaration {
         };
         match self {
             TypeDeclaration::Struct(_, positions) => positions.check_children(&inner).place(1),
-            TypeDeclaration::Sealed(_, positions) => {
+            TypeDeclaration::Sealed(_, positions) | TypeDeclaration::Shared(_, positions) => {
                 positions.check_children(&inner).place(1).place(1)
             }
             TypeDeclaration::Enum(_, variants) => {

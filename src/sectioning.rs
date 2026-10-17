@@ -166,7 +166,7 @@ impl Hoist for TypeDeclaration {
         });
         match self {
             TypeDeclaration::Struct(_, positions) => positions.hoist_positions(body, placed),
-            TypeDeclaration::Sealed(_, positions) => {
+            TypeDeclaration::Sealed(_, positions) | TypeDeclaration::Shared(_, positions) => {
                 let mut shape = body;
                 shape.push(1);
                 positions.hoist_positions(shape, placed)

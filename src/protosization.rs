@@ -269,6 +269,14 @@ impl Protosizing for TypeDeclaration {
             Self::Alias(identity, reference) => {
                 identity.heading(Separator::Period, reference.protos())
             }
+            Self::Shared(identity, positions) => identity.heading(
+                Separator::Period,
+                "Shared".headed(
+                    None,
+                    Separator::Period,
+                    "".enclosed(Enclosure::Braced, positions.position_nodes()),
+                ),
+            ),
             Self::Sealed(identity, positions) => identity.heading(
                 Separator::Period,
                 "Sealed".headed(

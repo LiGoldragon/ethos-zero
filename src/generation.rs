@@ -349,6 +349,8 @@ impl Reaching for TypeDeclaration {
             TypeDeclaration::Struct(_, positions) | TypeDeclaration::Sealed(_, positions) => {
                 positions.reaches(target, passage, file, visited)
             }
+            // Behind its lock, a shared type's state is reached through a pointer.
+            TypeDeclaration::Shared(_, _) => false,
             TypeDeclaration::Enum(_, variants) => variants.reaches(target, passage, file, visited),
             TypeDeclaration::Alias(_, aliased) => aliased.reaches(target, passage, file, visited),
         }
@@ -744,6 +746,9 @@ impl Varianted for Variant {
 /// The trait whose capability emits a struct of these positions with its datomic machinery.
 trait Structuring {
     fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
+    /// Shared state: the positions in a `Name_State` behind one lock, the
+    /// type a cloneable handle on it.
+    fn shared_structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
     /// The same struct, its positions sealed: `pub(super)`, a sealed type.
     fn sealed_structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
 }
@@ -810,6 +815,42 @@ impl Structuring for [Position] {
     // trait whose `:` capability builds it lives.
     fn sealed_structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
         self.fielded(scope, owner, identity, quote! { pub(super) })
+    }
+
+    // The state is reached only by the hand-written impls of its traits,
+    // beside the generated module: they lock `state` and read or change it.
+    // The handle clones the `Arc`, so every holder shares the one state.
+    fn shared_structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
+        let name = identity.name.tokens();
+        let state = syn::Ident::new(
+            &format!("{}_State", identity.name.0),
+            proc_macro2::Span::call_site(),
+        );
+        let outer = Scope {
+            file: scope.file,
+            identity: None,
+            associated: &[],
+        };
+        let mut declared = Vec::new();
+        for position in self {
+            if let Position::Declared(declaration) = position {
+                declared.push(declaration.emit(&outer));
+            }
+        }
+        let references = self.references();
+        let mut types = Vec::with_capacity(self.len());
+        for position in &references {
+            types.push(position.position(scope, owner));
+        }
+        let fields = references.field_names(owner);
+        quote! {
+            #( #declared )*
+            #[rustfmt::skip]
+            pub struct #state { #( pub(super) #fields: #types ),* }
+            #[rustfmt::skip]
+            #[derive(Clone)]
+            pub struct #name { pub(super) state: std::sync::Arc<std::sync::Mutex<#state>> }
+        }
     }
 }
 
@@ -896,6 +937,14 @@ impl Emitting for TypeDeclaration {
                     associated: scope.associated,
                 };
                 positions.structure(&inner, &identity.name, identity)
+            }
+            TypeDeclaration::Shared(identity, positions) => {
+                let inner = Scope {
+                    file: scope.file,
+                    identity: Some(identity),
+                    associated: scope.associated,
+                };
+                positions.shared_structure(&inner, &identity.name, identity)
             }
             TypeDeclaration::Sealed(identity, positions) => {
                 let inner = Scope {

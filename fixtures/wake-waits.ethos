@@ -1,0 +1,11 @@
+; Shared mutable state: the panes a sleeping metaflow waits on, read and changed under one lock (proposal).
+Library.
+{
+[]
+[ PaneId.String
+  WakeWaits.Shared.{ Vector<PaneId> Integer } ]
+[ Paned.[ pane.[ PaneId ] ]
+  Waiting.[ waits.[ Vector<PaneId> ]
+            wait!{ [ Paned ] [ Integer ] }
+            create:[ Self ] ] ]
+[ WakeWaits.[ Waiting ] ] }

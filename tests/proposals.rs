@@ -255,7 +255,8 @@ fn a_full_library_with_a_trait_borne_by_every_type_checks_and_generates() {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
             | TypeDeclaration::Alias(identity, _)
-            | TypeDeclaration::Sealed(identity, _) => &identity.name,
+            | TypeDeclaration::Sealed(identity, _)
+            | TypeDeclaration::Shared(identity, _) => &identity.name,
         };
         assert!(
             library
@@ -349,4 +350,57 @@ fn an_explicit_protos_import_names_the_intrinsic() {
             .unwrap_or_else(|error| panic!("{text} conforms: {error:?}"));
     }
     assert!(library.conform("Event", "Counted.{ x True }").is_err());
+}
+
+// Shared mutable state ------------------------------------------------------
+
+#[test]
+fn a_shared_type_is_a_cloneable_handle_on_one_locked_state() {
+    let source = fixture("wake-waits");
+    let file = read(&source);
+    assert_eq!(read(&file.print()), file);
+    assert!(
+        file.print()
+            .contains("WakeWaits.Shared.{ Vector<PaneId> Integer }")
+    );
+    let rust = generated(&source);
+    assert!(rust.contains("pub struct WakeWaits_State"), "{rust}");
+    assert!(
+        rust.contains("pub(super) pane_id_vector: std::vec::Vec<PaneId>"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("pub(super) state: std::sync::Arc<std::sync::Mutex<WakeWaits_State>>"),
+        "{rust}"
+    );
+    // No archive or datom derive on the state or the handle.
+    let handle = &rust[rust.find("pub struct WakeWaits_State").unwrap()..];
+    assert!(!handle.contains("rkyv"), "{rust}");
+    assert!(
+        !handle
+            .contains("datom_codec::Datomizable, datom_codec::Composing))]\npub struct WakeWaits")
+    );
+    assert!(file.conform("WakeWaits", "{ [] 0 }").is_err());
+}
+
+#[test]
+fn a_shared_type_must_be_borne_and_never_travels() {
+    let unborne = "Library.{ [] [ S.Shared.{ Integer } ] [ K.[ make:[ Self ] ] ] [] }";
+    assert_eq!(
+        refusal(unborne),
+        (vec![1, 1, 0, 0], Problem::Shared("S".to_owned()))
+    );
+    let held =
+        "Library.{ [] [ S.Shared.{ Integer } Holder.{ S } ] [ K.[ make:[ Self ] ] ] [ S.[ K ] ] }";
+    assert_eq!(
+        refusal(held),
+        (vec![1, 1, 1, 0], Problem::Shared("Holder".to_owned()))
+    );
+    let signal = "Signal.{ [] [ Ask.S ] [] [ S.Shared.{ Integer } ] }";
+    assert_eq!(refusal(signal).1, Problem::Shared("Query".to_owned()));
+    let captured = "Library.{ [] [ S.Shared.{ Integer } S_State.String ] [ K.[ make:[ Self ] ] ] [ S.[ K ] ] }";
+    assert_eq!(
+        refusal(captured).1,
+        Problem::Duplicate("S_State".to_owned())
+    );
 }

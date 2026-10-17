@@ -74,6 +74,8 @@ mod sink_associations;
 mod streamable_trait;
 #[path = "generated/tree-types.rs"]
 mod tree_types;
+#[path = "generated/wake-waits.rs"]
+mod wake_waits;
 
 #[test]
 fn nested_inline_payloads_have_distinct_rust_types() {
@@ -539,4 +541,46 @@ fn a_type_file_generates_its_one_declaration() {
         .protosize()
         .textualize();
     assert_eq!(text, "Landing.{ landed 42 }");
+}
+
+/// The shared state's traits, written beside the generated module: `.` reads
+/// under the lock, `!` changes under it, `:` creates it (proposal).
+struct Pane(String);
+impl wake_waits::Paned for Pane {
+    fn pane(&self) -> String {
+        self.0.clone()
+    }
+}
+impl wake_waits::Waiting for wake_waits::WakeWaits {
+    fn waits(&self) -> Vec<String> {
+        self.state
+            .lock()
+            .expect("unpoisoned")
+            .pane_id_vector
+            .clone()
+    }
+    fn wait<N: wake_waits::Paned>(&mut self, input: N) -> i64 {
+        let mut state = self.state.lock().expect("unpoisoned");
+        state.pane_id_vector.push(input.pane());
+        state.integer += 1;
+        state.integer
+    }
+    fn create() -> Self {
+        Self {
+            state: std::sync::Arc::new(std::sync::Mutex::new(wake_waits::WakeWaits_State {
+                pane_id_vector: vec![],
+                integer: 0,
+            })),
+        }
+    }
+}
+
+#[test]
+fn every_clone_of_a_shared_handle_sees_the_one_state() {
+    use wake_waits::Waiting;
+    let mut subscriptions = wake_waits::WakeWaits::create();
+    let wake = subscriptions.clone();
+    assert_eq!(subscriptions.wait(Pane("pane-1".to_owned())), 1);
+    let waker = std::thread::spawn(move || wake.waits());
+    assert_eq!(waker.join().expect("joined"), vec!["pane-1".to_owned()]);
 }
