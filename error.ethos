@@ -34,4 +34,10 @@ Library.
   Line.Integer
   Column.Integer ]
 []
-[ Sized.[ Structural_Error Error Problem Form Location Line Column ] ] }
+[ Structural_Error.[ Sized ]
+  Error.[ Sized ]
+  Problem.[ Sized ]
+  Form.[ Sized ]
+  Location.[ Sized ]
+  Line.[ Sized ]
+  Column.[ Sized ] ] }
