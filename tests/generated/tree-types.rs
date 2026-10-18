@@ -1,4 +1,5 @@
 #![allow(dead_code, non_camel_case_types, non_snake_case)]
+#![allow(clippy::type_complexity)]
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
@@ -140,7 +141,9 @@ pub struct Loop {
     pub knot: std::boxed::Box<Knot>,
 }
 #[rustfmt::skip]
-pub type Forest = std::vec::Vec<Tree>;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Forest(pub std::vec::Vec<Tree>);
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
@@ -170,9 +173,15 @@ pub enum Nested {
     B(B_Data),
 }
 #[rustfmt::skip]
-pub type Deep = std::vec::Vec<
-    std::vec::Vec<std::vec::Vec<std::option::Option<std::result::Result<String, i64>>>>,
->;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Deep(
+    pub std::vec::Vec<
+        std::vec::Vec<
+            std::vec::Vec<std::option::Option<std::result::Result<String, i64>>>,
+        >,
+    >,
+);
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]

@@ -41,7 +41,8 @@ fn signal_generates_query_response_and_optional_datom_derives() {
     assert!(rust.contains("pub enum Response"));
     assert!(rust.contains("feature = \"datom\""));
     assert!(rust.contains("datom_codec::Datomizable, datom_codec::Composing"));
-    assert!(rust.contains("pub type LockId = i64"));
+    let lock_id = "pub struct LockId(pub i64);";
+    assert!(rust.contains(lock_id), "{rust}");
 }
 
 #[test]
@@ -126,13 +127,13 @@ fn a_named_position_declares_its_type_in_place() {
         Ok(rust) => rust,
         Err(_) => panic!("a struct with named positions generates"),
     };
-    assert!(rust.contains("pub type Brief = String;"), "{rust}");
+    let brief = "pub struct Brief(pub String);";
+    assert!(rust.contains(brief), "{rust}");
     assert!(rust.contains("pub enum State {"), "{rust}");
     assert!(rust.contains("pub struct Capsule {"), "{rust}");
-    assert!(
-        rust.contains("pub type Login = std::vec::Vec<String>;"),
-        "{rust}"
-    );
+    let login = "pub struct \
+        Login(pub std::vec::Vec<String>);";
+    assert!(rust.contains(login), "{rust}");
     assert!(rust.contains("pub home: Home"), "{rust}");
     assert!(rust.contains("pub login: Login"), "{rust}");
     assert!(rust.contains("pub brief: Brief"), "{rust}");
@@ -169,7 +170,8 @@ fn a_variant_payload_declares_named_positions_in_place() {
         Ok(rust) => rust,
         Err(_) => panic!("a payload with a named position generates"),
     };
-    assert!(rust.contains("pub type Brief = String;"), "{rust}");
+    let brief = "pub struct Brief(pub String);";
+    assert!(rust.contains(brief), "{rust}");
     assert!(rust.contains("pub brief: Brief"), "{rust}");
 }
 
@@ -525,12 +527,15 @@ fn every_generated_item_carries_rustfmt_skip() {
     for entry in std::fs::read_dir(format!("{root}/tests/generated")).expect("generated fixtures") {
         generated.push(entry.expect("fixture entry").path().display().to_string());
     }
+    let header = "#![allow(\
+        dead_code, \
+        non_camel_case_types, \
+        non_snake_case)]\n\
+        #![allow(clippy::type_complexity)]\n";
     for path in generated {
         let text = std::fs::read_to_string(&path).expect("generated module reads");
-        assert!(
-            text.starts_with("#![allow(dead_code, non_camel_case_types, non_snake_case)]\n"),
-            "{path} opens with the generated-file header"
-        );
+        let opens = text.starts_with(header);
+        assert!(opens, "{path}: no header");
         let file = syn::parse_file(&text).expect("generated module parses");
         for item in &file.items {
             let attributes = match item {

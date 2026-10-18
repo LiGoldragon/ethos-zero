@@ -64,13 +64,7 @@ impl Resolving for [Import] {
 
 impl Resolving for TypeDeclaration {
     fn resolve(&self, name: &Name) -> Resolution {
-        let declared = match self {
-            TypeDeclaration::Struct(identity, _)
-            | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _)
-            | TypeDeclaration::Sealed(identity, _)
-            | TypeDeclaration::Shared(identity, _) => &identity.name,
-        };
+        let declared = &self.identity().name;
         if declared == name {
             Resolution::Type(name.clone())
         } else {
@@ -290,16 +284,11 @@ impl Naming for Import {
 
 impl Naming for TypeDeclaration {
     fn names(&self) -> Vec<DeclarationSite> {
-        match self {
-            TypeDeclaration::Struct(identity, _)
-            | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _)
-            | TypeDeclaration::Sealed(identity, _)
-            | TypeDeclaration::Shared(identity, _) => vec![DeclarationSite {
-                name: identity.name.clone(),
-                path: vec![0],
-            }],
-        }
+        let identity = self.identity();
+        vec![DeclarationSite {
+            name: identity.name.clone(),
+            path: vec![0],
+        }]
     }
 }
 
@@ -384,7 +373,10 @@ impl Spanning for Reference {
 impl Spanning for TypeDeclaration {
     fn span(&self) -> Integer {
         match self {
-            TypeDeclaration::Alias(_, aliased) => aliased.span(),
+            TypeDeclaration::Newtype(_, held) => {
+                // Its arguments stand beside it.
+                held.span()
+            }
             TypeDeclaration::Struct(_, _)
             | TypeDeclaration::Sealed(_, _)
             | TypeDeclaration::Shared(_, _)
@@ -611,7 +603,10 @@ impl Inhabiting for TypeDeclaration {
                         .iter()
                         .any(|variant| variant.inhabited(file, owner, known))
             }
-            TypeDeclaration::Alias(_, aliased) => aliased.inhabited(file, owner, known),
+            TypeDeclaration::Newtype(_, held) => {
+                // Where its type has a value.
+                held.inhabited(file, owner, known)
+            }
         }
     }
 }
@@ -663,10 +658,11 @@ pub(crate) trait Identified {
 
 impl Identified for TypeDeclaration {
     fn identity(&self) -> &Identity {
+        use TypeDeclaration::Newtype;
         match self {
             TypeDeclaration::Struct(identity, _)
             | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _)
+            | Newtype(identity, _)
             | TypeDeclaration::Sealed(identity, _)
             | TypeDeclaration::Shared(identity, _) => identity,
         }
@@ -896,7 +892,10 @@ impl Holding for TypeDeclaration {
                 }
                 false
             }
-            TypeDeclaration::Alias(_, aliased) => aliased.holds(shared),
+            TypeDeclaration::Newtype(_, held) => {
+                // What its type holds.
+                held.holds(shared)
+            }
         }
     }
 }
@@ -1455,6 +1454,24 @@ impl Roled for Intrinsic {
     }
 }
 
+/// The trait whose capability says how many
+/// arguments a declared type takes.
+trait Counting {
+    fn arity(&self, name: &Name) -> Arguments;
+}
+
+/// How many arguments a type takes, if known.
+type Arguments = Option<usize>;
+
+impl Counting for Scope<'_> {
+    fn arity(&self, name: &Name) -> Arguments {
+        let file = self.file;
+        let declared = file.declaration(name);
+        let identity = declared?.identity();
+        Some(identity.constraints.len())
+    }
+}
+
 /// The trait whose capability checks a reference in the role its position gives it.
 pub(crate) trait Referring {
     /// Check the reference as a type or as a trait.
@@ -1538,22 +1555,10 @@ impl Referring for Reference {
                     arity: Some(0),
                 },
                 Resolution::Type(name) => {
-                    let arity =
-                        scope
-                            .file
-                            .declaration(&name)
-                            .map(|declaration| match declaration {
-                                TypeDeclaration::Struct(identity, _)
-                                | TypeDeclaration::Enum(identity, _)
-                                | TypeDeclaration::Alias(identity, _)
-                                | TypeDeclaration::Sealed(identity, _)
-                                | TypeDeclaration::Shared(identity, _) => {
-                                    identity.constraints.len()
-                                }
-                            });
+                    // Its declared arity.
                     ReferenceRequirement {
                         role: Role::Type,
-                        arity,
+                        arity: scope.arity(&name),
                     }
                 }
                 Resolution::Trait(_) => ReferenceRequirement {
@@ -1615,126 +1620,6 @@ impl Checkable for Position {
                 identity: None,
                 associated: &[],
             }),
-        }
-    }
-}
-
-/// The trait whose capability tells whether an alias reaches a name through aliases and intrinsic containers alone.
-trait Cycling {
-    fn cycles(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool;
-    fn cycles_substituting(
-        &self,
-        target: &Name,
-        file: &File,
-        visited: &mut Vec<Name>,
-        application: AliasApplication<'_>,
-    ) -> bool;
-}
-
-/// The identity and actual arguments of an alias while its body is followed.
-/// Parameter references in that body are replaced before cycle detection.
-#[derive(Clone, Copy)]
-struct AliasApplication<'a> {
-    identity: &'a Identity,
-    arguments: &'a [Reference],
-}
-
-impl Cycling for Reference {
-    fn cycles(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
-        if self.source.is_some() {
-            return self
-                .arguments
-                .iter()
-                .any(|argument| argument.cycles(target, file, visited));
-        }
-        if &self.name == target {
-            return true;
-        }
-        match file.resolve(&self.name) {
-            Resolution::Type(name) => {
-                if visited.contains(&name) {
-                    return false;
-                }
-                visited.push(name.clone());
-                match file.declaration(&name) {
-                    Some(TypeDeclaration::Alias(identity, aliased)) => aliased.cycles_substituting(
-                        target,
-                        file,
-                        visited,
-                        AliasApplication {
-                            identity,
-                            arguments: &self.arguments,
-                        },
-                    ),
-                    _ => false,
-                }
-            }
-            Resolution::Intrinsic(_) | Resolution::Imported(_, _) => {
-                for argument in &self.arguments {
-                    if argument.cycles(target, file, visited) {
-                        return true;
-                    }
-                }
-                false
-            }
-            Resolution::Trait(_)
-            | Resolution::Parameter(_)
-            | Resolution::Associated(_)
-            | Resolution::Ambiguous(_)
-            | Resolution::Undeclared => false,
-        }
-    }
-
-    fn cycles_substituting(
-        &self,
-        target: &Name,
-        file: &File,
-        visited: &mut Vec<Name>,
-        application: AliasApplication<'_>,
-    ) -> bool {
-        if self.source.is_none()
-            && self.arguments.is_empty()
-            && let Resolution::Parameter(index) = application.identity.resolve(&self.name)
-        {
-            return application.arguments[index as usize].cycles(target, file, visited);
-        }
-        if self.source.is_some() {
-            return self
-                .arguments
-                .iter()
-                .any(|argument| argument.cycles_substituting(target, file, visited, application));
-        }
-        if &self.name == target {
-            return true;
-        }
-        match file.resolve(&self.name) {
-            Resolution::Type(name) => {
-                if visited.contains(&name) {
-                    return false;
-                }
-                visited.push(name.clone());
-                match file.declaration(&name) {
-                    Some(TypeDeclaration::Alias(identity, aliased)) => aliased.cycles_substituting(
-                        target,
-                        file,
-                        visited,
-                        AliasApplication {
-                            identity,
-                            arguments: &self.arguments,
-                        },
-                    ),
-                    _ => false,
-                }
-            }
-            Resolution::Intrinsic(_) | Resolution::Imported(_, _) => self
-                .arguments
-                .iter()
-                .any(|argument| argument.cycles_substituting(target, file, visited, application)),
-            Resolution::Trait(_)
-            | Resolution::Parameter(_)
-            | Resolution::Associated(_)
-            | Resolution::Ambiguous(_)
-            | Resolution::Undeclared => false,
         }
     }
 }
@@ -1835,13 +1720,7 @@ impl Supercycling for Reference {
 
 impl Checkable for TypeDeclaration {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        let identity = match self {
-            TypeDeclaration::Struct(identity, _)
-            | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _)
-            | TypeDeclaration::Sealed(identity, _)
-            | TypeDeclaration::Shared(identity, _) => identity,
-        };
+        let identity = self.identity();
         if !identity.constraints.is_empty() {
             return Err(Error::conceptual(
                 vec![0],
@@ -1869,15 +1748,11 @@ impl Checkable for TypeDeclaration {
                 names.distinct()?;
                 variants.check_children(&inner).place(1)
             }
-            TypeDeclaration::Alias(identity, aliased) => {
-                aliased.check(&inner).lifted(1)?;
-                if aliased.cycles(&identity.name, scope.file, &mut vec![]) {
-                    return Err(Error::conceptual(
-                        vec![0],
-                        Problem::Cycle(identity.name.0.clone()),
-                    ));
-                }
-                Ok(())
+            // A new type holds the one type it
+            // wraps, by value.
+            TypeDeclaration::Newtype(_, held) => {
+                let checked = held.check(&inner);
+                checked.lifted(1)
             }
         }
     }

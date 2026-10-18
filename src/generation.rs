@@ -18,6 +18,7 @@
 //! states the serializer, deserializer and validator bounds once instead, so
 //! a recursive type archives and restores.
 
+use crate::TypeDeclaration::Newtype;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
@@ -259,38 +260,67 @@ enum Passage {
     Any,
 }
 
-/// The trait whose capability tells whether a value holds the target type, through declared types, aliases, Option and Result, and Vector when the passage allows it.
+/// A reach under way: the type sought, the
+/// containment it may pass, the file whose
+/// declarations it walks, and the declared
+/// types it has already entered.
+struct Reach<'a> {
+    target: &'a Name,
+    passage: Passage,
+    file: &'a File,
+    visited: Vec<Name>,
+}
+
+/// The trait whose capability tells whether a
+/// value holds the target type, through declared
+/// types, `Option` and `Result`, and `Vector`
+/// when the passage allows it.
 trait Reaching {
-    fn reaches(
-        &self,
-        target: &Name,
-        passage: Passage,
-        file: &File,
-        visited: &mut Vec<Name>,
-    ) -> bool;
+    fn reaches(&self, reach: &mut Reach) -> bool;
+}
+
+/// The trait whose capability walks into a
+/// declared type, once.
+trait Entering {
+    /// Whether the declared type named reaches
+    /// the target; never twice the same one.
+    fn enter(&mut self, name: Name) -> bool;
+}
+
+impl Entering for Reach<'_> {
+    fn enter(&mut self, name: Name) -> bool {
+        if self.visited.contains(&name) {
+            return false;
+        }
+        let file = self.file;
+        let declared = file.declaration(&name);
+        self.visited.push(name);
+        let Some(declaration) = declared else {
+            return false;
+        };
+        declaration.reaches(self)
+    }
 }
 
 impl Reaching for Reference {
-    fn reaches(
-        &self,
-        target: &Name,
-        passage: Passage,
-        file: &File,
-        visited: &mut Vec<Name>,
-    ) -> bool {
+    fn reaches(&self, reach: &mut Reach) -> bool {
         if self.source.is_none() {
-            if &self.name == target || self.name.0 == "Self" {
+            let name = &self.name;
+            let itself = name.0 == "Self";
+            if name == reach.target || itself {
                 return true;
             }
-            match file.resolve(&self.name) {
-                Resolution::Intrinsic(Intrinsic::Vector) if passage == Passage::ByValue => {
+            use Intrinsic::Vector;
+            use Resolution::Intrinsic as Known;
+            let by_value = Passage::ByValue;
+            let stops = reach.passage == by_value;
+            let file = reach.file;
+            match file.resolve(name) {
+                Known(Vector) if stops => {
                     return false;
                 }
-                Resolution::Type(name) if !visited.contains(&name) => {
-                    visited.push(name.clone());
-                    if let Some(declaration) = file.declaration(&name)
-                        && declaration.reaches(target, passage, file, visited)
-                    {
+                Resolution::Type(name) => {
+                    if reach.enter(name) {
                         return true;
                     }
                 }
@@ -298,7 +328,7 @@ impl Reaching for Reference {
             }
         }
         for argument in &self.arguments {
-            if argument.reaches(target, passage, file, visited) {
+            if argument.reaches(reach) {
                 return true;
             }
         }
@@ -307,15 +337,9 @@ impl Reaching for Reference {
 }
 
 impl Reaching for [Reference] {
-    fn reaches(
-        &self,
-        target: &Name,
-        passage: Passage,
-        file: &File,
-        visited: &mut Vec<Name>,
-    ) -> bool {
+    fn reaches(&self, reach: &mut Reach) -> bool {
         for reference in self {
-            if reference.reaches(target, passage, file, visited) {
+            if reference.reaches(reach) {
                 return true;
             }
         }
@@ -324,15 +348,10 @@ impl Reaching for [Reference] {
 }
 
 impl Reaching for [Position] {
-    fn reaches(
-        &self,
-        target: &Name,
-        passage: Passage,
-        file: &File,
-        visited: &mut Vec<Name>,
-    ) -> bool {
+    fn reaches(&self, reach: &mut Reach) -> bool {
         for position in self {
-            if position.reference().reaches(target, passage, file, visited) {
+            let held = position.reference();
+            if held.reaches(reach) {
                 return true;
             }
         }
@@ -341,55 +360,59 @@ impl Reaching for [Position] {
 }
 
 impl Reaching for TypeDeclaration {
-    fn reaches(
-        &self,
-        target: &Name,
-        passage: Passage,
-        file: &File,
-        visited: &mut Vec<Name>,
-    ) -> bool {
+    fn reaches(&self, reach: &mut Reach) -> bool {
+        use TypeDeclaration::Enum;
         match self {
             TypeDeclaration::Struct(_, positions) | TypeDeclaration::Sealed(_, positions) => {
-                positions.reaches(target, passage, file, visited)
+                positions.reaches(reach)
             }
-            // Behind its lock, a shared type's state is reached through a pointer.
+            // Behind its lock, a shared type's
+            // state is reached through a pointer.
             TypeDeclaration::Shared(_, _) => false,
-            TypeDeclaration::Enum(_, variants) => variants.reaches(target, passage, file, visited),
-            TypeDeclaration::Alias(_, aliased) => aliased.reaches(target, passage, file, visited),
+            Enum(_, variants) => {
+                // Through any of its variants.
+                variants.reaches(reach)
+            }
+            Newtype(_, held) => {
+                // It holds its type by value.
+                held.reaches(reach)
+            }
         }
     }
 }
 
 impl Reaching for Variant {
-    fn reaches(
-        &self,
-        target: &Name,
-        passage: Passage,
-        file: &File,
-        visited: &mut Vec<Name>,
-    ) -> bool {
+    fn reaches(&self, reach: &mut Reach) -> bool {
         match self {
-            Variant::Bare(name) => match file.declaration(name) {
-                Some(_) => name.carried().reaches(target, passage, file, visited),
-                None => false,
-            },
-            Variant::Typed(_, reference) => reference.reaches(target, passage, file, visited),
-            Variant::Struct(_, positions) => positions.reaches(target, passage, file, visited),
-            Variant::Enum(_, variants) => variants.reaches(target, passage, file, visited),
+            Variant::Bare(name) => {
+                let file = reach.file;
+                let held = file.declaration(name);
+                if held.is_none() {
+                    return false;
+                }
+                // It carries the type it names.
+                name.carried().reaches(reach)
+            }
+            Variant::Typed(_, reference) => {
+                // It carries the type it names.
+                reference.reaches(reach)
+            }
+            Variant::Struct(_, positions) => {
+                // Its payload, declared in place.
+                positions.reaches(reach)
+            }
+            Variant::Enum(_, variants) => {
+                // Its payload, declared in place.
+                variants.reaches(reach)
+            }
         }
     }
 }
 
 impl Reaching for [Variant] {
-    fn reaches(
-        &self,
-        target: &Name,
-        passage: Passage,
-        file: &File,
-        visited: &mut Vec<Name>,
-    ) -> bool {
+    fn reaches(&self, reach: &mut Reach) -> bool {
         for variant in self {
-            if variant.reaches(target, passage, file, visited) {
+            if variant.reaches(reach) {
                 return true;
             }
         }
@@ -444,28 +467,16 @@ impl Closing for Reference {
         if &self.name == owner || self.name.0 == "Self" {
             return true;
         }
-        match file.resolve(&self.name) {
-            Resolution::Intrinsic(Intrinsic::Vector) => return false,
-            Resolution::Type(name) => match file.declaration(&name) {
-                Some(TypeDeclaration::Alias(_, aliased)) => {
-                    if aliased.closes(owner, file) {
-                        return true;
-                    }
-                }
-                Some(declaration) => {
-                    let earlier = match (file.place(&name), file.place(owner)) {
-                        (Some(named), Some(owning)) => named <= owning,
-                        _ => false,
-                    };
-                    if earlier
-                        && declaration.reaches(owner, Passage::ByValue, file, &mut vec![name])
-                    {
-                        return true;
-                    }
-                }
-                None => {}
-            },
-            _ => {}
+        use Intrinsic::Vector;
+        use Resolution::Intrinsic as Known;
+        let resolved = file.resolve(&self.name);
+        if let Known(Vector) = resolved {
+            return false;
+        }
+        if let Resolution::Type(name) = resolved
+            && (file, owner).returns(name)
+        {
+            return true;
         }
         for argument in &self.arguments {
             if argument.closes(owner, file) {
@@ -473,6 +484,43 @@ impl Closing for Reference {
             }
         }
         false
+    }
+}
+
+/// The trait whose capability says whether a
+/// type declared no later than an owner reaches
+/// it back by value.
+trait Returning {
+    fn returns(&self, name: Name) -> bool;
+}
+
+/// A file and the owner a reach returns to.
+type Owned<'a> = (&'a File, &'a Name);
+
+impl Returning for Owned<'_> {
+    fn returns(&self, name: Name) -> bool {
+        let (file, owner) = *self;
+        let declared = file.declaration(&name);
+        let Some(declaration) = declared else {
+            return false;
+        };
+        let Some(named) = file.place(&name) else {
+            return false;
+        };
+        let owning = file.place(owner);
+        let Some(owning) = owning else {
+            return false;
+        };
+        if named > owning {
+            return false;
+        }
+        let mut reach = Reach {
+            target: owner,
+            passage: Passage::ByValue,
+            file,
+            visited: vec![name],
+        };
+        declaration.reaches(&mut reach)
     }
 }
 
@@ -491,7 +539,13 @@ impl Positioning for Reference {
     }
 
     fn recursive(&self, scope: &Scope, owner: &Name) -> bool {
-        self.reaches(owner, Passage::Any, scope.file, &mut vec![])
+        let mut reach = Reach {
+            target: owner,
+            passage: Passage::Any,
+            file: scope.file,
+            visited: vec![],
+        };
+        self.reaches(&mut reach)
     }
 
     fn position(&self, scope: &Scope, owner: &Name) -> TokenStream {
@@ -946,6 +1000,38 @@ impl Enumerating for [Variant] {
     }
 }
 
+/// The trait whose capability emits a new type
+/// over the one type it wraps: a tuple struct of
+/// one field with the derives a struct gets.
+trait Wrapping {
+    fn wrap(&self, scope: &Scope) -> TokenStream;
+}
+
+/// A new type: its identity and the type it
+/// holds.
+type Wrapped<'a> = (&'a Identity, &'a Reference);
+
+impl Wrapping for Wrapped<'_> {
+    fn wrap(&self, scope: &Scope) -> TokenStream {
+        let (identity, held) = *self;
+        let owner = &identity.name;
+        let name = owner.tokens();
+        let derive = identity.datom_derives();
+        let field = held.position(scope, owner);
+        let archive = held.archival(scope, owner);
+        let cyclic = held.recursive(scope, owner);
+        let bounds = match cyclic {
+            true => identity.recursion_bounds(),
+            false => TokenStream::new(),
+        };
+        quote! {
+            #derive
+            #bounds
+            pub struct #name(#archive pub #field);
+        }
+    }
+}
+
 impl Emitting for TypeDeclaration {
     fn emit(&self, scope: &Scope) -> TokenStream {
         match self {
@@ -981,16 +1067,13 @@ impl Emitting for TypeDeclaration {
                 };
                 variants.enumeration(&inner, &identity.name, identity)
             }
-            TypeDeclaration::Alias(identity, aliased) => {
+            Newtype(identity, held) => {
                 let inner = Scope {
                     file: scope.file,
                     identity: Some(identity),
                     associated: scope.associated,
                 };
-                let name = identity.name.tokens();
-                let parameters = identity.parameters(&inner);
-                let aliased = aliased.emit(&inner);
-                quote! { #[rustfmt::skip] pub type #name #parameters = #aliased; }
+                (identity, held).wrap(&inner)
             }
         }
     }
@@ -1364,8 +1447,19 @@ impl Emitting for File {
         for body in self.bodies() {
             items.extend(body.root.items(scope));
         }
+        let lints = quote! {
+            dead_code,
+            non_camel_case_types,
+            non_snake_case
+        };
+        // A new type's field writes its type in
+        // full, however deep the schema nests it.
+        let complexity = quote! {
+            clippy::type_complexity
+        };
         quote! {
-            #![allow(dead_code, non_camel_case_types, non_snake_case)]
+            #![allow(#lints)]
+            #![allow(#complexity)]
             #( #items )*
         }
     }

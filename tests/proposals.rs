@@ -58,13 +58,15 @@ fn fixture(name: &str) -> String {
 #[test]
 fn whitespace_after_a_separator_parses_in_datom() {
     let signal = read(&fixture("orchestrate"));
-    let text = "Observed.\n   Locks.\n      []";
+    let text = "Observed.\n   Locks.\n      \
+        { [] }";
     let datom = match signal.conform("Response", text) {
         Ok(datom) => datom,
         Err(error) => panic!("{text} conforms: {error:?}"),
     };
+    let tight = "Observed.Locks.{ [] }";
     let same = signal
-        .conform("Response", "Observed.Locks.[]")
+        .conform("Response", tight)
         .expect("the tight form conforms");
     assert_eq!(datom.form, same.form);
 }
@@ -157,7 +159,11 @@ fn a_type_files_enum_needs_two_variants() {
 #[test]
 fn a_type_file_may_be_a_struct_or_an_alias_and_knows_no_other_type() {
     assert!(generated("Type.Point.{ Integer Integer }").contains("pub struct Point"));
-    assert!(generated("Type.Names.⟦ String ⟧").contains("pub type Names = std::vec::Vec<String>"));
+    let source = "Type.Names.⟦ String ⟧";
+    let names = generated(source);
+    let wrapped = "pub struct \
+        Names(pub std::vec::Vec<String>);";
+    assert!(names.contains(wrapped), "{names}");
     assert_eq!(
         refusal("Type.Holder.{ Other }"),
         (vec![1, 1, 0], Problem::Undeclared("Other".to_owned()))
@@ -242,14 +248,16 @@ fn an_error_inside_vector_brackets_is_located_there() {
     };
     let location = potential.locate(&error);
     let column = source[..source.find("Bogus").unwrap()].chars().count() as i64 + 1;
-    assert_eq!((location.line, location.column), (1, column), "{error:?}");
+    let at = (location.line.0, location.column.0);
+    assert_eq!(at, (1, column), "{error:?}");
     // The position after the brackets keeps its own path.
     let after = "Library.{ [] [ Record.{ ⟦ String ⟧ Bogus } ] [] [] }";
     let potential = Potential::<File>::from(after);
     let error = read(after).generate().expect_err("Bogus is undeclared");
     let location = potential.locate(&error);
     let column = after[..after.find("Bogus").unwrap()].chars().count() as i64 + 1;
-    assert_eq!((location.line, location.column), (1, column), "{error:?}");
+    let at = (location.line.0, location.column.0);
+    assert_eq!(at, (1, column), "{error:?}");
 }
 
 #[test]
@@ -272,12 +280,15 @@ fn a_full_library_with_a_trait_borne_by_every_type_checks_and_generates() {
     };
     // Every type the Library shows bears a trait.
     for declaration in &library.types {
+        use TypeDeclaration::Struct;
+        use TypeDeclaration::{Enum, Newtype};
+        use TypeDeclaration::{Sealed, Shared};
         let name = match declaration {
-            TypeDeclaration::Struct(identity, _)
-            | TypeDeclaration::Enum(identity, _)
-            | TypeDeclaration::Alias(identity, _)
-            | TypeDeclaration::Sealed(identity, _)
-            | TypeDeclaration::Shared(identity, _) => &identity.name,
+            Struct(identity, _)
+            | Newtype(identity, _)
+            | Sealed(identity, _)
+            | Shared(identity, _)
+            | Enum(identity, _) => &identity.name,
         };
         assert!(
             library
@@ -316,11 +327,13 @@ fn a_datom_is_refused_with_its_typed_error() {
     let error = signal
         .conform(
             "Response",
-            "Observed.Locks.[ { 1 MyLock flow [ /a ] «why» } x ]",
+            "Observed.Locks.{ [ { { 1 } \
+             { MyLock } { flow } \
+             { [ { /a } ] } { «why» } } x ] }",
         )
         .expect_err("x is not a Lock");
     assert_eq!(error.layer, datom_codec::ErrorLayer::Composition);
-    assert_eq!(error.path, vec![1, 1, 1]);
+    assert_eq!(error.path, vec![1, 1, 0, 1]);
     let error = signal
         .conform("Query", "Lock.{ name flow [] }")
         .expect_err("a LockRequest has four positions");
@@ -341,15 +354,18 @@ fn an_imported_type_is_read_from_a_sibling_file() {
     };
     let signal = read(&print("flow-signal"));
     let library = read(&print("flow-library"));
-    let text = "Report.{ 7 ToolUsed.«a tool» }";
+    let text = "Report.{ { 7 } \
+        ToolUsed.«a tool» }";
     // Alone, the imported FlowId and Event cannot be checked.
     assert!(signal.conform("Query", text).is_err());
     let siblings = vec![("flow-library".to_owned(), library)];
     signal
         .conform_among(&siblings, "Query", text)
         .expect("the imported types conform");
+    let exploded = "Report.{ { 7 } Exploded }";
+    let query = "Query";
     let error = signal
-        .conform_among(&siblings, "Query", "Report.{ 7 Exploded }")
+        .conform_among(&siblings, query, exploded)
         .expect_err("Exploded is no Event");
     assert_eq!(error.path, vec![1, 1]);
 }
@@ -360,9 +376,9 @@ fn an_explicit_protos_import_names_the_intrinsic() {
         "Library.{ [ protos:[ String Integer Boolean ] ] [ FlowId.String Event.[ Started.FlowId Counted.{ Integer Boolean } Named.protos:String ] ] [] [] }",
     );
     for text in [
-        "Started.quietRiverStone",
-        "Started.flow-000000000000000a",
-        "Started.«quiet river stone»",
+        "Started.{ quietRiverStone }",
+        "Started.{ flow-000000000000000a }",
+        "Started.{ «quiet river stone» }",
         "Counted.{ 3 True }",
         "Named.«a name»",
     ] {
@@ -583,7 +599,8 @@ fn an_error_inside_white_braces_is_located_there() {
     let location = potential.locate(&error);
     let line = &source[source.find("[ Holder").unwrap()..];
     let column = line[..line.find("Bogus").unwrap()].chars().count() as i64 + 1;
-    assert_eq!((location.line, location.column), (3, column), "{error:?}");
+    let at = (location.line.0, location.column.0);
+    assert_eq!(at, (3, column), "{error:?}");
 }
 
 #[test]
@@ -594,20 +611,26 @@ fn an_imported_struct_in_a_vector_in_a_struct_conforms() {
     let placements = read(
         "Library.{ [ flow:[ Key ] ] [ SystemPrompt.⟦ Key ⟧ StartupPrompt.⟦ Key ⟧ Placements.⦃ SystemPrompt StartupPrompt ⦄ ] [] [] }",
     );
-    let text = "{ [ { Intent core } ] [ { Vision book } ] }";
+    let text = "{ { [ { Intent { core } } ] } \
+        { [ { Vision { book } } ] } }";
     let siblings = vec![("flow".to_owned(), library)];
     placements
         .conform_among(&siblings, "Placements", text)
         .expect("the imported Key conforms inside the vectors");
     let error = placements
-        .conform_among(&siblings, "Placements", "{ [ { Mission core } ] [] }")
+        .conform_among(
+            &siblings,
+            "Placements",
+            "{ { [ { Mission { core } } ] } \
+             { [] } }",
+        )
         .expect_err("Mission is no Subaspect");
-    assert_eq!(error.path, vec![0, 0, 0]);
+    assert_eq!(error.path, vec![0, 0, 0, 0]);
     // With no sibling to read it from, the error names the import.
     let error = placements
         .conform("Placements", text)
         .expect_err("Key is unresolved");
-    assert_eq!(error.path, vec![0, 0]);
+    assert_eq!(error.path, vec![0, 0, 0]);
     assert!(
         matches!(&error.kind, datom_codec::ErrorKind::Variant { expected, .. } if expected == "flow:Key declared in a sibling .ethos file"),
         "{error:?}"
@@ -691,7 +714,7 @@ fn a_vector_of_roots_generates_one_module() {
     assert_eq!(roots.len(), 2);
     assert_eq!(roots[1].head(), Head::Memory);
     let rust = generated(&source);
-    let header = "#![allow(";
+    let header = "#![allow(dead_code";
     assert_eq!(rust.matches(header).count(), 1);
     assert!(rust.contains("pub enum Shape"));
     // A root names what another declares.
@@ -748,7 +771,7 @@ fn an_error_in_a_later_root_is_located_there() {
     let line = &source[start..];
     let bogus = line.find("Bogus").unwrap();
     let column = bogus as i64;
-    let at = (location.line, location.column);
+    let at = (location.line.0, location.column.0);
     assert_eq!(at, (2, column), "{error:?}");
 }
 
@@ -791,4 +814,48 @@ fn every_root_has_its_traits_and_associations() {
         let arity = matches!(problem, Arity(_));
         assert!(arity, "{source}: {problem:?}");
     }
+}
+
+// 9. A type over one other type is a new type --
+
+#[test]
+fn a_type_over_one_type_is_a_new_type() {
+    let source = "Library.{ [] [ Name.String \
+        Names.⟦ Name ⟧ ] [] [] }";
+    let rust = generated(source);
+    let name = "pub struct Name(pub String);";
+    assert!(rust.contains(name), "{rust}");
+    let names = "pub struct \
+        Names(pub std::vec::Vec<Name>);";
+    assert!(rust.contains(names), "{rust}");
+    assert!(!rust.contains("pub type"), "{rust}");
+}
+
+#[test]
+fn a_new_type_reads_as_a_struct_of_one() {
+    let source = "Library.{ [] [ Name.String \
+        Pair.{ Name Integer } ] [] [] }";
+    let file = read(source);
+    let pair = "{ { Ada } 1990 }";
+    file.conform("Pair", pair).expect("conforms");
+    let error = file
+        .conform("Pair", "{ Ada 1990 }")
+        .expect_err("a new type is braced");
+    assert_eq!(error.path, vec![0]);
+}
+
+#[test]
+fn a_new_type_may_hold_itself_behind_a_way_out() {
+    let source = "Library.{ [] \
+        [ Chain.Option<Chain> ] [] [] }";
+    let rust = generated(source);
+    let boxed = "std::option::Option<\
+        std::boxed::Box<Chain>>";
+    assert!(rust.contains(boxed), "{rust}");
+    let endless = "Library.{ [] \
+        [ Loop.Loop ] [] [] }";
+    let (at, problem) = refusal(endless);
+    assert_eq!(at, vec![1, 1, 0, 0]);
+    let cycle = Problem::Cycle("Loop".to_owned());
+    assert_eq!(problem, cycle);
 }

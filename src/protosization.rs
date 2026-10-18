@@ -3,6 +3,7 @@
 use protos::{Canonicalizable, Enclosure, Extent, Protos, Protosizable, Separator, Symbol};
 
 use crate::Root;
+use crate::TypeDeclaration::Newtype;
 use crate::sectioning::Sectioning;
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Identity,
@@ -142,12 +143,34 @@ impl VariantsProtosizing for [Variant] {
         nodes
     }
 }
+/// A new type and the type it holds.
+type Beside<'a> = (&'a Identity, &'a Reference);
+
+/// The trait whose capability finds a new type
+/// whose held type takes arguments, which stand
+/// beside it in a list.
+trait Besiding {
+    fn beside(&self) -> Option<Beside<'_>>;
+}
+
+impl Besiding for TypeDeclaration {
+    fn beside(&self) -> Option<Beside<'_>> {
+        let Newtype(identity, held) = self else {
+            return None;
+        };
+        if held.arguments.is_empty() {
+            return None;
+        }
+        Some((identity, held))
+    }
+}
+
 impl DeclarationsProtosizing for [TypeDeclaration] {
     fn declaration_nodes(&self) -> Vec<Protos> {
         let mut nodes = Vec::new();
         for declaration in self {
-            match declaration {
-                TypeDeclaration::Alias(identity, reference) if !reference.arguments.is_empty() => {
+            match declaration.beside() {
+                Some((identity, reference)) => {
                     let body = match &reference.source {
                         Some(source) => source.as_ref().headed(
                             None,
@@ -276,8 +299,10 @@ impl Protosizing for TypeDeclaration {
                 Separator::Period,
                 "".enclosed(Enclosure::Bracketed, variants.variant_nodes()),
             ),
-            Self::Alias(identity, reference) => {
-                identity.heading(Separator::Period, reference.protos())
+            Self::Newtype(identity, held) => {
+                let body = held.protos();
+                let period = Separator::Period;
+                identity.heading(period, body)
             }
             Self::Shared(identity, positions) => identity.heading(
                 Separator::Period,
@@ -307,7 +332,7 @@ trait Alone {
 impl Alone for TypeDeclaration {
     fn alone(&self) -> Protos {
         match self {
-            Self::Alias(identity, reference)
+            Self::Newtype(identity, reference)
                 if reference.source.is_none()
                     && reference.name.as_ref() == "Vector"
                     && reference.arguments.len() == 1 =>

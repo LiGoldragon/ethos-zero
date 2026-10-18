@@ -161,7 +161,9 @@ fn a_bad_ethos_file_is_rejected_at_its_line_and_column_and_nothing_is_written() 
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 4 19 }} Conceptual.{{ [ 1 1 0 1 1 ] Undeclared.Bogus }} }}\n"
+            "Rejected.{{ {source} {{ {{ 4 }} {{ \
+                19 }} }} Conceptual.{{ [ 1 1 0 1 \
+                1 ] Undeclared.Bogus }} }}\n"
         )
     );
     assert!(!std::path::Path::new(&target).exists());
@@ -189,7 +191,9 @@ fn check_locates_an_undeclared_name_below_a_comment() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 6 26 }} Conceptual.{{ [ 1 1 0 1 2 1 0 ] Undeclared.Bogus }} }}\n"
+            "Rejected.{{ {source} {{ {{ 6 }} {{ \
+                26 }} }} Conceptual.{{ [ 1 1 0 1 \
+                2 1 0 ] Undeclared.Bogus }} }}\n"
         )
     );
 }
@@ -207,7 +211,9 @@ fn check_refuses_a_second_inline_source_at_the_inner_reference() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 4 18 }} Conceptual.{{ [ 1 1 0 1 0 1 ] Expected.Reference }} }}\n"
+            "Rejected.{{ {source} {{ {{ 4 }} {{ \
+                18 }} }} Conceptual.{{ [ 1 1 0 1 \
+                0 1 ] Expected.Reference }} }}\n"
         )
     );
 }
@@ -225,7 +231,9 @@ fn check_locates_a_duplicate_at_its_second_declaration() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 5 3 }} Conceptual.{{ [ 1 1 1 0 ] Duplicate.Record }} }}\n"
+            "Rejected.{{ {source} {{ {{ 5 }} {{ \
+                3 }} }} Conceptual.{{ [ 1 1 1 0 \
+                ] Duplicate.Record }} }}\n"
         )
     );
 }
@@ -243,7 +251,9 @@ fn check_locates_an_arity_error_at_the_reference() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 5 10 }} Conceptual.{{ [ 1 1 0 1 1 ] Arity.{{ 2 1 }} }} }}\n"
+            "Rejected.{{ {source} {{ {{ 5 }} {{ \
+                10 }} }} Conceptual.{{ [ 1 1 0 1 \
+                1 ] Arity.{{ 2 1 }} }} }}\n"
         )
     );
 }
@@ -259,7 +269,11 @@ fn check_locates_a_structural_error_at_its_extent() {
     let (success, output) = [argument.as_str()].invoke();
     assert!(!success);
     assert!(
-        output.starts_with(&format!("Rejected.{{ {source} {{ 4 19 }} Structural.")),
+        output.starts_with(&format!(
+            "Rejected.{{ \
+            {source} {{ {{ 4 }} {{ 19 }} }} \
+            Structural."
+        )),
         "{output}"
     );
 }
@@ -296,7 +310,9 @@ fn check_takes_a_trait_in_an_input_and_locates_a_concrete_type_there() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {refused} {{ 5 28 }} Conceptual.{{ [ 1 2 0 1 0 1 0 0 ] TraitWanted.Rec }} }}\n"
+            "Rejected.{{ {refused} {{ {{ 5 }} {{ \
+                28 }} }} Conceptual.{{ [ 1 2 0 1 \
+                0 1 0 0 ] TraitWanted.Rec }} }}\n"
         )
     );
 }
@@ -310,7 +326,11 @@ fn a_file_headed_sema_is_rejected_naming_memory() {
     assert!(!success);
     assert_eq!(
         output,
-        format!("Rejected.{{ {source} {{ 1 1 }} Conceptual.{{ [ 0 ] Renamed.Memory }} }}\n")
+        format!(
+            "Rejected.{{ {source} {{ {{ 1 }} \
+            {{ 1 }} }} Conceptual.{{ [ 0 ] \
+            Renamed.Memory }} }}\n"
+        )
     );
 }
 
@@ -351,7 +371,11 @@ fn inspect_answers_with_the_generated_rust_or_the_located_error() {
     assert!(!success);
     assert_eq!(
         output,
-        format!("Rejected.{{ {refused} {{ 1 13 }} Conceptual.{{ [ 1 1 ] Arity.{{ 2 1 }} }} }}\n")
+        format!(
+            "Rejected.{{ {refused} {{ {{ 1 \
+            }} {{ 13 }} }} Conceptual.{{ [ 1 1 ] \
+            Arity.{{ 2 1 }} }} }}\n"
+        )
     );
 }
 
@@ -359,22 +383,28 @@ fn inspect_answers_with_the_generated_rust_or_the_located_error() {
 fn conform_reads_a_datom_as_its_declared_type() {
     let source = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/orchestrate.ethos");
     let argument = format!(
-        "Conform.{{ {} Response «Observed.\n   Locks.\n      []» }}",
+        "Conform.{{ {} Response «Observed.\n   \
+         Locks.\n      {{ [] }}» }}",
         opaque(source)
     );
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(output, "Conformed.{ Response «Observed.Locks.[]» }\n");
+    let conformed = "Conformed.{ Response \
+        «Observed.Locks.{ [] }» }\n";
+    assert_eq!(output, conformed);
 
     let argument = format!(
-        "Conform.{{ {} Response «Observed.Locks.[ x ]» }}",
+        "Conform.{{ {} Response \
+         «Observed.Locks.{{ [ x ] }}» }}",
         opaque(source)
     );
     let (success, output) = [argument.as_str()].invoke();
     assert!(!success);
     assert_eq!(
         output,
-        "Unconformed.{ Response Error.{ Composition [ 1 1 0 ] Form.{ Struct Bare } } }\n"
+        "Unconformed.{ Response Error.{ \
+         Composition [ 1 1 0 0 ] \
+         Form.{ Struct Bare } } }\n"
     );
 }
 
@@ -385,7 +415,9 @@ fn conform_file_reads_the_datom_from_a_file_and_imports_from_siblings() {
     let directory = "conform-file".scratch();
     std::fs::create_dir_all(&directory).unwrap();
     let datom = format!("{directory}/report.datom");
-    std::fs::write(&datom, "Report.{ 7\n         ToolUsed.«a tool» }\n").unwrap();
+    let text = "Report.{ { 7 }\n         \
+        ToolUsed.«a tool» }\n";
+    std::fs::write(&datom, text).unwrap();
     let source = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/fixtures/print/flow-signal.ethos"
@@ -397,10 +429,11 @@ fn conform_file_reads_the_datom_from_a_file_and_imports_from_siblings() {
     );
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(
-        output,
-        "Conformed.{ Query «Report.{ 7\n         ToolUsed.«a tool\\» }» }\n"
-    );
+    let opened = "Conformed.{ Query \
+        «Report.{ { 7 }";
+    let hung = "\n         \
+        ToolUsed.«a tool\\» }» }\n";
+    assert_eq!(output, format!("{opened}{hung}"));
 
     let missing = format!(
         "ConformFile.{{ {} Query «/nowhere/x.datom» }}",

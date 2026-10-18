@@ -56,12 +56,12 @@ against the real reader. It builds on protos and datom-codec's own
    (`Shared.Holder`), and it must be associated with a trait of the file
    (`Shared.Name`). The hand-written impls lock `state`: `.` reads, `!`
    changes, `:` creates. `Name_State` is a derived name of the file.
-5. **`⟦ T ⟧` is `Vector<T>`** in every type position: positions, aliases,
+5. **`⟦ T ⟧` is `Vector<T>`** in every type position: positions, new types,
    variant payloads, capability inputs and yields, arguments, nested
    (`⟦ ⟦ Integer ⟧ ⟧`). Protos reads `⟦ ⟧` as an enclosure; ethos rewrites a
    listed one into `Vector` and its angled arguments before conception
    (`sugaring`), so error paths and locations are those of the source. The
-   print spells it `Vector<T>` except for a `Type.` file's alias, which has no
+   print spells it `Vector<T>` except for a `Type.` file's new type, which has no
    list to hold the angles beside it.
 
 8. **A file is a vector of roots.** `[ Library.{ … } Signal.{ … } ]` holds
@@ -86,6 +86,18 @@ against the real reader. It builds on protos and datom-codec's own
      []
      [] } ]
    ```
+
+9. **A type over one other type is a new type, never an alias.**
+   `Name.String` generates `pub struct Name(pub String);` with the derives
+   a struct gets (rkyv always, datom behind `datom`). datom-codec's derive
+   composes a one-field tuple struct as a struct of one position, so its
+   datom is `{ Ada }`, not `Ada`: `Pair.{ Name Integer }` reads
+   `{ { Ada } 1990 }`, and the CLI's own `Location.{ Line Column }` now
+   replies `{ { 4 } { 19 } }`. A new type holding itself by value with no
+   way out (`Loop.Loop`) is a `Cycle`; one holding itself through
+   `Option` or `Vector` is boxed where it closes the cycle. Generated
+   modules allow `clippy::type_complexity`, since a new type's field
+   writes its held type in full.
 
 ### Checking a snippet
 
@@ -188,7 +200,7 @@ enclosing identity, and emitted before the struct that holds it.
 An import names a Rust path prefix and the names taken from it:
 `std:clone:Clonable.Clone` imports one name, and
 `std:clone:[ Clonable.Clone ]` imports a group. A position is boxed only
-where it closes a by-value cycle: it names, through aliases, `Option` and
+where it closes a by-value cycle: it names, through `Option` and
 `Result` but not `Vector`, a type declared no later than its owner that
 reaches the owner by value; in `Twin.{ Twig Twig }  Twig.[ Tip  Grow.Twin ]`
 only `Grow` is boxed. Every position that reaches its owner by

@@ -4,6 +4,7 @@
 // itself is `flow`, re-exporting the generated Flow Library.
 extern crate self as flow;
 pub use flow_library::{Event, FlowId, Voice};
+use flow_operation::{Home, Login};
 
 pub struct Wrapper<T>(pub T);
 
@@ -26,8 +27,6 @@ impl Summarizable for sink_associations::Sink {
 }
 impl Fillable for sink_associations::Sink {}
 
-#[path = "generated/alias-format.rs"]
-mod alias_format;
 #[path = "generated/capability-traits.rs"]
 mod capability_traits;
 #[path = "generated/commit-message.rs"]
@@ -54,6 +53,8 @@ mod inline_collision;
 mod multi_types;
 #[path = "generated/nested-collision.rs"]
 mod nested_collision;
+#[path = "generated/newtype-format.rs"]
+mod newtype_format;
 #[path = "generated/orchestrate.rs"]
 mod orchestrate;
 #[path = "generated/placed-types.rs"]
@@ -108,8 +109,10 @@ fn colliding_inline_payloads_are_named_for_their_enums() {
         inline_collision::Y_Data_X_Data { integer: 2 },
     ));
     let q = inline_collision::Q::X(inline_collision::Q_X_Data { integer: 1 });
-    let authored: inline_collision::X_Data = String::new();
-    let unique = inline_collision::R::Z(inline_collision::Z_Data { string: authored });
+    use inline_collision::{R, X_Data, Z_Data};
+    let authored = X_Data(String::new());
+    let string = authored.0;
+    let unique = R::Z(Z_Data { string });
     assert!(matches!(p, inline_collision::P::X(_)));
     assert!(matches!(nested, inline_collision::P::Y(_)));
     assert!(matches!(q, inline_collision::Q::X(_)));
@@ -123,15 +126,26 @@ fn named_fields_and_signal_query_response_compile() {
         integer: 1990,
     };
     assert_eq!(record.integer, 1990);
-    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(vec![]));
-    let response = orchestrate::Response::Observed(orchestrate::Observation::Locks(vec![]));
+    use orchestrate::Response;
+    use orchestrate::{Locks, Observation};
+    use orchestrate::{ObserveSelection, Query};
+    let none = Locks(vec![]);
+    let selection = ObserveSelection::Locks(none);
+    let query = Query::Observe(selection);
+    let empty = Locks(vec![]);
+    let observed = Observation::Locks(empty);
+    let response = Response::Observed(observed);
     assert!(matches!(query, orchestrate::Query::Observe(_)));
     assert!(matches!(response, orchestrate::Response::Observed(_)));
 }
 
 #[test]
 fn generated_signal_query_round_trips_as_a_portable_archive() {
-    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(vec![]));
+    use orchestrate::Query;
+    use orchestrate::{Locks, ObserveSelection};
+    let none = Locks(vec![]);
+    let selection = ObserveSelection::Locks(none);
+    let query = Query::Observe(selection);
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive query");
     let restored =
         rkyv::from_bytes::<orchestrate::Query, rkyv::rancor::Error>(&bytes).expect("restore query");
@@ -151,6 +165,7 @@ fn generated_decimal_signal_archives_and_bears_datom_derives() {
 
 #[test]
 fn recursive_generated_signal_archives_and_restores() {
+    use tree_types::Forest;
     use tree_types::{Chain, Node_Data, Query, Response, Tree, Twig, Twin};
     let tree = Tree::Node(Node_Data {
         first_tree: Box::new(Tree::Many(vec![Tree::Leaf(1), Tree::Maybe(None)])),
@@ -173,8 +188,10 @@ fn recursive_generated_signal_archives_and_restores() {
             .expect("restore recursive query");
         assert_eq!(restored, query);
     }
+    let leaves = vec![tree, Tree::Leaf(3)];
+    let forest = Forest(leaves);
     let responses = [
-        Response::Planted(vec![tree, Tree::Leaf(3)]),
+        Response::Planted(forest),
         Response::Twined(Twig::Grow(Box::new(twin))),
     ];
     for response in responses {
@@ -228,9 +245,9 @@ fn operation_free_signal_shared_record_archives_and_round_trips_as_datom_text() 
     use datom_codec::{Actualizing, Budget, Datomizable, Potential};
     use protos::{Protosizable, ReaderBudget, Textualizable};
 
-    let shared = empty_signal::Shared {
-        name: "domain".to_owned(),
-    };
+    let domain = "domain".to_owned();
+    let name = empty_signal::Name(domain);
+    let shared = empty_signal::Shared { name };
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&shared).expect("archive shared record");
     assert_eq!(
         rkyv::from_bytes::<empty_signal::Shared, rkyv::rancor::Error>(&bytes)
@@ -280,14 +297,17 @@ fn generated_memory_records_round_trip_as_datom_text() {
     );
 }
 
+/// A type declared over one other type is a new
+/// type: each wraps the one it holds.
 #[test]
-fn aliases_name_their_types() {
-    let short: alias_format::Short = String::new();
-    let provider: alias_format::OptionalSpiritGuardianProviderName = Some(short);
-    let tokens: alias_format::OptionalSpiritGuardianMaximumOutputTokens = Some(4_096);
-    let nested: alias_format::Nested = vec![Some(Ok(String::new())), Some(Err(1)), None];
-    assert!(provider.is_some() && tokens.is_some());
-    assert_eq!(nested.len(), 3);
+fn new_types_wrap_their_types() {
+    use newtype_format::{Nested, Short};
+    let short = Short("guardian".to_owned());
+    assert_eq!(short.0, "guardian");
+    let empty = Ok(String::new());
+    let held = vec![Some(empty), None];
+    let nested = Nested(held);
+    assert_eq!(nested.0.len(), 2);
 }
 
 /// A sink bearing the fixture's own capability trait.
@@ -386,13 +406,13 @@ fn several_declarations_generate_side_by_side() {
         string: String::new(),
         integer_vector: vec![record.integer],
     };
-    let id: multi_types::LockId = 7;
+    let id = multi_types::LockId(7);
     assert_eq!(report.integer_vector, vec![1]);
     assert!(matches!(
         multi_types::SinkError::Closed,
         multi_types::SinkError::Closed
     ));
-    assert_eq!(id, 7);
+    assert_eq!(id.0, 7);
 }
 
 #[test]
@@ -462,11 +482,12 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
         depth: 0,
         maximum_depth: 1024,
     };
+    let logins = vec!["claude".to_owned()];
     let operation = flow_operation::Operation::Start(flow_operation::Start_Data {
         voice: Voice::Mind(flow_library::Rank::Primary),
         capsule: flow_operation::Capsule {
-            home: "/home/flow".to_owned(),
-            login: vec!["claude".to_owned()],
+            home: Home("/home/flow".to_owned()),
+            login: Login(logins),
         },
     });
     let text = operation.datomize(vec![]).protosize().textualize();
@@ -475,10 +496,11 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
         pending.actualize(&mut budget()).expect("restore operation"),
         operation
     );
-    let outcome = flow_operation::Outcome::Started(7);
-    assert!(matches!(outcome, flow_operation::Outcome::Started(7)));
+    use flow_operation::Outcome::Started;
+    let outcome = Started(FlowId(7));
+    assert_eq!(outcome, Started(FlowId(7)));
     let memory = flow_memory::Flow {
-        flow_id: 7,
+        flow_id: FlowId(7),
         voice: Voice::Psyche(flow_library::Rank::Secondary),
         state: flow_memory::State::Running,
         event_vector: vec![
@@ -555,12 +577,12 @@ fn a_type_file_generates_its_one_declaration() {
 /// under the lock, `!` changes under it, `:` creates it (proposal).
 struct Pane(String);
 impl wake_waits::Paned for Pane {
-    fn pane(&self) -> String {
-        self.0.clone()
+    fn pane(&self) -> wake_waits::PaneId {
+        wake_waits::PaneId(self.0.clone())
     }
 }
 impl wake_waits::Waiting for wake_waits::WakeWaits {
-    fn waits(&self) -> Vec<String> {
+    fn waits(&self) -> Vec<wake_waits::PaneId> {
         self.state
             .lock()
             .expect("unpoisoned")
@@ -590,7 +612,10 @@ fn every_clone_of_a_shared_handle_sees_the_one_state() {
     let wake = subscriptions.clone();
     assert_eq!(subscriptions.wait(Pane("pane-1".to_owned())), 1);
     let waker = std::thread::spawn(move || wake.waits());
-    assert_eq!(waker.join().expect("joined"), vec!["pane-1".to_owned()]);
+    let waits = waker.join().expect("joined");
+    let id = "pane-1".to_owned();
+    let pane = wake_waits::PaneId(id);
+    assert_eq!(waits, vec![pane]);
 }
 
 impl yieldless_waits::Paned for yieldless_waits::Pane {
@@ -704,9 +729,9 @@ fn white_brackets_generate_structs_and_vectors() {
 
 #[test]
 fn a_vector_of_roots_is_one_module() {
-    use root_vector::{Record, Shape};
+    use root_vector::{Name, Record, Shape};
     let record = Record {
-        name: "Ada".to_owned(),
+        name: Name("Ada".to_owned()),
         shape: Shape::Round,
         integer: 1,
     };

@@ -11,6 +11,7 @@ use protos::{Extent, Protos, Protosizable};
 
 use crate::sugaring::Sugaring;
 use crate::{Canonicalizable, Error, File, Locating, Location, Potential, Resituating};
+use crate::{Column, Line};
 
 /// The trait whose capability finds the extent of the node a path names.
 trait Finding {
@@ -87,8 +88,8 @@ impl Lining for str {
             None => before.chars().count() + 1,
         };
         Location {
-            line: line as Integer,
-            column: column as Integer,
+            line: Line(line as Integer),
+            column: Column(column as Integer),
         }
     }
 }

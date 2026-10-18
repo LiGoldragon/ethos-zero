@@ -312,15 +312,20 @@ pub enum Position {
     Declared(TypeDeclaration),
 }
 
-/// A type declaration: a struct of positions, an enum of variants, or an alias.
+/// A type declaration: a struct of positions,
+/// an enum of variants, or a new type over one
+/// other type.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TypeDeclaration {
     /// A headed brace: the positions in order.
     Struct(Identity, Vec<Position>),
     /// A headed bracket: the variants.
     Enum(Identity, Vec<Variant>),
-    /// A headed bare: the aliased type.
-    Alias(Identity, Reference),
+    /// A headed bare, `Name.String`: a new type
+    /// over the one type it holds, never an
+    /// alias; generated as a tuple struct of one
+    /// field with the derives a struct gets.
+    Newtype(Identity, Reference),
     /// A sealed struct, `Name.Sealed.{ positions }`: its positions are
     /// private in the generated Rust, and it is built only by a `:`
     /// capability yielding `Self` or `Result<Self X>` of a trait it is
@@ -519,7 +524,8 @@ pub enum Resolution {
 /// What a reference is asked to be: a type in a type position, a trait in a bound.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Role {
-    /// A type: a position, an alias, an input, a yield, an argument.
+    /// A type: a position, a new type's held
+    /// type, an input, a yield, an argument.
     Type,
     /// A trait: a constraint, a supertrait, a bound, an association.
     Trait,
@@ -1310,8 +1316,10 @@ mod behavior {
                 .or_else(|| source.find(" 1 ").map(|at| at + 1))
                 .or_else(|| source.find("<1>").map(|at| at + 1))
                 .expect("one offending token");
+            let line = location.line.0;
+            let column = location.column.0;
             assert_eq!(
-                (location.line, location.column),
+                (line, column),
                 (1, offending as i64 + 1),
                 "{source}: {error:?}"
             );

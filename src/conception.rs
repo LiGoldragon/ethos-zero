@@ -4,6 +4,7 @@ use datom_codec::{Integer, Path};
 use protos::{Enclosure, Protos, Separator, Symbol};
 
 use crate::Head;
+use crate::TypeDeclaration::Newtype;
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported, Library,
@@ -334,13 +335,16 @@ impl Declaring for Protos {
     ) -> Result<TypeDeclaration, Error> {
         let mut declaration: TypeDeclaration = self.conceive().place(index as Integer)?;
         if let Some(children) = arguments {
-            let TypeDeclaration::Alias(_, reference) = &mut declaration else {
+            let declared = &mut declaration;
+            let Newtype(_, held) = declared else {
                 return Err(Error::conceptual(
                     vec![(index + 1) as Integer],
                     Problem::Expected(Form::Declaration),
                 ));
             };
-            reference.arguments = children.references().place((index + 1) as Integer)?;
+            let at = (index + 1) as Integer;
+            let arguments = children.references();
+            held.arguments = arguments.place(at)?;
         }
         Ok(declaration)
     }
@@ -640,7 +644,8 @@ impl Conceiving<TypeDeclaration> for Protos {
         } else if let Some(v) = body.children(Enclosure::Bracketed) {
             Ok(TypeDeclaration::Enum(identity, v.variants().place(1)?))
         } else {
-            Ok(TypeDeclaration::Alias(identity, body.conceive().place(1)?))
+            let held = body.conceive().place(1)?;
+            Ok(Newtype(identity, held))
         }
     }
 }

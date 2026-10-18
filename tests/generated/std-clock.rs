@@ -1,4 +1,5 @@
 #![allow(dead_code, non_camel_case_types, non_snake_case)]
+#![allow(clippy::type_complexity)]
 #[rustfmt::skip]
 pub struct Clock_State {
     pub(super) instant: std::time::Instant,

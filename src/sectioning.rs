@@ -465,7 +465,7 @@ impl Hoist for TypeDeclaration {
                 positions.hoist_positions(shape, placed)
             }
             TypeDeclaration::Enum(_, variants) => variants.hoist_variants(body, placed),
-            TypeDeclaration::Alias(_, _) => {}
+            TypeDeclaration::Newtype(_, _) => {}
         }
     }
 }

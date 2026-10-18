@@ -22,11 +22,24 @@ mod wire {
         assert_eq!(restored, value);
     }
 
+    /// The capsule's home, a new type.
+    fn home() -> operation::Home {
+        let path = "/home/flow".to_owned();
+        operation::Home(path)
+    }
+
+    /// The capsule's login, a new type.
+    fn login() -> operation::Login {
+        let logins = vec!["claude".to_owned()];
+        operation::Login(logins)
+    }
+
     #[test]
     fn every_root_crosses_the_wire() {
         crosses(library::Voice::Mind(library::Rank::Primary));
+        let flow_id = library::FlowId(7);
         crosses(signal::Query::Report(signal::Report_Data {
-            flow_id: 7,
+            flow_id: flow_id.clone(),
             event: library::Event::ToolUsed("Bash".to_owned()),
         }));
         crosses(signal::Response::Refused(signal::Refused_Data::VoiceBusy(
@@ -35,13 +48,13 @@ mod wire {
         crosses(operation::Operation::Start(operation::Start_Data {
             voice: library::Voice::Psyche(library::Rank::Secondary),
             capsule: operation::Capsule {
-                home: "/home/flow".to_owned(),
-                login: vec!["claude".to_owned()],
+                home: home(),
+                login: login(),
             },
         }));
         crosses(operation::Outcome::Failed("no capsule".to_owned()));
         crosses(memory::Flow {
-            flow_id: 7,
+            flow_id,
             voice: library::Voice::Mind(library::Rank::Primary),
             state: memory::State::Ended,
             event_vector: vec![library::Event::Started, library::Event::Stopped],

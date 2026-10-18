@@ -4,7 +4,8 @@
 //! instead, by the rules the generated derives compose by. A struct is a
 //! brace of its positions; an enum variant carrying nothing is its head
 //! alone, one carrying a type is `Head.body`, one declaring a struct or an
-//! enum in place carries that payload; an alias is its aliased type. The
+//! enum in place carries that payload; a new
+//! type is a struct of one position. The
 //! intrinsic scalars are composed by datom-codec itself (`String`,
 //! `Integer`, `Decimal`, `Boolean`, `Meaning`); `Vector`, `Option` and
 //! `Result` by their forms. A type the file imports
@@ -19,6 +20,7 @@ use datom_codec::{
 };
 use protos::BoundedProtosizable;
 
+use crate::TypeDeclaration::Newtype;
 use crate::checking::Declaring;
 use crate::sectioning::{Referencing, Rooting};
 use crate::{
@@ -96,6 +98,14 @@ trait Shaping {
         &self,
         owner: &Name,
         variants: &[Variant],
+        datom: &Datom,
+        budget: &mut Budget,
+    ) -> Result<(), Error>;
+    /// A new type's datom: a struct of one
+    /// position, the type it holds.
+    fn newtype(
+        &self,
+        wrapped_reference: &Reference,
         datom: &Datom,
         budget: &mut Budget,
     ) -> Result<(), Error>;
@@ -290,7 +300,10 @@ impl Shaping for Context<'_> {
             Some(TypeDeclaration::Enum(_, variants)) => {
                 self.variants(name, variants, datom, budget)
             }
-            Some(TypeDeclaration::Alias(_, aliased)) => self.reference(aliased, datom, budget),
+            Some(Newtype(_, held)) => {
+                // A struct of one position.
+                self.newtype(held, datom, budget)
+            }
             // Shared state never travels as text.
             Some(TypeDeclaration::Shared(_, _)) => Err(datom.form("Shared")),
             None => Err(datom.form(name.as_ref())),
@@ -357,5 +370,17 @@ impl Shaping for Context<'_> {
             expected: owner.as_ref().to_owned(),
             found: head.to_owned(),
         }))
+    }
+
+    fn newtype(
+        &self,
+        wrapped_reference: &Reference,
+        datom: &Datom,
+        budget: &mut Budget,
+    ) -> Result<(), Error> {
+        let held = wrapped_reference.clone();
+        let position = Position::Referenced(held);
+        let positions = [position];
+        self.positions(&positions, datom, budget)
     }
 }
