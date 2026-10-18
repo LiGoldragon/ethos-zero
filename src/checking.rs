@@ -1052,9 +1052,7 @@ impl Sealing for File {
                 continue;
             };
             let name = &identity.name;
-            let borne = self.borne(name);
-            let mut traits = borne.iter();
-            if !traits.any(|t| t.constructs()) {
+            if !self.builds(name) {
                 let mut path = placed.path;
                 path.push(0);
                 return Err(Error::conceptual(
@@ -1969,14 +1967,9 @@ impl Checkable for Association {
         let head = &self.identity.name;
         if scope.groups(head) {
             self.identity.check(scope).place(0)?;
-            let mut at = 0;
-            for member in &self.members {
-                let listed = member.list(scope);
-                let placed = listed.beside(at);
-                placed.place(0).place(1)?;
-                at += member.span();
-            }
-            return Ok(());
+            let members = &self.members;
+            let listed = members.list_all(scope);
+            return listed.place(1);
         }
         if scope.resolve(&self.identity.name) == Resolution::Undeclared {
             return Err(Error::conceptual(
@@ -1986,10 +1979,7 @@ impl Checkable for Association {
         }
         self.identity.check(scope).place(0)?;
         // The traits borne are named outside the identity that bears them.
-        let m = &self.members;
-        let role = Role::Trait;
-        let r = m.refer_each(scope, role, 0);
-        r.place(1)
+        self.members.bear(scope).place(1)
     }
 }
 
@@ -1999,24 +1989,38 @@ impl Checkable for Association {
 /// bearing it.
 pub(crate) trait Grouping {
     fn groups(&self, head: &Name) -> bool;
+    /// The Protos intrinsic a head names, if any.
+    fn kind(&self, head: &Name) -> Kind;
 }
+
+/// The intrinsic a head names, if it names one.
+type Kind = Option<Intrinsic>;
 
 impl Grouping for Scope<'_> {
     fn groups(&self, head: &Name) -> bool {
-        let found = match self.resolve(head) {
-            Resolution::Trait(_) => return true,
-            Resolution::Intrinsic(it) => Some(it),
-            Resolution::Imported(at, emitted) => {
-                let p = at.as_ref() == "protos";
+        let resolved = self.resolve(head);
+        if let Resolution::Trait(_) = resolved {
+            return true;
+        }
+        let kind = self.kind(head);
+        let role = kind.map(|kind| kind.role());
+        role == Some(Role::Trait)
+    }
+
+    fn kind(&self, head: &Name) -> Kind {
+        use Resolution::Imported;
+        use Resolution::Intrinsic as Known;
+        let named = Intrinsic::identify(&head.0);
+        match self.resolve(head) {
+            Known(kind) => Some(kind),
+            Imported(origin, emitted) => {
+                let from = origin.as_ref();
+                let own = from == "protos";
                 let same = &emitted == head;
-                let name = &head.0;
-                let i = Intrinsic::identify(name);
-                i.filter(|_| p && same)
+                named.filter(|_| own && same)
             }
             _ => None,
-        };
-        let role = found.map(|it| it.role());
-        role == Some(Role::Trait)
+        }
     }
 }
 
@@ -2027,17 +2031,43 @@ type Checked = Result<(), Error>;
 /// that a grouped association lists: an
 /// unsourced type.
 trait Listing {
-    fn list(&self, s: &Scope) -> Checked;
+    fn list(&self, scope: &Scope) -> Checked;
 }
 
 impl Listing for Reference {
-    fn list(&self, s: &Scope) -> Checked {
+    fn list(&self, scope: &Scope) -> Checked {
         if self.source.is_none() {
-            return self.refer(s, Role::Type);
+            return self.refer(scope, Role::Type);
         }
         let form = crate::Form::Name;
         let problem = Problem::Expected(form);
         Err(Error::conceptual(vec![], problem))
+    }
+}
+
+/// The trait whose capabilities check the
+/// references an association lists.
+trait Members {
+    /// Check each as a type a trait head lists.
+    fn list_all(&self, scope: &Scope) -> Checked;
+    /// Check each as a trait a type bears.
+    fn bear(&self, scope: &Scope) -> Checked;
+}
+
+impl Members for Vec<Reference> {
+    fn list_all(&self, scope: &Scope) -> Checked {
+        let mut offset = 0;
+        for member in self {
+            let listed = member.list(scope);
+            let beside = listed.beside(offset);
+            beside.place(0)?;
+            offset += member.span();
+        }
+        Ok(())
+    }
+
+    fn bear(&self, scope: &Scope) -> Checked {
+        self.refer_each(scope, Role::Trait, 0)
     }
 }
 
@@ -2053,6 +2083,8 @@ pub(crate) trait Bearing {
     fn bearings(&self) -> Vec<Association>;
     /// The file's own traits a type bears.
     fn borne(&self, bearer: &Name) -> Traits<'_>;
+    /// Whether a type bears a constructing trait.
+    fn builds(&self, bearer: &Name) -> bool;
 }
 
 impl Bearing for File {
@@ -2107,12 +2139,19 @@ impl Bearing for File {
             }
         }
         let mut borne = Vec::new();
-        for t in &library.traits {
-            if names.contains(&t.identity.name) {
-                borne.push(t);
+        for declared in &library.traits {
+            let name = &declared.identity.name;
+            if names.contains(name) {
+                borne.push(declared);
             }
         }
         borne
+    }
+
+    fn builds(&self, bearer: &Name) -> bool {
+        let borne = self.borne(bearer);
+        let mut traits = borne.into_iter();
+        traits.any(TraitDeclaration::constructs)
     }
 }
 
