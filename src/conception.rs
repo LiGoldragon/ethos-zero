@@ -414,21 +414,21 @@ impl Conceiving<Library> for Protos {
 }
 impl Conceiving<Signal> for Protos {
     fn conceive(&self) -> Result<Signal, Error> {
-        let s = self.sections(6)?;
-        let Some(queries) = s[1].children(Enclosure::Bracketed) else {
+        let sections = self.sections(6)?;
+        let Some(queries) = sections[1].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
-        let Some(responses) = s[2].children(Enclosure::Bracketed) else {
+        let Some(responses) = sections[2].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![2], Problem::Expected(Form::Section)));
         };
-        let Some(declarations) = s[3].children(Enclosure::Bracketed) else {
+        let Some(declarations) = sections[3].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![3], Problem::Expected(Form::Section)));
         };
-        let traits = s[4].bracket().place(4)?;
-        let associations = s[5].bracket();
+        let traits = sections[4].bracket().place(4)?;
+        let associations = sections[5].bracket();
         let associations = associations.place(5)?;
         Ok(Signal {
-            imports: s[0].bracket().place(0)?,
+            imports: sections[0].bracket().place(0)?,
             queries: queries.variants().place(1)?,
             responses: responses.variants().place(2)?,
             types: declarations.declarations().place(3)?,
@@ -439,21 +439,21 @@ impl Conceiving<Signal> for Protos {
 }
 impl Conceiving<Operation> for Protos {
     fn conceive(&self) -> Result<Operation, Error> {
-        let s = self.sections(6)?;
-        let Some(operations) = s[1].children(Enclosure::Bracketed) else {
+        let sections = self.sections(6)?;
+        let Some(operations) = sections[1].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
-        let Some(outcomes) = s[2].children(Enclosure::Bracketed) else {
+        let Some(outcomes) = sections[2].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![2], Problem::Expected(Form::Section)));
         };
-        let Some(declarations) = s[3].children(Enclosure::Bracketed) else {
+        let Some(declarations) = sections[3].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![3], Problem::Expected(Form::Section)));
         };
-        let traits = s[4].bracket().place(4)?;
-        let associations = s[5].bracket();
+        let traits = sections[4].bracket().place(4)?;
+        let associations = sections[5].bracket();
         let associations = associations.place(5)?;
         Ok(Operation {
-            imports: s[0].bracket().place(0)?,
+            imports: sections[0].bracket().place(0)?,
             operations: operations.variants().place(1)?,
             outcomes: outcomes.variants().place(2)?,
             types: declarations.declarations().place(3)?,
@@ -464,15 +464,15 @@ impl Conceiving<Operation> for Protos {
 }
 impl Conceiving<Memory> for Protos {
     fn conceive(&self) -> Result<Memory, Error> {
-        let s = self.sections(4)?;
-        let Some(types) = s[1].children(Enclosure::Bracketed) else {
+        let sections = self.sections(4)?;
+        let Some(types) = sections[1].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
-        let traits = s[2].bracket().place(2)?;
-        let associations = s[3].bracket();
+        let traits = sections[2].bracket().place(2)?;
+        let associations = sections[3].bracket();
         let associations = associations.place(3)?;
         Ok(Memory {
-            imports: s[0].bracket().place(0)?,
+            imports: sections[0].bracket().place(0)?,
             types: types.declarations().place(1)?,
             traits,
             associations,
