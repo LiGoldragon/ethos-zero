@@ -62,6 +62,8 @@ mod placed_types;
 mod processable_traits;
 #[path = "generated/record-types.rs"]
 mod record_types;
+#[path = "generated/root-vector.rs"]
+mod root_vector;
 #[path = "generated/sealed-library.rs"]
 mod sealed_library;
 #[path = "generated/self-traits.rs"]
@@ -698,4 +700,15 @@ fn white_brackets_generate_structs_and_vectors() {
     assert_eq!(point.length(), 7);
     let shape = white_brackets::Shape::Polygon(vec![point.clone(), point]);
     assert_eq!(shape.length(), 2);
+}
+
+#[test]
+fn a_vector_of_roots_is_one_module() {
+    use root_vector::{Record, Shape};
+    let record = Record {
+        name: "Ada".to_owned(),
+        shape: Shape::Round,
+        integer: 1,
+    };
+    assert_eq!(record.shape, Shape::Round);
 }

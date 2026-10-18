@@ -63,6 +63,27 @@ against the real reader. It builds on protos and datom-codec's own
    print spells it `Vector<T>` except for a `Type.` file's alias, which has no
    list to hold the angles beside it.
 
+8. **A file is a vector of roots.** `[ Library.{ … } Signal.{ … } ]` holds
+   any of Library, Signal, Operation and Memory, generated into the one
+   module; the roots share one namespace, so a name one root declares is
+   seen by the others and a second declaration of it in any root is a
+   `Duplicate`. A file of one root is still written without the vector. A
+   `Type` root stands only alone (`Root` at its head in a vector), and an
+   empty vector is `Empty`. An error's path starts at the root's index in
+   the vector. The print opens the bracket on the first line, each root's
+   head, dot and brace together, its sections two columns in:
+
+   ```
+   [ Library.{
+     []
+     [ Name.String ]
+     []
+     [] }
+     Memory.{
+     []
+     [ Record.{ Name Integer } ] } ]
+   ```
+
 ### Checking a snippet
 
 ```

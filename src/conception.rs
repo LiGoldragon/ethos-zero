@@ -1,8 +1,9 @@
 //! Conception: structural Protos to Ethos concepts.
 
-use datom_codec::Integer;
+use datom_codec::{Integer, Path};
 use protos::{Enclosure, Protos, Separator, Symbol};
 
+use crate::Head;
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported, Library,
@@ -66,8 +67,67 @@ impl Reading for Protos {
     }
 }
 
+/// A file is one root, or a vector of roots
+/// generated into one module; a `Type` root
+/// stands only alone.
 impl Conceiving<File> for Protos {
     fn conceive(&self) -> Result<File, Error> {
+        let bracket = Enclosure::Bracketed;
+        let listed = self.children(bracket);
+        let Some(nodes) = listed else {
+            let root = self.conceive()?;
+            return Ok(File::One(root));
+        };
+        if nodes.is_empty() {
+            return Problem::Empty.refused(vec![]);
+        }
+        let mut roots = Vec::new();
+        let each = nodes.iter().enumerate();
+        for (index, node) in each {
+            let at = index as Integer;
+            let root = node.conceive().place(at)?;
+            if let Root::Type(_) = root {
+                let path = vec![at, 0];
+                let problem = Problem::Root;
+                return problem.refused(path);
+            }
+            roots.push(root);
+        }
+        Ok(File::Many(roots))
+    }
+}
+
+/// What a reading yields: the value, or the
+/// error at its path.
+type Read<T> = Result<T, Error>;
+
+/// The trait whose capability refuses a reading
+/// with a problem at a path.
+trait Refusing {
+    fn refused<T>(self, path: Path) -> Read<T>;
+}
+
+impl Refusing for Problem {
+    fn refused<T>(self, path: Path) -> Read<T> {
+        let error = Error::conceptual(path, self);
+        Err(error)
+    }
+}
+
+/// The trait whose capability names the head
+/// that replaced a retired head's name.
+trait Renaming {
+    fn successor(&self) -> Option<Head>;
+}
+
+impl Renaming for Symbol {
+    fn successor(&self) -> Option<Head> {
+        Head::successor(&self.0)
+    }
+}
+
+impl Conceiving<Root> for Protos {
+    fn conceive(&self) -> Result<Root, Error> {
         let Protos::Headed {
             head,
             constraints,
@@ -81,12 +141,28 @@ impl Conceiving<File> for Protos {
         if constraints.is_some() || *separator != Separator::Period {
             return Err(Error::conceptual(vec![], Problem::Root));
         };
-        match Root::identify(&head.0) {
-            Some(Root::Library) => Ok(File::Library(body.conceive().place(1)?)),
-            Some(Root::Signal) => Ok(File::Signal(body.conceive().place(1)?)),
-            Some(Root::Operation) => Ok(File::Operation(body.conceive().place(1)?)),
-            Some(Root::Memory) => Ok(File::Memory(body.conceive().place(1)?)),
-            Some(Root::Type) => {
+        match Head::identify(&head.0) {
+            Some(Head::Library) => {
+                let read = body.conceive();
+                let library = read.place(1)?;
+                Ok(Root::Library(library))
+            }
+            Some(Head::Signal) => {
+                let read = body.conceive();
+                let signal = read.place(1)?;
+                Ok(Root::Signal(signal))
+            }
+            Some(Head::Operation) => {
+                let read = body.conceive();
+                let operation = read.place(1)?;
+                Ok(Root::Operation(operation))
+            }
+            Some(Head::Memory) => {
+                let read = body.conceive();
+                let memory = read.place(1)?;
+                Ok(Root::Memory(memory))
+            }
+            Some(Head::Type) => {
                 let declaration: TypeDeclaration = body.conceive().place(1)?;
                 // A type file declares one type whole; an enum of it needs at
                 // least two variants, or it would be a struct or an alias.
@@ -98,9 +174,9 @@ impl Conceiving<File> for Protos {
                         Problem::arity(2, variants.len() as Integer),
                     ));
                 }
-                Ok(File::Type(declaration))
+                Ok(Root::Type(declaration))
             }
-            None => match Root::successor(&head.0) {
+            None => match head.successor() {
                 Some(successor) => Err(Error::conceptual(
                     vec![0],
                     Problem::Renamed(successor.name().to_owned()),

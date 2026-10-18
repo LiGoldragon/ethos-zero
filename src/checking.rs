@@ -9,7 +9,10 @@
 
 use datom_codec::{Integer, Path};
 
+use crate::Root;
+use crate::sectioning::Rooting;
 use crate::sectioning::{Hoisting, Referencing, Sectioning};
+use crate::sectioning::{Opening, Prefixing};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
@@ -136,10 +139,15 @@ impl Resolving for File {
                 break;
             }
         }
-        if let File::Library(library) = self {
-            resolution = resolution.or(library.traits.resolve(name));
+        for declared in self.traits() {
+            let named = declared.resolve(name);
+            resolution = resolution.or(named);
         }
-        let resolution = resolution.or(self.imports().resolve(name));
+        for body in self.bodies() {
+            let imports = body.root.imports();
+            let imported = imports.resolve(name);
+            resolution = resolution.or(imported);
+        }
         if resolution != Resolution::Undeclared {
             return resolution;
         }
@@ -714,26 +722,30 @@ impl Checkable for crate::Imported {
     }
 }
 
+impl Checkable for Root {
+    fn check(&self, scope: &Scope) -> Checked {
+        self.contents().check(scope)
+    }
+}
+
+/// A file is checked root by root, then whole:
+/// its roots share one module and one namespace.
 impl Checkable for File {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        let checked = match self {
-            File::Library(library) => library.check(scope),
-            File::Signal(signal) => signal.check(scope),
-            File::Operation(operation) => operation.check(scope),
-            File::Memory(memory) => memory.check(scope),
-            File::Type(declaration) => declaration.check(scope),
-        };
-        checked.place(1)?;
+        for body in self.bodies() {
+            let checked = body.root.check(scope);
+            checked.prefixed(&body.path)?;
+        }
         // The derived names come first, so an authored name that would
         // capture one is the occurrence refused.
         let mut names = self.inline_sites();
         names.extend(self.shared_sites());
         names.extend(self.declared());
-        names.distinct().place(1)?;
-        self.finite().place(1)?;
-        self.sealed().place(1)?;
-        self.shared().place(1)?;
-        self.foreign().place(1)
+        names.distinct()?;
+        self.finite()?;
+        self.sealed()?;
+        self.shared()?;
+        self.foreign()
     }
 }
 
@@ -754,7 +766,12 @@ trait Fencing {
 impl Fencing for File {
     fn foreign(&self) -> Result<(), Error> {
         let mut foreign = Vec::new();
-        for import in self.imports() {
+        let mut imports = Vec::new();
+        for body in self.bodies() {
+            let root = body.root;
+            imports.extend(root.imports().iter());
+        }
+        for import in imports {
             let (source, names) = match import {
                 Import::One(source, imported) => (source, std::slice::from_ref(imported)),
                 Import::Many(source, imported) => (source, imported.as_slice()),
@@ -784,7 +801,7 @@ impl Fencing for File {
             for variant in implied.variants {
                 if variant.holds(&foreign) {
                     return Err(Error::conceptual(
-                        vec![implied.section],
+                        implied.path.clone(),
                         Problem::Foreign(implied.name.0.clone()),
                     ));
                 }
@@ -928,7 +945,7 @@ impl Sharing for File {
             for variant in implied.variants {
                 if variant.holds(&shared) {
                     return Err(Error::conceptual(
-                        vec![implied.section],
+                        implied.path.clone(),
                         Problem::Shared(implied.name.0.clone()),
                     ));
                 }
@@ -1040,7 +1057,7 @@ impl Sealing for File {
                 for variant in implied.variants {
                     if variant.holds(&sealed) {
                         return Err(Error::conceptual(
-                            vec![implied.section],
+                            implied.path.clone(),
                             Problem::Sealed(implied.name.0.clone()),
                         ));
                     }
@@ -1093,18 +1110,18 @@ pub(crate) trait Inlining {
 }
 
 /// The trait whose capability lists the enums of a file whose variants are named first-level.
-trait Rooting {
+trait InlineRooting {
     fn inline_roots(&self) -> Vec<InlineRoot<'_>>;
 }
 
-impl Rooting for File {
+impl InlineRooting for File {
     fn inline_roots(&self) -> Vec<InlineRoot<'_>> {
         let mut roots = Vec::new();
         for implied in self.implied_enums() {
             roots.push(InlineRoot {
                 owner: implied.name,
                 variants: implied.variants,
-                path: vec![implied.section],
+                path: implied.path,
             });
         }
         for placed in self.declarations() {
@@ -1215,8 +1232,15 @@ impl Inlining for File {
 
 /// The trait whose capability lists every name a file root declares by
 /// authorship: its imports, its types and traits, and the types it implies.
-trait Declared {
+pub(crate) trait Declared {
     fn declared(&self) -> Vec<DeclarationSite>;
+}
+
+/// A `Type` root declares its one type.
+impl Declared for TypeDeclaration {
+    fn declared(&self) -> Vec<DeclarationSite> {
+        self.names()
+    }
 }
 
 impl Declared for crate::Library {
@@ -1272,15 +1296,25 @@ impl Declared for Memory {
     }
 }
 
+impl Declared for Root {
+    fn declared(&self) -> Vec<DeclarationSite> {
+        self.contents().declared()
+    }
+}
+
+/// Every root's names, each at its path from the
+/// file's node, then those declared in place.
 impl Declared for File {
     fn declared(&self) -> Vec<DeclarationSite> {
-        let mut names = match self {
-            File::Library(library) => library.declared(),
-            File::Signal(signal) => signal.declared(),
-            File::Operation(operation) => operation.declared(),
-            File::Memory(memory) => memory.declared(),
-            File::Type(declaration) => declaration.names(),
-        };
+        let mut names = Vec::new();
+        for body in self.bodies() {
+            for mut site in body.root.declared() {
+                let mut path = body.path.clone();
+                path.append(&mut site.path);
+                site.path = path;
+                names.push(site);
+            }
+        }
         // A type declared in place is a declaration of the file, named at its head.
         for placed in self.inlined() {
             let mut path = placed.path;
@@ -1717,13 +1751,41 @@ trait TraitDeclaring {
 
 impl TraitDeclaring for File {
     fn trait_declaration(&self, name: &Name) -> Option<&TraitDeclaration> {
-        let File::Library(library) = self else {
-            return None;
-        };
-        library
-            .traits
-            .iter()
-            .find(|declaration| declaration.identity.name == *name)
+        for declared in self.traits() {
+            if declared.identity.name == *name {
+                return Some(declared);
+            }
+        }
+        None
+    }
+}
+
+/// The trait whose capabilities gather what a
+/// file's roots declare beside their types.
+pub(crate) trait Gathering {
+    /// Every trait the roots declare.
+    fn traits(&self) -> Vec<&TraitDeclaration>;
+    /// Every association the roots write.
+    fn associations(&self) -> Vec<&Association>;
+}
+
+impl Gathering for File {
+    fn traits(&self) -> Vec<&TraitDeclaration> {
+        let mut traits = Vec::new();
+        for body in self.bodies() {
+            traits.extend(body.root.traits());
+        }
+        traits
+    }
+
+    fn associations(&self) -> Vec<&Association> {
+        let mut associations = Vec::new();
+        for body in self.bodies() {
+            let root = body.root;
+            let written = root.associations();
+            associations.extend(written);
+        }
+        associations
     }
 }
 
@@ -2087,46 +2149,58 @@ pub(crate) trait Bearing {
     fn builds(&self, bearer: &Name) -> bool;
 }
 
+/// Associations, one type to an entry.
+type Spread = Vec<Association>;
+
+/// The trait whose capability reads one
+/// association as single types bearing traits.
+pub(crate) trait Spreading {
+    /// A type head as written; a trait head as
+    /// one entry for each type it lists.
+    fn spread(&self, scope: &Scope) -> Spread;
+}
+
+impl Spreading for Association {
+    fn spread(&self, scope: &Scope) -> Spread {
+        let head = &self.identity.name;
+        if !scope.groups(head) {
+            return vec![self.clone()];
+        }
+        let mut read = Vec::new();
+        for member in &self.members {
+            let identity = Identity {
+                name: member.name.clone(),
+                constraints: vec![],
+            };
+            let borne = Reference {
+                source: None,
+                name: head.clone(),
+                arguments: vec![],
+            };
+            read.push(Association {
+                identity,
+                members: vec![borne],
+            });
+        }
+        read
+    }
+}
+
 impl Bearing for File {
     fn bearings(&self) -> Vec<Association> {
-        let File::Library(library) = self else {
-            return vec![];
-        };
         let scope = Scope {
             file: self,
             identity: None,
             associated: &[],
         };
         let mut read = Vec::new();
-        for entry in &library.associations {
-            let head = &entry.identity.name;
-            if !scope.groups(head) {
-                read.push(entry.clone());
-                continue;
-            }
-            for member in &entry.members {
-                let identity = Identity {
-                    name: member.name.clone(),
-                    constraints: vec![],
-                };
-                let borne = Reference {
-                    source: None,
-                    name: head.clone(),
-                    arguments: vec![],
-                };
-                read.push(Association {
-                    identity,
-                    members: vec![borne],
-                });
-            }
+        for entry in self.associations() {
+            read.extend(entry.spread(&scope));
         }
         read
     }
 
     fn borne(&self, bearer: &Name) -> Traits<'_> {
-        let File::Library(library) = self else {
-            return vec![];
-        };
         let mut names = Vec::new();
         for bearing in self.bearings() {
             if &bearing.identity.name != bearer {
@@ -2139,7 +2213,7 @@ impl Bearing for File {
             }
         }
         let mut borne = Vec::new();
-        for declared in &library.traits {
+        for declared in self.traits() {
             let name = &declared.identity.name;
             if names.contains(name) {
                 borne.push(declared);

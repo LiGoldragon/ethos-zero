@@ -141,9 +141,21 @@ impl AsRef<str> for Source {
     }
 }
 
-/// The unit of declaration: one file, one Rust module; an enum of its four roots.
+/// The unit of declaration: one file, one Rust
+/// module, holding one root or a vector of them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum File {
+    /// One root alone: `Library.{ … }`.
+    One(Root),
+    /// A vector of roots, generated into the one
+    /// module: `[ Library.{ … } Memory.{ … } ]`.
+    /// A `Type` root stands only alone.
+    Many(Vec<Root>),
+}
+
+/// A root of a file: an enum of its five heads.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Root {
     /// Library: imports, types, traits and associations in that order.
     Library(Library),
     /// Signal: imports, the query variants, the response variants, the types carried.
@@ -156,9 +168,10 @@ pub enum File {
     Type(TypeDeclaration),
 }
 
-/// The head of a file: which variant of [`File`] it is.
+/// The head of a root: which variant of [`Root`]
+/// it is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Root {
+pub enum Head {
     /// The library root: what the others share.
     Library,
     /// The signal root: what a Nexus says.
@@ -543,10 +556,11 @@ pub trait Succeeding: Sized {
     fn successor(name: &str) -> Option<Self>;
 }
 
-/// The trait whose capability yields which variant of [`File`] a value is.
+/// The trait whose capability yields which
+/// variant of [`Root`] a value is.
 pub trait Rooted {
-    /// The head the file is written under.
-    fn root(&self) -> Root;
+    /// The head the root is written under.
+    fn head(&self) -> Head;
 }
 
 /// The trait whose capability resolves a name to what it names.
@@ -673,29 +687,30 @@ impl<T> Placing for Result<T, Error> {
 }
 
 // ---------------------------------------------------------------------------
-// Root and Intrinsic: named, identified by walking the variants
+// Head and Intrinsic: named, identified by
+// walking the variants
 // ---------------------------------------------------------------------------
 
-impl Named for Root {
+impl Named for Head {
     fn name(&self) -> &'static str {
         match self {
-            Root::Library => "Library",
-            Root::Signal => "Signal",
-            Root::Operation => "Operation",
-            Root::Memory => "Memory",
-            Root::Type => "Type",
+            Head::Library => "Library",
+            Head::Signal => "Signal",
+            Head::Operation => "Operation",
+            Head::Memory => "Memory",
+            Head::Type => "Type",
         }
     }
 }
 
-impl Identifiable for Root {
+impl Identifiable for Head {
     fn identify(name: &str) -> Option<Self> {
         for root in [
-            Root::Library,
-            Root::Signal,
-            Root::Operation,
-            Root::Memory,
-            Root::Type,
+            Head::Library,
+            Head::Signal,
+            Head::Operation,
+            Head::Memory,
+            Head::Type,
         ] {
             if root.name() == name {
                 return Some(root);
@@ -705,25 +720,25 @@ impl Identifiable for Root {
     }
 }
 
-impl Succeeding for Root {
+impl Succeeding for Head {
     /// `Sema` was the memory root's head until 15.0.0.
     fn successor(name: &str) -> Option<Self> {
         if name == "Sema" {
-            Some(Root::Memory)
+            Some(Head::Memory)
         } else {
             None
         }
     }
 }
 
-impl Rooted for File {
-    fn root(&self) -> Root {
+impl Rooted for Root {
+    fn head(&self) -> Head {
         match self {
-            File::Library(_) => Root::Library,
-            File::Signal(_) => Root::Signal,
-            File::Operation(_) => Root::Operation,
-            File::Memory(_) => Root::Memory,
-            File::Type(_) => Root::Type,
+            Root::Library(_) => Head::Library,
+            Root::Signal(_) => Head::Signal,
+            Root::Operation(_) => Head::Operation,
+            Root::Memory(_) => Head::Memory,
+            Root::Type(_) => Head::Type,
         }
     }
 }
@@ -788,8 +803,9 @@ mod sugaring;
 mod behavior {
     use super::{
         Actualizing, Canonicalizable, Error, File, Generating, Identity, Library, Name, Potential,
-        Problem, TypeDeclaration,
+        Problem, Root, TypeDeclaration,
     };
+    use super::{Head, Rooted};
     use protos::{Extent, Protosizable, Textualizable};
 
     #[test]
@@ -985,7 +1001,10 @@ mod behavior {
             Ok(file) => file,
             Err(_) => panic!("approved Memory reads"),
         };
-        assert!(matches!(file, File::Memory(_)));
+        let File::One(root) = &file else {
+            panic!("one root")
+        };
+        assert_eq!(root.head(), Head::Memory);
         let repeated = match Potential::<File>::from(file.protosize().textualize()).actualize() {
             Ok(file) => file,
             Err(_) => panic!("Memory ascent reads"),
@@ -1000,7 +1019,10 @@ mod behavior {
             Ok(file) => file,
             Err(_) => panic!("approved Operation reads"),
         };
-        assert!(matches!(file, File::Operation(_)));
+        let File::One(root) = &file else {
+            panic!("one root")
+        };
+        assert_eq!(root.head(), Head::Operation);
         let repeated = match Potential::<File>::from(file.protosize().textualize()).actualize() {
             Ok(file) => file,
             Err(_) => panic!("Operation ascent reads"),
@@ -1039,7 +1061,7 @@ mod behavior {
     fn manually_constructed_constrained_data_is_rejected_before_generation() {
         use crate::{Constraint, Reference, Scope, checking::Checkable};
 
-        let file = File::Library(Library {
+        let library = Library {
             imports: vec![],
             types: vec![TypeDeclaration::Struct(
                 Identity {
@@ -1054,7 +1076,9 @@ mod behavior {
             )],
             traits: vec![],
             associations: vec![],
-        });
+        };
+        let root = Root::Library(library);
+        let file = File::One(root);
         let scope = Scope {
             file: &file,
             identity: None,
@@ -1148,12 +1172,14 @@ mod behavior {
                 vec![],
             ));
         }
-        let file = File::Library(Library {
+        let library = Library {
             imports: vec![],
             types,
             traits: vec![],
             associations: vec![],
-        });
+        };
+        let root = Root::Library(library);
+        let file = File::One(root);
         let protos = file.protosize();
         let protos::Protos::Headed { extent, .. } = &protos else {
             panic!("a File ascends as a headed Protos form")

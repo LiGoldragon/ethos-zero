@@ -12,6 +12,7 @@ use ethos_zero::{
     Actualizing, Conforming, Error, File, Generating, Potential, Printable, Problem,
     TypeDeclaration,
 };
+use ethos_zero::{Head, Root, Rooted};
 
 fn read(source: &str) -> File {
     match Potential::<File>::from(source).actualize() {
@@ -36,6 +37,14 @@ fn refusal(source: &str) -> (Vec<i64>, Problem) {
         Err(Error::Conceptual(data)) => (data.integer_vector, data.problem),
         Err(Error::Structural(error)) => panic!("{source} refused structurally: {error:?}"),
         Ok(()) => panic!("{source} must be refused"),
+    }
+}
+
+/// The one root of a file written alone.
+fn alone(file: &File) -> &Root {
+    match file {
+        File::One(root) => root,
+        File::Many(_) => panic!("one root"),
     }
 }
 
@@ -75,7 +84,8 @@ fn whitespace_after_any_separator_reads_in_ethos() {
 fn a_library_is_its_root_the_dot_and_the_braced_sections() {
     let source = "Library.\n{\n[ protos:String ]\n[ Record.{ String Integer } ]\n[]\n[] }";
     let file = read(source);
-    assert!(matches!(file, File::Library(_)));
+    let head = alone(&file).head();
+    assert_eq!(head, Head::Library);
     let rust = generated(source);
     assert!(rust.contains("pub struct Record"), "{rust}");
 }
@@ -105,7 +115,12 @@ fn a_file_prints_with_its_brace_on_the_next_line_and_sections_unindented() {
 fn a_type_file_carries_one_declaration() {
     let source = "Type.CommitMessage.[ Landing.{ String Integer } Fix.String ]";
     let file = read(source);
-    let File::Type(TypeDeclaration::Enum(identity, variants)) = &file else {
+    let enumeration = alone(&file);
+    let Root::Type(declared) = enumeration else {
+        panic!("a type file, not {file:?}")
+    };
+    use TypeDeclaration::Enum;
+    let Enum(identity, variants) = declared else {
         panic!("a type file of an enum, not {file:?}")
     };
     assert_eq!(identity.name.as_ref(), "CommitMessage");
@@ -248,7 +263,8 @@ fn vector_brackets_take_exactly_one_type() {
 fn a_full_library_with_a_trait_borne_by_every_type_checks_and_generates() {
     let source = fixture("sealed-library");
     let file = read(&source);
-    let File::Library(library) = &file else {
+    let root = alone(&file);
+    let Root::Library(library) = root else {
         panic!("a Library")
     };
     // Every type the Library shows bears a trait.
@@ -525,7 +541,8 @@ fn white_braces_are_a_struct_and_white_brackets_a_vector() {
         "Library.\n{\n[]\n[ Point.{ Integer Integer }\n  Path.{ Vector<Point> Label.{ String } }\n  Shape.[ Dot.Point Line.{ Point Point } Polygon.Vector<Point> ] ]\n[ Measuring.[ length.[ Integer ] ] ]\n[ Point.[ Measuring ] Path.[ Measuring ] Label.[ Measuring ] Shape.[ Measuring ] ] }",
     );
     assert_eq!(sugared, spelled);
-    let File::Library(library) = &sugared else {
+    let root = alone(&sugared);
+    let Root::Library(library) = root else {
         panic!("a Library")
     };
     for declaration in &library.types {
@@ -655,4 +672,76 @@ fn a_trait_head_lists_only_types() {
     let entry = "Prompting.[ protos:String ]";
     let sourced = keyed(entry);
     assert_eq!(refusal(&sourced).1, problem);
+}
+
+// 7. A file is a vector of roots -------------
+
+#[test]
+fn a_vector_of_roots_generates_one_module() {
+    let source = fixture("root-vector");
+    let file = read(&source);
+    let File::Many(roots) = &file else {
+        panic!("a vector of roots")
+    };
+    assert_eq!(roots.len(), 2);
+    assert_eq!(roots[1].head(), Head::Memory);
+    let rust = generated(&source);
+    let header = "#![allow(";
+    assert_eq!(rust.matches(header).count(), 1);
+    assert!(rust.contains("pub enum Shape"));
+    // A root names what another declares.
+    let field = "pub name: Name";
+    assert!(rust.contains(field), "{rust}");
+}
+
+#[test]
+fn a_vector_of_roots_prints_its_roots_hung() {
+    let source = fixture("root-vector");
+    let file = read(&source);
+    let printed = file.print();
+    let start = source.find('[').unwrap();
+    let body = &source[start..];
+    assert_eq!(printed, body);
+    assert_eq!(read(&printed), file);
+}
+
+#[test]
+fn the_roots_of_a_file_share_one_namespace() {
+    let library = "Library.{ [] [ A.String ] \
+        [] [] }";
+    let memory = "Memory.{ [] \
+        [ A.{ String Integer } ] }";
+    let roots = [library, memory].join(" ");
+    let source = format!("[ {roots} ]");
+    let at = vec![1, 1, 1, 0, 0];
+    let duplicate = "A".to_owned();
+    let problem = Problem::Duplicate(duplicate);
+    assert_eq!(refusal(&source), (at, problem));
+}
+
+#[test]
+fn a_type_root_stands_only_alone() {
+    let source = "[ Type.A.String ]";
+    let at = vec![0, 0];
+    let root = (at, Problem::Root);
+    assert_eq!(refusal(source), root);
+    let empty = (vec![], Problem::Empty);
+    assert_eq!(refusal("[]"), empty);
+}
+
+#[test]
+fn an_error_in_a_later_root_is_located_there() {
+    use ethos_zero::Locating;
+    let source = "[ Library.{ [] [] [] [] }\n  \
+        Memory.{ [] [ R.{ String Bogus } ] } ]";
+    let written: Potential<File> = source.into();
+    let generation = read(source).generate();
+    let error = generation.unwrap_err();
+    let location = written.locate(&error);
+    let start = source.find('\n').unwrap();
+    let line = &source[start..];
+    let bogus = line.find("Bogus").unwrap();
+    let column = bogus as i64;
+    let at = (location.line, location.column);
+    assert_eq!(at, (2, column), "{error:?}");
 }

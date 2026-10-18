@@ -2,6 +2,7 @@
 
 use protos::{Canonicalizable, Enclosure, Extent, Protos, Protosizable, Separator, Symbol};
 
+use crate::Root;
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Identity,
     Import, Imported, Library, Memory, Operation, Position, Receiver, Reference, Signal, Signature,
@@ -453,9 +454,9 @@ impl Protosizing for Memory {
         )
     }
 }
-impl Protosizing for File {
+impl Protosizing for Root {
     fn protos(&self) -> Protos {
-        let raw = match self {
+        match self {
             Self::Library(library) => "Library".headed(None, Separator::Period, library.protos()),
             Self::Signal(signal) => "Signal".headed(None, Separator::Period, signal.protos()),
             Self::Operation(operation) => {
@@ -463,6 +464,21 @@ impl Protosizing for File {
             }
             Self::Memory(memory) => "Memory".headed(None, Separator::Period, memory.protos()),
             Self::Type(declaration) => "Type".headed(None, Separator::Period, declaration.alone()),
+        }
+    }
+}
+
+/// A root alone ascends as itself; a vector of
+/// roots as the bracket holding them.
+impl Protosizing for File {
+    fn protos(&self) -> Protos {
+        let raw = match self {
+            Self::One(root) => root.protos(),
+            Self::Many(roots) => {
+                let nodes = roots.protos_list();
+                let vector = Enclosure::Bracketed;
+                "".enclosed(vector, nodes)
+            }
         };
         // Shared Protos canonicalization assigns exact UTF-8 byte spans
         // without routing a valid conceptual ascent through a finite reader.

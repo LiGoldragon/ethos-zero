@@ -20,7 +20,7 @@ use datom_codec::{
 use protos::BoundedProtosizable;
 
 use crate::checking::Declaring;
-use crate::sectioning::{Referencing, Sectioning};
+use crate::sectioning::{Referencing, Rooting};
 use crate::{
     File, Identifiable, Intrinsic, Name, Position, Reference, Resolution, Resolving,
     TypeDeclaration, Variant,

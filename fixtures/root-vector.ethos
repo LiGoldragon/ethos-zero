@@ -1,0 +1,10 @@
+; A file holding a vector of roots, generated into one module (proposal).
+[ Library.{
+  []
+  [ Name.String
+    Shape.[ Round Square ] ]
+  []
+  [] }
+  Memory.{
+  []
+  [ Record.{ Name Shape Integer } ] } ]

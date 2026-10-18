@@ -6,93 +6,353 @@
 //! `Query` and `Response`; Operation implies `Operation` and `Outcome`.
 //! Library and Memory imply nothing.
 //!
+//! A file holds one root or a vector of them,
+//! generated into one module, so its roots
+//! share one namespace. Each root's body has a
+//! path from the file's node: `[ 1 ]` for a root
+//! alone, `[ i 1 ]` for the root at index `i`.
+//!
 //! A struct position may declare its type in place, `Brief.String`; that
 //! type is a declaration of the file like any other, named by its own name,
 //! and found by walking the declarations and the implied enums' variants.
 
 use datom_codec::{Integer, Path};
+use std::slice::from_ref;
 
 use crate::checking::Spanning;
-use crate::{File, Import, Name, Position, Reference, TypeDeclaration, Variant};
+use crate::checking::{Checkable, Declared};
+use crate::{Association, TraitDeclaration};
+use crate::{Error, Placing, Root};
+use crate::{File, Import, Name, Position};
+use crate::{Library, Memory, Operation, Signal};
+use crate::{Reference, TypeDeclaration, Variant};
 
-/// An enum a root implies: its name, its variants and the section holding them.
+/// An enum a root implies: its name, its
+/// variants and the path of the section holding
+/// them.
 pub(crate) struct Implied<'a> {
     pub(crate) name: Name,
     pub(crate) variants: &'a [Variant],
-    pub(crate) section: Integer,
+    pub(crate) path: Path,
 }
 
-/// A type declaration and the path of its node from the file's body.
+/// A type declaration and the path of its node
+/// from the file's node.
 pub(crate) struct Placed<'a> {
     pub(crate) path: Path,
     pub(crate) declaration: &'a TypeDeclaration,
 }
 
-/// The trait whose capabilities read a file's sections by role.
+/// A root of a file and the path of its body.
+pub(crate) struct Body<'a> {
+    pub(crate) path: Path,
+    pub(crate) root: &'a Root,
+}
+
+/// The trait whose capabilities read a root's
+/// sections by role.
 pub(crate) trait Sectioning {
     /// Where imported names come from.
     fn imports(&self) -> &[Import];
     /// The types section's declarations.
     fn types(&self) -> &[TypeDeclaration];
-    /// The path, from the file's body, of the declaration at Protos index
-    /// `at` of the types section; a `Type` file's one declaration is the body.
+    /// The path, from the body, of the
+    /// declaration at Protos index `at` of the
+    /// types section; a `Type` root's one
+    /// declaration is the body.
     fn type_path(&self, at: Integer) -> Path;
-    /// The enums the root implies, in section order.
+    /// The enums the root implies, in section
+    /// order, each at its path from the body.
     fn implied_enums(&self) -> Vec<Implied<'_>>;
+    /// The traits the root declares.
+    fn traits(&self) -> &[TraitDeclaration];
+    /// The associations the root writes.
+    fn associations(&self) -> &[Association];
 }
 
-impl Sectioning for File {
-    fn imports(&self) -> &[Import] {
-        match self {
-            File::Library(library) => &library.imports,
-            File::Signal(signal) => &signal.imports,
-            File::Operation(operation) => &operation.imports,
-            File::Memory(memory) => &memory.imports,
-            File::Type(_) => &[],
+/// A section implying an enum: the enum's name
+/// and the variants.
+type Section<'a> = (&'a str, &'a [Variant]);
+
+/// The trait whose capability makes the enums
+/// the request and reply sections imply, the
+/// first section's at `[ 1 ]`.
+trait Implicit<'a> {
+    fn implied(self) -> Vec<Implied<'a>>;
+}
+
+impl<'a> Implicit<'a> for [Section<'a>; 2] {
+    fn implied(self) -> Vec<Implied<'a>> {
+        let mut implied = Vec::new();
+        let sections = (1..).zip(self);
+        for (index, section) in sections {
+            let (name, variants) = section;
+            let name = Name::try_from(name);
+            let name = name.expect("static");
+            let path = vec![index];
+            implied.push(Implied {
+                name,
+                variants,
+                path,
+            });
         }
+        implied
+    }
+}
+
+impl Sectioning for Library {
+    fn imports(&self) -> &[Import] {
+        &self.imports
     }
 
     fn types(&self) -> &[TypeDeclaration] {
-        match self {
-            File::Library(library) => &library.types,
-            File::Signal(signal) => &signal.types,
-            File::Operation(operation) => &operation.types,
-            File::Memory(memory) => &memory.types,
-            File::Type(declaration) => std::slice::from_ref(declaration),
-        }
+        &self.types
     }
 
     fn type_path(&self, at: Integer) -> Path {
-        match self {
-            File::Library(_) | File::Memory(_) => vec![1, at],
-            File::Signal(_) | File::Operation(_) => vec![3, at],
-            File::Type(_) => vec![],
-        }
+        vec![1, at]
     }
 
     fn implied_enums(&self) -> Vec<Implied<'_>> {
-        let (request, requests, reply, replies) = match self {
-            File::Library(_) | File::Memory(_) | File::Type(_) => return vec![],
-            File::Signal(signal) => ("Query", &signal.queries, "Response", &signal.responses),
-            File::Operation(operation) => (
-                "Operation",
-                &operation.operations,
-                "Outcome",
-                &operation.outcomes,
-            ),
+        vec![]
+    }
+
+    fn traits(&self) -> &[TraitDeclaration] {
+        &self.traits
+    }
+
+    fn associations(&self) -> &[Association] {
+        &self.associations
+    }
+}
+
+impl Sectioning for Signal {
+    fn imports(&self) -> &[Import] {
+        &self.imports
+    }
+
+    fn types(&self) -> &[TypeDeclaration] {
+        &self.types
+    }
+
+    fn type_path(&self, at: Integer) -> Path {
+        vec![3, at]
+    }
+
+    fn implied_enums(&self) -> Vec<Implied<'_>> {
+        let queries = &self.queries[..];
+        let responses = &self.responses[..];
+        let request = ("Query", queries);
+        let reply = ("Response", responses);
+        [request, reply].implied()
+    }
+
+    fn traits(&self) -> &[TraitDeclaration] {
+        &[]
+    }
+
+    fn associations(&self) -> &[Association] {
+        &[]
+    }
+}
+
+impl Sectioning for Operation {
+    fn imports(&self) -> &[Import] {
+        &self.imports
+    }
+
+    fn types(&self) -> &[TypeDeclaration] {
+        &self.types
+    }
+
+    fn type_path(&self, at: Integer) -> Path {
+        vec![3, at]
+    }
+
+    fn implied_enums(&self) -> Vec<Implied<'_>> {
+        let operations = &self.operations[..];
+        let outcomes = &self.outcomes[..];
+        let request = ("Operation", operations);
+        let reply = ("Outcome", outcomes);
+        [request, reply].implied()
+    }
+
+    fn traits(&self) -> &[TraitDeclaration] {
+        &[]
+    }
+
+    fn associations(&self) -> &[Association] {
+        &[]
+    }
+}
+
+impl Sectioning for Memory {
+    fn imports(&self) -> &[Import] {
+        &self.imports
+    }
+
+    fn types(&self) -> &[TypeDeclaration] {
+        &self.types
+    }
+
+    fn type_path(&self, at: Integer) -> Path {
+        vec![1, at]
+    }
+
+    fn implied_enums(&self) -> Vec<Implied<'_>> {
+        vec![]
+    }
+
+    fn traits(&self) -> &[TraitDeclaration] {
+        &[]
+    }
+
+    fn associations(&self) -> &[Association] {
+        &[]
+    }
+}
+
+/// A `Type` root's one declaration is its body.
+impl Sectioning for TypeDeclaration {
+    fn imports(&self) -> &[Import] {
+        &[]
+    }
+
+    fn types(&self) -> &[TypeDeclaration] {
+        std::slice::from_ref(self)
+    }
+
+    fn type_path(&self, _: Integer) -> Path {
+        vec![]
+    }
+
+    fn implied_enums(&self) -> Vec<Implied<'_>> {
+        vec![]
+    }
+
+    fn traits(&self) -> &[TraitDeclaration] {
+        &[]
+    }
+
+    fn associations(&self) -> &[Association] {
+        &[]
+    }
+}
+
+/// What every head's body bears: its check and
+/// its declared names.
+pub(crate) trait Checked: Checkable + Declared {}
+
+impl<T: Checkable + Declared> Checked for T {}
+
+/// What every head's body bears: its sections
+/// read by role, its check, its declared names.
+pub(crate) trait Contents: Sectioning + Checked {}
+
+impl<T: Sectioning + Checked> Contents for T {}
+
+/// The trait whose capability opens a root on
+/// the body its head holds.
+pub(crate) trait Opening {
+    fn contents(&self) -> &dyn Contents;
+}
+
+impl Opening for Root {
+    fn contents(&self) -> &dyn Contents {
+        match self {
+            Root::Library(root) => root,
+            Root::Signal(root) => root,
+            Root::Operation(root) => root,
+            Root::Memory(root) => root,
+            Root::Type(root) => root,
+        }
+    }
+}
+
+impl Sectioning for Root {
+    fn imports(&self) -> &[Import] {
+        self.contents().imports()
+    }
+
+    fn types(&self) -> &[TypeDeclaration] {
+        self.contents().types()
+    }
+
+    fn type_path(&self, at: Integer) -> Path {
+        self.contents().type_path(at)
+    }
+
+    fn implied_enums(&self) -> Vec<Implied<'_>> {
+        self.contents().implied_enums()
+    }
+
+    fn traits(&self) -> &[TraitDeclaration] {
+        self.contents().traits()
+    }
+
+    fn associations(&self) -> &[Association] {
+        self.contents().associations()
+    }
+}
+
+/// The trait whose capabilities read a file's
+/// roots, each at the path of its body.
+pub(crate) trait Rooting {
+    /// Every root, with its body's path.
+    fn bodies(&self) -> Vec<Body<'_>>;
+    /// Every enum the roots imply, each at its
+    /// path from the file's node.
+    fn implied_enums(&self) -> Vec<Implied<'_>>;
+}
+
+impl Rooting for File {
+    fn bodies(&self) -> Vec<Body<'_>> {
+        let roots = match self {
+            File::One(root) => from_ref(root),
+            File::Many(roots) => roots.as_slice(),
         };
-        vec![
-            Implied {
-                name: Name::try_from(request).expect("static identifier"),
-                variants: requests,
-                section: 1,
-            },
-            Implied {
-                name: Name::try_from(reply).expect("static identifier"),
-                variants: replies,
-                section: 2,
-            },
-        ]
+        let alone = matches!(self, File::One(_));
+        let mut bodies = Vec::new();
+        let each = roots.iter().enumerate();
+        for (index, root) in each {
+            let at = index as Integer;
+            let path = match alone {
+                true => vec![1],
+                false => vec![at, 1],
+            };
+            bodies.push(Body { path, root });
+        }
+        bodies
+    }
+
+    fn implied_enums(&self) -> Vec<Implied<'_>> {
+        let mut implied = Vec::new();
+        for body in self.bodies() {
+            let root = body.root;
+            for mut each in root.implied_enums() {
+                let mut path = body.path.clone();
+                path.append(&mut each.path);
+                each.path = path;
+                implied.push(each);
+            }
+        }
+        implied
+    }
+}
+
+/// The trait whose capability places an error
+/// below every step of a path.
+pub(crate) trait Prefixing {
+    fn prefixed(self, path: &Path) -> Self;
+}
+
+impl<T> Prefixing for Result<T, Error> {
+    fn prefixed(self, path: &Path) -> Self {
+        let mut placed = self;
+        for step in path.iter().rev() {
+            placed = placed.place(*step);
+        }
+        placed
     }
 }
 
@@ -106,7 +366,7 @@ pub(crate) trait Hoisting {
     fn inlined(&self) -> Vec<Placed<'_>>;
 }
 
-impl Hoisting for File {
+impl Hoisting for Root {
     fn declarations(&self) -> Vec<Placed<'_>> {
         let mut placed = Vec::new();
         let mut at = 0;
@@ -115,9 +375,10 @@ impl Hoisting for File {
             at += declaration.span();
         }
         for implied in self.implied_enums() {
-            implied
-                .variants
-                .hoist_variants(vec![implied.section], &mut placed);
+            let path = implied.path;
+            let variants = implied.variants;
+            let all = &mut placed;
+            variants.hoist_variants(path, all);
         }
         placed
     }
@@ -138,6 +399,38 @@ impl Hoisting for File {
             }
         }
         inlined
+    }
+}
+
+/// Every root's declarations, in root order,
+/// each at its path from the file's node.
+impl Hoisting for File {
+    fn declarations(&self) -> Vec<Placed<'_>> {
+        let mut placed = Vec::new();
+        for body in self.bodies() {
+            let root = body.root;
+            for mut each in root.declarations() {
+                let mut path = body.path.clone();
+                path.append(&mut each.path);
+                each.path = path;
+                placed.push(each);
+            }
+        }
+        placed
+    }
+
+    fn inlined(&self) -> Vec<Placed<'_>> {
+        let mut placed = Vec::new();
+        for body in self.bodies() {
+            let root = body.root;
+            for mut each in root.inlined() {
+                let mut path = body.path.clone();
+                path.append(&mut each.path);
+                each.path = path;
+                placed.push(each);
+            }
+        }
+        placed
     }
 }
 

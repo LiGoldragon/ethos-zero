@@ -107,7 +107,7 @@ fn every_fixture_prints_to_a_text_that_reads_back_to_it_and_prints_the_same() {
             sources.push(path.display().to_string());
         }
     }
-    assert_eq!(sources.len(), 26);
+    assert_eq!(sources.len(), 27);
     for path in sources {
         let source = std::fs::read_to_string(&path).expect("fixture reads");
         let file = match Potential::<File>::from(source).actualize() {
