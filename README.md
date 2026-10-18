@@ -99,6 +99,16 @@ against the real reader. It builds on protos and datom-codec's own
    modules allow `clippy::type_complexity`, since a new type's field
    writes its held type in full.
 
+10. **One position or one variant is refused, in every root.** A struct of
+    one position, `X.{ String }`, is written `X.String` and is refused as
+    `SinglePosition.X`; an enum of one variant, `X.[ A ]`, is refused as
+    `SingleVariant.X`; both at the declaration's head, once what it holds
+    has checked. The same holds for a variant's payload declared in place
+    (`E.[ X.{ String } Y ]`). A sealed or shared struct keeps its one
+    position, having no other way to be written, and a Signal's or an
+    Operation's implied enums may hold one variant. A `Type` root's enum
+    of no variants stays `Arity.{ 2 0 }`.
+
 ### Checking a snippet
 
 ```

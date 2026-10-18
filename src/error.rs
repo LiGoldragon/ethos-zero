@@ -51,6 +51,8 @@ pub enum Problem {
     Sealed(String),
     Shared(String),
     Foreign(String),
+    SinglePosition(String),
+    SingleVariant(String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

@@ -88,31 +88,47 @@ mod yieldless_waits;
 
 #[test]
 fn nested_inline_payloads_have_distinct_rust_types() {
-    let left = nested_collision::Outer::A(nested_collision::A_Data::X(
-        nested_collision::A_Data_X_Data {
-            string: String::new(),
-        },
-    ));
-    let right = nested_collision::Outer::B(nested_collision::B_Data::X(
-        nested_collision::B_Data_X_Data { integer: 1 },
-    ));
+    use nested_collision::A_Data_X_Data;
+    use nested_collision::B_Data_X_Data;
+    use nested_collision::{A_Data, B_Data};
+    let strings = A_Data_X_Data {
+        first_string: String::new(),
+        second_string: String::new(),
+    };
+    let integers = B_Data_X_Data {
+        first_integer: 1,
+        second_integer: 2,
+    };
+    let left = A_Data::X(strings);
+    let right = B_Data::X(integers);
+    let left = nested_collision::Outer::A(left);
+    let right = nested_collision::Outer::B(right);
     assert!(matches!(left, nested_collision::Outer::A(_)));
     assert!(matches!(right, nested_collision::Outer::B(_)));
 }
 
 #[test]
 fn colliding_inline_payloads_are_named_for_their_enums() {
-    let p = inline_collision::P::X(inline_collision::P_X_Data {
+    use inline_collision::{P_X_Data, Q_X_Data};
+    use inline_collision::{R, X_Data, Z_Data};
+    use inline_collision::{Y_Data, Y_Data_X_Data};
+    let p = inline_collision::P::X(P_X_Data {
+        string: String::new(),
+        integer: 1,
+    });
+    let in_y = Y_Data::X(Y_Data_X_Data {
+        integer: 2,
         string: String::new(),
     });
-    let nested = inline_collision::P::Y(inline_collision::Y_Data::X(
-        inline_collision::Y_Data_X_Data { integer: 2 },
-    ));
-    let q = inline_collision::Q::X(inline_collision::Q_X_Data { integer: 1 });
-    use inline_collision::{R, X_Data, Z_Data};
+    let nested = inline_collision::P::Y(in_y);
+    let q = inline_collision::Q::X(Q_X_Data {
+        first_integer: 1,
+        second_integer: 2,
+    });
     let authored = X_Data(String::new());
     let string = authored.0;
-    let unique = R::Z(Z_Data { string });
+    let integer = 3;
+    let unique = R::Z(Z_Data { string, integer });
     assert!(matches!(p, inline_collision::P::X(_)));
     assert!(matches!(nested, inline_collision::P::Y(_)));
     assert!(matches!(q, inline_collision::Q::X(_)));
@@ -154,9 +170,13 @@ fn generated_signal_query_round_trips_as_a_portable_archive() {
 
 #[test]
 fn generated_decimal_signal_archives_and_bears_datom_derives() {
-    let query = signal_decimal::Query::Measure(signal_decimal::Measurement {
-        decimal: datom_codec::Decimal::try_from(1.25).expect("1.25 is finite"),
-    });
+    use datom_codec::Decimal;
+    use signal_decimal::Measurement;
+    let decimal = Decimal::try_from(1.25);
+    let decimal = decimal.expect("finite");
+    let measured = Measurement(decimal);
+    use signal_decimal::Query;
+    let query = Query::Measure(measured);
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive decimal query");
     let restored = rkyv::from_bytes::<signal_decimal::Query, rkyv::rancor::Error>(&bytes)
         .expect("restore decimal query");
@@ -211,11 +231,10 @@ fn recursive_generated_signal_archives_and_restores() {
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&chain).expect("archive chain");
     let restored = rkyv::from_bytes::<Chain, rkyv::rancor::Error>(&bytes).expect("restore chain");
     assert_eq!(restored, chain);
-    let knot = tree_types::Knot::Loop(tree_types::Loop {
-        knot: Box::new(tree_types::Knot::Loop(tree_types::Loop {
-            knot: Box::new(tree_types::Knot::End),
-        })),
-    });
+    use tree_types::{Knot, Loop};
+    let inner = Loop(Box::new(Knot::End));
+    let outer = Loop(Box::new(Knot::Loop(inner)));
+    let knot = Knot::Loop(outer);
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&knot).expect("archive knot");
     let restored =
         rkyv::from_bytes::<tree_types::Knot, rkyv::rancor::Error>(&bytes).expect("restore knot");
@@ -247,7 +266,9 @@ fn operation_free_signal_shared_record_archives_and_round_trips_as_datom_text() 
 
     let domain = "domain".to_owned();
     let name = empty_signal::Name(domain);
-    let shared = empty_signal::Shared { name };
+    let integer = 1;
+    use empty_signal::Shared;
+    let shared = Shared { name, integer };
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&shared).expect("archive shared record");
     assert_eq!(
         rkyv::from_bytes::<empty_signal::Shared, rkyv::rancor::Error>(&bytes)
@@ -364,23 +385,23 @@ fn capability_traits_are_implementable_traits() {
 
 #[test]
 fn declared_container_names_do_not_capture_the_generated_containers() {
+    use composition_types::Choice_Data_Item_Data;
+    use composition_types::Vec;
+    use composition_types::{Choice_Data, Nested};
+    let empty = Vec(String::new());
     let tree = composition_types::Tree {
         tree_option: Some(std::boxed::Box::new(composition_types::Tree {
             tree_option: None,
             vec_integer_result: Err(1),
         })),
-        vec_integer_result: Ok(composition_types::Vec {
-            string: String::new(),
-        }),
+        vec_integer_result: Ok(empty.clone()),
     };
-    let nested = composition_types::Nested::Choice(composition_types::Choice_Data::Item(
-        composition_types::Choice_Data_Item_Data {
-            vec: composition_types::Vec {
-                string: String::new(),
-            },
-            integer: 0,
-        },
-    ));
+    let item = Choice_Data_Item_Data {
+        vec: empty,
+        integer: 0,
+    };
+    let choice = Choice_Data::Item(item);
+    let nested = Nested::Choice(choice);
     assert!(tree.tree_option.is_some());
     assert!(matches!(nested, composition_types::Nested::Choice(_)));
 }
@@ -389,11 +410,9 @@ fn declared_container_names_do_not_capture_the_generated_containers() {
 fn a_declared_single_letter_type_is_not_shadowed() {
     let holder = generic_shadow::Holder {
         string: String::new(),
-        a: generic_shadow::A {
-            string: "a".to_owned(),
-        },
+        a: generic_shadow::A("a".to_owned()),
     };
-    assert_eq!(holder.a.string, "a");
+    assert_eq!(holder.a.0, "a");
 }
 
 #[test]
@@ -543,7 +562,7 @@ impl sealed_library::Describing for sealed_library::Rejection {
 }
 impl sealed_library::Describing for sealed_library::Locks {
     fn describe(&self) -> String {
-        self.string_vector.join(" ")
+        self.0.join(" ")
     }
 }
 
@@ -552,9 +571,9 @@ fn a_sealed_type_is_built_by_its_traits_constructor() {
     use sealed_library::{Describing, Verifying};
     let context = sealed_library::VerifiedContext::verify().expect("verified");
     assert_eq!(context.describe(), "verified 1");
-    let locks = sealed_library::Locks {
-        string_vector: vec!["a".to_owned(), "b".to_owned()],
-    };
+    let first = "a".to_owned();
+    let held = vec![first, "b".to_owned()];
+    let locks = sealed_library::Locks(held);
     assert_eq!(locks.describe(), "a b");
 }
 
@@ -620,7 +639,7 @@ fn every_clone_of_a_shared_handle_sees_the_one_state() {
 
 impl yieldless_waits::Paned for yieldless_waits::Pane {
     fn pane(&self) -> String {
-        self.string.clone()
+        self.0.clone()
     }
 }
 impl yieldless_waits::Waiting for yieldless_waits::WakeWaits {
@@ -681,9 +700,9 @@ fn yieldless_capabilities_and_a_std_import_compile_and_run() {
     use yieldless_waits::Waiting;
     let waits = yieldless_waits::WakeWaits::create();
     waits.touch();
-    waits.wait(yieldless_waits::Pane {
-        string: "pane-1".to_owned(),
-    });
+    let id = "pane-1".to_owned();
+    let pane = yieldless_waits::Pane(id);
+    waits.wait(pane);
     assert_eq!(waits.waits(), vec!["pane-1".to_owned()]);
     let clock = std_clock::Clock::start();
     clock.lap(Lap(3));

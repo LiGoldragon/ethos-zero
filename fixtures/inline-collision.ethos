@@ -4,9 +4,9 @@
 Library.
 {
 []
-[ P.[ X.{ String }  Y.[ X.{ Integer } ] ]
-  Q.[ X.{ Integer } ]
+[ P.[ X.{ String Integer }  Y.[ X.{ Integer String } Empty ] ]
+  Q.[ X.{ Integer Integer } Empty ]
   X_Data.String
-  R.[ Z.{ String } ] ]
+  R.[ Z.{ String Integer } Empty ] ]
 []
 [] }

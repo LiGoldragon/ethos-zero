@@ -20,6 +20,7 @@ use crate::{
     Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal, Signature,
     TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
+use Problem::{SinglePosition, SingleVariant};
 
 /// A schema must remain small enough for complete whole-file checking to have
 /// a caller-visible, finite cost. Deep structure has a separate reader bound;
@@ -1734,7 +1735,7 @@ impl Checkable for TypeDeclaration {
             identity: Some(identity),
             associated: scope.associated,
         };
-        match self {
+        let checked = match self {
             TypeDeclaration::Struct(_, positions) => positions.check_children(&inner).place(1),
             TypeDeclaration::Sealed(_, positions) | TypeDeclaration::Shared(_, positions) => {
                 positions.check_children(&inner).place(1).place(1)
@@ -1754,13 +1755,89 @@ impl Checkable for TypeDeclaration {
                 let checked = held.check(&inner);
                 checked.lifted(1)
             }
+        };
+        checked?;
+        self.single()
+    }
+}
+
+/// The trait whose capability refuses a shape of
+/// one member, at the head that names it: a
+/// struct of one position is a new type, written
+/// `X.String`, and an enum of one variant chooses
+/// nothing.
+trait Plural {
+    fn plural(&self, name: &Name) -> Checked;
+}
+
+impl Plural for [Position] {
+    fn plural(&self, name: &Name) -> Checked {
+        if self.len() != 1 {
+            return Ok(());
+        }
+        let named = name.0.clone();
+        let problem = SinglePosition(named);
+        Err(Error::conceptual(vec![0], problem))
+    }
+}
+
+impl Plural for [Variant] {
+    fn plural(&self, name: &Name) -> Checked {
+        if self.len() != 1 {
+            return Ok(());
+        }
+        let named = name.0.clone();
+        let problem = SingleVariant(named);
+        Err(Error::conceptual(vec![0], problem))
+    }
+}
+
+/// The trait whose capability refuses a
+/// declaration or a payload of one member, once
+/// what it holds has checked.
+trait Single {
+    fn single(&self) -> Checked;
+}
+
+/// A sealed or shared struct keeps its one
+/// position: it has no other way to be written.
+impl Single for TypeDeclaration {
+    fn single(&self) -> Checked {
+        use TypeDeclaration::{Enum, Struct};
+        let name = &self.identity().name;
+        match self {
+            Struct(_, positions) => {
+                // One position: a new type.
+                positions.plural(name)
+            }
+            Enum(_, variants) => {
+                // One variant chooses nothing.
+                variants.plural(name)
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
+impl Single for Variant {
+    fn single(&self) -> Checked {
+        match self {
+            Variant::Struct(name, positions) => {
+                // One position: a new type.
+                positions.plural(name)
+            }
+            Variant::Enum(name, variants) => {
+                // One variant chooses nothing.
+                variants.plural(name)
+            }
+            _ => Ok(()),
         }
     }
 }
 
 impl Checkable for Variant {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        match self {
+        let checked = match self {
             Variant::Bare(name) => name.define(),
             Variant::Typed(name, reference) => {
                 name.define().place(0)?;
@@ -1780,7 +1857,9 @@ impl Checkable for Variant {
                 names.distinct()?;
                 variants.check_children(scope).place(1)
             }
-        }
+        };
+        checked?;
+        self.single()
     }
 }
 

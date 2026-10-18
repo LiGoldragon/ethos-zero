@@ -2,7 +2,7 @@
 Library.{
 []
 [ Point.⦃ Integer Integer ⦄
-  Path.⦃ ⟦ Point ⟧ Label.⦃ String ⦄ ⦄
+  Path.⦃ ⟦ Point ⟧ Label.⦃ String Integer ⦄ ⦄
   Shape.[ Dot.Point Line.⦃ Point Point ⦄ Polygon.⟦ Point ⟧ ] ]
 [ Measuring.[ length.[ Integer ] ] ]
 [ Point.[ Measuring ]

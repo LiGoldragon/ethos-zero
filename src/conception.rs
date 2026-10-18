@@ -165,10 +165,12 @@ impl Conceiving<Root> for Protos {
             }
             Some(Head::Type) => {
                 let declaration: TypeDeclaration = body.conceive().place(1)?;
-                // A type file declares one type whole; an enum of it needs at
-                // least two variants, or it would be a struct or an alias.
+                // A type file declares one type
+                // whole; an empty enum declares
+                // nothing. One of one variant is
+                // refused as in every root.
                 if let TypeDeclaration::Enum(_, variants) = &declaration
-                    && variants.len() < 2
+                    && variants.is_empty()
                 {
                     return Err(Error::conceptual(
                         vec![1, 1],

@@ -25,7 +25,9 @@ Library.
             Renamed.String
             Sealed.String
             Shared.String
-            Foreign.String ]
+            Foreign.String
+            SinglePosition.String
+            SingleVariant.String ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association ]
   Location.{ Line Column }
   Line.Integer

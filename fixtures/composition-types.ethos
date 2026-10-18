@@ -6,6 +6,6 @@
 Library.
 {
 []
-[ Vec.{ String } Tree.{ Option<Self> Result<Vec Integer> } Nested.[ Choice.[ Item.{ Vec Integer } ] ] ]
+[ Vec.String Tree.{ Option<Self> Result<Vec Integer> } Nested.[ Choice.[ Item.{ Vec Integer } Empty ] Plain ] ]
 []
 [] }

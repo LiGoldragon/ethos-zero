@@ -144,13 +144,17 @@ fn a_type_file_carries_one_declaration() {
 
 #[test]
 fn a_type_files_enum_needs_two_variants() {
+    let lonely = "Lonely".to_owned();
+    let single = Problem::SingleVariant(lonely);
+    let one = refusal("Type.Lonely.[ Only ]");
+    assert_eq!(one, (vec![1, 0], single));
     assert_eq!(
-        refusal("Type.Lonely.[ Only ]"),
+        refusal("Type.Empty.[]"),
         (
             vec![1, 1],
             Problem::Arity(ethos_zero::Arity_Data {
                 first_integer: 2,
-                second_integer: 1
+                second_integer: 0
             })
         )
     );
@@ -306,10 +310,9 @@ fn a_full_library_with_a_trait_borne_by_every_type_checks_and_generates() {
         "{rust}"
     );
     assert!(rust.contains("pub(super) string: String"), "{rust}");
-    assert!(
-        rust.contains("pub string_vector: std::vec::Vec<String>"),
-        "{rust}"
-    );
+    let locks = "pub struct \
+        Locks(pub std::vec::Vec<String>);";
+    assert!(rust.contains(locks), "{rust}");
     // A datom of a sealed type is checked like any struct.
     file.conform("Locks", "{ [ a b ] }")
         .expect("Locks conforms");
@@ -427,8 +430,11 @@ fn a_shared_type_must_be_borne_and_never_travels() {
         refusal(unborne),
         (vec![1, 1, 0, 0], Problem::Shared("S".to_owned()))
     );
-    let held =
-        "Library.{ [] [ S.Shared.{ Integer } Holder.{ S } ] [ K.[ make:[ Self ] ] ] [ S.[ K ] ] }";
+    let held = "Library.{ [] \
+            [ S.Shared.{ Integer } \
+            Holder.{ S Integer } ] \
+            [ K.[ make:[ Self ] ] ] \
+            [ S.[ K ] ] }";
     assert_eq!(
         refusal(held),
         (vec![1, 1, 1, 0], Problem::Shared("Holder".to_owned()))
@@ -461,8 +467,11 @@ fn nothing_read_from_data_builds_a_sealed_type() {
     assert!(read(SEALED).conform("VerifiedContext", "{ a 1 }").is_err());
 
     let traits = "[ K.[ make:[ Self ] ] ]";
-    let held =
-        format!("Library.{{ [] [ V.Sealed.{{ String }} Holder.{{ V }} ] {traits} [ V.[ K ] ] }}");
+    let held = format!(
+        "Library.{{ [] [ V.Sealed.{{ \
+            String }} Holder.{{ V Integer }} ] \
+            {traits} [ V.[ K ] ] }}"
+    );
     assert_eq!(
         refusal(&held),
         (vec![1, 1, 1, 0], Problem::Sealed("Holder".to_owned()))
@@ -532,7 +541,9 @@ fn a_std_type_imports_through_a_colon_chain_into_shared_state_only() {
     );
     let traits = "[ K.[ make:[ Self ] ] ]";
     let travels = format!(
-        "Library.{{ [ std:sync:[ Mutex ] ] [ Record.{{ Mutex<Integer> }} ] {traits} [ Record.[ K ] ] }}"
+        "Library.{{ [ std:sync:[ Mutex ] ] [ \
+            Record.{{ Mutex<Integer> Integer }} \
+            ] {traits} [ Record.[ K ] ] }}"
     );
     assert_eq!(
         refusal(&travels),
@@ -546,10 +557,12 @@ fn a_std_type_imports_through_a_colon_chain_into_shared_state_only() {
         ] ] [ Ask.Instant ] [] [] [] [] }";
     assert_eq!(refusal(signal).1, Problem::Foreign("Query".to_owned()));
     // A source that is not std keeps its ordinary meaning.
-    assert!(
-        generated("Library.{ [ crate:inner:[ Thing ] ] [ Holder.{ Thing } ] [] [] }")
-            .contains("pub thing: crate::inner::Thing")
-    );
+    let source = "Library.{ \
+        [ crate:inner:[ Thing ] ] \
+        [ Holder.{ Thing Integer } ] [] [] }";
+    let rust = generated(source);
+    let thing = "pub thing: crate::inner::Thing";
+    assert!(rust.contains(thing), "{rust}");
 }
 
 // White braces ⦃ ⦄ ----------------------------------------------------------
@@ -559,7 +572,15 @@ fn white_braces_are_a_struct_and_white_brackets_a_vector() {
     let source = fixture("white-brackets");
     let sugared = read(&source);
     let spelled = read(
-        "Library.\n{\n[]\n[ Point.{ Integer Integer }\n  Path.{ Vector<Point> Label.{ String } }\n  Shape.[ Dot.Point Line.{ Point Point } Polygon.Vector<Point> ] ]\n[ Measuring.[ length.[ Integer ] ] ]\n[ Point.[ Measuring ] Path.[ Measuring ] Label.[ Measuring ] Shape.[ Measuring ] ] }",
+        "Library.\n{\n[]\n[ Point.{ Integer \
+            Integer }\n  Path.{ Vector<Point> \
+            Label.{ String Integer } }\n  \
+            Shape.[ Dot.Point Line.{ Point Point \
+            } Polygon.Vector<Point> ] ]\n[ \
+            Measuring.[ length.[ Integer ] ] \
+            ]\n[ Point.[ Measuring ] Path.[ \
+            Measuring ] Label.[ Measuring ] \
+            Shape.[ Measuring ] ] }",
     );
     assert_eq!(sugared, spelled);
     let root = alone(&sugared);
@@ -640,7 +661,7 @@ fn an_imported_struct_in_a_vector_in_a_struct_conforms() {
 // 6. A trait head lists the types bearing it --
 
 fn keyed(associations: &str) -> String {
-    let key = "Key.{ String }";
+    let key = "Key.{ String Integer }";
     let system = "SystemPrompt.⟦ Key ⟧";
     let startup = "StartupPrompt.⟦ Key ⟧";
     let all = [key, system, startup];
@@ -858,4 +879,75 @@ fn a_new_type_may_hold_itself_behind_a_way_out() {
     assert_eq!(at, vec![1, 1, 0, 0]);
     let cycle = Problem::Cycle("Loop".to_owned());
     assert_eq!(problem, cycle);
+}
+
+// 10. One position or one variant is refused ---
+
+#[test]
+fn a_struct_of_one_position_is_refused() {
+    let lone = "Lone".to_owned();
+    let problem = Problem::SinglePosition(lone);
+    for (source, at) in [
+        (
+            "Library.{ [] [ Lone.{ String } ] \
+          [] [] }",
+            1,
+        ),
+        (
+            "Signal.{ [] [] [] \
+          [ Lone.{ String } ] [] [] }",
+            3,
+        ),
+        (
+            "Operation.{ [] [] [] \
+          [ Lone.{ String } ] [] [] }",
+            3,
+        ),
+        (
+            "Memory.{ [] [ Lone.{ String } ] \
+          [] [] }",
+            1,
+        ),
+    ] {
+        let refused = refusal(source);
+        let path = vec![1, at, 0, 0];
+        let expected = (path, problem.clone());
+        assert_eq!(refused, expected);
+    }
+}
+
+#[test]
+fn an_enum_of_one_variant_is_refused() {
+    let source = "Library.{ [] \
+        [ Lone.[ Only ] ] [] [] }";
+    let lone = "Lone".to_owned();
+    let problem = Problem::SingleVariant(lone);
+    let path = vec![1, 1, 0, 0];
+    assert_eq!(refusal(source), (path, problem));
+}
+
+#[test]
+fn a_payload_of_one_member_is_refused() {
+    let one = "Library.{ [] [ E.[ X.{ String } \
+        Y ] ] [] [] }";
+    let x = "X".to_owned();
+    let single = Problem::SinglePosition(x);
+    let path = vec![1, 1, 0, 1, 0, 0];
+    assert_eq!(refusal(one), (path, single));
+    let lone = "Signal.{ [] [ Ask.[ Only ] ] \
+        [] [] [] [] }";
+    let ask = "Ask".to_owned();
+    let single = Problem::SingleVariant(ask);
+    let path = vec![1, 1, 0, 0];
+    assert_eq!(refusal(lone), (path, single));
+}
+
+#[test]
+fn a_sealed_or_shared_struct_keeps_one() {
+    let source = "Library.{ [] \
+        [ V.Sealed.{ String } \
+        S.Shared.{ Integer } ] \
+        [ K.[ make:[ Self ] ] ] \
+        [ V.[ K ] S.[ K ] ] }";
+    generated(source);
 }

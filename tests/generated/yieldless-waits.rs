@@ -3,9 +3,7 @@
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct Pane {
-    pub string: String,
-}
+pub struct Pane(pub String);
 #[rustfmt::skip]
 pub struct WakeWaits_State {
     pub(super) string_vector: std::vec::Vec<String>,

@@ -2,7 +2,7 @@
 Library.
 {
 []
-[ Pane.{ String }
+[ Pane.String
   WakeWaits.Shared.{ Vector<String> Integer } ]
 [ Paned.[ pane.[ String ] ]
   Waiting.[ waits.[ Vector<String> ]

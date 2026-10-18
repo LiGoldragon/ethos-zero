@@ -373,8 +373,8 @@ fn inspect_answers_with_the_generated_rust_or_the_located_error() {
         output,
         format!(
             "Rejected.{{ {refused} {{ {{ 1 \
-            }} {{ 13 }} }} Conceptual.{{ [ 1 1 ] \
-            Arity.{{ 2 1 }} }} }}\n"
+            }} {{ 6 }} }} Conceptual.{{ [ 1 0 ] \
+            SingleVariant.Lonely }} }}\n"
         )
     );
 }

@@ -17,9 +17,7 @@ pub enum Rejection {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct Locks {
-    pub string_vector: std::vec::Vec<String>,
-}
+pub struct Locks(pub std::vec::Vec<String>);
 #[rustfmt::skip]
 pub trait Verifying {
     fn verify() -> std::result::Result<Self, Rejection>

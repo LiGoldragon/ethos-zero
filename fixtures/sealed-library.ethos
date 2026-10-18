@@ -4,7 +4,7 @@ Library.
 []
 [ VerifiedContext.Sealed.{ String Integer }
   Rejection.[ Empty Malformed.String ]
-  Locks.{ ⟦ String ⟧ } ]
+  Locks.⟦ String ⟧ ]
 [ Verifying.[ verify:[ Result<Self Rejection> ] ]
   Describing.[ describe.[ String ] ] ]
 [ VerifiedContext.[ Verifying Describing ]

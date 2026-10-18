@@ -894,7 +894,15 @@ mod behavior {
 
     #[test]
     fn approved_declared_and_inline_payloads_generate_named_fields() {
-        let source = "Library.{ [] [ Generation.{ String String } FilePath.String SyntaxError.Vector<FilePath> GenerationFailure.[ SyntaxError Unwritable ] Lock.{ String } LockRejection.[ DuplicateName.Lock PathOverlap.{ Lock Lock } ] ] [] [] }";
+        let source = "Library.{ [] [ \
+            Generation.{ String String } \
+            FilePath.String \
+            SyntaxError.Vector<FilePath> \
+            GenerationFailure.[ SyntaxError \
+            Unwritable ] Lock.{ String Integer } \
+            LockRejection.[ DuplicateName.Lock \
+            PathOverlap.{ Lock Lock } ] ] [] [] \
+            }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -919,7 +927,20 @@ mod behavior {
 
     #[test]
     fn library_traits_generate_trait_surfaces() {
-        let source = "Library.{ [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ] }";
+        let source = "Library.{ [ std:[ Clonable \
+            Sendable Serializable ] ] [ \
+            SinkError.[ Closed Full ] Sink.{ \
+            String Integer } ] [ Fillable.[ \
+            push!{ [ Serializable ] [ \
+            Result<Integer SinkError> ] } \
+            drain![ Vector<String> ] create:[ \
+            Self ] ] Streamable.{ [ Fillable ] [ \
+            Item<Serializable> ] [ \
+            CAPACITY.Integer ] [ next![ \
+            Option<Item> ] ] } \
+            Processable<[Clonable Sendable] \
+            Serializable>.[ process.[ String ] ] \
+            ] [ Sink.[ Fillable ] ] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -1127,7 +1148,11 @@ mod behavior {
 
     #[test]
     fn nested_inline_data_names_include_ancestry_after_the_first_level() {
-        let source = "Library.{ [] [ Outer.[ A.[ X.{ String } ] B.[ X.{ Integer } ] ] Rejection.[ PathOverlap.{ String String } ] ] [] [] }";
+        let source = "Library.{ [] [ Outer.[ A.[ \
+            X.{ String String } Empty ] B.[ X.{ \
+            Integer Integer } Empty ] ] \
+            Rejection.[ PathOverlap.{ String \
+            String } Unknown ] ] [] [] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("nested collision source reads"),

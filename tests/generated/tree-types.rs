@@ -136,10 +136,7 @@ pub enum Knot {
         bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
     )
 )]
-pub struct Loop {
-    #[rkyv(omit_bounds)]
-    pub knot: std::boxed::Box<Knot>,
-}
+pub struct Loop(#[rkyv(omit_bounds)] pub std::boxed::Box<Knot>);
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
@@ -162,15 +159,9 @@ pub enum A_Data {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct B_Data {
-    pub string: String,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Nested {
     A(A_Data),
-    B(B_Data),
+    B(String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

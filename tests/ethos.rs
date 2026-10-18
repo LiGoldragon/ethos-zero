@@ -14,7 +14,18 @@ fn read(source: &str) -> File {
 
 #[test]
 fn full_library_round_trips_and_generates_named_types_and_traits() {
-    let source = "Library.{ [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ] }";
+    let source = "Library.{ [ std:[ Clonable \
+        Sendable Serializable ] ] [ SinkError.[ \
+        Closed Full ] Sink.{ String Integer } ] \
+        [ Fillable.[ push!{ [ Serializable ] [ \
+        Result<Integer SinkError> ] } drain![ \
+        Vector<String> ] create:[ Self ] ] \
+        Streamable.{ [ Fillable ] [ \
+        Item<Serializable> ] [ CAPACITY.Integer \
+        ] [ next![ Option<Item> ] ] } \
+        Processable<[Clonable Sendable] \
+        Serializable>.[ process.[ String ] ] ] [ \
+        Sink.[ Fillable ] ] }";
     let file = read(source);
     let repeated = read(&file.protosize().textualize());
     assert_eq!(file, repeated);
@@ -193,8 +204,8 @@ fn retired_roots_are_not_accepted() {
 fn operation_free_signal_generates_only_its_declared_shared_data() {
     let generated = match read(
         "Signal.{ [] [] \
-        [] [ Shared.{ Name } Name.String ] [] [] \
-        }",
+        [] [ Shared.{ Name Integer } \
+        Name.String ] [] [] }",
     )
     .generate()
     {
@@ -220,8 +231,8 @@ fn a_signal_declaring_the_query_type_is_refused() {
     // `Request` is an ordinary name: nothing is generated under it.
     let generated = match read(
         "Signal.{ [] [ Ask.Request ] \
-            [ Told.Request ] [ Request.{ String \
-            } ] [] [] }",
+            [ Told.Request ] [ Request.{ \
+            String Integer } ] [] [] }",
     )
     .generate()
     {
@@ -268,8 +279,8 @@ fn memory_generates_a_record_type_named_record() {
 fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
     let generated = match read(
         "Memory.{ [] [ \
-        Entry.{ String } Record.{ Entry \
-        Vector<Entry> } ] [] [] }",
+        Entry.{ String Integer } Record.{ \
+        Entry Vector<Entry> } ] [] [] }",
     )
     .generate()
     {
@@ -303,8 +314,11 @@ fn self_in_a_data_position_is_named_for_the_enclosing_type() {
 fn a_sourced_generic_in_a_data_position_reads_and_reprints() {
     // ethos-zero's own printer emits `external:Vector<String>`; its reader
     // must take that shape back.
-    let file =
-        read("Library.{ [ external:[ Vector ] ] [ Record.{ external:Vector<String> } ] [] [] }");
+    let file = read(
+        "Library.{ [ external:[ Vector ] ] \
+            [ Record.{ external:Vector<String> \
+            Integer } ] [] [] }",
+    );
     assert_eq!(file, read(&file.protosize().textualize()));
     let generated = match file.generate() {
         Ok(generated) => generated,
@@ -371,12 +385,18 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
     // The audit's row-15 probe: two enums each declare X in place, and an
     // authored X_Data would capture the short name. The authored name is
     // the occurrence refused, at its declaration.
-    let probe = "Library.{ [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] X_Data.String ] [] [] }";
+    let probe = "Library.{ [] [ P.[ X.{ String \
+        String } Y ] Q.[ X.{ Integer Integer } Y \
+        ] X_Data.String ] [] [] }";
     assert!(read(probe).generate().is_ok());
-    let captured = "Library.{ [] [ P.[ X.{ String } ] P_X_Data.String ] [] [] }";
+    let captured = "Library.{ [] [ P.[ X.{ \
+        String String } Y ] P_X_Data.String ] [] \
+        [] }";
     assert!(read(captured).generate().is_ok());
-    let captured =
-        "Library.{ [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] P_X_Data.String ] [] [] }";
+    let captured = "Library.{ [] \
+            [ P.[ X.{ String String } Y ] \
+            Q.[ X.{ Integer Integer } Y ] \
+            P_X_Data.String ] [] [] }";
     match read(captured).generate() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Duplicate("P_X_Data".to_owned()));
@@ -384,7 +404,9 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
         }
         _ => panic!("an authored name capturing a derived one is refused"),
     }
-    let captured = "Library.{ [] [ P.[ X.{ String } ] X_Data.String ] [] [] }";
+    let captured = "Library.{ [] [ P.[ X.{ \
+        String String } Y ] X_Data.String ] [] \
+        [] }";
     match read(captured).generate() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Duplicate("X_Data".to_owned()));
@@ -398,8 +420,8 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
 fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
     let generated = match read(
         "Signal.{ [] [ \
-        Ask.{ String } ] [ Ask.{ Integer } ] [] \
-        [] [] }",
+        Ask.{ String Integer } ] [ \
+        Ask.{ Integer String } ] [] [] [] }",
     )
     .generate()
     {
@@ -477,24 +499,34 @@ fn a_lowercase_type_or_trait_name_is_refused() {
 #[test]
 fn a_type_with_no_finite_value_is_refused() {
     assert_eq!(
-        "Library.{ [] [ S.{ Self } ] [] [] }".refusal(),
+        "Library.{ [] [ S.{ Self Integer } ] [] \
+            [] }"
+            .refusal(),
         (vec![1, 1, 0, 0], Problem::Cycle("S".to_owned()))
     );
     assert_eq!(
-        "Library.{ [] [ Leaf.String A.{ Leaf B } B.{ A } ] [] [] }".refusal(),
+        "Library.{ [] [ Leaf.String A.{ Leaf B } \
+            B.{ A Leaf } ] [] [] }"
+            .refusal(),
         (vec![1, 1, 1, 0], Problem::Cycle("A".to_owned()))
     );
     assert_eq!(
-        "Library.{ [] [ E.[ Only.E ] ] [] [] }".refusal(),
+        "Library.{ [] [ E.[ Only.E Also.E ] ] [] \
+            [] }"
+            .refusal(),
         (vec![1, 1, 0, 0], Problem::Cycle("E".to_owned()))
     );
     // A Vector, an Option or another variant is a way out.
     for finite in [
-        "Library.{ [] [ S.{ Vector<Self> } ] [] [] }",
-        "Library.{ [] [ S.{ Option<Self> } ] [] [] }",
+        "Library.{ [] [ S.{ Vector<Self> Integer \
+            } ] [] [] }",
+        "Library.{ [] [ S.{ Option<Self> Integer \
+            } ] [] [] }",
         "Library.{ [] [ E.[ Leaf Node.{ E E } ] ] [] [] }",
-        "Library.{ [] [ S.{ Result<Self String> } ] [] [] }",
-        "Library.{ [] [ Never.[] Holder.{ Never } ] [] [] }",
+        "Library.{ [] [ S.{ Result<Self String> \
+            Integer } ] [] [] }",
+        "Library.{ [] [ Never.[] Holder.{ Never \
+            Integer } ] [] [] }",
     ] {
         assert!(read(finite).generate().is_ok(), "{finite} generates");
     }
@@ -503,7 +535,10 @@ fn a_type_with_no_finite_value_is_refused() {
 #[test]
 fn outer_option_and_result_are_written_fully_qualified() {
     let generated = match read(
-        "Library.{ [] [ Wrapped.{ Option<Integer> Result<String Integer> } Chain.{ Option<Chain> } ] [] [] }",
+        "Library.{ [] [ Wrapped.{ \
+            Option<Integer> Result<String \
+            Integer> } Chain.{ String \
+            Option<Chain> } ] [] [] }",
     )
     .generate()
     {
