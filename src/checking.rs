@@ -938,7 +938,8 @@ impl Sharing for File {
             let TypeDeclaration::Shared(identity, _) = placed.declaration else {
                 continue;
             };
-            let borne = self.borne(&identity.name);
+            let name = &identity.name;
+            let borne = self.borne(name);
             if borne.is_empty() {
                 let mut path = placed.path;
                 path.push(0);
@@ -1050,7 +1051,8 @@ impl Sealing for File {
             let TypeDeclaration::Sealed(identity, _) = placed.declaration else {
                 continue;
             };
-            let borne = self.borne(&identity.name);
+            let name = &identity.name;
+            let borne = self.borne(name);
             let mut traits = borne.iter();
             if !traits.any(|t| t.constructs()) {
                 let mut path = placed.path;
@@ -1984,9 +1986,10 @@ impl Checkable for Association {
         }
         self.identity.check(scope).place(0)?;
         // The traits borne are named outside the identity that bears them.
-        let members = &self.members;
+        let m = &self.members;
         let role = Role::Trait;
-        members.refer_each(scope, role, 0).place(1)
+        let r = m.refer_each(scope, role, 0);
+        r.place(1)
     }
 }
 
@@ -2007,8 +2010,8 @@ impl Grouping for Scope<'_> {
                 let p = at.as_ref() == "protos";
                 let same = &emitted == head;
                 let name = &head.0;
-                let it = Intrinsic::identify(name);
-                it.filter(|_| p && same)
+                let i = Intrinsic::identify(name);
+                i.filter(|_| p && same)
             }
             _ => None,
         };
@@ -2017,14 +2020,18 @@ impl Grouping for Scope<'_> {
     }
 }
 
-/// The trait whose capability checks a type that a
-/// grouped association lists: an unsourced type.
+/// The outcome of a check that reports no value.
+type Checked = Result<(), Error>;
+
+/// The trait whose capability checks a type
+/// that a grouped association lists: an
+/// unsourced type.
 trait Listing {
-    fn list(&self, s: &Scope) -> Result<(), Error>;
+    fn list(&self, s: &Scope) -> Checked;
 }
 
 impl Listing for Reference {
-    fn list(&self, s: &Scope) -> Result<(), Error> {
+    fn list(&self, s: &Scope) -> Checked {
         if self.source.is_none() {
             return self.refer(s, Role::Type);
         }
@@ -2037,9 +2044,10 @@ impl Listing for Reference {
 /// Traits a file declares, by reference.
 type Traits<'a> = Vec<&'a TraitDeclaration>;
 
-/// The trait whose capabilities read associations
-/// as single types bearing traits, a grouped entry
-/// spread over the types it lists, in order.
+/// The trait whose capabilities read
+/// associations as single types bearing traits,
+/// a grouped entry spread over the types it
+/// lists, in order.
 pub(crate) trait Bearing {
     /// Every association, one type to an entry.
     fn bearings(&self) -> Vec<Association>;

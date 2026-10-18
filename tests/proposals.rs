@@ -592,13 +592,14 @@ fn an_imported_struct_in_a_vector_in_a_struct_conforms() {
     );
 }
 
-// 6. A trait head lists the types bearing it ------
+// 6. A trait head lists the types bearing it --
 
 fn keyed(associations: &str) -> String {
     let key = "Key.{ String }";
     let system = "SystemPrompt.⟦ Key ⟧";
     let startup = "StartupPrompt.⟦ Key ⟧";
-    let types = format!("{key} {system} {startup}");
+    let all = [key, system, startup];
+    let types = all.join(" ");
     let count = "count.[ Integer ]";
     let traits = format!("Prompting.[ {count} ]");
     format!(

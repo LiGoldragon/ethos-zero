@@ -389,9 +389,10 @@ pub enum Receiver {
     Static,
 }
 
-/// An association: a type, by its identity, bears
-/// traits; or a trait, by its identity, is borne by
-/// the types listed. The head's role decides.
+/// An association: a type, by its identity,
+/// bears traits; or a trait, by its identity,
+/// is borne by the types listed. The head's
+/// role decides.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Association {
     /// The head: a type's identity or a trait's.

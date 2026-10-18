@@ -1305,8 +1305,8 @@ impl Emitting for File {
                     let item = declaration.emit(scope);
                     items.push(quote! { #[rustfmt::skip] #item });
                 }
-                for association in self.bearings() {
-                    let item = association.emit(scope);
+                for b in self.bearings() {
+                    let item = b.emit(scope);
                     items.push(quote! { #[rustfmt::skip] #item });
                 }
             }
