@@ -8,4 +8,4 @@ Library.
   Waiting.[ waits.[ Vector<PaneId> ]
             wait!{ [ Paned ] [ Integer ] }
             create:[ Self ] ] ]
-[ WakeWaits.[ Waiting ] ] }
+[ WakeWaits.[ Waiting ] Sized.[ PaneId ] ] }

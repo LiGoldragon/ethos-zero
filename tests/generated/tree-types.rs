@@ -187,3 +187,63 @@ pub enum Response {
     Planted(Forest),
     Twined(Twig),
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_tree_sized<T: Sized>() {}
+    let _ = assert_tree_sized::<Tree>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_chain_sized<T: Sized>() {}
+    let _ = assert_chain_sized::<Chain>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_twin_sized<T: Sized>() {}
+    let _ = assert_twin_sized::<Twin>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_twig_sized<T: Sized>() {}
+    let _ = assert_twig_sized::<Twig>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_knot_sized<T: Sized>() {}
+    let _ = assert_knot_sized::<Knot>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_loop_sized<T: Sized>() {}
+    let _ = assert_loop_sized::<Loop>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_forest_sized<T: Sized>() {}
+    let _ = assert_forest_sized::<Forest>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_wrapped_sized<T: Sized>() {}
+    let _ = assert_wrapped_sized::<Wrapped>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_nested_sized<T: Sized>() {}
+    let _ = assert_nested_sized::<Nested>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_deep_sized<T: Sized>() {}
+    let _ = assert_deep_sized::<Deep>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_query_sized<T: Sized>() {}
+    let _ = assert_query_sized::<Query>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_response_sized<T: Sized>() {}
+    let _ = assert_response_sized::<Response>;
+};

@@ -15,3 +15,13 @@ pub struct Score {
     pub boolean: bool,
     pub meaning: datom_codec::Meaning,
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_placed_sized<T: Sized>() {}
+    let _ = assert_placed_sized::<Placed>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_score_sized<T: Sized>() {}
+    let _ = assert_score_sized::<Score>;
+};

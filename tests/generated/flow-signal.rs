@@ -40,3 +40,18 @@ pub enum Response {
     Refused(Refused_Data),
     Reported,
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_brief_sized<T: Sized>() {}
+    let _ = assert_brief_sized::<Brief>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_query_sized<T: Sized>() {}
+    let _ = assert_query_sized::<Query>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_response_sized<T: Sized>() {}
+    let _ = assert_response_sized::<Response>;
+};

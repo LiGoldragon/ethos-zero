@@ -45,3 +45,18 @@ pub enum Nested {
     Choice(Choice_Data),
     Plain,
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_vec_sized<T: Sized>() {}
+    let _ = assert_vec_sized::<Vec>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_tree_sized<T: Sized>() {}
+    let _ = assert_tree_sized::<Tree>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_nested_sized<T: Sized>() {}
+    let _ = assert_nested_sized::<Nested>;
+};

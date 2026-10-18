@@ -19,3 +19,18 @@ pub struct Record {
     pub shape: Shape,
     pub integer: i64,
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_name_sized<T: Sized>() {}
+    let _ = assert_name_sized::<Name>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_shape_sized<T: Sized>() {}
+    let _ = assert_shape_sized::<Shape>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_record_sized<T: Sized>() {}
+    let _ = assert_record_sized::<Record>;
+};

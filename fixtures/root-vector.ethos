@@ -9,4 +9,4 @@
   []
   [ Record.{ Name Shape Integer } ]
   []
-  [] } ]
+  [ Sized.[ Name Shape Record ] ] } ]

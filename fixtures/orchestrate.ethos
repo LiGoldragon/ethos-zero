@@ -20,4 +20,4 @@ Signal.
   Locks.Vector<Lock>
   Observation.[ Locks.Locks Held.Locks ] ]
 []
-[] }
+[ Sized.[ LockId LockName FlowId LockPath LockPaths LockReason LockRequest Lock DuplicateName LockOverlap LockRejection ReleaseRejection ObserveSelection Locks Observation Query Response ] ] }

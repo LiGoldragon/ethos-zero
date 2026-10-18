@@ -7,4 +7,4 @@ Library.
   SinkError.[ Closed Full ]
   LockId.Integer ]
 []
-[] }
+[ Sized.[ Record Report SinkError LockId ] ] }

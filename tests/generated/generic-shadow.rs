@@ -11,3 +11,13 @@ pub struct Holder {
     pub string: String,
     pub a: A,
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_a_sized<T: Sized>() {}
+    let _ = assert_a_sized::<A>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_holder_sized<T: Sized>() {}
+    let _ = assert_holder_sized::<Holder>;
+};

@@ -73,7 +73,11 @@ fn whitespace_after_a_separator_parses_in_datom() {
 
 #[test]
 fn whitespace_after_any_separator_reads_in_ethos() {
-    let source = "Library.\n  {\n  []\n  [ Record.\n      { String Integer }\n    State.\t[ Idle Busy ] ]\n  [ Fillable.[ fill!\n      [ Integer ] ] ]\n  [] }";
+    let source = "Library.\n  {\n  []\n  [ \
+        Record.\n      { String Integer }\n    \
+        State.\t[ Idle Busy ] ]\n  [ Fillable.[ \
+        fill!\n      [ Integer ] ] ]\n  [ \
+        Sized.[ Record State ] ] }";
     let rust = generated(source);
     assert!(rust.contains("pub struct Record"), "{rust}");
     assert!(rust.contains("pub enum State"), "{rust}");
@@ -84,7 +88,9 @@ fn whitespace_after_any_separator_reads_in_ethos() {
 
 #[test]
 fn a_library_is_its_root_the_dot_and_the_braced_sections() {
-    let source = "Library.\n{\n[ protos:String ]\n[ Record.{ String Integer } ]\n[]\n[] }";
+    let source = "Library.\n{\n[ protos:String \
+        ]\n[ Record.{ String Integer } ]\n[]\n[ \
+        Sized.[ Record ] ] }";
     let file = read(source);
     let head = alone(&file).head();
     assert_eq!(head, Head::Library);
@@ -103,10 +109,16 @@ fn the_sweet_form_no_longer_reads() {
 
 #[test]
 fn a_file_prints_with_its_brace_on_the_next_line_and_sections_unindented() {
-    let file = read("Library.{ [] [ Record.{ String Integer } ] [] [] }");
+    let file = read(
+        "Library.{ [] [ Record.{ \
+        String Integer } ] [] [ Sized.[ Record ] \
+        ] }",
+    );
     assert_eq!(
         file.print(),
-        "Library.\n{\n[]\n[ Record.{ String Integer } ]\n[]\n[] }\n"
+        "Library.\n{\n[]\n[ Record.{ String \
+            Integer } ]\n[]\n[ Sized.[ Record ] \
+            ] }\n"
     );
     assert_eq!(read(&file.print()), file);
 }
@@ -233,10 +245,21 @@ fn a_sealed_type_needs_a_constructor_of_a_trait_it_bears() {
 #[test]
 fn vector_brackets_are_a_vector_in_every_type_position() {
     let sugared = read(
-        "Library.{ [] [ Locks.⟦ String ⟧ Record.{ ⟦ ⟦ Integer ⟧ ⟧ Brief.⟦ String ⟧ } Reply.[ Many.⟦ Locks ⟧ None ] ] [ K.[ list.[ ⟦ String ⟧ ] ] ] [] }",
+        "Library.{ [] [ Locks.⟦ String ⟧ \
+            Record.{ ⟦ ⟦ Integer ⟧ ⟧ Brief.⟦ \
+            String ⟧ } Reply.[ Many.⟦ Locks ⟧ \
+            None ] ] [ K.[ list.[ ⟦ String ⟧ ] ] \
+            ] [ Sized.[ Locks Record Brief Reply \
+            ] ] }",
     );
     let spelled = read(
-        "Library.{ [] [ Locks.Vector<String> Record.{ Vector<Vector<Integer>> Brief.Vector<String> } Reply.[ Many.Vector<Locks> None ] ] [ K.[ list.[ Vector<String> ] ] ] [] }",
+        "Library.{ [] [ Locks.Vector<String> \
+            Record.{ Vector<Vector<Integer>> \
+            Brief.Vector<String> } Reply.[ \
+            Many.Vector<Locks> None ] ] [ K.[ \
+            list.[ Vector<String> ] ] ] [ \
+            Sized.[ Locks Record Brief Reply ] ] \
+            }",
     );
     assert_eq!(sugared, spelled);
 }
@@ -376,7 +399,11 @@ fn an_imported_type_is_read_from_a_sibling_file() {
 #[test]
 fn an_explicit_protos_import_names_the_intrinsic() {
     let library = read(
-        "Library.{ [ protos:[ String Integer Boolean ] ] [ FlowId.String Event.[ Started.FlowId Counted.{ Integer Boolean } Named.protos:String ] ] [] [] }",
+        "Library.{ [ protos:[ String Integer \
+            Boolean ] ] [ FlowId.String Event.[ \
+            Started.FlowId Counted.{ Integer \
+            Boolean } Named.protos:String ] ] [] \
+            [ Sized.[ FlowId Event ] ] }",
     );
     for text in [
         "Started.{ quietRiverStone }",
@@ -557,9 +584,9 @@ fn a_std_type_imports_through_a_colon_chain_into_shared_state_only() {
         ] ] [ Ask.Instant ] [] [] [] [] }";
     assert_eq!(refusal(signal).1, Problem::Foreign("Query".to_owned()));
     // A source that is not std keeps its ordinary meaning.
-    let source = "Library.{ \
-        [ crate:inner:[ Thing ] ] \
-        [ Holder.{ Thing Integer } ] [] [] }";
+    let source = "Library.{ [ crate:inner:[ \
+        Thing ] ] [ Holder.{ Thing Integer } ] \
+        [] [ Sized.[ Holder ] ] }";
     let rust = generated(source);
     let thing = "pub thing: crate::inner::Thing";
     assert!(rust.contains(thing), "{rust}");
@@ -627,10 +654,18 @@ fn an_error_inside_white_braces_is_located_there() {
 #[test]
 fn an_imported_struct_in_a_vector_in_a_struct_conforms() {
     let library = read(
-        "Library.{ [] [ Topic.String Subaspect.[ Vision Intent ] Key.{ Subaspect Topic } ] [] [] }",
+        "Library.{ [] [ Topic.String Subaspect.[ \
+            Vision Intent ] Key.{ Subaspect \
+            Topic } ] [] [ Sized.[ Topic \
+            Subaspect Key ] ] }",
     );
     let placements = read(
-        "Library.{ [ flow:[ Key ] ] [ SystemPrompt.⟦ Key ⟧ StartupPrompt.⟦ Key ⟧ Placements.⦃ SystemPrompt StartupPrompt ⦄ ] [] [] }",
+        "Library.{ [ flow:[ Key ] ] [ \
+            SystemPrompt.⟦ Key ⟧ StartupPrompt.⟦ \
+            Key ⟧ Placements.⦃ SystemPrompt \
+            StartupPrompt ⦄ ] [] [ Sized.[ \
+            SystemPrompt StartupPrompt \
+            Placements ] ] }",
     );
     let text = "{ { [ { Intent { core } } ] } \
         { [ { Vision { book } } ] } }";
@@ -668,9 +703,11 @@ fn keyed(associations: &str) -> String {
     let types = all.join(" ");
     let count = "count.[ Integer ]";
     let traits = format!("Prompting.[ {count} ]");
+    // Key bears a trait wherever it is listed.
+    let borne = "Sized.[ Key ]";
     format!(
         "Library.{{ [] [ {types} ] [ {traits} ] \
-        [ {associations} ] }}"
+        [ {associations} {borne} ] }}"
     )
 }
 
@@ -691,7 +728,7 @@ fn a_group_generates_as_its_types() {
     assert_eq!(mixed, single);
     let file = read(&keyed("Prompting.[ Key ]"));
     let printed = file.print();
-    let entry = "[ Prompting.[ Key ] ]";
+    let entry = "[ Prompting.[ Key ]";
     assert!(printed.contains(entry), "{printed}");
 }
 
@@ -756,10 +793,10 @@ fn a_vector_of_roots_prints_its_roots_hung() {
 
 #[test]
 fn the_roots_of_a_file_share_one_namespace() {
-    let library = "Library.{ [] [ A.String ] \
-        [] [] }";
-    let memory = "Memory.{ [] \
-        [ A.{ String Integer } ] [] [] }";
+    let library = "Library.{ [] [ A.String ] [] \
+        [ Sized.[ A ] ] }";
+    let memory = "Memory.{ [] [ A.{ String \
+        Integer } ] [] [ Sized.[ A ] ] }";
     let roots = [library, memory].join(" ");
     let source = format!("[ {roots} ]");
     let at = vec![1, 1, 1, 0, 0];
@@ -800,11 +837,11 @@ fn an_error_in_a_later_root_is_located_there() {
 
 #[test]
 fn a_signal_declares_the_traits_its_types_bear() {
-    let source = "Signal.{ [] [ Ask.Brief ] \
-        [ Told ] [ Brief.String ] \
-        [ Serving.[ serve.[ Integer ] ] ] \
-        [ Query.[ Serving ] \
-        Brief.[ Serving ] ] }";
+    let source = "Signal.{ [] [ Ask.Brief ] [ \
+        Told ] [ Brief.String ] [ Serving.[ \
+        serve.[ Integer ] ] ] [ Query.[ Serving \
+        ] Brief.[ Serving ] Sized.[ Response ] ] \
+        }";
     let rust = generated(source);
     assert!(rust.contains("pub trait Serving"));
     // Query bears what its association says.
@@ -842,7 +879,8 @@ fn every_root_has_its_traits_and_associations() {
 #[test]
 fn a_type_over_one_type_is_a_new_type() {
     let source = "Library.{ [] [ Name.String \
-        Names.⟦ Name ⟧ ] [] [] }";
+        Names.⟦ Name ⟧ ] [] [ Sized.[ Name Names \
+        ] ] }";
     let rust = generated(source);
     let name = "pub struct Name(pub String);";
     assert!(rust.contains(name), "{rust}");
@@ -855,7 +893,8 @@ fn a_type_over_one_type_is_a_new_type() {
 #[test]
 fn a_new_type_reads_as_a_struct_of_one() {
     let source = "Library.{ [] [ Name.String \
-        Pair.{ Name Integer } ] [] [] }";
+        Pair.{ Name Integer } ] [] [ Sized.[ \
+        Name Pair ] ] }";
     let file = read(source);
     let pair = "{ { Ada } 1990 }";
     file.conform("Pair", pair).expect("conforms");
@@ -867,8 +906,9 @@ fn a_new_type_reads_as_a_struct_of_one() {
 
 #[test]
 fn a_new_type_may_hold_itself_behind_a_way_out() {
-    let source = "Library.{ [] \
-        [ Chain.Option<Chain> ] [] [] }";
+    let source = "Library.{ [] [ \
+        Chain.Option<Chain> ] [] [ Sized.[ Chain \
+        ] ] }";
     let rust = generated(source);
     let boxed = "std::option::Option<\
         std::boxed::Box<Chain>>";
@@ -950,4 +990,80 @@ fn a_sealed_or_shared_struct_keeps_one() {
         [ K.[ make:[ Self ] ] ] \
         [ V.[ K ] S.[ K ] ] }";
     generated(source);
+}
+
+// 11. Every declared type bears a trait -------
+
+#[test]
+fn a_type_bearing_no_trait_is_refused() {
+    let source = "Library.{ [] [ Point.{ Integer \
+        Integer } Shape.[ Dot Line ] ] [] \
+        [ Sized.[ Point ] ] }";
+    let shape = "Shape".to_owned();
+    let traitless = Problem::Traitless(shape);
+    let path = vec![1, 1, 1, 0];
+    let refused = refusal(source);
+    assert_eq!(refused, (path, traitless));
+}
+
+#[test]
+fn either_association_form_bears_a_trait() {
+    let traits = "[ Drawing.[ \
+        draw.[ String ] ] ]";
+    let by_type = format!(
+        "Library.{{ [] [ Point.{{ Integer \
+        Integer }} ] {traits} \
+        [ Point.[ Drawing ] ] }}"
+    );
+    let by_trait = format!(
+        "Library.{{ [] [ Point.{{ Integer \
+        Integer }} ] {traits} \
+        [ Drawing.[ Point ] ] }}"
+    );
+    let typed = generated(&by_type);
+    let grouped = generated(&by_trait);
+    assert_eq!(typed, grouped);
+    // An association naming no trait bears none.
+    let none = format!(
+        "Library.{{ [] [ Point.{{ Integer \
+        Integer }} ] {traits} [ Point.[] ] }}"
+    );
+    let point = "Point".to_owned();
+    let traitless = Problem::Traitless(point);
+    let refused = refusal(&none);
+    let path = vec![1, 1, 0, 0];
+    assert_eq!(refused, (path, traitless));
+}
+
+#[test]
+fn a_type_declared_in_place_bears_a_trait() {
+    let source = "Memory.{ [] [ Flow.{ Integer \
+        State.[ Running Ended ] } ] [] \
+        [ Sized.[ Flow ] ] }";
+    let state = "State".to_owned();
+    let traitless = Problem::Traitless(state);
+    let path = vec![1, 1, 0, 1, 1, 0];
+    let refused = refusal(source);
+    assert_eq!(refused, (path, traitless));
+}
+
+#[test]
+fn an_implied_enum_bears_a_trait_as_written() {
+    let source = "Signal.{ [] [ Ask.Integer ] \
+        [ Told ] [] [] [ Sized.[ Response ] ] }";
+    let query = "Query".to_owned();
+    let traitless = Problem::Traitless(query);
+    let refused = refusal(source);
+    assert_eq!(refused, (vec![1, 1], traitless));
+    // An empty one is never generated.
+    let quiet = "Signal.{ [] [] [ Told ] [] [] \
+        [ Sized.[ Response ] ] }";
+    generated(quiet);
+}
+
+#[test]
+fn a_type_root_stands_as_it_is() {
+    let rust = generated("Type.Name.String");
+    let name = "pub struct Name(pub String);";
+    assert!(rust.contains(name), "{rust}");
 }

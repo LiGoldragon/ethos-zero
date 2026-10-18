@@ -27,10 +27,11 @@ Library.
             Shared.String
             Foreign.String
             SinglePosition.String
-            SingleVariant.String ]
+            SingleVariant.String
+            Traitless.String ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association ]
   Location.{ Line Column }
   Line.Integer
   Column.Integer ]
 []
-[] }
+[ Sized.[ Structural_Error Error Problem Form Location Line Column ] ] }

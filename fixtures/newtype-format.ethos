@@ -8,4 +8,4 @@ Library.
   SpiritGuardianProviderName.String
   SpiritGuardianMaximumOutputTokens.Integer ]
 []
-[] }
+[ Sized.[ Short OptionalSpiritGuardianProviderName OptionalSpiritGuardianMaximumOutputTokens Nested SpiritGuardianProviderName SpiritGuardianMaximumOutputTokens ] ] }

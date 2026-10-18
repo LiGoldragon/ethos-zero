@@ -5,4 +5,4 @@ Library.
 [ Sink.{ String Vector<String> }
   SinkError.[ Closed Full ] ]
 []
-[ Sink.[ Summarizable Fillable ] ] }
+[ Sink.[ Summarizable Fillable ] Sized.[ SinkError ] ] }

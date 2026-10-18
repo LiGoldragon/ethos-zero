@@ -9,4 +9,4 @@ Operation.
 [ Capsule.{ Home.String
             Login.Vector<String> } ]
 []
-[] }
+[ Sized.[ Capsule Home Login Operation Outcome ] ] }

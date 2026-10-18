@@ -21,3 +21,8 @@ const _: () = {
     fn assert_sink_fillable<T: super::Fillable>() {}
     let _ = assert_sink_fillable::<Sink>;
 };
+#[rustfmt::skip]
+const _: () = {
+    fn assert_sinkerror_sized<T: Sized>() {}
+    let _ = assert_sinkerror_sized::<SinkError>;
+};

@@ -109,6 +109,18 @@ against the real reader. It builds on protos and datom-codec's own
     Operation's implied enums may hold one variant. A `Type` root's enum
     of no variants stays `Arity.{ 2 0 }`.
 
+11. **Every declared type bears a trait.** A type the file declares, at the
+    top of a types section or in place, that no association names as
+    bearing a trait, in either form (`Point.[ Drawing ]` or
+    `Drawing.[ Point ]`), is refused as `Traitless.Point` at its head; an
+    entry naming no trait (`Point.[]`) bears none. A Signal's `Query` and
+    `Response` and an Operation's `Operation` and `Outcome` bear what their
+    associations write, never implied: one generated (having variants) and
+    named by none is refused at its section. Protos's `Sized` serves where
+    a type bears no trait of its own (`Sized.[ Query Response ]`), as the
+    crate's own `ethos-zero.ethos` and `error.ethos` and the fixtures use
+    it. A `Type` root has no associations and stands as it is.
+
 ### Checking a snippet
 
 ```

@@ -16,3 +16,13 @@ pub struct Flow {
     pub state: State,
     pub event_vector: std::vec::Vec<flow::Event>,
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_flow_sized<T: Sized>() {}
+    let _ = assert_flow_sized::<Flow>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_state_sized<T: Sized>() {}
+    let _ = assert_state_sized::<State>;
+};

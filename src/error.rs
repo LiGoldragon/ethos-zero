@@ -53,6 +53,7 @@ pub enum Problem {
     Foreign(String),
     SinglePosition(String),
     SingleVariant(String),
+    Traitless(String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -86,3 +87,38 @@ pub struct Line(pub i64);
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Column(pub i64);
+#[rustfmt::skip]
+const _: () = {
+    fn assert_structural_error_sized<T: Sized>() {}
+    let _ = assert_structural_error_sized::<Structural_Error>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_error_sized<T: Sized>() {}
+    let _ = assert_error_sized::<Error>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_problem_sized<T: Sized>() {}
+    let _ = assert_problem_sized::<Problem>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_form_sized<T: Sized>() {}
+    let _ = assert_form_sized::<Form>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_location_sized<T: Sized>() {}
+    let _ = assert_location_sized::<Location>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_line_sized<T: Sized>() {}
+    let _ = assert_line_sized::<Line>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_column_sized<T: Sized>() {}
+    let _ = assert_column_sized::<Column>;
+};

@@ -7,3 +7,8 @@ pub struct Record {
     pub string: String,
     pub integer: i64,
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_record_sized<T: Sized>() {}
+    let _ = assert_record_sized::<Record>;
+};

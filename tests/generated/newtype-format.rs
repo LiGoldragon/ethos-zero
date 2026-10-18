@@ -30,3 +30,39 @@ pub struct SpiritGuardianProviderName(pub String);
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct SpiritGuardianMaximumOutputTokens(pub i64);
+#[rustfmt::skip]
+const _: () = {
+    fn assert_short_sized<T: Sized>() {}
+    let _ = assert_short_sized::<Short>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_optionalspiritguardianprovidername_sized<T: Sized>() {}
+    let _ = assert_optionalspiritguardianprovidername_sized::<
+        OptionalSpiritGuardianProviderName,
+    >;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_optionalspiritguardianmaximumoutputtokens_sized<T: Sized>() {}
+    let _ = assert_optionalspiritguardianmaximumoutputtokens_sized::<
+        OptionalSpiritGuardianMaximumOutputTokens,
+    >;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_nested_sized<T: Sized>() {}
+    let _ = assert_nested_sized::<Nested>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_spiritguardianprovidername_sized<T: Sized>() {}
+    let _ = assert_spiritguardianprovidername_sized::<SpiritGuardianProviderName>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_spiritguardianmaximumoutputtokens_sized<T: Sized>() {}
+    let _ = assert_spiritguardianmaximumoutputtokens_sized::<
+        SpiritGuardianMaximumOutputTokens,
+    >;
+};

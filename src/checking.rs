@@ -20,6 +20,7 @@ use crate::{
     Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal, Signature,
     TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
+use Problem::Traitless;
 use Problem::{SinglePosition, SingleVariant};
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -742,7 +743,65 @@ impl Checkable for File {
         self.finite()?;
         self.sealed()?;
         self.shared()?;
-        self.foreign()
+        self.foreign()?;
+        self.traitless()
+    }
+}
+
+// Borne types (proposal): every type a file
+// declares bears a trait.
+
+/// The trait whose capability refuses a type no
+/// association names as bearing a trait, in
+/// either form: a type the file declares, in
+/// place too, and an enum a Signal or an
+/// Operation implies and generates. A `Type`
+/// root has no associations, and stands as it is.
+trait Bearers {
+    fn traitless(&self) -> Checked;
+}
+
+impl Bearers for File {
+    fn traitless(&self) -> Checked {
+        if let File::One(Root::Type(_)) = self {
+            return Ok(());
+        }
+        let mut bearers = Vec::new();
+        for bearing in self.bearings() {
+            if !bearing.members.is_empty() {
+                let name = bearing.identity.name;
+                bearers.push(name);
+            }
+        }
+        let mut declared = Vec::new();
+        for placed in self.declarations() {
+            let declaration = placed.declaration;
+            let identity = declaration.identity();
+            let name = identity.name.clone();
+            let mut path = placed.path;
+            path.push(0);
+            declared.push((path, name));
+        }
+        for implied in self.implied_enums() {
+            // An empty one is never generated.
+            if !implied.variants.is_empty() {
+                let name = implied.name;
+                let path = implied.path;
+                declared.push((path, name));
+            }
+        }
+        let mut found = None;
+        for (path, name) in declared {
+            if !bearers.contains(&name) {
+                found = Some((path, name));
+                break;
+            }
+        }
+        let Some((path, name)) = found else {
+            return Ok(());
+        };
+        let problem = Traitless(name.0);
+        Err(Error::conceptual(path, problem))
     }
 }
 

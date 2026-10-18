@@ -5,4 +5,4 @@ Signal.
 [ Measured.Measurement ]
 [ Measurement.Decimal ]
 []
-[] }
+[ Sized.[ Measurement Query Response ] ] }

@@ -832,17 +832,21 @@ mod behavior {
         Problem, Root, TypeDeclaration,
     };
     use super::{Head, Rooted};
+
+    /// Ethos text awaiting its one conversion.
+    type Ethos = Potential<File>;
     use protos::{Extent, Protosizable, Textualizable};
 
     #[test]
     fn library_record_generates_named_datom_fields() {
-        let file =
-            match Potential::<File>::from("Library.{ [] [ Record.{ String Integer } ] [] [] }")
-                .actualize()
-            {
-                Ok(file) => file,
-                Err(_) => panic!("approved Library record reads"),
-            };
+        let source = "Library.{ [] \
+            [ Record.{ String Integer } ] [] \
+            [ Sized.[ Record ] ] }";
+        let pending = Ethos::from(source);
+        let file = match pending.actualize() {
+            Ok(file) => file,
+            Err(_) => panic!("the record reads"),
+        };
         let rust = match file.generate() {
             Ok(rust) => rust,
             Err(_) => panic!("approved Library record generates"),
@@ -864,13 +868,18 @@ mod behavior {
     fn every_root_archives_and_gates_its_datom_derives() {
         let carried = "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]";
         for source in [
-            "Library.{ [] [ Record.{ String Integer } ] [] [] }",
+            "Library.{ [] [ Record.{ String \
+                Integer } ] [] [ Sized.[ Record \
+                ] ] }",
             "Signal.{ [] [ Ask.{ String Integer \
-                } ] [ Told ] [] [] [] }",
+                } ] [ Told ] [] [] [ Sized.[ \
+                Query Response ] ] }",
             "Operation.{ [] [ Do.{ String \
-                Integer } ] [ Done ] [] [] [] }",
+                Integer } ] [ Done ] [] [] [ \
+                Sized.[ Operation Outcome ] ] }",
             "Memory.{ [] [ Record.{ String \
-                Integer } ] [] [] }",
+                Integer } ] [] [ Sized.[ Record \
+                ] ] }",
         ] {
             let file = match Potential::<File>::from(source).actualize() {
                 Ok(file) => file,
@@ -901,8 +910,10 @@ mod behavior {
             GenerationFailure.[ SyntaxError \
             Unwritable ] Lock.{ String Integer } \
             LockRejection.[ DuplicateName.Lock \
-            PathOverlap.{ Lock Lock } ] ] [] [] \
-            }";
+            PathOverlap.{ Lock Lock } ] ] [] [ \
+            Sized.[ Generation FilePath \
+            SyntaxError GenerationFailure Lock \
+            LockRejection ] ] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -940,7 +951,8 @@ mod behavior {
             Option<Item> ] ] } \
             Processable<[Clonable Sendable] \
             Serializable>.[ process.[ String ] ] \
-            ] [ Sink.[ Fillable ] ] }";
+            ] [ Sink.[ Fillable ] Sized.[ \
+            SinkError ] ] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -1033,7 +1045,8 @@ mod behavior {
             Error Path ] ] [ Generate.Generation \
             ] [ Generated.String Malformed.Error \
             ] [ Generation.{ String String } ] \
-            [] [] }";
+            [] [ Sized.[ Generation Query \
+            Response ] ] }";
         for source in [library, signal] {
             let file = match Potential::<File>::from(source).actualize() {
                 Ok(file) => file,
@@ -1052,7 +1065,7 @@ mod behavior {
     fn memory_has_imports_and_record_type_declarations_only() {
         let source = "Memory.{ [ crate:[ Handle \
             ] ] [ Record.{ Handle String } ] [] \
-            [] }";
+            [ Sized.[ Record ] ] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("approved Memory reads"),
@@ -1152,7 +1165,8 @@ mod behavior {
             X.{ String String } Empty ] B.[ X.{ \
             Integer Integer } Empty ] ] \
             Rejection.[ PathOverlap.{ String \
-            String } Unknown ] ] [] [] }";
+            String } Unknown ] ] [] [ Sized.[ \
+            Outer Rejection ] ] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("nested collision source reads"),

@@ -44,3 +44,28 @@ pub enum Outcome {
     Recorded,
     Failed(String),
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_capsule_sized<T: Sized>() {}
+    let _ = assert_capsule_sized::<Capsule>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_home_sized<T: Sized>() {}
+    let _ = assert_home_sized::<Home>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_login_sized<T: Sized>() {}
+    let _ = assert_login_sized::<Login>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_operation_sized<T: Sized>() {}
+    let _ = assert_operation_sized::<Operation>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_outcome_sized<T: Sized>() {}
+    let _ = assert_outcome_sized::<Outcome>;
+};

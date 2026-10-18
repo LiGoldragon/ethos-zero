@@ -28,3 +28,23 @@ pub enum Event {
     ToolUsed(String),
     Stopped,
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_flowid_sized<T: Sized>() {}
+    let _ = assert_flowid_sized::<FlowId>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_voice_sized<T: Sized>() {}
+    let _ = assert_voice_sized::<Voice>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_rank_sized<T: Sized>() {}
+    let _ = assert_rank_sized::<Rank>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_event_sized<T: Sized>() {}
+    let _ = assert_event_sized::<Event>;
+};

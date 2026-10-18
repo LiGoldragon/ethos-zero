@@ -31,3 +31,8 @@ const _: () = {
     fn assert_wakewaits_waiting<T: Waiting>() {}
     let _ = assert_wakewaits_waiting::<WakeWaits>;
 };
+#[rustfmt::skip]
+const _: () = {
+    fn assert_paneid_sized<T: Sized>() {}
+    let _ = assert_paneid_sized::<PaneId>;
+};

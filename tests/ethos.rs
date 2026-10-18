@@ -25,7 +25,8 @@ fn full_library_round_trips_and_generates_named_types_and_traits() {
         ] [ next![ Option<Item> ] ] } \
         Processable<[Clonable Sendable] \
         Serializable>.[ process.[ String ] ] ] [ \
-        Sink.[ Fillable ] ] }";
+        Sink.[ Fillable ] Sized.[ SinkError ] ] \
+        }";
     let file = read(source);
     let repeated = read(&file.protosize().textualize());
     assert_eq!(file, repeated);
@@ -59,8 +60,9 @@ fn signal_generates_query_response_and_optional_datom_derives() {
 #[test]
 fn memory_has_its_four_sections() {
     let file = read(
-        "Memory.{ [ crate:[ Handle ] \
-        ] [ Record.{ Handle String } ] [] [] }",
+        "Memory.{ [ crate:[ Handle ] ] [ \
+            Record.{ Handle String } ] [] [ \
+            Sized.[ Record ] ] }",
     );
     let printed = file.protosize().textualize();
     assert_eq!(file, read(&printed));
@@ -84,7 +86,9 @@ fn operation_generates_its_operation_and_outcome_enums_with_their_payloads() {
         "Operation.{ [] [ Start.{ Voice Brief } \
             Stop.Voice Pause ] [ Started.Integer \
             Failed.[ Busy Gone.String ] Done ] [ \
-            Voice.String Brief.String ] [] [] }",
+            Voice.String Brief.String ] [] [ \
+            Sized.[ Voice Brief Operation \
+            Outcome ] ] }",
     );
     assert_eq!(file, read(&file.protosize().textualize()));
     let rust = match file.generate() {
@@ -131,7 +135,9 @@ fn a_named_position_declares_its_type_in_place() {
         "Memory.{ [] [ Flow.{ Integer \
             Brief.String State.[ Running Ended ] \
             Capsule.{ Home.String \
-            Login.Vector<String> } } ] [] [] }",
+            Login.Vector<String> } } ] [] [ \
+            Sized.[ Flow Brief State Capsule \
+            Home Login ] ] }",
     );
     assert_eq!(file, read(&file.protosize().textualize()));
     let rust = match file.generate() {
@@ -172,9 +178,9 @@ fn a_named_position_shares_the_file_namespace() {
 #[test]
 fn a_variant_payload_declares_named_positions_in_place() {
     let rust = match read(
-        "Signal.{ [] [ \
-        Launch.{ Integer Brief.String } ] [ \
-        Launched ] [] [] [] }",
+        "Signal.{ [] [ Launch.{ Integer \
+            Brief.String } ] [ Launched ] [] [] \
+            [ Sized.[ Brief Query Response ] ] }",
     )
     .generate()
     {
@@ -203,9 +209,9 @@ fn retired_roots_are_not_accepted() {
 #[test]
 fn operation_free_signal_generates_only_its_declared_shared_data() {
     let generated = match read(
-        "Signal.{ [] [] \
-        [] [ Shared.{ Name Integer } \
-        Name.String ] [] [] }",
+        "Signal.{ [] [] [] [ Shared.{ Name \
+            Integer } Name.String ] [] [ Sized.[ \
+            Shared Name ] ] }",
     )
     .generate()
     {
@@ -230,9 +236,10 @@ fn a_signal_declaring_the_query_type_is_refused() {
     assert!(signal.generate().is_err());
     // `Request` is an ordinary name: nothing is generated under it.
     let generated = match read(
-        "Signal.{ [] [ Ask.Request ] \
-            [ Told.Request ] [ Request.{ \
-            String Integer } ] [] [] }",
+        "Signal.{ [] [ Ask.Request ] [ \
+            Told.Request ] [ Request.{ String \
+            Integer } ] [] [ Sized.[ Request \
+            Query Response ] ] }",
     )
     .generate()
     {
@@ -261,9 +268,8 @@ fn memory_generates_a_record_type_named_record() {
     // Memory's second section is its record types and reserves no name;
     // Memory generates no implied type of its own.
     let generated = match read(
-        "Memory.{ [] [ \
-        Record.{ String Integer } ] [] [] \
-        }",
+        "Memory.{ [] [ Record.{ String Integer } \
+            ] [] [ Sized.[ Record ] ] }",
     )
     .generate()
     {
@@ -278,9 +284,9 @@ fn memory_generates_a_record_type_named_record() {
 #[test]
 fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
     let generated = match read(
-        "Memory.{ [] [ \
-        Entry.{ String Integer } Record.{ \
-        Entry Vector<Entry> } ] [] [] }",
+        "Memory.{ [] [ Entry.{ String Integer } \
+            Record.{ Entry Vector<Entry> } ] [] \
+            [ Sized.[ Entry Record ] ] }",
     )
     .generate()
     {
@@ -303,7 +309,13 @@ fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
 fn self_in_a_data_position_is_named_for_the_enclosing_type() {
     // `Self` is an intrinsic (Vision/ethos.md) and `self` is not a name a
     // field may bear, so the field is named for the type `Self` stands for.
-    let generated = match read("Library.{ [] [ Node.{ String Option<Self> } ] [] [] }").generate() {
+    let generated = match read(
+        "Library.{ [] [ \
+        Node.{ String Option<Self> } ] [] [ \
+        Sized.[ Node ] ] }",
+    )
+    .generate()
+    {
         Ok(generated) => generated,
         Err(_) => panic!("Self in a data position generates"),
     };
@@ -315,9 +327,10 @@ fn a_sourced_generic_in_a_data_position_reads_and_reprints() {
     // ethos-zero's own printer emits `external:Vector<String>`; its reader
     // must take that shape back.
     let file = read(
-        "Library.{ [ external:[ Vector ] ] \
-            [ Record.{ external:Vector<String> \
-            Integer } ] [] [] }",
+        "Library.{ [ external:[ Vector ] ] [ \
+            Record.{ external:Vector<String> \
+            Integer } ] [] [ Sized.[ Record ] ] \
+            }",
     );
     assert_eq!(file, read(&file.protosize().textualize()));
     let generated = match file.generate() {
@@ -329,14 +342,22 @@ fn a_sourced_generic_in_a_data_position_reads_and_reprints() {
 
 #[test]
 fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
-    let type_declaration = read("Library.{ [] [ Topic.custom:Name ] [] [] }");
+    let type_declaration = read(
+        "Library.{ [] [ \
+        Topic.custom:Name ] [] [ Sized.[ Topic ] \
+        ] }",
+    );
     let generated = match type_declaration.generate() {
         Ok(generated) => generated,
         Err(_) => panic!("a lowercase inline source in a type declaration generates"),
     };
     assert!(generated.contains("custom::Name"));
 
-    let struct_position = read("Library.{ [] [ Holder.{ Topic.custom:Name String } ] [] [] }");
+    let struct_position = read(
+        "Library.{ [] [ \
+        Holder.{ Topic.custom:Name String } ] [] \
+        [ Sized.[ Holder Topic ] ] }",
+    );
     let generated = match struct_position.generate() {
         Ok(generated) => generated,
         Err(_) => panic!("a lowercase inline source in a struct position generates"),
@@ -344,9 +365,9 @@ fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
     assert!(generated.contains("custom::Name"));
 
     let memory_record = read(
-        "Memory.{ [] [ \
-        Holder.{ Topic.custom:Name String } ] [] \
-        [] }",
+        "Memory.{ [] [ Holder.{ \
+            Topic.custom:Name String } ] [] [ \
+            Sized.[ Holder Topic ] ] }",
     );
     let generated = match memory_record.generate() {
         Ok(generated) => generated,
@@ -387,11 +408,12 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
     // the occurrence refused, at its declaration.
     let probe = "Library.{ [] [ P.[ X.{ String \
         String } Y ] Q.[ X.{ Integer Integer } Y \
-        ] X_Data.String ] [] [] }";
+        ] X_Data.String ] [] [ Sized.[ P Q \
+        X_Data ] ] }";
     assert!(read(probe).generate().is_ok());
     let captured = "Library.{ [] [ P.[ X.{ \
         String String } Y ] P_X_Data.String ] [] \
-        [] }";
+        [ Sized.[ P P_X_Data ] ] }";
     assert!(read(captured).generate().is_ok());
     let captured = "Library.{ [] \
             [ P.[ X.{ String String } Y ] \
@@ -419,9 +441,9 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
 #[test]
 fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
     let generated = match read(
-        "Signal.{ [] [ \
-        Ask.{ String Integer } ] [ \
-        Ask.{ Integer String } ] [] [] [] }",
+        "Signal.{ [] [ Ask.{ String Integer } ] \
+            [ Ask.{ Integer String } ] [] [] [ \
+            Sized.[ Query Response ] ] }",
     )
     .generate()
     {
@@ -519,14 +541,16 @@ fn a_type_with_no_finite_value_is_refused() {
     // A Vector, an Option or another variant is a way out.
     for finite in [
         "Library.{ [] [ S.{ Vector<Self> Integer \
-            } ] [] [] }",
+            } ] [] [ Sized.[ S ] ] }",
         "Library.{ [] [ S.{ Option<Self> Integer \
-            } ] [] [] }",
-        "Library.{ [] [ E.[ Leaf Node.{ E E } ] ] [] [] }",
+            } ] [] [ Sized.[ S ] ] }",
+        "Library.{ [] [ E.[ Leaf Node.{ E E } ] \
+            ] [] [ Sized.[ E ] ] }",
         "Library.{ [] [ S.{ Result<Self String> \
-            Integer } ] [] [] }",
+            Integer } ] [] [ Sized.[ S ] ] }",
         "Library.{ [] [ Never.[] Holder.{ Never \
-            Integer } ] [] [] }",
+            Integer } ] [] [ Sized.[ Never \
+            Holder ] ] }",
     ] {
         assert!(read(finite).generate().is_ok(), "{finite} generates");
     }
@@ -538,7 +562,8 @@ fn outer_option_and_result_are_written_fully_qualified() {
         "Library.{ [] [ Wrapped.{ \
             Option<Integer> Result<String \
             Integer> } Chain.{ String \
-            Option<Chain> } ] [] [] }",
+            Option<Chain> } ] [] [ Sized.[ \
+            Wrapped Chain ] ] }",
     )
     .generate()
     {

@@ -60,3 +60,23 @@ pub enum R {
     Z(Z_Data),
     Empty,
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_p_sized<T: Sized>() {}
+    let _ = assert_p_sized::<P>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_q_sized<T: Sized>() {}
+    let _ = assert_q_sized::<Q>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_x_data_sized<T: Sized>() {}
+    let _ = assert_x_data_sized::<X_Data>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_r_sized<T: Sized>() {}
+    let _ = assert_r_sized::<R>;
+};

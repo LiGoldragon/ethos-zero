@@ -4,4 +4,4 @@ Library.
 []
 [ Record.{ String Integer } ]
 []
-[] }
+[ Sized.[ Record ] ] }

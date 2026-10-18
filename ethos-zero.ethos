@@ -15,6 +15,7 @@
 ;   Type       one declaration                               ; proposed
 ; A file headed Sema is refused as Renamed.Memory. A file is an ordinary datom:
 ; its root's variant, the dot, then the braced sections (proposal).
+; Every type it declares bears a trait (proposal); these bear Sized.
 Library.
 {
 [ datom_codec:[ Error ]
@@ -40,4 +41,4 @@ Library.
                      Conceptual.{ Vector<Integer>
                                   ethos_zero:Problem } ] ]
 []
-[] }
+[ Sized.[ Query Response Generation Conformance Generation_Error ] ] }

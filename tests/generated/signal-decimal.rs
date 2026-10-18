@@ -16,3 +16,18 @@ pub enum Query {
 pub enum Response {
     Measured(Measurement),
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_measurement_sized<T: Sized>() {}
+    let _ = assert_measurement_sized::<Measurement>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_query_sized<T: Sized>() {}
+    let _ = assert_query_sized::<Query>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_response_sized<T: Sized>() {}
+    let _ = assert_response_sized::<Response>;
+};

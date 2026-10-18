@@ -97,3 +97,28 @@ pub enum Generation_Error {
     Structural(protos::Error),
     Conceptual(Conceptual_Data),
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_query_sized<T: Sized>() {}
+    let _ = assert_query_sized::<Query>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_response_sized<T: Sized>() {}
+    let _ = assert_response_sized::<Response>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_generation_sized<T: Sized>() {}
+    let _ = assert_generation_sized::<Generation>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_conformance_sized<T: Sized>() {}
+    let _ = assert_conformance_sized::<Conformance>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_generation_error_sized<T: Sized>() {}
+    let _ = assert_generation_error_sized::<Generation_Error>;
+};

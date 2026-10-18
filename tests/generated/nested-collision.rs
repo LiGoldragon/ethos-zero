@@ -49,3 +49,13 @@ pub enum Rejection {
     PathOverlap(PathOverlap_Data),
     Unknown,
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_outer_sized<T: Sized>() {}
+    let _ = assert_outer_sized::<Outer>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_rejection_sized<T: Sized>() {}
+    let _ = assert_rejection_sized::<Rejection>;
+};
