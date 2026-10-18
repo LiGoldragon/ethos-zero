@@ -71,9 +71,13 @@ fn a_one_line_layout_expands_to_the_canonical_print() {
 #[test]
 fn leaves_stay_on_one_line_and_angles_stay_tight() {
     assert_eq!(
-        "Memory.{ [ crate:[ Handle ] ] [ Pair.{ Vector<Option<String>> Result<String Integer> } ] }"
+        "Memory.{ [ crate:[ Handle ] ] [ Pair.{ \
+         Vector<Option<String>> \
+         Result<String Integer> } ] [] [] }"
             .reprint(),
-        "Memory.\n{\n[ crate:[ Handle ] ]\n[ Pair.{ Vector<Option<String>> Result<String Integer> } ] }\n"
+        "Memory.\n{\n[ crate:[ Handle ] ]\n\
+         [ Pair.{ Vector<Option<String>> \
+         Result<String Integer> } ]\n[]\n[] }\n"
     );
 }
 

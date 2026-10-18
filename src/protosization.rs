@@ -3,6 +3,7 @@
 use protos::{Canonicalizable, Enclosure, Extent, Protos, Protosizable, Separator, Symbol};
 
 use crate::Root;
+use crate::sectioning::Sectioning;
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Identity,
     Import, Imported, Library, Memory, Operation, Position, Receiver, Reference, Signal, Signature,
@@ -417,6 +418,27 @@ impl Protosizing for Library {
         )
     }
 }
+/// The trait whose capability ascends a root's
+/// traits and associations sections, its last.
+trait Behaving {
+    fn behaviour(&self) -> Vec<Protos>;
+}
+
+impl<T: Sectioning> Behaving for T {
+    fn behaviour(&self) -> Vec<Protos> {
+        let bracket = Enclosure::Bracketed;
+        let traits = self.traits().protos_list();
+        let written = self.associations();
+        let associations = written.protos_list();
+        let mut sections = Vec::new();
+        for list in [traits, associations] {
+            let node = "".enclosed(bracket, list);
+            sections.push(node);
+        }
+        sections
+    }
+}
+
 impl Protosizing for Signal {
     fn protos(&self) -> Protos {
         "".enclosed(
@@ -426,7 +448,10 @@ impl Protosizing for Signal {
                 "".enclosed(Enclosure::Bracketed, self.queries.variant_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.responses.variant_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
-            ],
+            ]
+            .into_iter()
+            .chain(self.behaviour())
+            .collect(),
         )
     }
 }
@@ -439,7 +464,10 @@ impl Protosizing for Operation {
                 "".enclosed(Enclosure::Bracketed, self.operations.variant_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.outcomes.variant_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
-            ],
+            ]
+            .into_iter()
+            .chain(self.behaviour())
+            .collect(),
         )
     }
 }
@@ -450,7 +478,10 @@ impl Protosizing for Memory {
             vec![
                 "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
-            ],
+            ]
+            .into_iter()
+            .chain(self.behaviour())
+            .collect(),
         )
     }
 }

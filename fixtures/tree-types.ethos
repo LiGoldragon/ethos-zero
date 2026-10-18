@@ -13,4 +13,6 @@ Signal.
   Forest.Vector<Tree>
   Wrapped.{ Option<Integer> Result<String Integer> Vector<Option<String>> }
   Nested.[ A.[ X Y.Integer ]  B.{ String } ]
-  Deep.Vector<Vector<Vector<Option<Result<String Integer>>>>> ] }
+  Deep.Vector<Vector<Vector<Option<Result<String Integer>>>>> ]
+[]
+[] }

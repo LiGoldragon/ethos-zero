@@ -148,11 +148,11 @@ impl Sectioning for Signal {
     }
 
     fn traits(&self) -> &[TraitDeclaration] {
-        &[]
+        &self.traits
     }
 
     fn associations(&self) -> &[Association] {
-        &[]
+        &self.associations
     }
 }
 
@@ -178,11 +178,11 @@ impl Sectioning for Operation {
     }
 
     fn traits(&self) -> &[TraitDeclaration] {
-        &[]
+        &self.traits
     }
 
     fn associations(&self) -> &[Association] {
-        &[]
+        &self.associations
     }
 }
 
@@ -204,11 +204,11 @@ impl Sectioning for Memory {
     }
 
     fn traits(&self) -> &[TraitDeclaration] {
-        &[]
+        &self.traits
     }
 
     fn associations(&self) -> &[Association] {
-        &[]
+        &self.associations
     }
 }
 

@@ -42,7 +42,8 @@ against the real reader. It builds on protos and datom-codec's own
    one holding the generated module, where the hand-written trait impl
    lives. The file must associate the type with a trait it declares that
    has a `:` capability yielding `Self` or `Result<Self X>`; otherwise it is
-   refused as `Sealed.Name` at the type's head. Only a Library can.
+   refused as `Sealed.Name` at the type's head. Any root declaring the
+   trait can.
 7. **White braces.** `⦃ A B ⦄` (U+2983, U+2984) is the brace `{ A B }`,
    read as a protos enclosure and rewritten in place before conception, so
    locations stay on the source. It reads wherever a brace reads, not only
@@ -81,7 +82,9 @@ against the real reader. It builds on protos and datom-codec's own
      [] }
      Memory.{
      []
-     [ Record.{ Name Integer } ] } ]
+     [ Record.{ Name Integer } ]
+     []
+     [] } ]
    ```
 
 ### Checking a snippet
@@ -143,10 +146,16 @@ what it remembers; Library what they share.
 
 ```
 Library    [ imports ] [ types ] [ traits ] [ associations ]
-Signal     [ imports ] [ queries ] [ responses ] [ types ]     ; Query and Response implied
-Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; Operation and Outcome implied
-Memory     [ imports ] [ record types ]
+Signal     [ imports ] [ queries ] [ responses ] [ types ] [ traits ] [ associations ]
+Operation  [ imports ] [ operations ] [ outcomes ] [ types ] [ traits ] [ associations ]
+Memory     [ imports ] [ record types ] [ traits ] [ associations ]
 ```
+
+Every root ends with its traits and associations sections, as a Library
+does (proposal). A Signal's `Query` and `Response` and an Operation's
+`Operation` and `Outcome` are generated from their sections; what traits
+they bear is written in the associations section like any other type's
+(`Query.[ Serving ]`), never implied.
 
 Operation's sections are proposed, not yet the living's word.
 
@@ -241,7 +250,7 @@ gives `fn make<N: Textualizable>() -> N`).
 
 ## Associations
 
-A Library's associations section says which types bear which traits, as
+A root's associations section says which types bear which traits, as
 compile-time assertions. An entry's head decides its reading. A head
 naming a type lists the traits it bears; a head naming a trait, declared
 or Protos's `Sized`, lists the types bearing it. Both forms may stand in
@@ -281,7 +290,9 @@ Memory.
 [ Flow.{ FlowId
          Voice
          State.[ Running Ended ]
-         Vector<Event> } ] }
+         Vector<Event> } ]
+[]
+[] }
 ```
 
 The layout is protos' canonical print (`protos::Textualizable`); this crate

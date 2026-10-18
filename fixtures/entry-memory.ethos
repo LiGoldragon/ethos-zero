@@ -3,4 +3,6 @@ Memory.
 {
 []
 [ Record.{ String Vector<Entry> }
-  Entry.{ String Integer } ] }
+  Entry.{ String Integer } ]
+[]
+[] }

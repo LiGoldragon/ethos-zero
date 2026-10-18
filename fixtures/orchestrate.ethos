@@ -18,4 +18,6 @@ Signal.
   ReleaseRejection.[ UnknownLockId ]
   ObserveSelection.[ Locks ]
   Locks.Vector<Lock>
-  Observation.[ Locks.Locks ] ] }
+  Observation.[ Locks.Locks ] ]
+[]
+[] }

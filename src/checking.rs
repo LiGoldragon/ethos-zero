@@ -978,8 +978,8 @@ impl Sharing for File {
 ///
 /// A sealed type's positions are private, so it is built only by a `:`
 /// capability yielding `Self` or `Result<Self X>` of a trait declared in the
-/// same file and associated with the type there. A file with no traits, any
-/// root but a Library, cannot build one.
+/// same file and associated with the type there.
+/// A file declaring no trait cannot build one.
 trait Sealing {
     fn sealed(&self) -> Result<(), Error>;
 }
@@ -1266,6 +1266,7 @@ impl Declared for Signal {
         ];
         names.extend(self.imports.names_in(0));
         names.extend(self.types.names_in(3));
+        names.extend(self.traits.names_in(4));
         names
     }
 }
@@ -1284,6 +1285,7 @@ impl Declared for Operation {
         ];
         names.extend(self.imports.names_in(0));
         names.extend(self.types.names_in(3));
+        names.extend(self.traits.names_in(4));
         names
     }
 }
@@ -1292,6 +1294,7 @@ impl Declared for Memory {
     fn declared(&self) -> Vec<DeclarationSite> {
         let mut names = self.imports.names_in(0);
         names.extend(self.types.names_in(1));
+        names.extend(self.traits.names_in(2));
         names
     }
 }
@@ -1349,7 +1352,10 @@ impl Checkable for Signal {
         self.responses.names_in(2).distinct()?;
         self.queries.check_each(scope, 1)?;
         self.responses.check_each(scope, 2)?;
-        self.types.check_each(scope, 3)
+        self.types.check_each(scope, 3)?;
+        self.traits.check_each(scope, 4)?;
+        let written = &self.associations;
+        written.check_each(scope, 5)
     }
 }
 
@@ -1361,7 +1367,10 @@ impl Checkable for Operation {
         self.outcomes.names_in(2).distinct()?;
         self.operations.check_each(scope, 1)?;
         self.outcomes.check_each(scope, 2)?;
-        self.types.check_each(scope, 3)
+        self.types.check_each(scope, 3)?;
+        self.traits.check_each(scope, 4)?;
+        let written = &self.associations;
+        written.check_each(scope, 5)
     }
 }
 
@@ -1369,7 +1378,10 @@ impl Checkable for Memory {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.declared().distinct()?;
         self.imports.check_each(scope, 0)?;
-        self.types.check_each(scope, 1)
+        self.types.check_each(scope, 1)?;
+        self.traits.check_each(scope, 2)?;
+        let written = &self.associations;
+        written.check_each(scope, 3)
     }
 }
 

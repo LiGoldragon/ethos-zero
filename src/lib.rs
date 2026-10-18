@@ -158,11 +158,17 @@ pub enum File {
 pub enum Root {
     /// Library: imports, types, traits and associations in that order.
     Library(Library),
-    /// Signal: imports, the query variants, the response variants, the types carried.
+    /// Signal: imports, the query variants, the
+    /// response variants, the types carried, the
+    /// traits and the associations.
     Signal(Signal),
-    /// Operation: imports, the operation variants, the outcome variants, the types they carry.
+    /// Operation: imports, the operation
+    /// variants, the outcome variants, the types
+    /// they carry, the traits and the
+    /// associations.
     Operation(Operation),
-    /// Memory: imports, the record types stored.
+    /// Memory: imports, the record types stored,
+    /// the traits and the associations.
     Memory(Memory),
     /// Type: one type declaration alone, `Type.CommitMessage.[ Landing Fix.String ]`.
     Type(TypeDeclaration),
@@ -209,6 +215,10 @@ pub struct Signal {
     pub responses: Vec<Variant>,
     /// The types the queries and responses carry.
     pub types: Vec<TypeDeclaration>,
+    /// The declared capability traits.
+    pub traits: Vec<TraitDeclaration>,
+    /// The type-to-trait assertions.
+    pub associations: Vec<Association>,
 }
 
 /// The operation variant of a file: what a Nexus does, one operation for
@@ -224,15 +234,25 @@ pub struct Operation {
     pub outcomes: Vec<Variant>,
     /// The types the operations and outcomes carry.
     pub types: Vec<TypeDeclaration>,
+    /// The declared capability traits.
+    pub traits: Vec<TraitDeclaration>,
+    /// The type-to-trait assertions.
+    pub associations: Vec<Association>,
 }
 
-/// The memory variant of a file: imports and record-type declarations.
+/// The memory variant of a file: imports,
+/// record-type declarations, traits and
+/// associations.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Memory {
     /// Where imported names come from.
     pub imports: Vec<Import>,
     /// The record type declarations.
     pub types: Vec<TypeDeclaration>,
+    /// The declared capability traits.
+    pub traits: Vec<TraitDeclaration>,
+    /// The type-to-trait assertions.
+    pub associations: Vec<Association>,
 }
 
 /// An import: a source and the names taken from it.
@@ -839,9 +859,12 @@ mod behavior {
         let carried = "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]";
         for source in [
             "Library.{ [] [ Record.{ String Integer } ] [] [] }",
-            "Signal.{ [] [ Ask.{ String Integer } ] [ Told ] [] }",
-            "Operation.{ [] [ Do.{ String Integer } ] [ Done ] [] }",
-            "Memory.{ [] [ Record.{ String Integer } ] }",
+            "Signal.{ [] [ Ask.{ String Integer \
+                } ] [ Told ] [] [] [] }",
+            "Operation.{ [] [ Do.{ String \
+                Integer } ] [ Done ] [] [] [] }",
+            "Memory.{ [] [ Record.{ String \
+                Integer } ] [] [] }",
         ] {
             let file = match Potential::<File>::from(source).actualize() {
                 Ok(file) => file,
@@ -979,7 +1002,11 @@ mod behavior {
     #[test]
     fn canonical_ascent_round_trips_nonempty_library_and_signal() {
         let library = "Library.{ [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.Vector<FilePath> External.external:Vector<FilePath> Record.{ Vector<Option<String>> Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Capability ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ] }";
-        let signal = "Signal.{ [ datom_codec:[ Error Path ] ] [ Generate.Generation ] [ Generated.String Malformed.Error ] [ Generation.{ String String } ] }";
+        let signal = "Signal.{ [ datom_codec:[ \
+            Error Path ] ] [ Generate.Generation \
+            ] [ Generated.String Malformed.Error \
+            ] [ Generation.{ String String } ] \
+            [] [] }";
         for source in [library, signal] {
             let file = match Potential::<File>::from(source).actualize() {
                 Ok(file) => file,
@@ -996,7 +1023,9 @@ mod behavior {
 
     #[test]
     fn memory_has_imports_and_record_type_declarations_only() {
-        let source = "Memory.{ [ crate:[ Handle ] ] [ Record.{ Handle String } ] }";
+        let source = "Memory.{ [ crate:[ Handle \
+            ] ] [ Record.{ Handle String } ] [] \
+            [] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("approved Memory reads"),
@@ -1014,7 +1043,10 @@ mod behavior {
 
     #[test]
     fn operation_reads_its_four_sections_and_ascends() {
-        let source = "Operation.{ [ flow:[ Voice ] ] [ Start.{ Voice Capsule } ] [ Started Failed.String ] [ Capsule.{ Home.String } ] }";
+        let source = "Operation.{ [ flow:[ Voice \
+            ] ] [ Start.{ Voice Capsule } ] [ \
+            Started Failed.String ] [ Capsule.{ \
+            Home.String } ] [] [] }";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("approved Operation reads"),
@@ -1191,9 +1223,21 @@ mod behavior {
     #[test]
     fn signal_memory_import_and_attached_generic_errors_keep_root_paths() {
         let cases = [
-            ("Signal.{ [ 1 ] [] [] [] }", vec![1, 0, 0]),
-            ("Memory.{ [] [ 1 ] }", vec![1, 1, 0]),
-            ("Operation.{ [ 1 ] [] [] [] }", vec![1, 0, 0]),
+            (
+                "Signal.{ [ 1 ] [] [] [] \
+                 [] [] }",
+                vec![1, 0, 0],
+            ),
+            (
+                "Memory.{ [] [ 1 ] \
+                 [] [] }",
+                vec![1, 1, 0],
+            ),
+            (
+                "Operation.{ [ 1 ] [] [] [] \
+                 [] [] }",
+                vec![1, 0, 0],
+            ),
             ("Library.{ [] [ Alias.Vector<1> ] [] [] }", vec![1, 1, 1, 0]),
         ];
         for (source, expected) in cases {
@@ -1231,9 +1275,10 @@ mod behavior {
         // Each source holds exactly one `1` or `Bogus`, which is the error.
         let cases = [
             "Library.{ [] [ 1 ] [] [] }",
-            "Signal.{ [ 1 ] [] [] [] }",
-            "Memory.{ [] [ 1 ] }",
-            "Operation.{ [] [ Go.Vector<Bogus> ] [] [] }",
+            "Signal.{ [ 1 ] [] [] [] [] [] }",
+            "Memory.{ [] [ 1 ] [] [] }",
+            "Operation.{ [] [ Go.Vector<Bogus> ] \
+                [] [] [] [] }",
             "Library.{ [] [ Alias.Vector<1> ] [] [] }",
             "Library.{ [] [] [ K.[ 1 ] ] [] }",
             "Library.{ [] [] [ K.{ [ 1 ] [] [] [] } ] [] }",
@@ -1247,7 +1292,8 @@ mod behavior {
             "Library.{ [] [] [ K.[ run.{ [ Self Bogus ] [ String ] } ] ] [] }",
             "Library.{ [] [] [ K.[ run.{ [ Self ] [ Vector<Bogus> ] } ] ] [] }",
             "Library.{ [] [] [ K.{ [] [ Item<Bogus> ] [] [] } ] [] }",
-            "Signal.{ [] [ Ask.Vector<Bogus> ] [] [] }",
+            "Signal.{ [] [ Ask.Vector<Bogus> ] \
+                [] [] [] [] }",
         ];
         for source in cases {
             let potential = Potential::<File>::from(source);

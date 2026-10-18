@@ -205,7 +205,10 @@ fn a_sealed_type_needs_a_constructor_of_a_trait_it_bears() {
     }
     // A root with no traits cannot build one.
     assert_eq!(
-        refusal("Memory.{ [] [ V.Sealed.{ String } ] }"),
+        refusal(
+            "Memory.{ [] [ V.Sealed.{ String \
+            } ] [] [] }"
+        ),
         (vec![1, 1, 0, 0], Problem::Sealed("V".to_owned()))
     );
     // Only a struct is sealed.
@@ -414,7 +417,8 @@ fn a_shared_type_must_be_borne_and_never_travels() {
         refusal(held),
         (vec![1, 1, 1, 0], Problem::Shared("Holder".to_owned()))
     );
-    let signal = "Signal.{ [] [ Ask.S ] [] [ S.Shared.{ Integer } ] }";
+    let signal = "Signal.{ [] [ Ask.S ] [] [ \
+        S.Shared.{ Integer } ] [] [] }";
     assert_eq!(refusal(signal).1, Problem::Shared("Query".to_owned()));
     let captured = "Library.{ [] [ S.Shared.{ Integer } S_State.String ] [ K.[ make:[ Self ] ] ] [ S.[ K ] ] }";
     assert_eq!(
@@ -522,7 +526,8 @@ fn a_std_type_imports_through_a_colon_chain_into_shared_state_only() {
         "Library.{{ [ std:time:Instant ] [ V.Sealed.{{ Instant }} ] {traits} [ V.[ K ] ] }}"
     );
     assert_eq!(refusal(&sealed).1, Problem::Foreign("V".to_owned()));
-    let signal = "Signal.{ [ std:time:[ Instant ] ] [ Ask.Instant ] [] [] }";
+    let signal = "Signal.{ [ std:time:[ Instant \
+        ] ] [ Ask.Instant ] [] [] [] [] }";
     assert_eq!(refusal(signal).1, Problem::Foreign("Query".to_owned()));
     // A source that is not std keeps its ordinary meaning.
     assert!(
@@ -710,7 +715,7 @@ fn the_roots_of_a_file_share_one_namespace() {
     let library = "Library.{ [] [ A.String ] \
         [] [] }";
     let memory = "Memory.{ [] \
-        [ A.{ String Integer } ] }";
+        [ A.{ String Integer } ] [] [] }";
     let roots = [library, memory].join(" ");
     let source = format!("[ {roots} ]");
     let at = vec![1, 1, 1, 0, 0];
@@ -733,7 +738,8 @@ fn a_type_root_stands_only_alone() {
 fn an_error_in_a_later_root_is_located_there() {
     use ethos_zero::Locating;
     let source = "[ Library.{ [] [] [] [] }\n  \
-        Memory.{ [] [ R.{ String Bogus } ] } ]";
+        Memory.{ [] [ R.{ String Bogus } ] \
+        [] [] } ]";
     let written: Potential<File> = source.into();
     let generation = read(source).generate();
     let error = generation.unwrap_err();
@@ -744,4 +750,45 @@ fn an_error_in_a_later_root_is_located_there() {
     let column = bogus as i64;
     let at = (location.line, location.column);
     assert_eq!(at, (2, column), "{error:?}");
+}
+
+// 8. Every root ends with traits and associations
+
+#[test]
+fn a_signal_declares_the_traits_its_types_bear() {
+    let source = "Signal.{ [] [ Ask.Brief ] \
+        [ Told ] [ Brief.String ] \
+        [ Serving.[ serve.[ Integer ] ] ] \
+        [ Query.[ Serving ] \
+        Brief.[ Serving ] ] }";
+    let rust = generated(source);
+    assert!(rust.contains("pub trait Serving"));
+    // Query bears what its association says.
+    let assertion = "assert_query_serving";
+    assert!(rust.contains(assertion), "{rust}");
+}
+
+#[test]
+fn a_memory_builds_a_sealed_type_by_its_trait() {
+    let source = "Memory.{ [] \
+        [ V.Sealed.{ String Integer } ] \
+        [ K.[ make:[ Self ] ] ] [ V.[ K ] ] }";
+    let rust = generated(source);
+    let sealed = "pub(super) string: String";
+    assert!(rust.contains(sealed), "{rust}");
+}
+
+#[test]
+fn every_root_has_its_traits_and_associations() {
+    use ethos_zero::Problem::Arity;
+    for source in [
+        "Signal.{ [] [] [] [] }",
+        "Operation.{ [] [] [] [] }",
+        "Memory.{ [] [] }",
+    ] {
+        let (at, problem) = refusal(source);
+        assert_eq!(at, vec![1]);
+        let arity = matches!(problem, Arity(_));
+        assert!(arity, "{source}: {problem:?}");
+    }
 }

@@ -45,14 +45,16 @@ fn signal_generates_query_response_and_optional_datom_derives() {
 }
 
 #[test]
-fn memory_has_only_imports_and_record_type_sections() {
-    let file = read("Memory.{ [ crate:[ Handle ] ] [ Record.{ Handle String } ] }");
-    assert_eq!(file, read(&file.protosize().textualize()));
-    assert!(
-        Potential::<File>::from("Memory.{ [] [] [] }")
-            .actualize()
-            .is_err()
+fn memory_has_its_four_sections() {
+    let file = read(
+        "Memory.{ [ crate:[ Handle ] \
+        ] [ Record.{ Handle String } ] [] [] }",
     );
+    let printed = file.protosize().textualize();
+    assert_eq!(file, read(&printed));
+    let three = "Memory.{ [] [] [] }";
+    let read = Potential::<File>::from(three);
+    assert!(read.actualize().is_err());
 }
 
 #[test]
@@ -67,7 +69,10 @@ fn a_file_headed_sema_is_refused() {
 #[test]
 fn operation_generates_its_operation_and_outcome_enums_with_their_payloads() {
     let file = read(
-        "Operation.{ [] [ Start.{ Voice Brief } Stop.Voice Pause ] [ Started.Integer Failed.[ Busy Gone.String ] Done ] [ Voice.String Brief.String ] }",
+        "Operation.{ [] [ Start.{ Voice Brief } \
+            Stop.Voice Pause ] [ Started.Integer \
+            Failed.[ Busy Gone.String ] Done ] [ \
+            Voice.String Brief.String ] [] [] }",
     );
     assert_eq!(file, read(&file.protosize().textualize()));
     let rust = match file.generate() {
@@ -89,21 +94,32 @@ fn operation_generates_its_operation_and_outcome_enums_with_their_payloads() {
 #[test]
 fn an_operation_declaring_the_operation_or_outcome_type_is_refused() {
     assert!(
-        read("Operation.{ [] [ Go.Operation ] [ Gone ] [ Operation.{ String } ] }")
-            .generate()
-            .is_err()
+        read(
+            "Operation.{ [] [ Go.Operation ] [ \
+            Gone ] [ Operation.{ String } ] [] \
+            [] }"
+        )
+        .generate()
+        .is_err()
     );
     assert!(
-        read("Operation.{ [] [ Go ] [ Gone.Outcome ] [ Outcome.{ String } ] }")
-            .generate()
-            .is_err()
+        read(
+            "Operation.{ [] [ Go ] [ \
+            Gone.Outcome ] [ Outcome.{ String } \
+            ] [] [] }"
+        )
+        .generate()
+        .is_err()
     );
 }
 
 #[test]
 fn a_named_position_declares_its_type_in_place() {
     let file = read(
-        "Memory.{ [] [ Flow.{ Integer Brief.String State.[ Running Ended ] Capsule.{ Home.String Login.Vector<String> } } ] }",
+        "Memory.{ [] [ Flow.{ Integer \
+            Brief.String State.[ Running Ended ] \
+            Capsule.{ Home.String \
+            Login.Vector<String> } } ] [] [] }",
     );
     assert_eq!(file, read(&file.protosize().textualize()));
     let rust = match file.generate() {
@@ -127,9 +143,12 @@ fn a_named_position_declares_its_type_in_place() {
 #[test]
 fn a_named_position_shares_the_file_namespace() {
     assert!(
-        read("Memory.{ [] [ A.{ Brief.String } B.{ Brief.Integer } ] }")
-            .generate()
-            .is_err()
+        read(
+            "Memory.{ [] [ A.{ Brief.String } \
+            B.{ Brief.Integer } ] [] [] }"
+        )
+        .generate()
+        .is_err()
     );
     assert!(
         read("Library.{ [] [ Brief.String A.{ Brief.Integer } ] [] [] }")
@@ -140,8 +159,12 @@ fn a_named_position_shares_the_file_namespace() {
 
 #[test]
 fn a_variant_payload_declares_named_positions_in_place() {
-    let rust = match read("Signal.{ [] [ Launch.{ Integer Brief.String } ] [ Launched ] [] }")
-        .generate()
+    let rust = match read(
+        "Signal.{ [] [ \
+        Launch.{ Integer Brief.String } ] [ \
+        Launched ] [] [] [] }",
+    )
+    .generate()
     {
         Ok(rust) => rust,
         Err(_) => panic!("a payload with a named position generates"),
@@ -166,7 +189,13 @@ fn retired_roots_are_not_accepted() {
 
 #[test]
 fn operation_free_signal_generates_only_its_declared_shared_data() {
-    let generated = match read("Signal.{ [] [] [] [ Shared.{ Name } Name.String ] }").generate() {
+    let generated = match read(
+        "Signal.{ [] [] \
+        [] [ Shared.{ Name } Name.String ] [] [] \
+        }",
+    )
+    .generate()
+    {
         Ok(generated) => generated,
         Err(_) => panic!("operation-free Signal generates"),
     };
@@ -180,16 +209,23 @@ fn a_signal_declaring_the_query_type_is_refused() {
     // The generator emits `pub enum Query` (Vision/ethos.md: "pub enum Query
     // { Lock(LockRequest), Release(LockId) }"), so `Query` is the name a
     // Signal may not also declare.
-    let signal = read("Signal.{ [] [ Ask.Query ] [ Told.Query ] [ Query.{ String } ] }");
+    let signal = read(
+        "Signal.{ [] [ Ask.Query ] \
+        [ Told.Query ] [ Query.{ String } ] [] \
+        [] }",
+    );
     assert!(signal.generate().is_err());
     // `Request` is an ordinary name: nothing is generated under it.
-    let generated =
-        match read("Signal.{ [] [ Ask.Request ] [ Told.Request ] [ Request.{ String } ] }")
-            .generate()
-        {
-            Ok(generated) => generated,
-            Err(_) => panic!("a Signal declaring Request generates"),
-        };
+    let generated = match read(
+        "Signal.{ [] [ Ask.Request ] \
+            [ Told.Request ] [ Request.{ String \
+            } ] [] [] }",
+    )
+    .generate()
+    {
+        Ok(generated) => generated,
+        Err(_) => panic!("Request generates"),
+    };
     assert!(generated.contains("pub struct Request"));
     assert_eq!(generated.matches("pub enum Query").count(), 1);
 }
@@ -197,9 +233,13 @@ fn a_signal_declaring_the_query_type_is_refused() {
 #[test]
 fn a_signal_declaring_the_response_type_is_refused() {
     assert!(
-        read("Signal.{ [] [ Ask.Response ] [ Told.Response ] [ Response.{ String } ] }")
-            .generate()
-            .is_err()
+        read(
+            "Signal.{ [] [ Ask.Response ] [ \
+            Told.Response ] [ Response.{ String \
+            } ] [] [] }"
+        )
+        .generate()
+        .is_err()
     );
 }
 
@@ -207,7 +247,13 @@ fn a_signal_declaring_the_response_type_is_refused() {
 fn memory_generates_a_record_type_named_record() {
     // Memory's second section is its record types and reserves no name;
     // Memory generates no implied type of its own.
-    let generated = match read("Memory.{ [] [ Record.{ String Integer } ] }").generate() {
+    let generated = match read(
+        "Memory.{ [] [ \
+        Record.{ String Integer } ] [] [] \
+        }",
+    )
+    .generate()
+    {
         Ok(generated) => generated,
         Err(_) => panic!("a Memory record named Record generates"),
     };
@@ -218,8 +264,12 @@ fn memory_generates_a_record_type_named_record() {
 
 #[test]
 fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
-    let generated = match read("Memory.{ [] [ Entry.{ String } Record.{ Entry Vector<Entry> } ] }")
-        .generate()
+    let generated = match read(
+        "Memory.{ [] [ \
+        Entry.{ String } Record.{ Entry \
+        Vector<Entry> } ] [] [] }",
+    )
+    .generate()
     {
         Ok(generated) => generated,
         Err(_) => panic!("a two-record Memory generates"),
@@ -227,9 +277,12 @@ fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
     assert!(generated.contains("pub struct Entry"));
     assert!(generated.contains("pub entry_vector: std::vec::Vec<Entry>"));
     assert!(
-        read("Memory.{ [] [ Entry.{ String } Entry.{ Integer } ] }")
-            .generate()
-            .is_err()
+        read(
+            "Memory.{ [] [ Entry.{ String } \
+            Entry.{ Integer } ] [] [] }"
+        )
+        .generate()
+        .is_err()
     );
 }
 
@@ -274,7 +327,11 @@ fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
     };
     assert!(generated.contains("custom::Name"));
 
-    let memory_record = read("Memory.{ [] [ Holder.{ Topic.custom:Name String } ] }");
+    let memory_record = read(
+        "Memory.{ [] [ \
+        Holder.{ Topic.custom:Name String } ] [] \
+        [] }",
+    );
     let generated = match memory_record.generate() {
         Ok(generated) => generated,
         Err(_) => panic!("a lowercase inline source in a record field generates"),
@@ -337,7 +394,12 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
 
 #[test]
 fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
-    let generated = match read("Signal.{ [] [ Ask.{ String } ] [ Ask.{ Integer } ] [] }").generate()
+    let generated = match read(
+        "Signal.{ [] [ \
+        Ask.{ String } ] [ Ask.{ Integer } ] [] \
+        [] [] }",
+    )
+    .generate()
     {
         Ok(generated) => generated,
         Err(_) => panic!("Query and Response each declaring Ask in place generate"),
@@ -385,7 +447,9 @@ fn a_declared_intrinsic_name_is_refused_by_name() {
         Problem::Intrinsic("Vector".to_owned())
     );
     assert_eq!(
-        "Signal.{ [] [] [] [ Integer.{ String } ] }".refusal(),
+        "Signal.{ [] [] [] [ Integer.{ String } \
+            ] [] [] }"
+            .refusal(),
         (vec![1, 3, 0, 0], Problem::Intrinsic("Integer".to_owned()))
     );
 }
@@ -401,7 +465,9 @@ fn a_lowercase_type_or_trait_name_is_refused() {
         (vec![1, 2, 0, 0], Problem::Case("runnable".to_owned()))
     );
     assert_eq!(
-        "Memory.{ [] [ record.{ String } ] }".refusal(),
+        "Memory.{ [] [ record.{ String } ] [] [] \
+            }"
+        .refusal(),
         (vec![1, 1, 0, 0], Problem::Case("record".to_owned()))
     );
 }

@@ -9,9 +9,9 @@
 ; imported type is read from the sibling .ethos files of the file.
 ; The files read are of five roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
-;   Signal     [ imports ] [ queries ] [ responses ] [ types ]
-;   Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; proposed, pending the living's word
-;   Memory     [ imports ] [ record types ]
+;   Signal     [ imports ] [ queries ] [ responses ] [ types ] [ traits ] [ associations ]
+;   Operation  [ imports ] [ operations ] [ outcomes ] [ types ] [ traits ] [ associations ]   ; proposed
+;   Memory     [ imports ] [ record types ] [ traits ] [ associations ]
 ;   Type       one declaration                               ; proposed
 ; A file headed Sema is refused as Renamed.Memory. A file is an ordinary datom:
 ; its root's variant, the dot, then the braced sections (proposal).
