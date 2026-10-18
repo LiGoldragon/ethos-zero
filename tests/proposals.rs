@@ -5,6 +5,8 @@
 //! 3. The type ethos: `Type.` carrying one declaration.
 //! 4. A sealed type: `Name.Sealed.{ … }`, built only by its trait's `:` constructor.
 //! 5. `⟦ T ⟧` is `Vector<T>` in a type position.
+//! 6. An association headed by a trait lists the
+//!    types bearing it: `Trait.[ TypeA TypeB ]`.
 
 use ethos_zero::{
     Actualizing, Conforming, Error, File, Generating, Potential, Printable, Problem,
@@ -588,4 +590,68 @@ fn an_imported_struct_in_a_vector_in_a_struct_conforms() {
         matches!(&error.kind, datom_codec::ErrorKind::Variant { expected, .. } if expected == "flow:Key declared in a sibling .ethos file"),
         "{error:?}"
     );
+}
+
+// 6. A trait head lists the types bearing it ------
+
+fn keyed(associations: &str) -> String {
+    let key = "Key.{ String }";
+    let system = "SystemPrompt.⟦ Key ⟧";
+    let startup = "StartupPrompt.⟦ Key ⟧";
+    let types = format!("{key} {system} {startup}");
+    let count = "count.[ Integer ]";
+    let traits = format!("Prompting.[ {count} ]");
+    format!(
+        "Library.{{ [] [ {types} ] [ {traits} ] \
+        [ {associations} ] }}"
+    )
+}
+
+#[test]
+fn a_group_generates_as_its_types() {
+    let single = generated(&keyed(
+        "SystemPrompt.[ Prompting ] \
+        StartupPrompt.[ Prompting ]",
+    ));
+    let types = "SystemPrompt StartupPrompt";
+    let group = format!("Prompting.[ {types} ]");
+    let grouped = generated(&keyed(&group));
+    assert_eq!(grouped, single);
+    let mixed = generated(&keyed(
+        "SystemPrompt.[ Prompting ] \
+        Prompting.[ StartupPrompt ]",
+    ));
+    assert_eq!(mixed, single);
+    let file = read(&keyed("Prompting.[ Key ]"));
+    let printed = file.print();
+    let entry = "[ Prompting.[ Key ] ]";
+    assert!(printed.contains(entry), "{printed}");
+}
+
+#[test]
+fn a_head_is_a_trait_or_a_type() {
+    let source = keyed("Nothing.[ Key ]");
+    let name = "Nothing".to_owned();
+    let problem = Problem::Undeclared(name);
+    let refused = (vec![1, 3, 0], problem);
+    assert_eq!(refusal(&source), refused);
+}
+
+#[test]
+fn a_trait_head_lists_only_types() {
+    let both = "Prompting.[ Key Prompting ]";
+    let listed = keyed(both);
+    let name = "Prompting".to_owned();
+    let at = vec![1, 3, 0, 1, 0, 1];
+    let refused = (at, Problem::Role(name));
+    assert_eq!(refusal(&listed), refused);
+    let unknown = keyed("Prompting.[ Nothing ]");
+    let name = "Nothing".to_owned();
+    let problem = Problem::Undeclared(name);
+    assert_eq!(refusal(&unknown).1, problem);
+    let form = ethos_zero::Form::Name;
+    let problem = Problem::Expected(form);
+    let entry = "Prompting.[ protos:String ]";
+    let sourced = keyed(entry);
+    assert_eq!(refusal(&sourced).1, problem);
 }

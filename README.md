@@ -218,6 +218,24 @@ in an input it is taken as a trait. A yield may name a concrete type; a
 declared trait in a yield is a method parameter too (`make:[ Textualizable ]`
 gives `fn make<N: Textualizable>() -> N`).
 
+## Associations
+
+A Library's associations section says which types bear which traits, as
+compile-time assertions. An entry's head decides its reading. A head
+naming a type lists the traits it bears; a head naming a trait, declared
+or Protos's `Sized`, lists the types bearing it. Both forms may stand in
+one section, and a grouped entry generates exactly what its per-type
+entries would.
+
+```
+[ Key.[ Prompting ]
+  Prompting.[ SystemPrompt StartupPrompt ] ]
+```
+
+A head naming neither is refused as `Undeclared`. A listed member is an
+unsourced type name: a trait is refused as `Role`, and a sourced name
+as `Expected.Name`.
+
 The flat declaration budget applies to a Library's types section: it refuses
 more than 512 type declarations. The other roots retain their structural reader
 bounds and are not counted against it.

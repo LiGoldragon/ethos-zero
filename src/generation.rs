@@ -21,6 +21,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
+use crate::checking::Bearing;
 use crate::checking::{Checkable, Declaring, Inlining};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
@@ -1092,17 +1093,14 @@ trait Locked {
 
 impl Locked for File {
     fn locks(&self, name: &Name) -> bool {
-        let File::Library(library) = self else {
-            return false;
-        };
-        for association in &library.associations {
+        for association in self.bearings() {
             if !matches!(
                 self.declaration(&association.identity.name),
                 Some(TypeDeclaration::Shared(_, _))
             ) {
                 continue;
             }
-            for borne in &association.traits {
+            for borne in &association.members {
                 if borne.source.is_none() && &borne.name == name {
                     return true;
                 }
@@ -1255,8 +1253,8 @@ impl Emitting for Association {
         let ty = subject.emit(scope);
         let arguments = self.identity.arguments(&inner);
         let parameters = self.identity.parameters(&inner);
-        let mut assertions = Vec::with_capacity(self.traits.len());
-        for trait_definition in &self.traits {
+        let mut assertions = Vec::new();
+        for trait_definition in &self.members {
             let assertion = Ident::new(
                 &format!(
                     "assert_{}_{}",
@@ -1307,7 +1305,7 @@ impl Emitting for File {
                     let item = declaration.emit(scope);
                     items.push(quote! { #[rustfmt::skip] #item });
                 }
-                for association in &library.associations {
+                for association in self.bearings() {
                     let item = association.emit(scope);
                     items.push(quote! { #[rustfmt::skip] #item });
                 }

@@ -938,24 +938,8 @@ impl Sharing for File {
             let TypeDeclaration::Shared(identity, _) = placed.declaration else {
                 continue;
             };
-            let mut borne = false;
-            if let File::Library(library) = self {
-                for association in &library.associations {
-                    if association.identity.name != identity.name {
-                        continue;
-                    }
-                    for reference in &association.traits {
-                        for declared in &library.traits {
-                            if reference.source.is_none()
-                                && declared.identity.name == reference.name
-                            {
-                                borne = true;
-                            }
-                        }
-                    }
-                }
-            }
-            if !borne {
+            let borne = self.borne(&identity.name);
+            if borne.is_empty() {
                 let mut path = placed.path;
                 path.push(0);
                 return Err(Error::conceptual(
@@ -1066,25 +1050,9 @@ impl Sealing for File {
             let TypeDeclaration::Sealed(identity, _) = placed.declaration else {
                 continue;
             };
-            let mut built = false;
-            if let File::Library(library) = self {
-                for association in &library.associations {
-                    if association.identity.name != identity.name {
-                        continue;
-                    }
-                    for borne in &association.traits {
-                        for declared in &library.traits {
-                            if borne.source.is_none()
-                                && declared.identity.name == borne.name
-                                && declared.constructs()
-                            {
-                                built = true;
-                            }
-                        }
-                    }
-                }
-            }
-            if !built {
+            let borne = self.borne(&identity.name);
+            let mut traits = borne.iter();
+            if !traits.any(|t| t.constructs()) {
                 let mut path = placed.path;
                 path.push(0);
                 return Err(Error::conceptual(
@@ -1996,6 +1964,18 @@ impl Checkable for Capability {
 
 impl Checkable for Association {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
+        let head = &self.identity.name;
+        if scope.groups(head) {
+            self.identity.check(scope).place(0)?;
+            let mut at = 0;
+            for member in &self.members {
+                let listed = member.list(scope);
+                let placed = listed.beside(at);
+                placed.place(0).place(1)?;
+                at += member.span();
+            }
+            return Ok(());
+        }
         if scope.resolve(&self.identity.name) == Resolution::Undeclared {
             return Err(Error::conceptual(
                 vec![],
@@ -2004,7 +1984,127 @@ impl Checkable for Association {
         }
         self.identity.check(scope).place(0)?;
         // The traits borne are named outside the identity that bears them.
-        self.traits.refer_each(scope, Role::Trait, 0).place(1)
+        let members = &self.members;
+        let role = Role::Trait;
+        members.refer_each(scope, role, 0).place(1)
+    }
+}
+
+/// The trait whose capability tells whether an
+/// association's head names a trait, declared or
+/// Protos's own, so that it lists the types
+/// bearing it.
+pub(crate) trait Grouping {
+    fn groups(&self, head: &Name) -> bool;
+}
+
+impl Grouping for Scope<'_> {
+    fn groups(&self, head: &Name) -> bool {
+        let found = match self.resolve(head) {
+            Resolution::Trait(_) => return true,
+            Resolution::Intrinsic(it) => Some(it),
+            Resolution::Imported(at, emitted) => {
+                let p = at.as_ref() == "protos";
+                let same = &emitted == head;
+                let name = &head.0;
+                let it = Intrinsic::identify(name);
+                it.filter(|_| p && same)
+            }
+            _ => None,
+        };
+        let role = found.map(|it| it.role());
+        role == Some(Role::Trait)
+    }
+}
+
+/// The trait whose capability checks a type that a
+/// grouped association lists: an unsourced type.
+trait Listing {
+    fn list(&self, s: &Scope) -> Result<(), Error>;
+}
+
+impl Listing for Reference {
+    fn list(&self, s: &Scope) -> Result<(), Error> {
+        if self.source.is_none() {
+            return self.refer(s, Role::Type);
+        }
+        let form = crate::Form::Name;
+        let problem = Problem::Expected(form);
+        Err(Error::conceptual(vec![], problem))
+    }
+}
+
+/// Traits a file declares, by reference.
+type Traits<'a> = Vec<&'a TraitDeclaration>;
+
+/// The trait whose capabilities read associations
+/// as single types bearing traits, a grouped entry
+/// spread over the types it lists, in order.
+pub(crate) trait Bearing {
+    /// Every association, one type to an entry.
+    fn bearings(&self) -> Vec<Association>;
+    /// The file's own traits a type bears.
+    fn borne(&self, bearer: &Name) -> Traits<'_>;
+}
+
+impl Bearing for File {
+    fn bearings(&self) -> Vec<Association> {
+        let File::Library(library) = self else {
+            return vec![];
+        };
+        let scope = Scope {
+            file: self,
+            identity: None,
+            associated: &[],
+        };
+        let mut read = Vec::new();
+        for entry in &library.associations {
+            let head = &entry.identity.name;
+            if !scope.groups(head) {
+                read.push(entry.clone());
+                continue;
+            }
+            for member in &entry.members {
+                let identity = Identity {
+                    name: member.name.clone(),
+                    constraints: vec![],
+                };
+                let borne = Reference {
+                    source: None,
+                    name: head.clone(),
+                    arguments: vec![],
+                };
+                read.push(Association {
+                    identity,
+                    members: vec![borne],
+                });
+            }
+        }
+        read
+    }
+
+    fn borne(&self, bearer: &Name) -> Traits<'_> {
+        let File::Library(library) = self else {
+            return vec![];
+        };
+        let mut names = Vec::new();
+        for bearing in self.bearings() {
+            if &bearing.identity.name != bearer {
+                continue;
+            }
+            for member in bearing.members {
+                if member.source.is_none() {
+                    names.push(member.name);
+                }
+            }
+        }
+        let mut borne = Vec::new();
+        for t in &library.traits {
+            if names.contains(&t.identity.name) {
+                borne.push(t);
+            }
+        }
+        borne
     }
 }
 

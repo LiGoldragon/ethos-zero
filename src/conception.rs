@@ -747,7 +747,7 @@ impl Conceiving<Association> for Protos {
                 name: head.name().place(0)?,
                 constraints: vec![],
             },
-            traits: body.bracket().place(1)?,
+            members: body.bracket().place(1)?,
         })
     }
 }
