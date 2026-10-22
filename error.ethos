@@ -1,30 +1,29 @@
 ; The errors the ethos reader raises: structural, from the protos reading, or conceptual, at a path;
 ; and where an error lies in the source text, its line and column counted from one.
-Library
-[ protos:[ Extent Separator ] ]
-[ Structural_Error.{ Extent
-                     protos:Problem }
-  Error.[ Structural.Structural_Error
-          Conceptual.{ Vector<Integer> Problem } ]
-  Problem.[ Root
-            Arity.{ Integer Integer }
-            Expected.Form
-            Separator.Separator
-            Name.String
-            Duplicate.String
-            Undeclared.String
-            Cycle.String
-            Yield
-            Empty
-            Depth
-            Role.String
-            TraitWanted.String
-            Intrinsic.String
-            Case.String
-            Renamed.String ]
-  Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association ]
-  Location.{ Line Column }
-  Line.Integer
-  Column.Integer ]
-[]
-[]
+Library.{ [ protos:[ Extent Separator ] ]
+          [ Structural_Error.{ Extent
+                               protos:Problem }
+            Error.[ Structural.Structural_Error
+                    Conceptual.{ Vector<Integer> Problem } ]
+            Problem.[ Root
+                      Arity.{ Integer Integer }
+                      Expected.Form
+                      Separator.Separator
+                      Name.String
+                      Duplicate.String
+                      Undeclared.String
+                      Cycle.String
+                      Yield
+                      Empty
+                      Depth
+                      Role.String
+                      TraitWanted.String
+                      Intrinsic.String
+                      Case.String
+                      Renamed.String ]
+            Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association ]
+            Location.{ Line Column }
+            Line.Integer
+            Column.Integer ]
+          []
+          [] }

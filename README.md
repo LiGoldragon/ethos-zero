@@ -17,7 +17,7 @@ types. Each pass is a module named for it.
 | generation | `Generating` | `File` | Rust text, or a whole-file error |
 | datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Composing` derives |
 | ascent | `Protosizable`, `Textualizable` | `File` | canonical text on one line (cannot err) |
-| printing | `Printable` | `File` or `protos::Protos` | the sweet form, each section in protos' vertical print (cannot err) |
+| printing | `Printable` | `File` or `protos::Protos` | the canonical braced form, sections aligned beneath the first (cannot err) |
 | actualization | `Actualizing<File>` on `Potential<File>` | text | `File`, or an `Error` |
 
 Every error carries the Protos path of the structure in error, from the
@@ -201,3 +201,50 @@ test, fmt, clippy, doc, the no-free-functions and no-inherent-methods
 guards, and the dependency ethos declarations read by the built tool).
 Each Nix derivation applies an 8 GiB virtual-memory limit inside its
 builder.
+
+## Canonical print and variants
+
+The canonical form puts the first section after `Library.{`, the remaining
+sections beneath it, and the closing brace after the last section. The sweet
+file form remains an input form; `Printable` emits the canonical braced form.
+Only capitalized symbols are read as variants. Every enum has at least two
+variants, including inline enums and the enums implied by Signal and Operation.
+An absent Signal or Operation section emits no enum.
+
+An Ethos declares the traits its types bear in its associations section;
+the generator emits compile-time assertions for these associations. Trait
+implementation bodies remain hand-written Rust.
+
+The Ethos:
+
+```text
+Library.{ []
+          [ Record.{ String Integer } ]
+          [ Summarizable.[ summarize.[ String ] ] ]
+          [ Record.[ Summarizable ] ] }
+```
+
+The Rust generated from it (derives omitted):
+
+```rust
+pub struct Record { pub string: String, pub integer: i64 }
+pub trait Summarizable { fn summarize(&self) -> String; }
+const _: () = {
+    fn assert_record_summarizable<T: Summarizable>() {}
+    let _ = assert_record_summarizable::<Record>;
+};
+```
+
+A newly made or proposed datom is presented with its Ethos specification.
+
+The Ethos:
+
+```text
+Reply.[ Accepted.Integer Refused.String ]
+```
+
+The datom:
+
+```text
+Accepted.42
+```

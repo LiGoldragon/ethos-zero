@@ -1,6 +1,5 @@
-Memory
-[ flow:[ FlowId Voice Event ] ]
-[ Flow.{ FlowId
-         Voice
-         State.[ Running Ended ]
-         Vector<Event> } ]
+Memory.{ [ flow:[ FlowId Voice Event ] ]
+         [ Flow.{ FlowId
+                  Voice
+                  State.[ Running Ended ]
+                  Vector<Event> } ] }

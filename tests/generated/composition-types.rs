@@ -37,10 +37,12 @@ pub struct Choice_Data_Item_Data {
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Choice_Data {
     Item(Choice_Data_Item_Data),
+    Empty,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Nested {
     Choice(Choice_Data),
+    Empty,
 }

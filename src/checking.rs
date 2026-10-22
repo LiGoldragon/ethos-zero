@@ -968,7 +968,13 @@ impl Checkable for Signal {
         self.imports.check_each(scope, 0)?;
         self.queries.names_in(1).distinct()?;
         self.responses.names_in(2).distinct()?;
+        if self.queries.len() == 1 {
+            return Err(Error::conceptual(vec![1], Problem::arity(2, 1)));
+        }
         self.queries.check_each(scope, 1)?;
+        if self.responses.len() == 1 {
+            return Err(Error::conceptual(vec![2], Problem::arity(2, 1)));
+        }
         self.responses.check_each(scope, 2)?;
         self.types.check_each(scope, 3)
     }
@@ -980,7 +986,13 @@ impl Checkable for Operation {
         self.imports.check_each(scope, 0)?;
         self.operations.names_in(1).distinct()?;
         self.outcomes.names_in(2).distinct()?;
+        if self.operations.len() == 1 {
+            return Err(Error::conceptual(vec![1], Problem::arity(2, 1)));
+        }
         self.operations.check_each(scope, 1)?;
+        if self.outcomes.len() == 1 {
+            return Err(Error::conceptual(vec![2], Problem::arity(2, 1)));
+        }
         self.outcomes.check_each(scope, 2)?;
         self.types.check_each(scope, 3)
     }
@@ -1433,6 +1445,12 @@ impl Checkable for TypeDeclaration {
         match self {
             TypeDeclaration::Struct(_, positions) => positions.check_children(&inner).place(1),
             TypeDeclaration::Enum(_, variants) => {
+                if variants.len() < 2 {
+                    return Err(Error::conceptual(
+                        vec![1],
+                        Problem::arity(2, variants.len() as Integer),
+                    ));
+                }
                 let mut names = variants.names_in(0);
                 for declared in &mut names {
                     declared.path.remove(0);
@@ -1457,6 +1475,15 @@ impl Checkable for TypeDeclaration {
 
 impl Checkable for Variant {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
+        let name = match self {
+            Variant::Bare(name)
+            | Variant::Typed(name, _)
+            | Variant::Struct(name, _)
+            | Variant::Enum(name, _) => name,
+        };
+        if !name.0.starts_with(|glyph: char| glyph.is_uppercase()) {
+            return Err(Error::conceptual(vec![0], Problem::Case(name.0.clone())));
+        }
         match self {
             Variant::Bare(name) => name.define(),
             Variant::Typed(name, reference) => {
@@ -1469,6 +1496,12 @@ impl Checkable for Variant {
             }
             Variant::Enum(name, variants) => {
                 name.define().place(0)?;
+                if variants.len() < 2 {
+                    return Err(Error::conceptual(
+                        vec![1],
+                        Problem::arity(2, variants.len() as Integer),
+                    ));
+                }
                 let mut names = variants.names_in(0);
                 for declared in &mut names {
                     declared.path.remove(0);

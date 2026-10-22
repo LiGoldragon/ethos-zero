@@ -488,7 +488,7 @@ pub struct Scope<'a> {
 // Traits
 // ---------------------------------------------------------------------------
 
-/// The trait whose capability prints an ethos file in the sweet form, each section in protos' canonical vertical print.
+/// The trait whose capability prints an ethos file in its canonical braced form.
 pub trait Printable {
     /// The canonical print.
     fn print(&self) -> String;
@@ -793,8 +793,8 @@ mod behavior {
         let carried = "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]";
         for source in [
             "Library [] [ Record.{ String Integer } ] [] []",
-            "Signal [] [ Ask.{ String Integer } ] [ Told ] []",
-            "Operation [] [ Do.{ String Integer } ] [ Done ] []",
+            "Signal [] [ Ask.{ String Integer } Stop ] [ Told Stopped ] []",
+            "Operation [] [ Do.{ String Integer } Stop ] [ Done Stopped ] []",
             "Memory [] [ Record.{ String Integer } ]",
         ] {
             let file = match Potential::<File>::from(source).actualize() {
@@ -844,7 +844,7 @@ mod behavior {
 
     #[test]
     fn library_traits_generate_trait_surfaces() {
-        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -933,7 +933,7 @@ mod behavior {
     #[test]
     fn canonical_ascent_round_trips_nonempty_library_and_signal() {
         let library = "Library [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.Vector<FilePath> External.external:Vector<FilePath> Record.{ Vector<Option<String>> Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Capability ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ]";
-        let signal = "Signal [ datom_codec:[ Error Path ] ] [ Generate.Generation ] [ Generated.String Malformed.Error ] [ Generation.{ String String } ]";
+        let signal = "Signal [ datom_codec:[ Error Path ] ] [ Generate.Generation Check.String ] [ Generated.String Malformed.Error ] [ Generation.{ String String } ]";
         for source in [library, signal] {
             let file = match Potential::<File>::from(source).actualize() {
                 Ok(file) => file,
@@ -965,7 +965,7 @@ mod behavior {
 
     #[test]
     fn operation_reads_its_four_sections_and_ascends() {
-        let source = "Operation [ flow:[ Voice ] ] [ Start.{ Voice Capsule } ] [ Started Failed.String ] [ Capsule.{ Home.String } ]";
+        let source = "Operation [ flow:[ Voice ] ] [ Start.{ Voice Capsule } Stop ] [ Started Failed.String ] [ Capsule.{ Home.String } ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("approved Operation reads"),
@@ -1035,7 +1035,7 @@ mod behavior {
 
     #[test]
     fn nested_inline_data_names_include_ancestry_after_the_first_level() {
-        let source = "Library [] [ Outer.[ A.[ X.{ String } ] B.[ X.{ Integer } ] ] Rejection.[ PathOverlap.{ String String } ] ] [] []";
+        let source = "Library [] [ Outer.[ A.[ X.{ String } Empty ] B.[ X.{ Integer } Empty ] ] Rejection.[ PathOverlap.{ String String } Allowed ] ] [] []";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("nested collision source reads"),
@@ -1165,7 +1165,7 @@ mod behavior {
             "Library.{ [] [ 1 ] [] [] }",
             "Signal [ 1 ] [] [] []",
             "Memory [] [ 1 ]",
-            "Operation [] [ Go.Vector<Bogus> ] [] []",
+            "Operation [] [ Go.Vector<Bogus> Stop ] [] []",
             "Library [] [ Alias.Vector<1> ] [] []",
             "Library [] [] [ K.[ 1 ] ] []",
             "Library [] [] [ K.{ [ 1 ] [] [] [] } ] []",
@@ -1179,7 +1179,7 @@ mod behavior {
             "Library [] [] [ K.[ run.{ [ Self Bogus ] [ String ] } ] ] []",
             "Library [] [] [ K.[ run.{ [ Self ] [ Vector<Bogus> ] } ] ] []",
             "Library [] [] [ K.{ [] [ Item<Bogus> ] [] [] } ] []",
-            "Signal [] [ Ask.Vector<Bogus> ] [] []",
+            "Signal [] [ Ask.Vector<Bogus> Stop ] [] []",
         ];
         for source in cases {
             let potential = Potential::<File>::from(source);

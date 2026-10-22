@@ -274,9 +274,29 @@ impl Variants for [Protos] {
             }
             values.push(variant);
         }
+        if values.len() == 1 {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::arity(2, values.len() as Integer),
+            ));
+        }
         Ok(values)
     }
 }
+/// A declared enum, unlike an absent Signal section, is non-empty.
+trait Enumeration {
+    fn enumeration(&self) -> Result<Vec<Variant>, Error>;
+}
+
+impl Enumeration for [Protos] {
+    fn enumeration(&self) -> Result<Vec<Variant>, Error> {
+        if self.is_empty() {
+            return Err(Error::conceptual(vec![], Problem::arity(2, 0)));
+        }
+        self.variants()
+    }
+}
+
 trait AssociatedTypes {
     fn associated_types(&self) -> Result<Vec<AssociatedType>, Error>;
 }
@@ -476,7 +496,7 @@ impl Conceiving<TypeDeclaration> for Protos {
         if let Some(p) = body.children(Enclosure::Braced) {
             Ok(TypeDeclaration::Struct(identity, p.positions().place(1)?))
         } else if let Some(v) = body.children(Enclosure::Bracketed) {
-            Ok(TypeDeclaration::Enum(identity, v.variants().place(1)?))
+            Ok(TypeDeclaration::Enum(identity, v.enumeration().place(1)?))
         } else {
             Ok(TypeDeclaration::Alias(identity, body.conceive().place(1)?))
         }
@@ -485,18 +505,20 @@ impl Conceiving<TypeDeclaration> for Protos {
 impl Conceiving<Variant> for Protos {
     fn conceive(&self) -> Result<Variant, Error> {
         match self {
-            Protos::Bare { text, .. } => Ok(Variant::Bare(text.as_str().name()?)),
+            Protos::Bare { text, .. } if text.starts_with(|glyph: char| glyph.is_uppercase()) => {
+                Ok(Variant::Bare(text.as_str().name()?))
+            }
             Protos::Headed {
                 head,
                 separator: Separator::Period,
                 body,
                 ..
-            } => {
+            } if head.0.starts_with(|glyph: char| glyph.is_uppercase()) => {
                 let n = head.name().place(0)?;
                 if let Some(p) = body.children(Enclosure::Braced) {
                     Ok(Variant::Struct(n, p.positions().place(1)?))
                 } else if let Some(v) = body.children(Enclosure::Bracketed) {
-                    Ok(Variant::Enum(n, v.variants().place(1)?))
+                    Ok(Variant::Enum(n, v.enumeration().place(1)?))
                 } else {
                     Ok(Variant::Typed(n, body.conceive().place(1)?))
                 }
