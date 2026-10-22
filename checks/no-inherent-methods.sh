@@ -1,4 +1,4 @@
-# Behavior is homed in kinds: no inherent impl block in src.
+# Behavior is homed in traits: no inherent impl block in src.
 set -eu
 if grep -R -n -E '^[[:space:]]*impl(<[^>]*>)?[[:space:]]' "$src/src" | grep -v ' for ' | grep -E '\{[[:space:]]*$'; then
   echo "production Rust must home behavior in traits" >&2

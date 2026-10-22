@@ -28,7 +28,7 @@ pub(crate) struct Placed<'a> {
     pub(crate) declaration: &'a TypeDeclaration,
 }
 
-/// The kind whose capabilities read a file's sections by role.
+/// The trait whose capabilities read a file's sections by role.
 pub(crate) trait Sectioning {
     /// Where imported names come from.
     fn imports(&self) -> &[Import];
@@ -92,7 +92,7 @@ impl Sectioning for File {
     }
 }
 
-/// The kind whose capabilities list every type declaration of a file.
+/// The trait whose capabilities list every type declaration of a file.
 pub(crate) trait Hoisting {
     /// Every declaration: each of the types section in order, each followed
     /// by those declared in place within it, then those declared in place in
@@ -132,17 +132,17 @@ impl Hoisting for File {
     }
 }
 
-/// The kind whose capabilities walk the declarations below a node.
+/// The trait whose capabilities walk the declarations below a node.
 trait Hoist {
     fn hoist<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>);
 }
 
-/// The kind whose capability walks the declarations in a list of positions.
+/// The trait whose capability walks the declarations in a list of positions.
 trait PositionsHoisting {
     fn hoist_positions<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>);
 }
 
-/// The kind whose capability walks the declarations in a list of variants.
+/// The trait whose capability walks the declarations in a list of variants.
 trait VariantsHoisting {
     fn hoist_variants<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>);
 }
@@ -193,7 +193,7 @@ impl VariantsHoisting for [Variant] {
     }
 }
 
-/// The kind whose capability yields the type a position holds, by reference:
+/// The trait whose capability yields the type a position holds, by reference:
 /// a declaration in place is held by its name.
 pub(crate) trait Referencing {
     fn reference(&self) -> Reference;
@@ -214,7 +214,7 @@ impl Referencing for Position {
     }
 }
 
-/// The kind whose capability yields every position's type by reference.
+/// The trait whose capability yields every position's type by reference.
 pub(crate) trait ReferencingEach {
     fn references(&self) -> Vec<Reference>;
 }

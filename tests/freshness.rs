@@ -6,7 +6,7 @@
 
 use ethos_zero::{Actualizing, File, Generating, Potential};
 
-/// The kind whose capability asserts a committed generation is fresh.
+/// The trait whose capability asserts a committed generation is fresh.
 trait Fresh {
     fn fresh(&self, generated: &str);
 }

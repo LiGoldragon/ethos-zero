@@ -129,7 +129,7 @@ fn a_missing_file_is_unreadable() {
     );
 }
 
-/// The kind whose capability writes an ethos source into a scratch directory.
+/// The trait whose capability writes an ethos source into a scratch directory.
 trait Writing {
     fn write_source(&self, name: &str, text: &str) -> String;
 }
@@ -272,8 +272,8 @@ fn check_of_a_missing_file_is_unreadable() {
 }
 
 #[test]
-fn check_takes_a_kind_in_an_input_and_locates_a_concrete_type_there() {
-    let directory = "kinds".scratch();
+fn check_takes_a_trait_in_an_input_and_locates_a_concrete_type_there() {
+    let directory = "traits".scratch();
     let taken = directory.write_source(
         "taken",
         "Library\n[]\n[]\n[ Textualizable.[ textualize.[ String ] ]\n  Resolvable.[ resolve.{ [ Textualizable ]\n                         [ Self ] } ] ]\n[]\n",
@@ -293,7 +293,7 @@ fn check_takes_a_kind_in_an_input_and_locates_a_concrete_type_there() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {refused} {{ 4 28 }} Conceptual.{{ [ 1 2 0 1 0 1 0 0 ] KindWanted.Rec }} }}\n"
+            "Rejected.{{ {refused} {{ 4 28 }} Conceptual.{{ [ 1 2 0 1 0 1 0 0 ] TraitWanted.Rec }} }}\n"
         )
     );
 }

@@ -3,7 +3,7 @@
 ; Check reads and validates it whole, writing nothing. A rejection names the
 ; file, the line and column of the error in it, and the error.
 ; The files read are of four roots, each section in this order:
-;   Library    [ imports ] [ types ] [ kinds ] [ associations ]
+;   Library    [ imports ] [ types ] [ traits ] [ associations ]
 ;   Signal     [ imports ] [ queries ] [ responses ] [ types ]
 ;   Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; proposed, pending the living's word
 ;   Memory     [ imports ] [ record types ]

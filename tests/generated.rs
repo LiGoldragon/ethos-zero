@@ -7,8 +7,8 @@ pub use flow_library::{Event, FlowId, Voice};
 
 pub struct Wrapper<T>(pub T);
 
-/// What the kind fixtures import from `super`: the error a capability
-/// yields, and the kinds a type is asserted to bear.
+/// What the trait fixtures import from `super`: the error a capability
+/// yields, and the traits a type is asserted to bear.
 pub enum SinkError {
     Closed,
     Full,
@@ -28,8 +28,8 @@ impl Fillable for sink_associations::Sink {}
 
 #[path = "generated/alias-format.rs"]
 mod alias_format;
-#[path = "generated/capability-kinds.rs"]
-mod capability_kinds;
+#[path = "generated/capability-traits.rs"]
+mod capability_traits;
 #[path = "generated/composition-types.rs"]
 mod composition_types;
 #[path = "generated/empty-signal.rs"]
@@ -56,18 +56,18 @@ mod nested_collision;
 mod orchestrate;
 #[path = "generated/placed-types.rs"]
 mod placed_types;
-#[path = "generated/processable-kinds.rs"]
-mod processable_kinds;
+#[path = "generated/processable-traits.rs"]
+mod processable_traits;
 #[path = "generated/record-types.rs"]
 mod record_types;
-#[path = "generated/self-kinds.rs"]
-mod self_kinds;
+#[path = "generated/self-traits.rs"]
+mod self_traits;
 #[path = "generated/signal-decimal.rs"]
 mod signal_decimal;
 #[path = "generated/sink-associations.rs"]
 mod sink_associations;
-#[path = "generated/streamable-kind.rs"]
-mod streamable_kind;
+#[path = "generated/streamable-trait.rs"]
+mod streamable_trait;
 #[path = "generated/tree-types.rs"]
 mod tree_types;
 
@@ -193,11 +193,11 @@ fn recursive_generated_signal_archives_and_restores() {
 
 #[test]
 fn self_bearing_methods_are_sized_without_sizing_the_trait() {
-    fn object_safe(value: &dyn self_kinds::Mixed) -> String {
+    fn object_safe(value: &dyn self_traits::Mixed) -> String {
         value.inspect()
     }
     let _ = object_safe;
-    let generated = include_str!("generated/self-kinds.rs");
+    let generated = include_str!("generated/self-traits.rs");
     assert!(generated.contains("fn factory(&self) -> Self"));
     assert!(generated.contains("Self: Sized;"));
     assert!(generated.contains("crate::Wrapper<Self>"));
@@ -205,8 +205,8 @@ fn self_bearing_methods_are_sized_without_sizing_the_trait() {
 }
 
 #[test]
-fn constrained_kind_identity_compiles() {
-    assert!(include_str!("generated/processable-kinds.rs").contains("pub trait Processable"));
+fn constrained_trait_identity_compiles() {
+    assert!(include_str!("generated/processable-traits.rs").contains("pub trait Processable"));
 }
 
 #[test]
@@ -276,7 +276,7 @@ fn aliases_name_their_types() {
     assert_eq!(nested.len(), 3);
 }
 
-/// A sink bearing the fixture's own capability kind.
+/// A sink bearing the fixture's own capability trait.
 struct Buffer {
     lines: Vec<String>,
 }
@@ -284,14 +284,14 @@ struct Buffer {
 /// A line of text, which summarizes as itself.
 struct Line(&'static str);
 
-impl capability_kinds::Summarizable for Line {
+impl capability_traits::Summarizable for Line {
     fn summarize(&self) -> String {
         self.0.to_owned()
     }
 }
 
-impl capability_kinds::Fillable for Buffer {
-    fn push<N: capability_kinds::Summarizable>(&mut self, input: N) -> Result<i64, SinkError> {
+impl capability_traits::Fillable for Buffer {
+    fn push<N: capability_traits::Summarizable>(&mut self, input: N) -> Result<i64, SinkError> {
         if self.lines.len() > 1 {
             return Err(SinkError::Full);
         }
@@ -306,15 +306,15 @@ impl capability_kinds::Fillable for Buffer {
     }
 }
 
-impl capability_kinds::Summarizable for Buffer {
+impl capability_traits::Summarizable for Buffer {
     fn summarize(&self) -> String {
         self.lines.join(" ")
     }
 }
 
 #[test]
-fn capability_kinds_are_implementable_traits() {
-    use capability_kinds::{Fillable, Summarizable};
+fn capability_traits_are_implementable_traits() {
+    use capability_traits::{Fillable, Summarizable};
     let mut buffer = Buffer::create();
     assert_eq!(buffer.push(Line("a")).ok(), Some(1));
     assert_eq!(buffer.push(Line("b")).ok(), Some(2));
@@ -397,7 +397,7 @@ fn every_scalar_intrinsic_has_a_position() {
 }
 
 #[test]
-fn an_association_asserts_the_kinds_a_type_bears() {
+fn an_association_asserts_the_traits_a_type_bears() {
     let sink = sink_associations::Sink {
         string: "sunk".to_owned(),
         string_vector: vec![],
@@ -409,7 +409,7 @@ fn an_association_asserts_the_kinds_a_type_bears() {
     ));
 }
 
-/// A stream bearing the fixture's complex kind.
+/// A stream bearing the fixture's complex trait.
 struct Counter {
     count: i64,
 }
@@ -417,7 +417,7 @@ struct Counter {
 impl Serializable for i64 {}
 impl Fillable for Counter {}
 
-impl streamable_kind::Streamable for Counter {
+impl streamable_trait::Streamable for Counter {
     type Item = i64;
     const CAPACITY: i64 = 2;
     fn next(&mut self) -> Option<i64> {
@@ -430,8 +430,8 @@ impl streamable_kind::Streamable for Counter {
 }
 
 #[test]
-fn a_complex_kind_carries_its_superkind_type_and_constant() {
-    use streamable_kind::Streamable;
+fn a_complex_trait_carries_its_supertrait_type_and_constant() {
+    use streamable_trait::Streamable;
     let mut counter = Counter { count: 0 };
     assert_eq!(counter.next(), Some(1));
     assert_eq!(counter.next(), Some(2));

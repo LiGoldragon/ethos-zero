@@ -5,10 +5,10 @@ datom fills them with data, and ethos generates the Rust.
 
 ## Anatomy
 
-`src/lib.rs` is the ontology: the layers, the kinds, the declaration
+`src/lib.rs` is the ontology: the layers, the traits, the declaration
 types. Each pass is a module named for it.
 
-| pass | kind | from | to |
+| pass | trait | from | to |
 |---|---|---|---|
 | canonicalization | `Canonicalizable` | sweet text | `Canonical`, the braced form, with its seam |
 | protosization (protos) | `Protosizable` | canonical text | `protos::Protos` |
@@ -28,7 +28,7 @@ arguments are the angled enclosure beside it in its list
 follows that path down the source's structure and carries the node's
 start back across the sweet form's seam, so every error is situated as a
 line and a column in the text as written. Every method
-call lives under a kind; there are no free functions, no inherent impls,
+call lives under a trait; there are no free functions, no inherent impls,
 no closures beyond what std forces, and no lookup tables: the enums are
 walked variant by variant.
 
@@ -43,7 +43,7 @@ Nexus says; Operation what it does, one operation for every effect; Memory
 what it remembers; Library what they share.
 
 ```
-Library    [ imports ] [ types ] [ kinds ] [ associations ]
+Library    [ imports ] [ types ] [ traits ] [ associations ]
 Signal     [ imports ] [ queries ] [ responses ] [ types ]     ; Query and Response implied
 Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; Operation and Outcome implied
 Memory     [ imports ] [ record types ]
@@ -92,7 +92,7 @@ standard containers as `std::vec::Vec`, `std::option::Option`,
 capture those names. A variant `Name.{ T1 T2 }` carries a generated
 struct `Name_Data` with one field per position.
 
-A type or kind declaration is refused when its name is an intrinsic's
+A type or trait declaration is refused when its name is an intrinsic's
 (`Intrinsic.Result`: the declaration would shadow the intrinsic for every
 later reference), or does not begin with a capital (`Case.a`). A declared
 type with no finite value, one that reaches itself with no `Vector`,
@@ -110,33 +110,34 @@ declared inside a derived enum carries that enum's name as its stem
 Generated generic parameters similarly move from `A`, `B`, and so on only
 when one would capture an authored type reference.
 
-## Kinds
+## Traits
 
-A kind is the bearer of capabilities: `Name.[ capabilities ]`, or
-`Name.{ [ superkinds ] [ associated types ] [ CONSTANTS ] [ capabilities ] }`.
+A trait is the bearer of capabilities: `Name.[ capabilities ]`, or
+`Name.{ [ supertraits ] [ associated types ] [ CONSTANTS ] [ capabilities ] }`.
 A capability's separator says who is called: `.` takes `&self`, `!` takes
 `&mut self`, `:` takes no self. `name.[ Yield ]` yields alone;
 `name.{ [ inputs ] [ Yield ] }` takes inputs.
 
-A capability speaks in `Self`, the kind's own parameters and other kinds;
-a concrete type in an input is a kind not yet named. A kind named in an
-input becomes a parameter of the generated method, bounded by that kind,
-lettered from `N`:
+A capability speaks in `Self`, its trait's parameters and other traits.
+A declared trait in an input becomes a parameter of the generated method,
+bounded by that trait; an imported name in an input is assumed to be a
+trait. A known concrete type in an input is refused. Parameters are lettered
+from `N`:
 
 ```
 Resolvable.[ resolve.{ [ Textualizable ] [ Self ] } ]
 ; -> fn resolve<N: Textualizable>(&self, input: N) -> Self where Self: Sized;
 ```
 
-Where an associated type of the kind is already bounded by that kind
+Where an associated type of the trait is already bounded by that trait
 (`Streamable.{ [] [ Item<Textualizable> ] [] [ push!{ [ Textualizable ] [ Self ] } ] }`),
 the input is that associated type, `Self::Item`. `Self`, a parameter of the
-kind's head, and an associated type named directly stay as they are. A
+trait's head, and an associated type named directly stay as they are. A
 concrete type in an input (`String`, `Vector<Self>`, a declared type) is
-refused: `Conceptual.{ [ path ] KindWanted.String }`, the path and its line
+refused: `Conceptual.{ [ path ] TraitWanted.String }`, the path and its line
 and column naming the input. An imported name says nothing of its role, so
-in an input it is taken as a kind. A yield may name a concrete type; a
-declared kind in a yield is a method parameter too (`make:[ Textualizable ]`
+in an input it is taken as a trait. A yield may name a concrete type; a
+declared trait in a yield is a method parameter too (`make:[ Textualizable ]`
 gives `fn make<N: Textualizable>() -> N`).
 
 The flat declaration budget applies to a Library's types section: it refuses

@@ -36,11 +36,11 @@ trait Texting {
 trait Erroring<T> {
     fn error(self) -> T;
 }
-/// The kind whose capability reads an ethos source file into its checked-for-structure File.
+/// The trait whose capability reads an ethos source file into its checked-for-structure File.
 trait Sourcing {
     fn source(&self) -> Result<(EthosPotential<File>, File), Response>;
 }
-/// The kind whose capability turns an error in a read source into a located rejection.
+/// The trait whose capability turns an error in a read source into a located rejection.
 trait Rejecting {
     fn reject(&self, source: &EthosPotential<File>, error: ethos_zero::Error) -> Response;
 }

@@ -1,4 +1,4 @@
-; Kind identity constraints use the standard imported kinds.
+; Trait identity constraints use the standard imported traits.
 Library
 [ std:Clonable.Clone  std:Sendable.Send  serde:Serializable.Serialize ]
 []
