@@ -72,10 +72,15 @@ when it repins:
 - `github.com/LiGoldragon/signal-5f4fea-word-identifiers/ethos/identifiers.ethos`
   (Library; 4bf73cae; already gates datom-codec behind `datom`)
 
-No consumer generates from a Memory or Operation file. Signal consumers are
-unaffected; a Signal that holds a type from one of the crates above gains
-the rkyv it lacked. protos's and datom-codec's own `.ethos` files are read
-only by their checks (traits, which carry no derive, and anatomy).
+Memory and Operation consumers include Message Nexus and Flow Nexus.
+`message/crates/message-nexus/build.rs` generates `ethos/memory.ethos` and
+`ethos/operation.ethos`; its build dependency pins ethos-zero `c2653dd`
+(16.0.0). `flow/crates/flow-nexus/build.rs` generates
+`ethos/operation.ethos`; its build dependency pins `07714b0` (17.0.0).
+Both build scripts compare generated Rust with their committed
+`src/generated/` modules. A Signal that holds a type from one of the crates
+above gains the rkyv it lacked. protos's and datom-codec's own `.ethos` files
+are read only by their checks (traits, which carry no derive, and anatomy).
 
 ## 15.0.0: four roots, Memory and Operation
 
