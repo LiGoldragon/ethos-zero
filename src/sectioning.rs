@@ -112,9 +112,7 @@ impl Hoisting for File {
             at += declaration.span();
         }
         for implied in self.implied_enums() {
-            implied
-                .variants
-                .hoist_variants(vec![implied.section], &mut placed);
+            implied.variants.hoist(vec![implied.section], &mut placed);
         }
         placed
     }
@@ -137,16 +135,6 @@ trait Hoist {
     fn hoist<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>);
 }
 
-/// The trait whose capability walks the declarations in a list of positions.
-trait PositionsHoisting {
-    fn hoist_positions<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>);
-}
-
-/// The trait whose capability walks the declarations in a list of variants.
-trait VariantsHoisting {
-    fn hoist_variants<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>);
-}
-
 impl Hoist for TypeDeclaration {
     fn hoist<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>) {
         let mut body = path.clone();
@@ -156,15 +144,15 @@ impl Hoist for TypeDeclaration {
             declaration: self,
         });
         match self {
-            TypeDeclaration::Struct(_, positions) => positions.hoist_positions(body, placed),
-            TypeDeclaration::Enum(_, variants) => variants.hoist_variants(body, placed),
+            TypeDeclaration::Struct(_, positions) => positions.hoist(body, placed),
+            TypeDeclaration::Enum(_, variants) => variants.hoist(body, placed),
             TypeDeclaration::Alias(_, _) => {}
         }
     }
 }
 
-impl PositionsHoisting for [Position] {
-    fn hoist_positions<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>) {
+impl Hoist for [Position] {
+    fn hoist<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>) {
         let mut at = 0;
         for position in self {
             if let Position::Declared(declaration) = position {
@@ -177,15 +165,15 @@ impl PositionsHoisting for [Position] {
     }
 }
 
-impl VariantsHoisting for [Variant] {
-    fn hoist_variants<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>) {
+impl Hoist for [Variant] {
+    fn hoist<'a>(&'a self, path: Path, placed: &mut Vec<Placed<'a>>) {
         let mut at = 0;
         for variant in self {
             let mut body = path.clone();
             body.extend([at, 1]);
             match variant {
-                Variant::Struct(_, positions) => positions.hoist_positions(body, placed),
-                Variant::Enum(_, variants) => variants.hoist_variants(body, placed),
+                Variant::Struct(_, positions) => positions.hoist(body, placed),
+                Variant::Enum(_, variants) => variants.hoist(body, placed),
                 Variant::Bare(_) | Variant::Typed(_, _) => {}
             }
             at += variant.span();
@@ -222,5 +210,75 @@ pub(crate) trait ReferencingEach {
 impl ReferencingEach for [Position] {
     fn references(&self) -> Vec<Reference> {
         self.iter().map(Referencing::reference).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Hoisting, Integer};
+    use crate::checking::Identified;
+    use crate::{Actualizing, File, Potential};
+
+    #[test]
+    fn nested_position_and_variant_declarations_keep_paths_and_order() {
+        let source = "Library [] [ Root.{ Label.String Vector<Label> Child.{ Leaf.Integer } Mode.[ On Off ] } Envelope.[ Wrapped.{ Tag.String } Nested.[ Leaf.{ Bytes.String } Empty ] ] ] [] []";
+        let file = Potential::<File>::from(source)
+            .actualize()
+            .expect("nested declarations read");
+        let placed = file.declarations();
+        let names: Vec<&str> = placed
+            .iter()
+            .map(|placed| placed.declaration.identity().name.as_ref())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "Root", "Label", "Child", "Leaf", "Mode", "Envelope", "Tag", "Bytes"
+            ]
+        );
+        let paths: Vec<Vec<Integer>> = placed.iter().map(|placed| placed.path.clone()).collect();
+        assert_eq!(
+            paths,
+            vec![
+                vec![1, 0],
+                vec![1, 0, 1, 0],
+                vec![1, 0, 1, 3],
+                vec![1, 0, 1, 3, 1, 0],
+                vec![1, 0, 1, 4],
+                vec![1, 1],
+                vec![1, 1, 1, 0, 1, 0],
+                vec![1, 1, 1, 1, 1, 0, 1, 0],
+            ]
+        );
+        let inlined = file.inlined();
+        let names: Vec<&str> = inlined
+            .iter()
+            .map(|placed| placed.declaration.identity().name.as_ref())
+            .collect();
+        assert_eq!(names, ["Label", "Child", "Leaf", "Mode", "Tag", "Bytes"]);
+    }
+
+    #[test]
+    fn shared_types_precede_implied_query_and_response_declarations() {
+        let source = "Signal [] [ Launch.{ Name.String } Cancel ] [ Accepted.{ Code.Integer } Refused ] [ Shared.{ Id.Integer } ]";
+        let file = Potential::<File>::from(source)
+            .actualize()
+            .expect("Signal declarations read");
+        let placed = file.declarations();
+        let names: Vec<&str> = placed
+            .iter()
+            .map(|placed| placed.declaration.identity().name.as_ref())
+            .collect();
+        assert_eq!(names, ["Shared", "Id", "Name", "Code"]);
+        let paths: Vec<Vec<Integer>> = placed.iter().map(|placed| placed.path.clone()).collect();
+        assert_eq!(
+            paths,
+            vec![
+                vec![3, 0],
+                vec![3, 0, 1, 0],
+                vec![1, 0, 1, 0],
+                vec![2, 0, 1, 0],
+            ]
+        );
     }
 }
