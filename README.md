@@ -153,20 +153,21 @@ aligned; the closing delimiter ends the last element's line. Elements that
 are all leaves sit on one line, one space apart. A space stands inside
 every non-empty bracket and brace; an empty one is `[]` or `{}`. An angled
 enclosure stays tight against the name it qualifies, `Vector<Event>`. A
-file prints in the sweet form, its root's head on the first line and each
-section on its own line; comments are not printed.
+file prints in the canonical braced form, its first section after the root
+and subsequent sections aligned beneath it; comments are not printed.
+
+The Ethos:
 
 ```
-Memory
-[ flow:[ FlowId Voice Event ] ]
-[ Flow.{ FlowId
-         Voice
-         State.[ Running Ended ]
-         Vector<Event> } ]
+Memory.{ [ flow:[ FlowId Voice Event ] ]
+         [ Flow.{ FlowId
+                  Voice
+                  State.[ Running Ended ]
+                  Vector<Event> } ] }
 ```
 
 The layout is protos' canonical print (`protos::Textualizable`); this crate
-adds only the sweet form of a file. `Printable::print` writes it for a
+adds only a trailing newline. `Printable::print` writes it for a
 `File` and for any `protos::Protos` read from ethos text; the reader accepts
 it and every other layout. An empty `[]` or `{}` is a leaf. The
 Flow Nexus's four files under `fixtures/print/` print back byte-identical.
