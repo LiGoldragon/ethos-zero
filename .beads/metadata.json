@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "ethos_zero",
+  "project_id": "6a2d003f-cfa3-4c87-b140-2b762e71f4c3"
+}
