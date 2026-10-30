@@ -48,6 +48,8 @@ mod flow_signal;
 mod generic_shadow;
 #[path = "generated/inline-collision.rs"]
 mod inline_collision;
+#[path = "generated/launch-newtypes.rs"]
+mod launch_newtypes;
 #[path = "generated/multi-types.rs"]
 mod multi_types;
 #[path = "generated/nested-collision.rs"]
@@ -279,6 +281,7 @@ fn declared_newtypes_round_trip_as_datom_text() {
 
     let short = alias_format::Short("Ada".to_owned());
     let text = short.clone().datomize(vec![]).protosize().textualize();
+    assert_eq!(text, "Ada");
     let mut pending = Potential::<alias_format::Short>::from(text);
     let restored = pending
         .actualize(&mut Budget {
@@ -508,4 +511,33 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
         memory
     );
     let _: FlowId = memory.flow_id;
+}
+
+#[test]
+fn generated_launch_parses_the_supplied_newtype_form() {
+    use datom_codec::{Actualizing, Budget, Datomizable, Potential};
+    use launch_newtypes::{Address, Aspect, Brief, Launch_Data, Layer, Query, Remembering, Topic};
+    use protos::{Compactable, Protosizable, ReaderBudget};
+    let text = "Launch.{ { Mind flowNexus Tertiary } «» «Report that this test flow started.» }";
+    let actual = Potential::<Query>::from(text)
+        .actualize(&mut Budget {
+            remaining: 1024,
+            reader: ReaderBudget { remaining: 1024 },
+            depth: 0,
+            maximum_depth: 128,
+        })
+        .expect("the supplied Launch form composes through generated newtypes");
+    assert_eq!(
+        actual,
+        Query::Launch(Launch_Data {
+            address: Address {
+                aspect: Aspect::Mind,
+                topic: Topic("flowNexus".into()),
+                layer: Layer::Tertiary
+            },
+            remembering: Remembering(String::new()),
+            brief: Brief("Report that this test flow started.".into()),
+        })
+    );
+    assert_eq!(actual.datomize(vec![]).protosize().compact(), text);
 }

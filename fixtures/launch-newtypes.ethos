@@ -1,0 +1,10 @@
+Signal
+[] ; imports
+[ Launch.{ Address Remembering Brief } ] ; inputs and their positional data
+[ Launched ] ; outputs
+[ Topic.String ; types: transparent newtypes
+  Remembering.String
+  Brief.String
+  Aspect.[ Mind Psyche Field ] ; fixed aspects
+  Layer.[ Primary Secondary Tertiary Quaternary ] ; fixed layers
+  Address.{ Aspect Topic Layer } ] ; address positions
