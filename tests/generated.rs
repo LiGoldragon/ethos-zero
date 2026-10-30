@@ -94,8 +94,8 @@ fn colliding_inline_payloads_are_named_for_their_enums() {
         inline_collision::Y_Data_X_Data { integer: 2 },
     ));
     let q = inline_collision::Q::X(inline_collision::Q_X_Data { integer: 1 });
-    let authored: inline_collision::X_Data = String::new();
-    let unique = inline_collision::R::Z(inline_collision::Z_Data { string: authored });
+    let authored = inline_collision::X_Data(String::new());
+    let unique = inline_collision::R::Z(inline_collision::Z_Data { string: authored.0 });
     assert!(matches!(p, inline_collision::P::X(_)));
     assert!(matches!(nested, inline_collision::P::Y(_)));
     assert!(matches!(q, inline_collision::Q::X(_)));
@@ -109,15 +109,21 @@ fn named_fields_and_signal_query_response_compile() {
         integer: 1990,
     };
     assert_eq!(record.integer, 1990);
-    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(vec![]));
-    let response = orchestrate::Response::Observed(orchestrate::Observation::Locks(vec![]));
+    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(
+        orchestrate::Locks(vec![]),
+    ));
+    let response = orchestrate::Response::Observed(orchestrate::Observation::Locks(
+        orchestrate::Locks(vec![]),
+    ));
     assert!(matches!(query, orchestrate::Query::Observe(_)));
     assert!(matches!(response, orchestrate::Response::Observed(_)));
 }
 
 #[test]
 fn generated_signal_query_round_trips_as_a_portable_archive() {
-    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(vec![]));
+    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(
+        orchestrate::Locks(vec![]),
+    ));
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive query");
     let restored =
         rkyv::from_bytes::<orchestrate::Query, rkyv::rancor::Error>(&bytes).expect("restore query");
@@ -160,7 +166,7 @@ fn recursive_generated_signal_archives_and_restores() {
         assert_eq!(restored, query);
     }
     let responses = [
-        Response::Planted(vec![tree, Tree::Leaf(3)]),
+        Response::Planted(tree_types::Forest(vec![tree, Tree::Leaf(3)])),
         Response::Twined(Twig::Grow(Box::new(twin))),
     ];
     for response in responses {
@@ -215,7 +221,7 @@ fn operation_free_signal_shared_record_archives_and_round_trips_as_datom_text() 
     use protos::{Protosizable, ReaderBudget, Textualizable};
 
     let shared = empty_signal::Shared {
-        name: "domain".to_owned(),
+        name: empty_signal::Name("domain".to_owned()),
     };
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&shared).expect("archive shared record");
     assert_eq!(
@@ -267,13 +273,32 @@ fn generated_memory_records_round_trip_as_datom_text() {
 }
 
 #[test]
-fn aliases_name_their_types() {
-    let short: alias_format::Short = String::new();
-    let provider: alias_format::OptionalSpiritGuardianProviderName = Some(short);
-    let tokens: alias_format::OptionalSpiritGuardianMaximumOutputTokens = Some(4_096);
-    let nested: alias_format::Nested = vec![Some(Ok(String::new())), Some(Err(1)), None];
-    assert!(provider.is_some() && tokens.is_some());
-    assert_eq!(nested.len(), 3);
+fn declared_newtypes_round_trip_as_datom_text() {
+    use datom_codec::{Actualizing, Budget, Datomizable, Potential};
+    use protos::{Protosizable, ReaderBudget, Textualizable};
+
+    let short = alias_format::Short("Ada".to_owned());
+    let text = short.clone().datomize(vec![]).protosize().textualize();
+    let mut pending = Potential::<alias_format::Short>::from(text);
+    let restored = pending
+        .actualize(&mut Budget {
+            remaining: 1024,
+            reader: ReaderBudget { remaining: 1024 },
+            depth: 0,
+            maximum_depth: 1024,
+        })
+        .expect("restore declared newtype");
+    assert_eq!(restored, short);
+
+    let provider = alias_format::OptionalSpiritGuardianProviderName(Some(
+        alias_format::SpiritGuardianProviderName("provider".to_owned()),
+    ));
+    let tokens = alias_format::OptionalSpiritGuardianMaximumOutputTokens(Some(
+        alias_format::SpiritGuardianMaximumOutputTokens(4_096),
+    ));
+    let nested = alias_format::Nested(vec![Some(Ok(String::new())), Some(Err(1)), None]);
+    assert!(provider.0.is_some() && tokens.0.is_some());
+    assert_eq!(nested.0.len(), 3);
 }
 
 /// A sink bearing the fixture's own capability trait.
@@ -372,13 +397,13 @@ fn several_declarations_generate_side_by_side() {
         string: String::new(),
         integer_vector: vec![record.integer],
     };
-    let id: multi_types::LockId = 7;
+    let id = multi_types::LockId(7);
     assert_eq!(report.integer_vector, vec![1]);
     assert!(matches!(
         multi_types::SinkError::Closed,
         multi_types::SinkError::Closed
     ));
-    assert_eq!(id, 7);
+    assert_eq!(id.0, 7);
 }
 
 #[test]
@@ -451,8 +476,8 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
     let operation = flow_operation::Operation::Start(flow_operation::Start_Data {
         voice: Voice::Mind(flow_library::Rank::Primary),
         capsule: flow_operation::Capsule {
-            home: "/home/flow".to_owned(),
-            login: vec!["claude".to_owned()],
+            home: flow_operation::Home("/home/flow".to_owned()),
+            login: flow_operation::Login(vec!["claude".to_owned()]),
         },
     });
     let text = operation.datomize(vec![]).protosize().textualize();
@@ -461,10 +486,13 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
         pending.actualize(&mut budget()).expect("restore operation"),
         operation
     );
-    let outcome = flow_operation::Outcome::Started(7);
-    assert!(matches!(outcome, flow_operation::Outcome::Started(7)));
+    let outcome = flow_operation::Outcome::Started(FlowId(7));
+    assert!(matches!(
+        outcome,
+        flow_operation::Outcome::Started(FlowId(7))
+    ));
     let memory = flow_memory::Flow {
-        flow_id: 7,
+        flow_id: FlowId(7),
         voice: Voice::Psyche(flow_library::Rank::Secondary),
         state: flow_memory::State::Running,
         event_vector: vec![

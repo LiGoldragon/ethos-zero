@@ -41,7 +41,7 @@ fn signal_generates_query_response_and_optional_datom_derives() {
     assert!(rust.contains("pub enum Response"));
     assert!(rust.contains("feature = \"datom\""));
     assert!(rust.contains("datom_codec::Datomizable, datom_codec::Composing"));
-    assert!(rust.contains("pub type LockId = i64"));
+    assert!(rust.contains("pub struct LockId(pub i64)"));
 }
 
 #[test]
@@ -110,11 +110,11 @@ fn a_named_position_declares_its_type_in_place() {
         Ok(rust) => rust,
         Err(_) => panic!("a struct with named positions generates"),
     };
-    assert!(rust.contains("pub type Brief = String;"), "{rust}");
+    assert!(rust.contains("pub struct Brief(pub String);"), "{rust}");
     assert!(rust.contains("pub enum State {"), "{rust}");
     assert!(rust.contains("pub struct Capsule {"), "{rust}");
     assert!(
-        rust.contains("pub type Login = std::vec::Vec<String>;"),
+        rust.contains("pub struct Login(pub std::vec::Vec<String>);"),
         "{rust}"
     );
     assert!(rust.contains("pub home: Home"), "{rust}");
@@ -145,7 +145,7 @@ fn a_variant_payload_declares_named_positions_in_place() {
             Ok(rust) => rust,
             Err(_) => panic!("a payload with a named position generates"),
         };
-    assert!(rust.contains("pub type Brief = String;"), "{rust}");
+    assert!(rust.contains("pub struct Brief(pub String);"), "{rust}");
     assert!(rust.contains("pub brief: Brief"), "{rust}");
 }
 
@@ -350,22 +350,22 @@ fn a_rooted_import_inline_in_an_alias_puts_the_colon_where_the_period_was() {
         "Library [] [ Topic:custom:Name Nested:flow_ethos:message:Type Listed:external:sub:Vector<String> ] [] []",
     );
     assert!(
-        generated.contains("pub type Topic = custom::Name;"),
+        generated.contains("pub struct Topic(pub custom::Name);"),
         "{generated}"
     );
     assert!(
-        generated.contains("pub type Nested = flow_ethos::message::Type;"),
+        generated.contains("pub struct Nested(pub flow_ethos::message::Type);"),
         "{generated}"
     );
     assert!(
-        generated.contains("pub type Listed = external::sub::Vector<String>;"),
+        generated.contains("pub struct Listed(pub external::sub::Vector<String>);"),
         "{generated}"
     );
 
     let in_place =
         generates("Library [] [ Holder.{ Topic:flow_ethos:message:Type String } ] [] []");
     assert!(
-        in_place.contains("pub type Topic = flow_ethos::message::Type;"),
+        in_place.contains("pub struct Topic(pub flow_ethos::message::Type);"),
         "{in_place}"
     );
     assert!(in_place.contains("pub topic: Topic"), "{in_place}");
@@ -577,7 +577,9 @@ fn every_generated_item_carries_rustfmt_skip() {
     for path in generated {
         let text = std::fs::read_to_string(&path).expect("generated module reads");
         assert!(
-            text.starts_with("#![allow(dead_code, non_camel_case_types, non_snake_case)]\n"),
+            text.starts_with(
+                "#![allow(\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    clippy::type_complexity\n)]\n"
+            ),
             "{path} opens with the generated-file header"
         );
         let file = syn::parse_file(&text).expect("generated module parses");
@@ -585,7 +587,7 @@ fn every_generated_item_carries_rustfmt_skip() {
             let attributes = match item {
                 syn::Item::Struct(item) => &item.attrs,
                 syn::Item::Enum(item) => &item.attrs,
-                syn::Item::Type(item) => &item.attrs,
+                syn::Item::Type(_) => panic!("{path} holds a public type alias"),
                 syn::Item::Trait(item) => &item.attrs,
                 syn::Item::Const(item) => &item.attrs,
                 _ => panic!("{path} holds an item generation does not emit"),

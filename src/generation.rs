@@ -882,7 +882,8 @@ impl Emitting for TypeDeclaration {
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
                 let aliased = aliased.emit(&inner);
-                quote! { #[rustfmt::skip] pub type #name #parameters = #aliased; }
+                let derive = identity.datom_derives();
+                quote! { #derive pub struct #name #parameters (pub #aliased); }
             }
         }
     }
@@ -1188,7 +1189,7 @@ impl Emitting for File {
             }
         }
         quote! {
-            #![allow(dead_code, non_camel_case_types, non_snake_case)]
+            #![allow(dead_code, non_camel_case_types, non_snake_case, clippy::type_complexity)]
             #( #items )*
         }
     }
@@ -1201,6 +1202,12 @@ impl Emitting for File {
 /// on one line here, which is the form rustfmt wants.
 trait DeriveCollapsing {
     fn collapse_derives(&self) -> String;
+}
+
+/// The trait whose capability writes the generated file allowance in the
+/// form rustfmt accepts.
+trait AllowFormatting {
+    fn format_allow(&self) -> String;
 }
 
 impl DeriveCollapsing for String {
@@ -1231,6 +1238,16 @@ impl DeriveCollapsing for String {
     }
 }
 
+impl AllowFormatting for String {
+    fn format_allow(&self) -> String {
+        self.replacen(
+            "#![allow(dead_code, non_camel_case_types, non_snake_case, clippy::type_complexity)]\n",
+            "#![allow(\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    clippy::type_complexity\n)]\n",
+            1,
+        )
+    }
+}
+
 impl Generating for File {
     fn generate(&self) -> Result<String, crate::Error> {
         let scope = Scope {
@@ -1241,6 +1258,8 @@ impl Generating for File {
         self.check(&scope)?;
         let tokens = self.emit(&scope);
         let file: syn::File = syn::parse2(tokens).expect("generated tokens are a Rust file");
-        Ok(prettyplease::unparse(&file).collapse_derives())
+        Ok(prettyplease::unparse(&file)
+            .collapse_derives()
+            .format_allow())
     }
 }

@@ -1232,7 +1232,7 @@ mod behavior {
                 .or_else(|| source.find("<1>").map(|at| at + 1))
                 .expect("one offending token");
             assert_eq!(
-                (location.line, location.column),
+                (location.line.0, location.column.0),
                 (1, offending as i64 + 1),
                 "{source}: {error:?}"
             );

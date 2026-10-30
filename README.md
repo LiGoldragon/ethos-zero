@@ -77,6 +77,11 @@ The type is named by its own name, shares the file's namespace (a second
 by name, so its field is `brief: Brief`. It is declared outside any
 enclosing identity, and emitted before the struct that holds it.
 
+A head over one type declares a newtype. `LockId.Integer` emits the tuple
+struct `pub struct LockId(pub i64)`, with the same archive and optional
+datom derives as every other declared type. The name is therefore its own
+Rust type rather than another spelling of the type it holds.
+
 An import starts with a colon, then the uncapitalized namespace
 segments, each followed by a colon, then the capitalized name:
 `:flow_ethos:message:Type` imports one name, `:protos:[ String Integer ]`
@@ -196,7 +201,7 @@ ethos-zero 'Generate.{ /abs/file.ethos /abs/out-dir }'
 # -> Generated.[ /abs/out-dir/file.rs ]
 ethos-zero 'Check./abs/file.ethos'
 # -> Checked./abs/file.ethos
-# -> Rejected.{ /abs/file.ethos { 4 19 } Conceptual.{ [ 1 1 0 1 1 ] Undeclared.Bogus } }
+# -> Rejected.{ /abs/file.ethos { { 4 } { 19 } } Conceptual.{ [ 1 1 0 1 1 ] Undeclared.Bogus } }
 ```
 
 `Check` validates the whole file and writes nothing. A rejection, from

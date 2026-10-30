@@ -1,17 +1,36 @@
-#![allow(dead_code, non_camel_case_types, non_snake_case)]
+#![allow(
+    dead_code,
+    non_camel_case_types,
+    non_snake_case,
+    clippy::type_complexity
+)]
 #[rustfmt::skip]
-pub type Short = String;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Short(pub String);
 #[rustfmt::skip]
-pub type OptionalSpiritGuardianProviderName = std::option::Option<
-    SpiritGuardianProviderName,
->;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct OptionalSpiritGuardianProviderName(
+    pub std::option::Option<SpiritGuardianProviderName>,
+);
 #[rustfmt::skip]
-pub type OptionalSpiritGuardianMaximumOutputTokens = std::option::Option<
-    SpiritGuardianMaximumOutputTokens,
->;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct OptionalSpiritGuardianMaximumOutputTokens(
+    pub std::option::Option<SpiritGuardianMaximumOutputTokens>,
+);
 #[rustfmt::skip]
-pub type Nested = std::vec::Vec<std::option::Option<std::result::Result<String, i64>>>;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Nested(
+    pub std::vec::Vec<std::option::Option<std::result::Result<String, i64>>>,
+);
 #[rustfmt::skip]
-pub type SpiritGuardianProviderName = String;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct SpiritGuardianProviderName(pub String);
 #[rustfmt::skip]
-pub type SpiritGuardianMaximumOutputTokens = i64;
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct SpiritGuardianMaximumOutputTokens(pub i64);

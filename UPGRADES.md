@@ -2,6 +2,19 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 19.0.0: a head over one type is a newtype
+
+What breaks:
+
+- A declaration such as `LockId.Integer` generates
+  `pub struct LockId(pub i64)` instead of `pub type LockId = i64`.
+- Each generated newtype carries the standard rkyv derives and the
+  feature-gated `Datomizable` and `Composing` derives. Consumers construct
+  it with `LockId(value)` and access the held value as `.0`.
+
+To deploy, regenerate every committed consumer and update its constructors
+and projections before repinning ethos-zero to 19.0.0.
+
 ## 18.0.0: imports are rooted, with every namespace segment
 
 What breaks:
@@ -105,7 +118,7 @@ What breaks:
 
 - The `Sema` root is renamed `Memory`: same sections (imports, record
   types), same generation. A file headed `Sema` is refused as
-  `Rejected.{ file { 1 1 } Conceptual.{ [ 0 ] Renamed.Memory } }`. The
+  `Rejected.{ file { { 1 } { 1 } } Conceptual.{ [ 0 ] Renamed.Memory } }`. The
   `Error` contract gains `Problem.Renamed.String`.
 - The `Operation` root is added: `Operation [ imports ] [ operations ]
   [ outcomes ] [ types ]`, generating `pub enum Operation` and

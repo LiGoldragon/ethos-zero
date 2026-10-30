@@ -86,8 +86,8 @@ impl Lining for str {
             None => before.chars().count() + 1,
         };
         Location {
-            line: line as Integer,
-            column: column as Integer,
+            line: crate::Line(line as Integer),
+            column: crate::Column(column as Integer),
         }
     }
 }

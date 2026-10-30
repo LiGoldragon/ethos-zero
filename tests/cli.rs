@@ -161,7 +161,7 @@ fn a_bad_ethos_file_is_rejected_at_its_line_and_column_and_nothing_is_written() 
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 3 19 }} Conceptual.{{ [ 1 1 0 1 1 ] Undeclared.Bogus }} }}\n"
+            "Rejected.{{ {source} {{ {{ 3 }} {{ 19 }} }} Conceptual.{{ [ 1 1 0 1 1 ] Undeclared.Bogus }} }}\n"
         )
     );
     assert!(!std::path::Path::new(&target).exists());
@@ -189,7 +189,7 @@ fn check_locates_an_undeclared_name_below_a_comment() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 5 26 }} Conceptual.{{ [ 1 1 0 1 2 1 0 ] Undeclared.Bogus }} }}\n"
+            "Rejected.{{ {source} {{ {{ 5 }} {{ 26 }} }} Conceptual.{{ [ 1 1 0 1 2 1 0 ] Undeclared.Bogus }} }}\n"
         )
     );
 }
@@ -209,7 +209,7 @@ fn check_refuses_a_second_inline_source_at_the_inner_reference() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 3 16 }} Conceptual.{{ [ 1 1 0 1 0 1 ] Expected.Reference }} }}\n"
+            "Rejected.{{ {source} {{ {{ 3 }} {{ 16 }} }} Conceptual.{{ [ 1 1 0 1 0 1 ] Expected.Reference }} }}\n"
         )
     );
 }
@@ -227,7 +227,7 @@ fn check_locates_a_duplicate_at_its_second_declaration() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 4 3 }} Conceptual.{{ [ 1 1 1 0 ] Duplicate.Record }} }}\n"
+            "Rejected.{{ {source} {{ {{ 4 }} {{ 3 }} }} Conceptual.{{ [ 1 1 1 0 ] Duplicate.Record }} }}\n"
         )
     );
 }
@@ -245,7 +245,7 @@ fn check_locates_an_arity_error_at_the_reference() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 4 10 }} Conceptual.{{ [ 1 1 0 1 1 ] Arity.{{ 2 1 }} }} }}\n"
+            "Rejected.{{ {source} {{ {{ 4 }} {{ 10 }} }} Conceptual.{{ [ 1 1 0 1 1 ] Arity.{{ 2 1 }} }} }}\n"
         )
     );
 }
@@ -258,7 +258,9 @@ fn check_locates_a_structural_error_at_its_extent() {
     let (success, output) = [argument.as_str()].invoke();
     assert!(!success);
     assert!(
-        output.starts_with(&format!("Rejected.{{ {source} {{ 3 19 }} Structural.")),
+        output.starts_with(&format!(
+            "Rejected.{{ {source} {{ {{ 3 }} {{ 19 }} }} Structural."
+        )),
         "{output}"
     );
 }
@@ -295,7 +297,7 @@ fn check_takes_a_trait_in_an_input_and_locates_a_concrete_type_there() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {refused} {{ 4 28 }} Conceptual.{{ [ 1 2 0 1 0 1 0 0 ] TraitWanted.Rec }} }}\n"
+            "Rejected.{{ {refused} {{ {{ 4 }} {{ 28 }} }} Conceptual.{{ [ 1 2 0 1 0 1 0 0 ] TraitWanted.Rec }} }}\n"
         )
     );
 }
@@ -309,7 +311,9 @@ fn a_file_headed_sema_is_rejected_naming_memory() {
     assert!(!success);
     assert_eq!(
         output,
-        format!("Rejected.{{ {source} {{ 1 1 }} Conceptual.{{ [ 0 ] Renamed.Memory }} }}\n")
+        format!(
+            "Rejected.{{ {source} {{ {{ 1 }} {{ 1 }} }} Conceptual.{{ [ 0 ] Renamed.Memory }} }}\n"
+        )
     );
 }
 
