@@ -59,13 +59,19 @@ pub use error::{
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Name(String);
 
-/// The source of an import: a Rust path prefix such as `protos`, `crate` or `std::clone`.
+/// The source of an import: the namespace segments before the imported name.
 ///
-/// Construct it with [`TryFrom<&str>`]; `AsRef<str>` reads its validated text.
+/// Ethos writes it rooted, `:flow_ethos:message` before `:Type`, or, for one
+/// segment, chained, `protos` before `:Type`. The generated Rust writes the
+/// segments as a path, `flow_ethos::message`.
+///
+/// Construct it with [`TryFrom<&str>`] from either spelling; `AsRef<str>`
+/// reads the Rust path.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Source {
     text: String,
     segments: Vec<protos::Symbol>,
+    rooted: bool,
 }
 
 impl TryFrom<&str> for Name {
@@ -101,28 +107,57 @@ impl TryFrom<&str> for Source {
     type Error = String;
 
     fn try_from(text: &str) -> Result<Self, Self::Error> {
-        let Ok(path) = syn::parse_str::<syn::Path>(text) else {
-            return Err(text.to_owned());
+        let (rooted, written) = match text.strip_prefix(':') {
+            Some(rest) => (true, rest),
+            None => (false, text),
         };
-        if path.leading_colon.is_some() {
-            return Err(text.to_owned());
-        }
-        for segment in &path.segments {
-            if segment.ident == "Self" || !segment.arguments.is_none() {
-                return Err(text.to_owned());
-            }
-        }
-        let mut segments = Vec::with_capacity(path.segments.len());
-        for segment in text.split("::") {
-            if segment.is_empty() {
+        let mut segments = Vec::new();
+        for segment in written.split(':') {
+            // A namespace segment is uncapitalized; the capital marks the type.
+            if segment.is_empty() || segment.starts_with(|glyph: char| glyph.is_uppercase()) {
                 return Err(text.to_owned());
             }
             segments.push(protos::Symbol(segment.to_owned()));
         }
+        if !rooted && segments.len() > 1 {
+            return Err(text.to_owned());
+        }
+        let path = written.replace(':', "::");
+        let Ok(parsed) = syn::parse_str::<syn::Path>(&path) else {
+            return Err(text.to_owned());
+        };
+        if parsed.leading_colon.is_some() || parsed.segments.len() != segments.len() {
+            return Err(text.to_owned());
+        }
+        for segment in &parsed.segments {
+            if segment.ident == "Self" || !segment.arguments.is_none() {
+                return Err(text.to_owned());
+            }
+        }
         Ok(Self {
-            text: text.to_owned(),
+            text: path,
             segments,
+            rooted,
         })
+    }
+}
+
+/// The trait whose capabilities read how a [`Source`] is written: its
+/// namespace segments, and whether it is rooted by a leading colon.
+pub trait Spelled {
+    /// The namespace segments, outermost first.
+    fn segments(&self) -> &[protos::Symbol];
+    /// Whether the source is written rooted, `:namespace:sub`.
+    fn rooted(&self) -> bool;
+}
+
+impl Spelled for Source {
+    fn segments(&self) -> &[protos::Symbol] {
+        &self.segments
+    }
+
+    fn rooted(&self) -> bool {
+        self.rooted
     }
 }
 
@@ -220,9 +255,9 @@ pub struct Memory {
 /// An import: a source and the names taken from it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Import {
-    /// One name from a source: `protos:Text`.
+    /// One name from a source: `:flow_ethos:message:Type`, or `protos:Text`.
     One(Source, Imported),
-    /// Several names from a source: `protos:[ Text Integer ]`.
+    /// Several names from a source: `:protos:[ Text Integer ]`, or `protos:[ Text Integer ]`.
     Many(Source, Vec<Imported>),
 }
 
@@ -238,7 +273,7 @@ pub struct Imported {
 /// A reference to a type or a trait by name: an optional inline source, the name, and its arguments.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reference {
-    /// An inline source qualifying the name: `protos:Error`.
+    /// An inline source qualifying the name: `:protos:Error`, or `protos:Error`.
     pub source: Option<Source>,
     /// The name referred to.
     pub name: Name,
@@ -488,7 +523,7 @@ pub struct Scope<'a> {
 // Traits
 // ---------------------------------------------------------------------------
 
-/// The trait whose capability prints an ethos file in its canonical braced form.
+/// The trait whose capability prints an ethos file in the sweet form, each section in protos' canonical vertical print.
 pub trait Printable {
     /// The canonical print.
     fn print(&self) -> String;
@@ -793,8 +828,8 @@ mod behavior {
         let carried = "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]";
         for source in [
             "Library [] [ Record.{ String Integer } ] [] []",
-            "Signal [] [ Ask.{ String Integer } Stop ] [ Told Stopped ] []",
-            "Operation [] [ Do.{ String Integer } Stop ] [ Done Stopped ] []",
+            "Signal [] [ Ask.{ String Integer } ] [ Told ] []",
+            "Operation [] [ Do.{ String Integer } ] [ Done ] []",
             "Memory [] [ Record.{ String Integer } ]",
         ] {
             let file = match Potential::<File>::from(source).actualize() {
@@ -844,7 +879,7 @@ mod behavior {
 
     #[test]
     fn library_traits_generate_trait_surfaces() {
-        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -933,7 +968,7 @@ mod behavior {
     #[test]
     fn canonical_ascent_round_trips_nonempty_library_and_signal() {
         let library = "Library [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.Vector<FilePath> External.external:Vector<FilePath> Record.{ Vector<Option<String>> Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Capability ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ]";
-        let signal = "Signal [ datom_codec:[ Error Path ] ] [ Generate.Generation Check.String ] [ Generated.String Malformed.Error ] [ Generation.{ String String } ]";
+        let signal = "Signal [ datom_codec:[ Error Path ] ] [ Generate.Generation ] [ Generated.String Malformed.Error ] [ Generation.{ String String } ]";
         for source in [library, signal] {
             let file = match Potential::<File>::from(source).actualize() {
                 Ok(file) => file,
@@ -965,7 +1000,7 @@ mod behavior {
 
     #[test]
     fn operation_reads_its_four_sections_and_ascends() {
-        let source = "Operation [ flow:[ Voice ] ] [ Start.{ Voice Capsule } Stop ] [ Started Failed.String ] [ Capsule.{ Home.String } ]";
+        let source = "Operation [ flow:[ Voice ] ] [ Start.{ Voice Capsule } ] [ Started Failed.String ] [ Capsule.{ Home.String } ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("approved Operation reads"),
@@ -1035,7 +1070,7 @@ mod behavior {
 
     #[test]
     fn nested_inline_data_names_include_ancestry_after_the_first_level() {
-        let source = "Library [] [ Outer.[ A.[ X.{ String } Empty ] B.[ X.{ Integer } Empty ] ] Rejection.[ PathOverlap.{ String String } Allowed ] ] [] []";
+        let source = "Library [] [ Outer.[ A.[ X.{ String } ] B.[ X.{ Integer } ] ] Rejection.[ PathOverlap.{ String String } ] ] [] []";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("nested collision source reads"),
@@ -1165,7 +1200,7 @@ mod behavior {
             "Library.{ [] [ 1 ] [] [] }",
             "Signal [ 1 ] [] [] []",
             "Memory [] [ 1 ]",
-            "Operation [] [ Go.Vector<Bogus> Stop ] [] []",
+            "Operation [] [ Go.Vector<Bogus> ] [] []",
             "Library [] [ Alias.Vector<1> ] [] []",
             "Library [] [] [ K.[ 1 ] ] []",
             "Library [] [] [ K.{ [ 1 ] [] [] [] } ] []",
@@ -1179,7 +1214,7 @@ mod behavior {
             "Library [] [] [ K.[ run.{ [ Self Bogus ] [ String ] } ] ] []",
             "Library [] [] [ K.[ run.{ [ Self ] [ Vector<Bogus> ] } ] ] []",
             "Library [] [] [ K.{ [] [ Item<Bogus> ] [] [] } ] []",
-            "Signal [] [ Ask.Vector<Bogus> Stop ] [] []",
+            "Signal [] [ Ask.Vector<Bogus> ] [] []",
         ];
         for source in cases {
             let potential = Potential::<File>::from(source);

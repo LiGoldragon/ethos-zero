@@ -14,7 +14,7 @@ fn read(source: &str) -> File {
 
 #[test]
 fn full_library_round_trips_and_generates_named_types_and_traits() {
-    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
     let file = read(source);
     let repeated = read(&file.protosize().textualize());
     assert_eq!(file, repeated);
@@ -89,12 +89,12 @@ fn operation_generates_its_operation_and_outcome_enums_with_their_payloads() {
 #[test]
 fn an_operation_declaring_the_operation_or_outcome_type_is_refused() {
     assert!(
-        read("Operation [] [ Go.Operation Stop ] [ Gone Stopped ] [ Operation.{ String } ]")
+        read("Operation [] [ Go.Operation ] [ Gone ] [ Operation.{ String } ]")
             .generate()
             .is_err()
     );
     assert!(
-        read("Operation [] [ Go Stop ] [ Gone.Outcome Stopped ] [ Outcome.{ String } ]")
+        read("Operation [] [ Go ] [ Gone.Outcome ] [ Outcome.{ String } ]")
             .generate()
             .is_err()
     );
@@ -141,9 +141,7 @@ fn a_named_position_shares_the_file_namespace() {
 #[test]
 fn a_variant_payload_declares_named_positions_in_place() {
     let rust =
-        match read("Signal [] [ Launch.{ Integer Brief.String } Stop ] [ Launched Stopped ] []")
-            .generate()
-        {
+        match read("Signal [] [ Launch.{ Integer Brief.String } ] [ Launched ] []").generate() {
             Ok(rust) => rust,
             Err(_) => panic!("a payload with a named position generates"),
         };
@@ -177,13 +175,11 @@ fn a_signal_declaring_the_query_type_is_refused() {
     // The generator emits `pub enum Query` (Vision/ethos.md: "pub enum Query
     // { Lock(LockRequest), Release(LockId) }"), so `Query` is the name a
     // Signal may not also declare.
-    let signal = read("Signal [] [ Ask.Query Stop ] [ Told.Query Stopped ] [ Query.{ String } ]");
+    let signal = read("Signal [] [ Ask.Query ] [ Told.Query ] [ Query.{ String } ]");
     assert!(signal.generate().is_err());
     // `Request` is an ordinary name: nothing is generated under it.
-    let generated = match read(
-        "Signal [] [ Ask.Request Stop ] [ Told.Request Stopped ] [ Request.{ String } ]",
-    )
-    .generate()
+    let generated = match read("Signal [] [ Ask.Request ] [ Told.Request ] [ Request.{ String } ]")
+        .generate()
     {
         Ok(generated) => generated,
         Err(_) => panic!("a Signal declaring Request generates"),
@@ -195,7 +191,7 @@ fn a_signal_declaring_the_query_type_is_refused() {
 #[test]
 fn a_signal_declaring_the_response_type_is_refused() {
     assert!(
-        read("Signal [] [ Ask.Response Stop ] [ Told.Response Stopped ] [ Response.{ String } ]")
+        read("Signal [] [ Ask.Response ] [ Told.Response ] [ Response.{ String } ]")
             .generate()
             .is_err()
     );
@@ -280,10 +276,8 @@ fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
 
 #[test]
 fn a_second_inline_source_is_refused_instead_of_overwriting_the_first() {
-    for source in [
-        "Library [] [ Holder.{ Topic:custom:Name String } ] [] []",
-        "Library [] [ Holder.{ std:sync:Mutex<String> String } ] [] []",
-    ] {
+    // A chained source is one segment; more segments are written rooted.
+    for source in ["Library [] [ Holder.{ std:sync:Mutex<String> String } ] [] []"] {
         match Potential::<File>::from(source).actualize() {
             Err(Error::Conceptual(data)) => {
                 assert_eq!(data.problem, Problem::Expected(Form::Reference));
@@ -303,18 +297,143 @@ fn a_second_inline_source_is_refused_instead_of_overwriting_the_first() {
     }
 }
 
+/// Generate a source that must read, check and generate, and reprint to the same file.
+fn generates(source: &str) -> String {
+    let file = read(source);
+    assert_eq!(
+        file,
+        read(&file.protosize().textualize()),
+        "{source} reprints"
+    );
+    match file.generate() {
+        Ok(generated) => {
+            syn::parse_file(&generated).expect("generated Rust parses");
+            generated
+        }
+        Err(_) => panic!("{source} generates"),
+    }
+}
+
+#[test]
+fn rooted_imports_in_the_imports_section_take_every_namespace_segment() {
+    let source = "Library [ :flow_ethos:message:Type :flow_ethos:signal:[ Query Reply ] :protos:[ Textualizable ] ] [ Record.{ Type Query Vector<Reply> } ] [] [ Record.[ Textualizable ] ]";
+    let generated = generates(source);
+    assert!(
+        generated.contains(": flow_ethos::message::Type"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains(": flow_ethos::signal::Query"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("std::vec::Vec<flow_ethos::signal::Reply>"),
+        "{generated}"
+    );
+
+    let print = read(source).protosize().textualize();
+    assert!(print.contains(":flow_ethos:message:Type"), "{print}");
+    // protos lays the bare source and its bracket out as two siblings.
+    assert!(print.contains(":flow_ethos:signal:"), "{print}");
+    assert!(print.contains("[ Query Reply ]"), "{print}");
+
+    let memory = generates("Memory [ :crate:message:[ FlowId ] ] [ Flow.{ FlowId } ]");
+    assert!(
+        memory.contains("pub flow_id: crate::message::FlowId"),
+        "{memory}"
+    );
+}
+
+#[test]
+fn a_rooted_import_inline_in_an_alias_puts_the_colon_where_the_period_was() {
+    let generated = generates(
+        "Library [] [ Topic:custom:Name Nested:flow_ethos:message:Type Listed:external:sub:Vector<String> ] [] []",
+    );
+    assert!(
+        generated.contains("pub type Topic = custom::Name;"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("pub type Nested = flow_ethos::message::Type;"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("pub type Listed = external::sub::Vector<String>;"),
+        "{generated}"
+    );
+
+    let in_place =
+        generates("Library [] [ Holder.{ Topic:flow_ethos:message:Type String } ] [] []");
+    assert!(
+        in_place.contains("pub type Topic = flow_ethos::message::Type;"),
+        "{in_place}"
+    );
+    assert!(in_place.contains("pub topic: Topic"), "{in_place}");
+}
+
+#[test]
+fn a_rooted_import_inline_in_a_field_takes_its_leading_colon() {
+    let generated = generates(
+        "Library [] [ Failure.{ :protos:Error String } Carrier.{ :flow_ethos:message:Type :external:sub:Vector<String> } ] [] []",
+    );
+    assert!(
+        generated.contains("pub error: protos::Error"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("flow_ethos::message::Type"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("external::sub::Vector<String>"),
+        "{generated}"
+    );
+
+    let record = generates("Memory [] [ Holder.{ :flow_ethos:message:Type String } ]");
+    assert!(record.contains("flow_ethos::message::Type"), "{record}");
+}
+
+#[test]
+fn a_rooted_namespace_segment_is_uncapitalized_and_a_name_seen_twice_is_placed_beside() {
+    for source in [
+        "Library [ :Flow:Type ] [] [] []",
+        "Library [] [ Holder.{ :flow:Message:Type } ] [] []",
+        "Library [] [ Topic:Custom:Name ] [] []",
+    ] {
+        match Potential::<File>::from(source).actualize() {
+            Err(Error::Conceptual(data)) => {
+                assert!(
+                    matches!(data.problem, Problem::Name(_)),
+                    "{source}: {:?}",
+                    data.problem
+                );
+            }
+            Err(Error::Structural(_)) => panic!("{source} is a conceptual refusal"),
+            Ok(_) => panic!("{source} must be refused"),
+        }
+    }
+
+    // `:a:b:` and its bracket are two siblings, so the second import's
+    // names sit in the bracket at index three.
+    match read("Library [ :a:b:[ X ] :c:[ Y X ] ] [] [] []").generate() {
+        Err(Error::Conceptual(data)) => {
+            assert_eq!(data.problem, Problem::Duplicate("X".to_owned()));
+            assert_eq!(data.integer_vector, vec![1, 0, 3, 1]);
+        }
+        other => panic!("a name imported twice is refused: {other:?}"),
+    }
+}
+
 #[test]
 fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
     // The audit's row-15 probe: two enums each declare X in place, and an
     // authored X_Data would capture the short name. The authored name is
     // the occurrence refused, at its declaration.
-    let probe =
-        "Library [] [ P.[ X.{ String } Empty ] Q.[ X.{ Integer } Empty ] X_Data.String ] [] []";
+    let probe = "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] X_Data.String ] [] []";
     assert!(read(probe).generate().is_ok());
-    let captured = "Library [] [ P.[ X.{ String } Empty ] P_X_Data.String ] [] []";
+    let captured = "Library [] [ P.[ X.{ String } ] P_X_Data.String ] [] []";
     assert!(read(captured).generate().is_ok());
-    let captured =
-        "Library [] [ P.[ X.{ String } Empty ] Q.[ X.{ Integer } Empty ] P_X_Data.String ] [] []";
+    let captured = "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] P_X_Data.String ] [] []";
     match read(captured).generate() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Duplicate("P_X_Data".to_owned()));
@@ -322,7 +441,7 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
         }
         _ => panic!("an authored name capturing a derived one is refused"),
     }
-    let captured = "Library [] [ P.[ X.{ String } Empty ] X_Data.String ] [] []";
+    let captured = "Library [] [ P.[ X.{ String } ] X_Data.String ] [] []";
     match read(captured).generate() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Duplicate("X_Data".to_owned()));
@@ -334,11 +453,10 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
 
 #[test]
 fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
-    let generated =
-        match read("Signal [] [ Ask.{ String } Stop ] [ Ask.{ Integer } Stopped ] []").generate() {
-            Ok(generated) => generated,
-            Err(_) => panic!("Query and Response each declaring Ask in place generate"),
-        };
+    let generated = match read("Signal [] [ Ask.{ String } ] [ Ask.{ Integer } ] []").generate() {
+        Ok(generated) => generated,
+        Err(_) => panic!("Query and Response each declaring Ask in place generate"),
+    };
     assert!(generated.contains("pub struct Query_Ask_Data"));
     assert!(generated.contains("pub struct Response_Ask_Data"));
     syn::parse_file(&generated).expect("generated Rust parses");
@@ -414,7 +532,7 @@ fn a_type_with_no_finite_value_is_refused() {
         (vec![1, 1, 1, 0], Problem::Cycle("A".to_owned()))
     );
     assert_eq!(
-        "Library [] [ E.[ Only.E Again.E ] ] [] []".refusal(),
+        "Library [] [ E.[ Only.E ] ] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Cycle("E".to_owned()))
     );
     // A Vector, an Option or another variant is a way out.
@@ -423,6 +541,7 @@ fn a_type_with_no_finite_value_is_refused() {
         "Library [] [ S.{ Option<Self> } ] [] []",
         "Library [] [ E.[ Leaf Node.{ E E } ] ] [] []",
         "Library [] [ S.{ Result<Self String> } ] [] []",
+        "Library [] [ Never.[] Holder.{ Never } ] [] []",
     ] {
         assert!(read(finite).generate().is_ok(), "{finite} generates");
     }
@@ -574,65 +693,4 @@ fn a_concrete_type_in_an_input_is_refused_as_wanting_a_trait() {
             .1,
         Problem::TraitWanted("String".to_owned())
     );
-}
-
-#[test]
-fn only_capitalized_symbols_are_read_as_variants() {
-    for source in [
-        "Library [] [ Reply.[ accepted Refused ] ] [] []",
-        "Library [] [ Reply.[ accepted.Integer Refused ] ] [] []",
-        "Library [] [ Reply.[ accepted.{ String } Refused ] ] [] []",
-        "Library [] [ Reply.[ accepted.[ Yes No ] Refused ] ] [] []",
-    ] {
-        assert!(
-            Potential::<File>::from(source).actualize().is_err(),
-            "{source}"
-        );
-    }
-    assert!(
-        read("Library [] [ Reply.[ Accepted.Integer Refused.String ] ] [] []")
-            .generate()
-            .is_ok()
-    );
-}
-
-#[test]
-fn an_enum_requires_at_least_two_variants_at_every_depth() {
-    for source in [
-        "Library [] [ Reply.[ Accepted ] ] [] []",
-        "Library [] [ Reply.[] ] [] []",
-        "Library [] [ Reply.[ Accepted.[ Yes ] Refused ] ] [] []",
-        "Library [] [ Holder.{ Reply.[ Accepted ] } ] [] []",
-        "Signal [] [ Start ] [ Started Stopped ] []",
-        "Operation [] [ Start Stop ] [ Started ] []",
-    ] {
-        assert!(
-            Potential::<File>::from(source).actualize().is_err(),
-            "{source}"
-        );
-    }
-}
-
-#[test]
-fn constructed_variants_and_enums_obey_the_reader_rules() {
-    use ethos_zero::{Name, TypeDeclaration, Variant};
-    let mut file = read("Library [] [ Reply.[ Accepted Refused ] ] [] []");
-    let File::Library(library) = &mut file else {
-        unreachable!()
-    };
-    let TypeDeclaration::Enum(_, variants) = &mut library.types[0] else {
-        unreachable!()
-    };
-    variants[0] = Variant::Bare(Name::try_from("accepted").unwrap());
-    assert!(file.generate().is_err());
-
-    let mut file = read("Library [] [ Reply.[ Accepted Refused ] ] [] []");
-    let File::Library(library) = &mut file else {
-        unreachable!()
-    };
-    let TypeDeclaration::Enum(_, variants) = &mut library.types[0] else {
-        unreachable!()
-    };
-    variants.pop();
-    assert!(file.generate().is_err());
 }

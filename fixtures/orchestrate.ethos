@@ -14,7 +14,7 @@ Signal
   DuplicateName.Lock
   LockOverlap.{ LockPath Lock }
   LockRejection.[ DuplicateName.Lock  PathOverlap.LockOverlap ]
-  ReleaseRejection.[ UnknownLockId NotOwned ]
-  ObserveSelection.[ Locks All ]
+  ReleaseRejection.[ UnknownLockId ]
+  ObserveSelection.[ Locks ]
   Locks.Vector<Lock>
-  Observation.[ Locks.Locks Empty ] ]
+  Observation.[ Locks.Locks ] ]

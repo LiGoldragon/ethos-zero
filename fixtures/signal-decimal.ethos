@@ -1,5 +1,5 @@
 Signal
 []
-[ Measure.Measurement Reset ]
-[ Measured.Measurement Reset ]
+[ Measure.Measurement ]
+[ Measured.Measurement ]
 [ Measurement.{ Decimal } ]

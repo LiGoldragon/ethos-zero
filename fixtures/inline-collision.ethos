@@ -3,9 +3,9 @@
 ; stays free; a payload unique in the file keeps its short name.
 Library
 []
-[ P.[ X.{ String }  Y.[ X.{ Integer } Empty ] ]
-  Q.[ X.{ Integer } Empty ]
+[ P.[ X.{ String }  Y.[ X.{ Integer } ] ]
+  Q.[ X.{ Integer } ]
   X_Data.String
-  R.[ Z.{ String } Empty ] ]
+  R.[ Z.{ String } ] ]
 []
 []

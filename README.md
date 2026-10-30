@@ -17,7 +17,7 @@ types. Each pass is a module named for it.
 | generation | `Generating` | `File` | Rust text, or a whole-file error |
 | datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Composing` derives |
 | ascent | `Protosizable`, `Textualizable` | `File` | canonical text on one line (cannot err) |
-| printing | `Printable` | `File` or `protos::Protos` | the canonical braced form, sections aligned beneath the first (cannot err) |
+| printing | `Printable` | `File` or `protos::Protos` | the sweet form, each section in protos' vertical print (cannot err) |
 | actualization | `Actualizing<File>` on `Potential<File>` | text | `File`, or an `Error` |
 
 Every error carries the Protos path of the structure in error, from the
@@ -77,9 +77,22 @@ The type is named by its own name, shares the file's namespace (a second
 by name, so its field is `brief: Brief`. It is declared outside any
 enclosing identity, and emitted before the struct that holds it.
 
-An import names a Rust path prefix and the names taken from it:
-`std:clone:Clonable.Clone` imports one name, and
-`std:clone:[ Clonable.Clone ]` imports a group. A position is boxed only
+An import starts with a colon, then the uncapitalized namespace
+segments, each followed by a colon, then the capitalized name:
+`:flow_ethos:message:Type` imports one name, `:protos:[ String Integer ]`
+a group (the bare `:protos:` and the bracket beside it), and
+`:std:clone:Clonable.Clone` names it `Clonable` where the source calls it
+`Clone`. The generated Rust writes the name fully qualified,
+`flow_ethos::message::Type`. One segment may also head its name without
+the leading colon, `protos:String` or `protos:[ String ]`.
+
+An import may stand where the type is used instead. In a declaration the
+colon replaces the period: `Topic:custom:sub:Name` declares `Topic` over
+`custom::sub::Name`, in the types section or in place in a struct. A
+field takes the import with its leading colon:
+`Failure.{ :protos:Error String }`. A capitalized name before a colon
+declares; an uncapitalized one is a source, so `Holder.{ custom:Name }`
+is a field of `custom::Name`. A position is boxed only
 where it closes a by-value cycle: it names, through aliases, `Option` and
 `Result` but not `Vector`, a type declared no later than its owner that
 reaches the owner by value; in `Twin.{ Twig Twig }  Twig.[ Tip  Grow.Twin ]`
@@ -153,21 +166,20 @@ aligned; the closing delimiter ends the last element's line. Elements that
 are all leaves sit on one line, one space apart. A space stands inside
 every non-empty bracket and brace; an empty one is `[]` or `{}`. An angled
 enclosure stays tight against the name it qualifies, `Vector<Event>`. A
-file prints in the canonical braced form, its first section after the root
-and subsequent sections aligned beneath it; comments are not printed.
-
-The Ethos:
+file prints in the sweet form, its root's head on the first line and each
+section on its own line; comments are not printed.
 
 ```
-Memory.{ [ flow:[ FlowId Voice Event ] ]
-         [ Flow.{ FlowId
-                  Voice
-                  State.[ Running Ended ]
-                  Vector<Event> } ] }
+Memory
+[ flow:[ FlowId Voice Event ] ]
+[ Flow.{ FlowId
+         Voice
+         State.[ Running Ended ]
+         Vector<Event> } ]
 ```
 
 The layout is protos' canonical print (`protos::Textualizable`); this crate
-adds only a trailing newline. `Printable::print` writes it for a
+adds only the sweet form of a file. `Printable::print` writes it for a
 `File` and for any `protos::Protos` read from ethos text; the reader accepts
 it and every other layout. An empty `[]` or `{}` is a leaf. The
 Flow Nexus's four files under `fixtures/print/` print back byte-identical.
@@ -202,50 +214,3 @@ test, fmt, clippy, doc, the no-free-functions and no-inherent-methods
 guards, and the dependency ethos declarations read by the built tool).
 Each Nix derivation applies an 8 GiB virtual-memory limit inside its
 builder.
-
-## Canonical print and variants
-
-The canonical form puts the first section after `Library.{`, the remaining
-sections beneath it, and the closing brace after the last section. The sweet
-file form remains an input form; `Printable` emits the canonical braced form.
-Only capitalized symbols are read as variants. Every enum has at least two
-variants, including inline enums and the enums implied by Signal and Operation.
-An absent Signal or Operation section emits no enum.
-
-An Ethos declares the traits its types bear in its associations section;
-the generator emits compile-time assertions for these associations. Trait
-implementation bodies remain hand-written Rust.
-
-The Ethos:
-
-```text
-Library.{ []
-          [ Record.{ String Integer } ]
-          [ Summarizable.[ summarize.[ String ] ] ]
-          [ Record.[ Summarizable ] ] }
-```
-
-The Rust generated from it (derives omitted):
-
-```rust
-pub struct Record { pub string: String, pub integer: i64 }
-pub trait Summarizable { fn summarize(&self) -> String; }
-const _: () = {
-    fn assert_record_summarizable<T: Summarizable>() {}
-    let _ = assert_record_summarizable::<Record>;
-};
-```
-
-A newly made or proposed datom is presented with its Ethos specification.
-
-The Ethos:
-
-```text
-Reply.[ Accepted.Integer Refused.String ]
-```
-
-The datom:
-
-```text
-Accepted.42
-```

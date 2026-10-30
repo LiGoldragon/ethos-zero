@@ -51,14 +51,12 @@ pub enum LockRejection {
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum ReleaseRejection {
     UnknownLockId,
-    NotOwned,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum ObserveSelection {
     Locks(Locks),
-    All,
 }
 #[rustfmt::skip]
 pub type Locks = std::vec::Vec<Lock>;
@@ -67,7 +65,6 @@ pub type Locks = std::vec::Vec<Lock>;
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Observation {
     Locks(Locks),
-    Empty,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

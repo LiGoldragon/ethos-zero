@@ -195,13 +195,20 @@ impl Positions for [Protos] {
     fn positions(&self) -> Result<Vec<Position>, Error> {
         let mut values = Vec::new();
         for (node, arguments, index) in self.constrained() {
-            let declared = matches!(
-                node,
+            // A period after a name declares in place; so does a colon after a
+            // capitalized name, `Topic:custom:Name`, the import inline.
+            let declared = match node {
                 Protos::Headed {
                     separator: Separator::Period,
                     ..
-                }
-            );
+                } => true,
+                Protos::Headed {
+                    head,
+                    separator: Separator::Colon,
+                    ..
+                } => head.0.starts_with(|glyph: char| glyph.is_uppercase()),
+                _ => false,
+            };
             if declared {
                 values.push(Position::Declared(node.declared(arguments, index)?));
                 continue;
@@ -274,29 +281,9 @@ impl Variants for [Protos] {
             }
             values.push(variant);
         }
-        if values.len() == 1 {
-            return Err(Error::conceptual(
-                vec![],
-                Problem::arity(2, values.len() as Integer),
-            ));
-        }
         Ok(values)
     }
 }
-/// A declared enum, unlike an absent Signal section, is non-empty.
-trait Enumeration {
-    fn enumeration(&self) -> Result<Vec<Variant>, Error>;
-}
-
-impl Enumeration for [Protos] {
-    fn enumeration(&self) -> Result<Vec<Variant>, Error> {
-        if self.is_empty() {
-            return Err(Error::conceptual(vec![], Problem::arity(2, 0)));
-        }
-        self.variants()
-    }
-}
-
 trait AssociatedTypes {
     fn associated_types(&self) -> Result<Vec<AssociatedType>, Error>;
 }
@@ -329,7 +316,7 @@ impl Conceiving<Library> for Protos {
             return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
         Ok(Library {
-            imports: s[0].bracket().place(0)?,
+            imports: s[0].imports().place(0)?,
             types: declarations.declarations().place(1)?,
             traits: s[2].bracket().place(2)?,
             associations: s[3].bracket().place(3)?,
@@ -349,7 +336,7 @@ impl Conceiving<Signal> for Protos {
             return Err(Error::conceptual(vec![3], Problem::Expected(Form::Section)));
         };
         Ok(Signal {
-            imports: s[0].bracket().place(0)?,
+            imports: s[0].imports().place(0)?,
             queries: queries.variants().place(1)?,
             responses: responses.variants().place(2)?,
             types: declarations.declarations().place(3)?,
@@ -369,7 +356,7 @@ impl Conceiving<Operation> for Protos {
             return Err(Error::conceptual(vec![3], Problem::Expected(Form::Section)));
         };
         Ok(Operation {
-            imports: s[0].bracket().place(0)?,
+            imports: s[0].imports().place(0)?,
             operations: operations.variants().place(1)?,
             outcomes: outcomes.variants().place(2)?,
             types: declarations.declarations().place(3)?,
@@ -383,9 +370,76 @@ impl Conceiving<Memory> for Protos {
             return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
         Ok(Memory {
-            imports: s[0].bracket().place(0)?,
+            imports: s[0].imports().place(0)?,
             types: types.declarations().place(1)?,
         })
+    }
+}
+/// The trait whose capability reads an imports section.
+///
+/// A rooted import is a bare run: `:flow_ethos:message:Type` takes one name,
+/// and `:protos:` followed by the bracket beside it, `:protos:[ String Integer ]`,
+/// takes several. A chained import, `protos:String` or `protos:[ String ]`, is
+/// one headed structure.
+trait Imports {
+    fn imports(&self) -> Result<Vec<Import>, Error>;
+}
+impl Imports for Protos {
+    fn imports(&self) -> Result<Vec<Import>, Error> {
+        let Some(children) = self.children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::Section)));
+        };
+        children.imports()
+    }
+}
+impl Imports for [Protos] {
+    fn imports(&self) -> Result<Vec<Import>, Error> {
+        let mut values = Vec::new();
+        let mut index = 0;
+        while index < self.len() {
+            let at = index as Integer;
+            let Protos::Bare { text, .. } = &self[index] else {
+                values.push(self[index].conceive().place(at)?);
+                index += 1;
+                continue;
+            };
+            if let Some(source) = text.strip_suffix(':') {
+                let source = Source::try_from(source)
+                    .map_err(|text| Error::conceptual(vec![at], Problem::Name(text)))?;
+                let Some(children) = self
+                    .get(index + 1)
+                    .and_then(|beside| beside.children(Enclosure::Bracketed))
+                else {
+                    return Err(Error::conceptual(vec![at], Problem::Expected(Form::Import)));
+                };
+                values.push(Import::Many(source, Protos::list(children).place(at + 1)?));
+                index += 2;
+                continue;
+            }
+            let Some((source, imported)) = text.rsplit_once(':') else {
+                values.push(self[index].conceive().place(at)?);
+                index += 1;
+                continue;
+            };
+            let source = Source::try_from(source)
+                .map_err(|text| Error::conceptual(vec![at], Problem::Name(text)))?;
+            let imported = match imported.split_once('.') {
+                Some((name, emitted)) => Imported {
+                    name: name.name().place(at)?,
+                    emitted: emitted.name().place(at)?,
+                },
+                None => {
+                    let name = imported.name().place(at)?;
+                    Imported {
+                        name: name.clone(),
+                        emitted: name,
+                    }
+                }
+            };
+            values.push(Import::One(source, imported));
+            index += 1;
+        }
+        Ok(values)
     }
 }
 impl Conceiving<Imported> for Protos {
@@ -437,11 +491,22 @@ impl Conceiving<Import> for Protos {
 impl Conceiving<Reference> for Protos {
     fn conceive(&self) -> Result<Reference, Error> {
         match self {
-            Protos::Bare { text, .. } => Ok(Reference {
-                source: None,
-                name: text.as_str().name()?,
-                arguments: vec![],
-            }),
+            Protos::Bare { text, .. } => match text.rsplit_once(':') {
+                // A rooted reference, `:protos:Error`, names its source in place.
+                Some((source, name)) if text.starts_with(':') => Ok(Reference {
+                    source: Some(
+                        Source::try_from(source)
+                            .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))?,
+                    ),
+                    name: name.name()?,
+                    arguments: vec![],
+                }),
+                _ => Ok(Reference {
+                    source: None,
+                    name: text.as_str().name()?,
+                    arguments: vec![],
+                }),
+            },
             Protos::Headed {
                 head,
                 separator: Separator::Colon,
@@ -468,8 +533,66 @@ impl Conceiving<Reference> for Protos {
         }
     }
 }
+/// The trait whose capability reads the body of an alias written with the
+/// import inline, the colon in place of the period: in `Topic:custom:sub:Name`,
+/// the body `custom:sub:Name` is the source `:custom:sub` and the name `Name`.
+trait Rooting {
+    fn rooted(&self) -> Result<Reference, Error>;
+}
+impl Rooting for Protos {
+    fn rooted(&self) -> Result<Reference, Error> {
+        let mut source = String::new();
+        let mut node = self;
+        let mut depth = Vec::new();
+        while let Protos::Headed {
+            head,
+            constraints: None,
+            separator: Separator::Colon,
+            body,
+            ..
+        } = node
+        {
+            source.push(':');
+            source.push_str(&head.0);
+            depth.push(1);
+            node = body;
+        }
+        let Protos::Bare { text, .. } = node else {
+            return Err(Error::conceptual(depth, Problem::Expected(Form::Reference)));
+        };
+        if source.is_empty() {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Expected(Form::Reference),
+            ));
+        }
+        let name = Name::try_from(text.as_str())
+            .map_err(|text| Error::conceptual(depth, Problem::Name(text)))?;
+        let source = Source::try_from(source.as_str())
+            .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?;
+        Ok(Reference {
+            source: Some(source),
+            name,
+            arguments: vec![],
+        })
+    }
+}
 impl Conceiving<TypeDeclaration> for Protos {
     fn conceive(&self) -> Result<TypeDeclaration, Error> {
+        if let Protos::Headed {
+            head,
+            constraints: None,
+            separator: Separator::Colon,
+            body,
+            ..
+        } = self
+        {
+            let identity = Identity {
+                name: head.name().place(0)?,
+                constraints: vec![],
+            };
+            return Ok(TypeDeclaration::Alias(identity, body.rooted().place(1)?));
+        }
         let Protos::Headed {
             head,
             constraints,
@@ -496,7 +619,7 @@ impl Conceiving<TypeDeclaration> for Protos {
         if let Some(p) = body.children(Enclosure::Braced) {
             Ok(TypeDeclaration::Struct(identity, p.positions().place(1)?))
         } else if let Some(v) = body.children(Enclosure::Bracketed) {
-            Ok(TypeDeclaration::Enum(identity, v.enumeration().place(1)?))
+            Ok(TypeDeclaration::Enum(identity, v.variants().place(1)?))
         } else {
             Ok(TypeDeclaration::Alias(identity, body.conceive().place(1)?))
         }
@@ -505,20 +628,18 @@ impl Conceiving<TypeDeclaration> for Protos {
 impl Conceiving<Variant> for Protos {
     fn conceive(&self) -> Result<Variant, Error> {
         match self {
-            Protos::Bare { text, .. } if text.starts_with(|glyph: char| glyph.is_uppercase()) => {
-                Ok(Variant::Bare(text.as_str().name()?))
-            }
+            Protos::Bare { text, .. } => Ok(Variant::Bare(text.as_str().name()?)),
             Protos::Headed {
                 head,
                 separator: Separator::Period,
                 body,
                 ..
-            } if head.0.starts_with(|glyph: char| glyph.is_uppercase()) => {
+            } => {
                 let n = head.name().place(0)?;
                 if let Some(p) = body.children(Enclosure::Braced) {
                     Ok(Variant::Struct(n, p.positions().place(1)?))
                 } else if let Some(v) = body.children(Enclosure::Bracketed) {
-                    Ok(Variant::Enum(n, v.enumeration().place(1)?))
+                    Ok(Variant::Enum(n, v.variants().place(1)?))
                 } else {
                     Ok(Variant::Typed(n, body.conceive().place(1)?))
                 }

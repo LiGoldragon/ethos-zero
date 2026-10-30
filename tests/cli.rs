@@ -199,7 +199,9 @@ fn check_refuses_a_second_inline_source_at_the_inner_reference() {
     let directory = "inline-source".scratch();
     let source = directory.write_source(
         "inline-source",
-        "Library\n[]\n[ Holder.{ Topic:custom:Name String } ]\n[]\n[]\n",
+        // `Topic:custom:Name` declares Topic in place; a second chained
+        // source, `std:sync:`, is the refusal, at the inner reference.
+        "Library\n[]\n[ Holder.{ std:sync:Mutex String } ]\n[]\n[]\n",
     );
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
@@ -207,7 +209,7 @@ fn check_refuses_a_second_inline_source_at_the_inner_reference() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 3 18 }} Conceptual.{{ [ 1 1 0 1 0 1 ] Expected.Reference }} }}\n"
+            "Rejected.{{ {source} {{ 3 16 }} Conceptual.{{ [ 1 1 0 1 0 1 ] Expected.Reference }} }}\n"
         )
     );
 }

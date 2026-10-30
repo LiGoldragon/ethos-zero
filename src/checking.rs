@@ -15,7 +15,7 @@ use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name, Operation,
     Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal, Signature,
-    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -257,19 +257,37 @@ pub(crate) struct DeclarationSite {
     path: Path,
 }
 
+/// A chained import holds its names below it, at child one; a rooted one is
+/// its names, `:custom:Name`, or holds them in the bracket beside it,
+/// `:custom:[ Name ]`.
+trait Holding {
+    fn held(&self) -> Path;
+}
+impl Holding for Import {
+    fn held(&self) -> Path {
+        match self {
+            Import::One(source, _) if source.rooted() => vec![],
+            Import::Many(source, _) if source.rooted() => vec![BESIDE],
+            Import::One(_, _) | Import::Many(_, _) => vec![1],
+        }
+    }
+}
+
 impl Naming for Import {
     fn names(&self) -> Vec<DeclarationSite> {
         match self {
             Import::One(_, imported) => vec![DeclarationSite {
                 name: imported.name.clone(),
-                path: vec![1],
+                path: self.held(),
             }],
             Import::Many(_, imports) => {
                 let mut names = Vec::with_capacity(imports.len());
                 for (index, imported) in imports.iter().enumerate() {
+                    let mut path = self.held();
+                    path.push(index as Integer);
                     names.push(DeclarationSite {
                         name: imported.name.clone(),
-                        path: vec![1, index as Integer],
+                        path,
                     });
                 }
                 names
@@ -402,7 +420,14 @@ impl Spanning for AssociatedType {
     }
 }
 
-impl Spanning for Import {}
+impl Spanning for Import {
+    fn span(&self) -> Integer {
+        match self {
+            Import::Many(source, _) if source.rooted() => 2,
+            Import::One(_, _) | Import::Many(_, _) => 1,
+        }
+    }
+}
 impl Spanning for crate::Imported {}
 impl Spanning for TraitDeclaration {}
 impl Spanning for AssociatedConstant {}
@@ -453,7 +478,13 @@ impl<N: Naming + Spanning> Sectioned for [N] {
         for element in self {
             for declared in element.names() {
                 let mut placed = vec![section, at];
-                placed.extend(declared.path);
+                match declared.path.split_first() {
+                    Some((&BESIDE, rest)) => {
+                        placed[1] = at + 1;
+                        placed.extend_from_slice(rest);
+                    }
+                    _ => placed.extend_from_slice(&declared.path),
+                }
                 names.push(DeclarationSite {
                     name: declared.name,
                     path: placed,
@@ -689,6 +720,10 @@ impl<C: Checkable + Spanning> Checking for [C] {
 impl Checkable for Import {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
+            Import::One(source, imported) if source.rooted() => imported.check(scope),
+            Import::Many(source, imported) if source.rooted() => {
+                imported.check_children(scope).place(BESIDE)
+            }
             Import::One(_, imported) => imported.check(scope).place(1),
             Import::Many(_, imported) => imported.check_children(scope).place(1),
         }
@@ -968,13 +1003,7 @@ impl Checkable for Signal {
         self.imports.check_each(scope, 0)?;
         self.queries.names_in(1).distinct()?;
         self.responses.names_in(2).distinct()?;
-        if self.queries.len() == 1 {
-            return Err(Error::conceptual(vec![1], Problem::arity(2, 1)));
-        }
         self.queries.check_each(scope, 1)?;
-        if self.responses.len() == 1 {
-            return Err(Error::conceptual(vec![2], Problem::arity(2, 1)));
-        }
         self.responses.check_each(scope, 2)?;
         self.types.check_each(scope, 3)
     }
@@ -986,13 +1015,7 @@ impl Checkable for Operation {
         self.imports.check_each(scope, 0)?;
         self.operations.names_in(1).distinct()?;
         self.outcomes.names_in(2).distinct()?;
-        if self.operations.len() == 1 {
-            return Err(Error::conceptual(vec![1], Problem::arity(2, 1)));
-        }
         self.operations.check_each(scope, 1)?;
-        if self.outcomes.len() == 1 {
-            return Err(Error::conceptual(vec![2], Problem::arity(2, 1)));
-        }
         self.outcomes.check_each(scope, 2)?;
         self.types.check_each(scope, 3)
     }
@@ -1445,12 +1468,6 @@ impl Checkable for TypeDeclaration {
         match self {
             TypeDeclaration::Struct(_, positions) => positions.check_children(&inner).place(1),
             TypeDeclaration::Enum(_, variants) => {
-                if variants.len() < 2 {
-                    return Err(Error::conceptual(
-                        vec![1],
-                        Problem::arity(2, variants.len() as Integer),
-                    ));
-                }
                 let mut names = variants.names_in(0);
                 for declared in &mut names {
                     declared.path.remove(0);
@@ -1475,15 +1492,6 @@ impl Checkable for TypeDeclaration {
 
 impl Checkable for Variant {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        let name = match self {
-            Variant::Bare(name)
-            | Variant::Typed(name, _)
-            | Variant::Struct(name, _)
-            | Variant::Enum(name, _) => name,
-        };
-        if !name.0.starts_with(|glyph: char| glyph.is_uppercase()) {
-            return Err(Error::conceptual(vec![0], Problem::Case(name.0.clone())));
-        }
         match self {
             Variant::Bare(name) => name.define(),
             Variant::Typed(name, reference) => {
@@ -1496,12 +1504,6 @@ impl Checkable for Variant {
             }
             Variant::Enum(name, variants) => {
                 name.define().place(0)?;
-                if variants.len() < 2 {
-                    return Err(Error::conceptual(
-                        vec![1],
-                        Problem::arity(2, variants.len() as Integer),
-                    ));
-                }
                 let mut names = variants.names_in(0);
                 for declared in &mut names {
                     declared.path.remove(0);
