@@ -59,13 +59,19 @@ pub use error::{
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Name(String);
 
-/// The source of an import: a Rust path prefix such as `protos`, `crate` or `std::clone`.
+/// The source of an import: the namespace segments before the imported name.
 ///
-/// Construct it with [`TryFrom<&str>`]; `AsRef<str>` reads its validated text.
+/// Ethos writes it rooted, `:flow_ethos:message` before `:Type`, or, for one
+/// segment, chained, `protos` before `:Type`. The generated Rust writes the
+/// segments as a path, `flow_ethos::message`.
+///
+/// Construct it with [`TryFrom<&str>`] from either spelling; `AsRef<str>`
+/// reads the Rust path.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Source {
     text: String,
     segments: Vec<protos::Symbol>,
+    rooted: bool,
 }
 
 impl TryFrom<&str> for Name {
@@ -101,28 +107,57 @@ impl TryFrom<&str> for Source {
     type Error = String;
 
     fn try_from(text: &str) -> Result<Self, Self::Error> {
-        let Ok(path) = syn::parse_str::<syn::Path>(text) else {
-            return Err(text.to_owned());
+        let (rooted, written) = match text.strip_prefix(':') {
+            Some(rest) => (true, rest),
+            None => (false, text),
         };
-        if path.leading_colon.is_some() {
-            return Err(text.to_owned());
-        }
-        for segment in &path.segments {
-            if segment.ident == "Self" || !segment.arguments.is_none() {
-                return Err(text.to_owned());
-            }
-        }
-        let mut segments = Vec::with_capacity(path.segments.len());
-        for segment in text.split("::") {
-            if segment.is_empty() {
+        let mut segments = Vec::new();
+        for segment in written.split(':') {
+            // A namespace segment is uncapitalized; the capital marks the type.
+            if segment.is_empty() || segment.starts_with(|glyph: char| glyph.is_uppercase()) {
                 return Err(text.to_owned());
             }
             segments.push(protos::Symbol(segment.to_owned()));
         }
+        if !rooted && segments.len() > 1 {
+            return Err(text.to_owned());
+        }
+        let path = written.replace(':', "::");
+        let Ok(parsed) = syn::parse_str::<syn::Path>(&path) else {
+            return Err(text.to_owned());
+        };
+        if parsed.leading_colon.is_some() || parsed.segments.len() != segments.len() {
+            return Err(text.to_owned());
+        }
+        for segment in &parsed.segments {
+            if segment.ident == "Self" || !segment.arguments.is_none() {
+                return Err(text.to_owned());
+            }
+        }
         Ok(Self {
-            text: text.to_owned(),
+            text: path,
             segments,
+            rooted,
         })
+    }
+}
+
+/// The trait whose capabilities read how a [`Source`] is written: its
+/// namespace segments, and whether it is rooted by a leading colon.
+pub trait Spelled {
+    /// The namespace segments, outermost first.
+    fn segments(&self) -> &[protos::Symbol];
+    /// Whether the source is written rooted, `:namespace:sub`.
+    fn rooted(&self) -> bool;
+}
+
+impl Spelled for Source {
+    fn segments(&self) -> &[protos::Symbol] {
+        &self.segments
+    }
+
+    fn rooted(&self) -> bool {
+        self.rooted
     }
 }
 
@@ -220,9 +255,9 @@ pub struct Memory {
 /// An import: a source and the names taken from it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Import {
-    /// One name from a source: `protos:Text`.
+    /// One name from a source: `:flow_ethos:message:Type`, or `protos:Text`.
     One(Source, Imported),
-    /// Several names from a source: `protos:[ Text Integer ]`.
+    /// Several names from a source: `:protos:[ Text Integer ]`, or `protos:[ Text Integer ]`.
     Many(Source, Vec<Imported>),
 }
 
@@ -238,7 +273,7 @@ pub struct Imported {
 /// A reference to a type or a trait by name: an optional inline source, the name, and its arguments.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reference {
-    /// An inline source qualifying the name: `protos:Error`.
+    /// An inline source qualifying the name: `:protos:Error`, or `protos:Error`.
     pub source: Option<Source>,
     /// The name referred to.
     pub name: Name,

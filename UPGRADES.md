@@ -2,6 +2,28 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 18.0.0: imports are rooted, with every namespace segment
+
+What breaks:
+
+- `Source` reads the Ethos spelling: `TryFrom<&str>` takes `:a:b`
+  (rooted, any number of segments) or `a` (one chained segment), and
+  refuses the Rust path text `a::b` it took before; `AsRef<str>` still
+  reads the Rust path. `Spelled` reads its segments and whether it is rooted.
+- A namespace segment is uncapitalized: a capitalized chained source,
+  `Flow:Type`, is refused.
+- A capitalized name before a colon in a struct position declares in place:
+  `Holder.{ Topic:custom:Name }` declares `Topic` over `custom::Name`, where
+  it was refused as a second inline source.
+
+What is added: `:flow_ethos:message:Type` and `:protos:[ String Integer ]`
+in the imports section, `Topic:custom:sub:Name` as an alias, and
+`:protos:Error` in a field. The chained forms `protos:String` and
+`Topic.custom:Name` still read.
+
+To deploy, repin ethos-zero to 18.0.0; an ethos file may then replace a
+chained `crate:[ … ]` workaround with the rooted import it meant.
+
 ## 17.0.0: capability declarations are traits
 
 What breaks:

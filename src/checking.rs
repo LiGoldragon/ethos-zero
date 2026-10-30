@@ -15,7 +15,7 @@ use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name, Operation,
     Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal, Signature,
-    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -257,19 +257,37 @@ pub(crate) struct DeclarationSite {
     path: Path,
 }
 
+/// A chained import holds its names below it, at child one; a rooted one is
+/// its names, `:custom:Name`, or holds them in the bracket beside it,
+/// `:custom:[ Name ]`.
+trait Holding {
+    fn held(&self) -> Path;
+}
+impl Holding for Import {
+    fn held(&self) -> Path {
+        match self {
+            Import::One(source, _) if source.rooted() => vec![],
+            Import::Many(source, _) if source.rooted() => vec![BESIDE],
+            Import::One(_, _) | Import::Many(_, _) => vec![1],
+        }
+    }
+}
+
 impl Naming for Import {
     fn names(&self) -> Vec<DeclarationSite> {
         match self {
             Import::One(_, imported) => vec![DeclarationSite {
                 name: imported.name.clone(),
-                path: vec![1],
+                path: self.held(),
             }],
             Import::Many(_, imports) => {
                 let mut names = Vec::with_capacity(imports.len());
                 for (index, imported) in imports.iter().enumerate() {
+                    let mut path = self.held();
+                    path.push(index as Integer);
                     names.push(DeclarationSite {
                         name: imported.name.clone(),
-                        path: vec![1, index as Integer],
+                        path,
                     });
                 }
                 names
@@ -402,7 +420,14 @@ impl Spanning for AssociatedType {
     }
 }
 
-impl Spanning for Import {}
+impl Spanning for Import {
+    fn span(&self) -> Integer {
+        match self {
+            Import::Many(source, _) if source.rooted() => 2,
+            Import::One(_, _) | Import::Many(_, _) => 1,
+        }
+    }
+}
 impl Spanning for crate::Imported {}
 impl Spanning for TraitDeclaration {}
 impl Spanning for AssociatedConstant {}
@@ -453,7 +478,13 @@ impl<N: Naming + Spanning> Sectioned for [N] {
         for element in self {
             for declared in element.names() {
                 let mut placed = vec![section, at];
-                placed.extend(declared.path);
+                match declared.path.split_first() {
+                    Some((&BESIDE, rest)) => {
+                        placed[1] = at + 1;
+                        placed.extend_from_slice(rest);
+                    }
+                    _ => placed.extend_from_slice(&declared.path),
+                }
                 names.push(DeclarationSite {
                     name: declared.name,
                     path: placed,
@@ -689,6 +720,10 @@ impl<C: Checkable + Spanning> Checking for [C] {
 impl Checkable for Import {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
+            Import::One(source, imported) if source.rooted() => imported.check(scope),
+            Import::Many(source, imported) if source.rooted() => {
+                imported.check_children(scope).place(BESIDE)
+            }
             Import::One(_, imported) => imported.check(scope).place(1),
             Import::Many(_, imported) => imported.check_children(scope).place(1),
         }

@@ -5,7 +5,7 @@ use protos::{Canonicalizable, Enclosure, Extent, Protos, Protosizable, Separator
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Identity,
     Import, Imported, Library, Memory, Operation, Position, Receiver, Reference, Signal, Signature,
-    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Source, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Protosizing {
@@ -43,6 +43,83 @@ impl Structuring for str {
     }
 }
 
+/// The trait whose capabilities write a source before what it qualifies.
+///
+/// A rooted source is one bare run with the name, `:flow_ethos:message:Type`,
+/// or the chain an inline alias's colon heads, `custom:sub:Name` in
+/// `Topic:custom:sub:Name`; a chained source heads the name, `protos:Error`.
+trait Qualifying {
+    fn qualified(&self, name: &str) -> Protos;
+    fn rooted_text(&self, tail: &str) -> String;
+    fn chain(&self, name: &str) -> Protos;
+}
+impl Qualifying for Source {
+    fn qualified(&self, name: &str) -> Protos {
+        if self.rooted() {
+            self.rooted_text(name).as_str().bare()
+        } else {
+            self.as_ref().headed(None, Separator::Colon, name.bare())
+        }
+    }
+    fn rooted_text(&self, tail: &str) -> String {
+        let mut text = String::new();
+        for segment in self.segments() {
+            text.push(':');
+            text.push_str(&segment.0);
+        }
+        text.push(':');
+        text.push_str(tail);
+        text
+    }
+    fn chain(&self, name: &str) -> Protos {
+        let mut node = name.bare();
+        for segment in self.segments().iter().rev() {
+            node = segment.0.as_str().headed(None, Separator::Colon, node);
+        }
+        node
+    }
+}
+
+/// An alias whose source is rooted is written with the import inline, the
+/// colon in place of the period: `Topic:custom:sub:Name`.
+trait AliasHeading {
+    fn alias(&self, reference: &Reference) -> Protos;
+}
+impl AliasHeading for Identity {
+    fn alias(&self, reference: &Reference) -> Protos {
+        match &reference.source {
+            Some(source) if source.rooted() => {
+                self.heading(Separator::Colon, source.chain(reference.name.as_ref()))
+            }
+            Some(source) => {
+                self.heading(Separator::Period, source.qualified(reference.name.as_ref()))
+            }
+            None => self.heading(Separator::Period, reference.name.as_ref().bare()),
+        }
+    }
+}
+
+/// An imports section: a rooted import of several names is its bare source
+/// and the bracket beside it, `:protos:[ String Integer ]`.
+trait ImportsProtosizing {
+    fn import_nodes(&self) -> Vec<Protos>;
+}
+impl ImportsProtosizing for [Import] {
+    fn import_nodes(&self) -> Vec<Protos> {
+        let mut nodes = Vec::new();
+        for import in self {
+            match import {
+                Import::Many(source, imported) if source.rooted() => {
+                    nodes.push(source.rooted_text("").as_str().bare());
+                    nodes.push("".enclosed(Enclosure::Bracketed, imported.protos_list()));
+                }
+                _ => nodes.push(import.protos()),
+            }
+        }
+        nodes
+    }
+}
+
 trait ListProtosizing {
     fn protos_list(&self) -> Vec<Protos>;
 }
@@ -63,11 +140,7 @@ impl ReferencesProtosizing for [Reference] {
                 nodes.push(reference.protos());
             } else {
                 let base = match &reference.source {
-                    Some(source) => source.as_ref().headed(
-                        None,
-                        Separator::Colon,
-                        reference.name.as_ref().bare(),
-                    ),
+                    Some(source) => source.qualified(reference.name.as_ref()),
                     None => reference.name.as_ref().bare(),
                 };
                 nodes.push(base);
@@ -114,11 +187,7 @@ impl VariantsProtosizing for [Variant] {
             match variant {
                 Variant::Typed(name, reference) if !reference.arguments.is_empty() => {
                     let body = match &reference.source {
-                        Some(source) => source.as_ref().headed(
-                            None,
-                            Separator::Colon,
-                            reference.name.as_ref().bare(),
-                        ),
+                        Some(source) => source.qualified(reference.name.as_ref()),
                         None => reference.name.as_ref().bare(),
                     };
                     nodes.push(name.as_ref().headed(None, Separator::Period, body));
@@ -138,15 +207,7 @@ impl DeclarationsProtosizing for [TypeDeclaration] {
         for declaration in self {
             match declaration {
                 TypeDeclaration::Alias(identity, reference) if !reference.arguments.is_empty() => {
-                    let body = match &reference.source {
-                        Some(source) => source.as_ref().headed(
-                            None,
-                            Separator::Colon,
-                            reference.name.as_ref().bare(),
-                        ),
-                        None => reference.name.as_ref().bare(),
-                    };
-                    nodes.push(identity.heading(Separator::Period, body));
+                    nodes.push(identity.alias(reference));
                     nodes.push(
                         "".enclosed(Enclosure::Angled, reference.arguments.reference_nodes()),
                     );
@@ -190,6 +251,15 @@ impl Protosizing for Reference {
             "".enclosed(Enclosure::Braced, vec![base, arguments])
         };
         match &self.source {
+            Some(source) if source.rooted() => {
+                let base = source.qualified(self.name.as_ref());
+                if self.arguments.is_empty() {
+                    base
+                } else {
+                    let arguments = "".enclosed(Enclosure::Angled, self.arguments.protos_list());
+                    "".enclosed(Enclosure::Braced, vec![base, arguments])
+                }
+            }
             Some(source) => source.as_ref().headed(None, Separator::Colon, applied),
             None => applied,
         }
@@ -242,6 +312,14 @@ impl Protosizing for Imported {
 impl Protosizing for Import {
     fn protos(&self) -> Protos {
         match self {
+            Self::One(source, imported) if source.rooted() => {
+                let tail = if imported.name == imported.emitted {
+                    imported.name.as_ref().to_owned()
+                } else {
+                    format!("{}.{}", imported.name.as_ref(), imported.emitted.as_ref())
+                };
+                source.rooted_text(&tail).as_str().bare()
+            }
             Self::One(source, imported) => {
                 source
                     .as_ref()
@@ -266,9 +344,10 @@ impl Protosizing for TypeDeclaration {
                 Separator::Period,
                 "".enclosed(Enclosure::Bracketed, variants.variant_nodes()),
             ),
-            Self::Alias(identity, reference) => {
-                identity.heading(Separator::Period, reference.protos())
-            }
+            Self::Alias(identity, reference) => match &reference.source {
+                Some(source) if source.rooted() => identity.alias(reference),
+                _ => identity.heading(Separator::Period, reference.protos()),
+            },
         }
     }
 }
@@ -363,7 +442,7 @@ impl Protosizing for Library {
         "".enclosed(
             Enclosure::Braced,
             vec![
-                "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.traits.protos_list()),
                 "".enclosed(Enclosure::Bracketed, self.associations.protos_list()),
@@ -376,7 +455,7 @@ impl Protosizing for Signal {
         "".enclosed(
             Enclosure::Braced,
             vec![
-                "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.queries.variant_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.responses.variant_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
@@ -389,7 +468,7 @@ impl Protosizing for Operation {
         "".enclosed(
             Enclosure::Braced,
             vec![
-                "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.operations.variant_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.outcomes.variant_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
@@ -402,7 +481,7 @@ impl Protosizing for Memory {
         "".enclosed(
             Enclosure::Braced,
             vec![
-                "".enclosed(Enclosure::Bracketed, self.imports.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
             ],
         )

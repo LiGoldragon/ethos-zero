@@ -276,10 +276,8 @@ fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
 
 #[test]
 fn a_second_inline_source_is_refused_instead_of_overwriting_the_first() {
-    for source in [
-        "Library [] [ Holder.{ Topic:custom:Name String } ] [] []",
-        "Library [] [ Holder.{ std:sync:Mutex<String> String } ] [] []",
-    ] {
+    // A chained source is one segment; more segments are written rooted.
+    for source in ["Library [] [ Holder.{ std:sync:Mutex<String> String } ] [] []"] {
         match Potential::<File>::from(source).actualize() {
             Err(Error::Conceptual(data)) => {
                 assert_eq!(data.problem, Problem::Expected(Form::Reference));
@@ -296,6 +294,133 @@ fn a_second_inline_source_is_refused_instead_of_overwriting_the_first() {
         }
         Err(Error::Structural(_)) => panic!("the dotted source form is a conceptual refusal"),
         Ok(_) => panic!("the dotted source form remains refused"),
+    }
+}
+
+/// Generate a source that must read, check and generate, and reprint to the same file.
+fn generates(source: &str) -> String {
+    let file = read(source);
+    assert_eq!(
+        file,
+        read(&file.protosize().textualize()),
+        "{source} reprints"
+    );
+    match file.generate() {
+        Ok(generated) => {
+            syn::parse_file(&generated).expect("generated Rust parses");
+            generated
+        }
+        Err(_) => panic!("{source} generates"),
+    }
+}
+
+#[test]
+fn rooted_imports_in_the_imports_section_take_every_namespace_segment() {
+    let source = "Library [ :flow_ethos:message:Type :flow_ethos:signal:[ Query Reply ] :protos:[ Textualizable ] ] [ Record.{ Type Query Vector<Reply> } ] [] [ Record.[ Textualizable ] ]";
+    let generated = generates(source);
+    assert!(
+        generated.contains(": flow_ethos::message::Type"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains(": flow_ethos::signal::Query"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("std::vec::Vec<flow_ethos::signal::Reply>"),
+        "{generated}"
+    );
+
+    let print = read(source).protosize().textualize();
+    assert!(print.contains(":flow_ethos:message:Type"), "{print}");
+    // protos lays the bare source and its bracket out as two siblings.
+    assert!(print.contains(":flow_ethos:signal:"), "{print}");
+    assert!(print.contains("[ Query Reply ]"), "{print}");
+
+    let memory = generates("Memory [ :crate:message:[ FlowId ] ] [ Flow.{ FlowId } ]");
+    assert!(
+        memory.contains("pub flow_id: crate::message::FlowId"),
+        "{memory}"
+    );
+}
+
+#[test]
+fn a_rooted_import_inline_in_an_alias_puts_the_colon_where_the_period_was() {
+    let generated = generates(
+        "Library [] [ Topic:custom:Name Nested:flow_ethos:message:Type Listed:external:sub:Vector<String> ] [] []",
+    );
+    assert!(
+        generated.contains("pub type Topic = custom::Name;"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("pub type Nested = flow_ethos::message::Type;"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("pub type Listed = external::sub::Vector<String>;"),
+        "{generated}"
+    );
+
+    let in_place =
+        generates("Library [] [ Holder.{ Topic:flow_ethos:message:Type String } ] [] []");
+    assert!(
+        in_place.contains("pub type Topic = flow_ethos::message::Type;"),
+        "{in_place}"
+    );
+    assert!(in_place.contains("pub topic: Topic"), "{in_place}");
+}
+
+#[test]
+fn a_rooted_import_inline_in_a_field_takes_its_leading_colon() {
+    let generated = generates(
+        "Library [] [ Failure.{ :protos:Error String } Carrier.{ :flow_ethos:message:Type :external:sub:Vector<String> } ] [] []",
+    );
+    assert!(
+        generated.contains("pub error: protos::Error"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("flow_ethos::message::Type"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("external::sub::Vector<String>"),
+        "{generated}"
+    );
+
+    let record = generates("Memory [] [ Holder.{ :flow_ethos:message:Type String } ]");
+    assert!(record.contains("flow_ethos::message::Type"), "{record}");
+}
+
+#[test]
+fn a_rooted_namespace_segment_is_uncapitalized_and_a_name_seen_twice_is_placed_beside() {
+    for source in [
+        "Library [ :Flow:Type ] [] [] []",
+        "Library [] [ Holder.{ :flow:Message:Type } ] [] []",
+        "Library [] [ Topic:Custom:Name ] [] []",
+    ] {
+        match Potential::<File>::from(source).actualize() {
+            Err(Error::Conceptual(data)) => {
+                assert!(
+                    matches!(data.problem, Problem::Name(_)),
+                    "{source}: {:?}",
+                    data.problem
+                );
+            }
+            Err(Error::Structural(_)) => panic!("{source} is a conceptual refusal"),
+            Ok(_) => panic!("{source} must be refused"),
+        }
+    }
+
+    // `:a:b:` and its bracket are two siblings, so the second import's
+    // names sit in the bracket at index three.
+    match read("Library [ :a:b:[ X ] :c:[ Y X ] ] [] [] []").generate() {
+        Err(Error::Conceptual(data)) => {
+            assert_eq!(data.problem, Problem::Duplicate("X".to_owned()));
+            assert_eq!(data.integer_vector, vec![1, 0, 3, 1]);
+        }
+        other => panic!("a name imported twice is refused: {other:?}"),
     }
 }
 

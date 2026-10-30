@@ -77,9 +77,22 @@ The type is named by its own name, shares the file's namespace (a second
 by name, so its field is `brief: Brief`. It is declared outside any
 enclosing identity, and emitted before the struct that holds it.
 
-An import names a Rust path prefix and the names taken from it:
-`std:clone:Clonable.Clone` imports one name, and
-`std:clone:[ Clonable.Clone ]` imports a group. A position is boxed only
+An import starts with a colon, then the uncapitalized namespace
+segments, each followed by a colon, then the capitalized name:
+`:flow_ethos:message:Type` imports one name, `:protos:[ String Integer ]`
+a group (the bare `:protos:` and the bracket beside it), and
+`:std:clone:Clonable.Clone` names it `Clonable` where the source calls it
+`Clone`. The generated Rust writes the name fully qualified,
+`flow_ethos::message::Type`. One segment may also head its name without
+the leading colon, `protos:String` or `protos:[ String ]`.
+
+An import may stand where the type is used instead. In a declaration the
+colon replaces the period: `Topic:custom:sub:Name` declares `Topic` over
+`custom::sub::Name`, in the types section or in place in a struct. A
+field takes the import with its leading colon:
+`Failure.{ :protos:Error String }`. A capitalized name before a colon
+declares; an uncapitalized one is a source, so `Holder.{ custom:Name }`
+is a field of `custom::Name`. A position is boxed only
 where it closes a by-value cycle: it names, through aliases, `Option` and
 `Result` but not `Vector`, a type declared no later than its owner that
 reaches the owner by value; in `Twin.{ Twig Twig }  Twig.[ Tip  Grow.Twin ]`
