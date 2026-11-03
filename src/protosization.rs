@@ -352,10 +352,12 @@ impl Protosizing for TraitDeclaration {
 }
 impl Protosizing for Association {
     fn protos(&self) -> Protos {
-        self.identity.heading(
-            Separator::Period,
-            "".enclosed(Enclosure::Bracketed, self.traits.reference_nodes()),
-        )
+        let members = &self.members;
+        let nodes = members.reference_nodes();
+        let bracket = Enclosure::Bracketed;
+        let body = "".enclosed(bracket, nodes);
+        let period = Separator::Period;
+        self.identity.heading(period, body)
     }
 }
 impl Protosizing for Library {

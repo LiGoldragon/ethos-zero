@@ -21,6 +21,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
+use crate::checking::Bearing;
 use crate::checking::{Checkable, Declaring, Inlining};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
@@ -1108,8 +1109,8 @@ impl Emitting for Association {
         let ty = subject.emit(scope);
         let arguments = self.identity.arguments(&inner);
         let parameters = self.identity.parameters(&inner);
-        let mut assertions = Vec::with_capacity(self.traits.len());
-        for trait_definition in &self.traits {
+        let mut assertions = Vec::new();
+        for trait_definition in &self.members {
             let assertion = Ident::new(
                 &format!(
                     "assert_{}_{}",
@@ -1160,8 +1161,8 @@ impl Emitting for File {
                     let item = declaration.emit(scope);
                     items.push(quote! { #[rustfmt::skip] #item });
                 }
-                for association in &library.associations {
-                    let item = association.emit(scope);
+                for each in self.bearings() {
+                    let item = each.emit(scope);
                     items.push(quote! { #[rustfmt::skip] #item });
                 }
             }

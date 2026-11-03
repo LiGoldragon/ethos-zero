@@ -569,3 +569,74 @@ fn a_concrete_type_in_an_input_is_refused_as_wanting_a_trait() {
         Problem::TraitWanted("String".to_owned())
     );
 }
+
+/// A Library of three types and one trait, its
+/// associations section the one given.
+fn prompted(associations: &str) -> String {
+    let types = "Key.{ String } \
+        SystemPrompt.{ Key Integer } \
+        StartupPrompt.{ Key String }";
+    let count = "count.[ Integer ]";
+    let traits = format!("Prompting.[ {count} ]");
+    format!(
+        "Library [] [ {types} ] [ {traits} ] \
+        [ {associations} ]"
+    )
+}
+
+/// The Rust a source generates.
+fn generated(source: &str) -> String {
+    match read(source).generate() {
+        Ok(rust) => rust,
+        Err(_) => panic!("{source} generates"),
+    }
+}
+
+#[test]
+fn a_trait_head_generates_as_its_types() {
+    let single = generated(&prompted(
+        "SystemPrompt.[ Prompting ] \
+        StartupPrompt.[ Prompting ]",
+    ));
+    let types = "SystemPrompt StartupPrompt";
+    let group = format!("Prompting.[ {types} ]");
+    let grouped = generated(&prompted(&group));
+    assert_eq!(grouped, single);
+    let mixed = generated(&prompted(
+        "SystemPrompt.[ Prompting ] \
+        Prompting.[ StartupPrompt ]",
+    ));
+    assert_eq!(mixed, single);
+}
+
+#[test]
+fn a_trait_head_prints_as_written() {
+    let source = prompted("Prompting.[ Key ]");
+    let file = read(&source);
+    let printed = file.protosize().textualize();
+    let entry = "[ Prompting.[ Key ] ]";
+    assert!(printed.contains(entry), "{printed}");
+}
+
+#[test]
+fn a_head_names_a_trait_or_a_type() {
+    let source = prompted("Nothing.[ Key ]");
+    let name = "Nothing".to_owned();
+    let problem = Problem::Undeclared(name);
+    let refused = (vec![1, 3, 0], problem);
+    assert_eq!(source.refusal(), refused);
+}
+
+#[test]
+fn a_trait_head_lists_only_unsourced_types() {
+    let entry = "Prompting.[ Key Prompting ]";
+    let both = prompted(entry);
+    let name = "Prompting".to_owned();
+    let at = vec![1, 3, 0, 1, 0, 1];
+    let refused = (at, Problem::Role(name));
+    assert_eq!(both.refusal(), refused);
+    let entry = "Prompting.[ protos:String ]";
+    let sourced = prompted(entry);
+    let problem = Problem::Expected(Form::Name);
+    assert_eq!(sourced.refusal().1, problem);
+}

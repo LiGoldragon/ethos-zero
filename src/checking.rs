@@ -1610,9 +1610,147 @@ impl Checkable for Association {
                 Problem::Undeclared(self.identity.name.0.clone()),
             ));
         }
+        let head = &self.identity.name;
+        if scope.groups(head) {
+            self.identity.check(scope).place(0)?;
+            let members = &self.members;
+            let listed = members.list_all(scope);
+            return listed.place(1);
+        }
         self.identity.check(scope).place(0)?;
         // The traits borne are named outside the identity that bears them.
-        self.traits.refer_each(scope, Role::Trait, 0).place(1)
+        self.members.bear(scope).place(1)
+    }
+}
+
+/// The trait whose capabilities tell whether an
+/// association's head names a trait, declared or
+/// a Protos intrinsic, so that it lists the
+/// types bearing it.
+pub(crate) trait Grouping {
+    fn groups(&self, head: &Name) -> bool;
+    /// The Protos intrinsic a head names.
+    fn builtin(&self, head: &Name) -> Builtin;
+}
+
+/// The intrinsic a head names, if it names one.
+type Builtin = Option<Intrinsic>;
+
+impl Grouping for Scope<'_> {
+    fn groups(&self, head: &Name) -> bool {
+        let resolved = self.resolve(head);
+        if let Resolution::Trait(_) = resolved {
+            return true;
+        }
+        let builtin = self.builtin(head);
+        let role = builtin.map(|one| one.role());
+        role == Some(Role::Trait)
+    }
+
+    fn builtin(&self, head: &Name) -> Builtin {
+        use Resolution::Imported;
+        use Resolution::Intrinsic as Known;
+        let named = Intrinsic::identify(&head.0);
+        match self.resolve(head) {
+            Known(intrinsic) => Some(intrinsic),
+            Imported(origin, emitted) => {
+                let from = origin.as_ref();
+                let own = from == "protos";
+                let same = &emitted == head;
+                named.filter(|_| own && same)
+            }
+            _ => None,
+        }
+    }
+}
+
+/// The outcome of a check that reports no value.
+type Checked = Result<(), Error>;
+
+/// The trait whose capability checks a type a
+/// grouped association lists: an unsourced type.
+trait Listing {
+    fn list(&self, scope: &Scope) -> Checked;
+}
+
+impl Listing for Reference {
+    fn list(&self, scope: &Scope) -> Checked {
+        if self.source.is_none() {
+            return self.refer(scope, Role::Type);
+        }
+        let form = crate::Form::Name;
+        let problem = Problem::Expected(form);
+        Err(Error::conceptual(vec![], problem))
+    }
+}
+
+/// The trait whose capabilities check the
+/// references an association lists.
+trait Members {
+    /// Each as a type a trait head lists.
+    fn list_all(&self, scope: &Scope) -> Checked;
+    /// Each as a trait a type head bears.
+    fn bear(&self, scope: &Scope) -> Checked;
+}
+
+impl Members for [Reference] {
+    fn list_all(&self, scope: &Scope) -> Checked {
+        let mut at = 0;
+        for member in self {
+            let listed = member.list(scope);
+            listed.beside(at).place(0)?;
+            at += member.span();
+        }
+        Ok(())
+    }
+
+    fn bear(&self, scope: &Scope) -> Checked {
+        self.refer_each(scope, Role::Trait, 0)
+    }
+}
+
+/// The trait whose capability reads the
+/// associations as single types bearing traits:
+/// a grouped entry spread over the types it
+/// lists, in order.
+pub(crate) trait Bearing {
+    fn bearings(&self) -> Vec<Association>;
+}
+
+impl Bearing for File {
+    fn bearings(&self) -> Vec<Association> {
+        let File::Library(library) = self else {
+            return vec![];
+        };
+        let scope = Scope {
+            file: self,
+            identity: None,
+            associated: &[],
+        };
+        let mut read = Vec::new();
+        for entry in &library.associations {
+            let head = &entry.identity.name;
+            if !scope.groups(head) {
+                read.push(entry.clone());
+                continue;
+            }
+            for member in &entry.members {
+                let identity = Identity {
+                    name: member.name.clone(),
+                    constraints: vec![],
+                };
+                let borne = Reference {
+                    source: None,
+                    name: head.clone(),
+                    arguments: vec![],
+                };
+                read.push(Association {
+                    identity,
+                    members: vec![borne],
+                });
+            }
+        }
+        read
     }
 }
 
