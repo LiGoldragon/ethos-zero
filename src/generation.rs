@@ -886,9 +886,19 @@ impl Emitting for TypeDeclaration {
                 };
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
-                let aliased = aliased.emit(&inner);
+                let position = aliased.position(&inner, &identity.name);
+                let archival = aliased.archival(&inner, &identity.name);
                 let derive = identity.datom_derives();
-                quote! { #derive pub struct #name #parameters (pub #aliased); }
+                let bounds = if aliased.recursive(&inner, &identity.name) {
+                    identity.recursion_bounds()
+                } else {
+                    TokenStream::new()
+                };
+                quote! {
+                    #derive
+                    #bounds
+                    pub struct #name #parameters (#archival pub #position);
+                }
             }
         }
     }

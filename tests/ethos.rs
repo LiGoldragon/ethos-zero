@@ -723,6 +723,29 @@ fn sourced_and_aliased_protos_containers_keep_their_recursive_semantics() {
 }
 
 #[test]
+fn recursive_newtypes_use_the_same_boxing_and_archive_rules_as_positions() {
+    let generated = match read(
+        "Library [] [ Chain.Option<Self> Choice.Result<Self String> Forest.Vector<Self> ] [] []",
+    )
+    .generate()
+    {
+        Ok(generated) => generated,
+        Err(_) => panic!("recursive newtypes generate"),
+    };
+    assert!(
+        generated.contains("std::option::Option<std::boxed::Box<Self>>"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("std::result::Result<std::boxed::Box<Self>, String>"),
+        "{generated}"
+    );
+    assert!(generated.contains("std::vec::Vec<Self>"), "{generated}");
+    assert_eq!(generated.matches("#[rkyv(omit_bounds)]").count(), 3);
+    assert_eq!(generated.matches("deserialize_bounds").count(), 3);
+}
+
+#[test]
 fn every_generated_item_carries_rustfmt_skip() {
     let root = env!("CARGO_MANIFEST_DIR");
     let mut generated = vec![
