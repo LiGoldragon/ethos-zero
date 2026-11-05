@@ -4,6 +4,8 @@ Library
 [ Record.{ String Integer }
   Report.{ String Vector<Integer> }
   SinkError.[ Closed Full ]
-  LockId.Integer ]
+  LockId.Integer
+  Gen.String
+  Holder.{ Gen } ]
 []
 []

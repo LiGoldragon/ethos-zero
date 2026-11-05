@@ -350,7 +350,10 @@ fn several_declarations_generate_side_by_side() {
         integer_vector: vec![record.integer],
     };
     let id = multi_types::LockId(7);
-    let _ = (report, id, multi_types::SinkError::Closed);
+    let holder = multi_types::Holder {
+        r#gen: multi_types::Gen(String::new()),
+    };
+    let _ = (report, id, holder, multi_types::SinkError::Closed);
 }
 
 #[test]

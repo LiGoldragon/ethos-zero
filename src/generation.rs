@@ -643,7 +643,12 @@ impl FieldNaming for [Reference] {
             } else {
                 format!("position_{}_{}", prior + 1, base)
             };
-            let field = if syn::parse_str::<Ident>(&name).is_ok() {
+            let field = if name == "gen" {
+                // `gen` became a reserved keyword in Rust 2024. Syn accepts
+                // it without an edition context, so spell the generated field
+                // as the equivalent raw identifier.
+                Ident::new_raw(&name, Span::call_site())
+            } else if syn::parse_str::<Ident>(&name).is_ok() {
                 Ident::new(&name, Span::call_site())
             } else if matches!(name.as_str(), "crate" | "self" | "super" | "Self") {
                 // The four keywords no raw identifier may spell.
