@@ -440,6 +440,21 @@ fn an_imported_type_or_trait_name_is_capitalized() {
 }
 
 #[test]
+fn a_sourced_type_or_trait_reference_is_capitalized() {
+    for source in [
+        "Library [] [ Holder.{ custom:lower } ] [] []",
+        "Library [] [ Holder.{ :custom:lower } ] [] []",
+    ] {
+        match read(source).generate() {
+            Err(Error::Conceptual(data)) => {
+                assert_eq!(data.problem, Problem::Case("lower".to_owned()), "{source}");
+            }
+            other => panic!("a lowercase sourced name is refused: {other:?}"),
+        }
+    }
+}
+
+#[test]
 fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
     // The audit's row-15 probe: two enums each declare X in place, and an
     // authored X_Data would capture the short name. The authored name is

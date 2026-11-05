@@ -1229,6 +1229,9 @@ impl ReferringEach for [Reference] {
 
 impl Referring for Reference {
     fn refer(&self, scope: &Scope, role: Role) -> Result<(), Error> {
+        if self.source.is_some() {
+            self.name.capitalized()?;
+        }
         if self.source.is_some() && self.name.0 == "Self" {
             return Err(Error::conceptual(
                 vec![],
