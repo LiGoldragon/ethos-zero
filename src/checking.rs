@@ -142,7 +142,12 @@ impl Implying for File {
     fn implied(&self) -> Vec<Name> {
         let mut names = Vec::new();
         for implied in self.implied_enums() {
-            names.push(implied.name);
+            // Generation omits an implied enum whose section has no
+            // variants, so that absent Rust type cannot resolve a reference.
+            // Its name remains reserved through `TypeNaming`, independently.
+            if !implied.variants.is_empty() {
+                names.push(implied.name);
+            }
         }
         names
     }

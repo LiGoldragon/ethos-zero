@@ -171,6 +171,29 @@ fn operation_free_signal_generates_only_its_declared_shared_data() {
 }
 
 #[test]
+fn an_omitted_empty_implied_enum_cannot_be_referenced() {
+    for (source, absent) in [
+        ("Signal [] [] [] [ Holder.{ Query } ]", "Query"),
+        ("Signal [] [] [] [ Holder.{ Response } ]", "Response"),
+        ("Operation [] [] [] [ Holder.{ Operation } ]", "Operation"),
+        ("Operation [] [] [] [ Holder.{ Outcome } ]", "Outcome"),
+    ] {
+        assert_eq!(
+            source.refusal().1,
+            Problem::Undeclared(absent.to_owned()),
+            "{source}"
+        );
+    }
+
+    let generated = match read("Signal [] [ Ask ] [] [ Holder.{ Query } ]").generate() {
+        Ok(generated) => generated,
+        Err(_) => panic!("a nonempty implied enum resolves as a type"),
+    };
+    assert!(generated.contains("pub enum Query"));
+    assert!(generated.contains("pub query: Query"));
+}
+
+#[test]
 fn a_signal_declaring_the_query_type_is_refused() {
     // The generator emits `pub enum Query` (Vision/ethos.md: "pub enum Query
     // { Lock(LockRequest), Release(LockId) }"), so `Query` is the name a
