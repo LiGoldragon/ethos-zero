@@ -324,7 +324,7 @@ impl AssociatedTypes for [Protos] {
                 ));
             };
             let bounds = match arguments {
-                Some(children) => Protos::list(children).place((index + 1) as Integer)?,
+                Some(children) => children.references().place((index + 1) as Integer)?,
                 None => vec![],
             };
             values.push(AssociatedType {

@@ -30,7 +30,9 @@ pub trait Bounded<AEthosParameter: A> {}
 #[rustfmt::skip]
 pub trait SizedBounded<AEthosParameter: Sized> {}
 #[rustfmt::skip]
-pub trait UsesSizedBounded: SizedBounded<String> {}
+pub trait UsesSizedBounded: SizedBounded<String> {
+    type Item: SizedBounded<String>;
+}
 #[rustfmt::skip]
 pub trait GenericallyBounded<AEthosParameter: SizedBounded<String>> {}
 #[rustfmt::skip]
