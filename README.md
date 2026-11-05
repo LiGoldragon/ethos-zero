@@ -112,8 +112,9 @@ struct `Name_Data` with one field per position.
 
 A type or trait declaration is refused when its name is an intrinsic's
 (`Intrinsic.Result`: the declaration would shadow the intrinsic for every
-later reference), or does not begin with a capital (`Case.a`). A declared
-type with no finite value, one that reaches itself with no `Vector`,
+later reference), or does not begin with a capital (`Case.a`). A variant
+likewise begins with a capital. A declared type with no finite value, one
+that reaches itself with no `Vector`,
 `Option` or other variant to stop at, such as `S.{ Self }`, is refused as
 a `Cycle`. A type also reserves the `ArchivedType` and `TypeResolver` names
 that its rkyv derive generates, so an authored declaration cannot make the

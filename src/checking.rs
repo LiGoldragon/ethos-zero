@@ -557,6 +557,20 @@ impl Defining for Name {
     }
 }
 
+/// The trait whose capability makes sure a name begins with a capital glyph.
+trait Capitalizing {
+    fn capitalized(&self) -> Result<(), Error>;
+}
+
+impl Capitalizing for Name {
+    fn capitalized(&self) -> Result<(), Error> {
+        if !self.0.starts_with(|glyph: char| glyph.is_uppercase()) {
+            return Err(Error::conceptual(vec![], Problem::Case(self.0.clone())));
+        }
+        Ok(())
+    }
+}
+
 /// The trait whose capability makes sure a name can be declared as a type or a
 /// trait: a name a Rust declaration may take, not an intrinsic's, which a
 /// declaration would shadow for every later reference, and capitalized.
@@ -573,10 +587,7 @@ impl Typing for Name {
                 Problem::Intrinsic(self.0.clone()),
             ));
         }
-        if !self.0.starts_with(|glyph: char| glyph.is_uppercase()) {
-            return Err(Error::conceptual(vec![], Problem::Case(self.0.clone())));
-        }
-        Ok(())
+        self.capitalized()
     }
 }
 
@@ -1580,17 +1591,23 @@ impl Checkable for TypeDeclaration {
 impl Checkable for Variant {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
-            Variant::Bare(name) => name.define(),
+            Variant::Bare(name) => {
+                name.define()?;
+                name.capitalized()
+            }
             Variant::Typed(name, reference) => {
                 name.define().place(0)?;
+                name.capitalized().place(0)?;
                 reference.check(scope).lifted(1)
             }
             Variant::Struct(name, positions) => {
                 name.define().place(0)?;
+                name.capitalized().place(0)?;
                 positions.check_children(scope).place(1)
             }
             Variant::Enum(name, variants) => {
                 name.define().place(0)?;
+                name.capitalized().place(0)?;
                 let mut names = variants.names_in(0);
                 for declared in &mut names {
                     declared.path.remove(0);

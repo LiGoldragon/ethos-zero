@@ -562,6 +562,14 @@ fn a_lowercase_type_or_trait_name_is_refused() {
 }
 
 #[test]
+fn a_lowercase_variant_name_is_refused() {
+    assert_eq!(
+        "Library [] [ E.[ lower Upper ] ] [] []".refusal(),
+        (vec![1, 1, 0, 1, 0], Problem::Case("lower".to_owned()))
+    );
+}
+
+#[test]
 fn a_type_with_no_finite_value_is_refused() {
     assert_eq!(
         "Library [] [ S.{ Self } ] [] []".refusal(),
