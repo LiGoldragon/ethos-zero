@@ -277,10 +277,33 @@ impl Protosizing for Constraint {
     }
 }
 
+/// Identity constraints are a list in which one applied trait occupies the
+/// adjacent name and angle nodes that the reader rejoins.
+trait ConstraintsProtosizing {
+    fn constraint_nodes(&self) -> Vec<Protos>;
+}
+
+impl ConstraintsProtosizing for [Constraint] {
+    fn constraint_nodes(&self) -> Vec<Protos> {
+        let mut nodes = Vec::new();
+        for constraint in self {
+            match constraint {
+                Constraint::One(reference) => {
+                    nodes.extend(std::slice::from_ref(reference).reference_nodes())
+                }
+                Constraint::Many(references) => {
+                    nodes.push("".enclosed(Enclosure::Bracketed, references.reference_nodes()))
+                }
+            }
+        }
+        nodes
+    }
+}
+
 impl Protosizing for Identity {
     fn protos(&self) -> Protos {
         let constraints = (!self.constraints.is_empty())
-            .then(|| "".enclosed(Enclosure::Angled, self.constraints.protos_list()));
+            .then(|| "".enclosed(Enclosure::Angled, self.constraints.constraint_nodes()));
         self.name
             .as_ref()
             .headed(constraints, Separator::Period, "".bare())
@@ -293,7 +316,7 @@ trait Heading {
 impl Heading for Identity {
     fn heading(&self, separator: Separator, body: Protos) -> Protos {
         let constraints = (!self.constraints.is_empty())
-            .then(|| "".enclosed(Enclosure::Angled, self.constraints.protos_list()));
+            .then(|| "".enclosed(Enclosure::Angled, self.constraints.constraint_nodes()));
         self.name.as_ref().headed(constraints, separator, body)
     }
 }

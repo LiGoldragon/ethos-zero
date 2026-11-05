@@ -1406,9 +1406,12 @@ impl Requiring for Name {
                     arity,
                 })
             }
-            Resolution::Trait(_) => Ok(ReferenceRequirement {
+            Resolution::Trait(name) => Ok(ReferenceRequirement {
                 role: Role::Trait,
-                arity: None,
+                arity: scope
+                    .file
+                    .trait_declaration(&name)
+                    .map(|declaration| declaration.identity.constraints.len()),
             }),
             Resolution::Imported(source, emitted) => Ok(source
                 .known_requirement(&emitted)

@@ -76,6 +76,8 @@ mod streamable_trait;
 #[path = "generated/tree-types.rs"]
 mod tree_types;
 
+impl capability_traits::SizedBounded<String> for String {}
+
 #[test]
 fn an_imported_trait_name_remains_a_unit_variant() {
     let marker = processable_traits::Marker::Clonable;

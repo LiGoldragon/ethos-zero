@@ -10,6 +10,9 @@ Library
   Indexed<Serializable>.{ [] [ A ] [] [] }
   A.[]
   Bounded<A>.[]
+  SizedBounded<Sized>.[]
+  UsesSizedBounded.{ [ SizedBounded<String> ] [] [] [] }
+  GenericallyBounded<SizedBounded<String>>.[]
   N.[]
   UsesN.[ use_n.{ [ N ] [ Self ] } ] ]
-[]
+[ String.[ SizedBounded<String> ] ]

@@ -28,6 +28,12 @@ pub trait A {}
 #[rustfmt::skip]
 pub trait Bounded<AEthosParameter: A> {}
 #[rustfmt::skip]
+pub trait SizedBounded<AEthosParameter: Sized> {}
+#[rustfmt::skip]
+pub trait UsesSizedBounded: SizedBounded<String> {}
+#[rustfmt::skip]
+pub trait GenericallyBounded<AEthosParameter: SizedBounded<String>> {}
+#[rustfmt::skip]
 pub trait N {}
 #[rustfmt::skip]
 pub trait UsesN {
@@ -35,3 +41,8 @@ pub trait UsesN {
     where
         Self: Sized;
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assertion_0<T: SizedBounded<String>>() {}
+    let _ = assertion_0::<String>;
+};

@@ -677,6 +677,26 @@ fn an_association_subject_is_a_type() {
 }
 
 #[test]
+fn a_declared_generic_trait_requires_its_arguments() {
+    for (reference, actual) in [("Bounded", 0), ("Bounded<String String>", 2)] {
+        let source = format!(
+            "Library [] [] [ SizedBound.[] Bounded<SizedBound>.[] User.{{ [ {reference} ] [] [] [] }} ] []"
+        );
+        assert_eq!(
+            source.as_str().refusal(),
+            (
+                vec![1, 2, 2, 1, 0, 0],
+                Problem::Arity(ethos_zero::Arity_Data {
+                    first_integer: 1,
+                    second_integer: actual,
+                })
+            ),
+            "{source}"
+        );
+    }
+}
+
+#[test]
 fn a_manual_generic_association_checks_and_its_rust_compiles() {
     let named = |text| Name::try_from(text).expect("test identifier");
     let reference = |text| Reference {

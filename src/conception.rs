@@ -186,6 +186,32 @@ impl References for [Protos] {
         Ok(values)
     }
 }
+
+/// The trait whose capability reads constraints while preserving any applied
+/// reference in a one-trait or many-trait bound.
+trait Constraints {
+    fn constraints(&self) -> Result<Vec<Constraint>, Error>;
+}
+
+impl Constraints for [Protos] {
+    fn constraints(&self) -> Result<Vec<Constraint>, Error> {
+        let mut values = Vec::new();
+        for (node, arguments, index) in self.constrained() {
+            if let Some(children) = node.children(Enclosure::Bracketed) {
+                values.push(Constraint::Many(
+                    children.references().place(index as Integer)?,
+                ));
+                continue;
+            }
+            let mut reference: Reference = node.conceive().place(index as Integer)?;
+            if let Some(children) = arguments {
+                reference.arguments = children.references().place((index + 1) as Integer)?;
+            }
+            values.push(Constraint::One(reference));
+        }
+        Ok(values)
+    }
+}
 /// The trait whose capability reads the positions of a struct: a reference,
 /// or a type declared in place, which a period after a name says.
 trait Positions {
@@ -652,7 +678,7 @@ impl Conceiving<Variant> for Protos {
 impl Conceiving<Constraint> for Protos {
     fn conceive(&self) -> Result<Constraint, Error> {
         if let Some(c) = self.children(Enclosure::Bracketed) {
-            Ok(Constraint::Many(Protos::list(c)?))
+            Ok(Constraint::Many(c.references()?))
         } else {
             Ok(Constraint::One(self.conceive()?))
         }
@@ -771,7 +797,7 @@ impl Conceiving<TraitDeclaration> for Protos {
         let identity = Identity {
             name: head.name().place(0)?,
             constraints: match constraints.as_deref() {
-                Some(Protos::Enclosed { children, .. }) => Protos::list(children).place(0)?,
+                Some(Protos::Enclosed { children, .. }) => children.constraints().place(0)?,
                 _ => vec![],
             },
         };
@@ -788,10 +814,16 @@ impl Conceiving<TraitDeclaration> for Protos {
                 Problem::Expected(Form::Trait),
             ));
         };
+        let Some(supertraits) = s[0].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(
+                vec![1, 0],
+                Problem::Expected(Form::Trait),
+            ));
+        };
         Ok(TraitDeclaration {
             identity,
             body: TraitBody::Complex {
-                supertraits: s[0].bracket().place(0).place(1)?,
+                supertraits: supertraits.references().place(0).place(1)?,
                 types: types.associated_types().place(1).place(1)?,
                 constants: s[2].bracket().place(2).place(1)?,
                 capabilities: s[3].bracket().place(3).place(1)?,
@@ -813,12 +845,18 @@ impl Conceiving<Association> for Protos {
                 Problem::Expected(Form::Association),
             ));
         };
+        let Some(traits) = body.children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(
+                vec![1],
+                Problem::Expected(Form::Association),
+            ));
+        };
         Ok(Association {
             identity: Identity {
                 name: head.name().place(0)?,
                 constraints: vec![],
             },
-            traits: body.bracket().place(1)?,
+            traits: traits.references().place(1)?,
         })
     }
 }
