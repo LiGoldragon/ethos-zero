@@ -451,3 +451,84 @@ fn generated_launch_parses_the_supplied_newtype_form() {
     );
     assert_eq!(actual.datomize(vec![]).protosize().compact(), text);
 }
+
+/// A sink bearing the fixture's own capability trait.
+struct Buffer {
+    lines: Vec<String>,
+}
+
+/// A line of text, which summarizes as itself.
+struct Line(&'static str);
+
+impl capability_traits::Summarizable for Line {
+    fn summarize(&self) -> String {
+        self.0.to_owned()
+    }
+}
+
+impl capability_traits::Fillable for Buffer {
+    fn push<N: capability_traits::Summarizable>(&mut self, input: N) -> Result<i64, SinkError> {
+        if self.lines.len() > 1 {
+            return Err(SinkError::Full);
+        }
+        self.lines.push(input.summarize());
+        Ok(self.lines.len() as i64)
+    }
+    fn drain(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.lines)
+    }
+    fn create() -> Self {
+        Self { lines: Vec::new() }
+    }
+}
+
+impl capability_traits::Summarizable for Buffer {
+    fn summarize(&self) -> String {
+        self.lines.join(" ")
+    }
+}
+
+#[test]
+fn capability_traits_are_implementable_traits() {
+    use capability_traits::{Fillable, Summarizable};
+    let mut buffer = Buffer::create();
+    assert_eq!(buffer.push(Line("a")).ok(), Some(1));
+    assert_eq!(buffer.push(Line("b")).ok(), Some(2));
+    assert!(matches!(buffer.push(Line("c")), Err(SinkError::Full)));
+    assert_eq!(buffer.summarize(), "a b");
+    // Any Summarizable is taken, another Buffer among them.
+    let mut outer = Buffer::create();
+    assert_eq!(outer.push(buffer).ok(), Some(1));
+    assert_eq!(outer.summarize(), "a b");
+    assert_eq!(outer.drain().len(), 1);
+    assert!(!matches!(SinkError::Closed, SinkError::Full));
+}
+
+/// A stream bearing the fixture's complex trait.
+struct Counter {
+    count: i64,
+}
+
+impl Serializable for i64 {}
+impl Fillable for Counter {}
+
+impl streamable_trait::Streamable for Counter {
+    type Item = i64;
+    const CAPACITY: i64 = 2;
+    fn next(&mut self) -> Option<i64> {
+        if self.count >= Self::CAPACITY {
+            return None;
+        }
+        self.count += 1;
+        Some(self.count)
+    }
+}
+
+#[test]
+fn a_complex_trait_carries_its_supertrait_type_and_constant() {
+    use streamable_trait::Streamable;
+    let mut counter = Counter { count: 0 };
+    assert_eq!(counter.next(), Some(1));
+    assert_eq!(counter.next(), Some(2));
+    assert_eq!(counter.next(), None);
+}
