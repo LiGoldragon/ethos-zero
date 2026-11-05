@@ -7,6 +7,8 @@
 #[rustfmt::skip]
 pub trait Mixed {
     fn inspect(&self) -> String;
+    fn r#gen(&self) -> String;
+    fn external(&self) -> r#gen::Thing;
     fn factory(&self) -> Self
     where
         Self: Sized;

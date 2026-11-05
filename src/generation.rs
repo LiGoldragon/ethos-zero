@@ -34,6 +34,21 @@ use crate::{
 // Tokens of names and sources
 // ---------------------------------------------------------------------------
 
+/// The trait whose capability spells an Ethos identifier in Rust 2024.
+trait RustIdentifying {
+    fn rust_ident(&self) -> Ident;
+}
+
+impl RustIdentifying for str {
+    fn rust_ident(&self) -> Ident {
+        if self == "gen" {
+            Ident::new_raw(self, Span::call_site())
+        } else {
+            Ident::new(self, Span::call_site())
+        }
+    }
+}
+
 /// The trait whose capability yields a value's Rust tokens without any scope.
 pub(crate) trait Tokening {
     fn tokens(&self) -> TokenStream;
@@ -41,15 +56,20 @@ pub(crate) trait Tokening {
 
 impl Tokening for Name {
     fn tokens(&self) -> TokenStream {
-        let ident = Ident::new(&self.0, Span::call_site());
+        let ident = self.0.as_str().rust_ident();
         quote! { #ident }
     }
 }
 
 impl Tokening for Source {
     fn tokens(&self) -> TokenStream {
-        let path: syn::Path =
+        let mut path: syn::Path =
             syn::parse_str(self.as_ref()).expect("a source was validated as a path");
+        for segment in &mut path.segments {
+            if segment.ident == "gen" {
+                segment.ident = "gen".rust_ident();
+            }
+        }
         quote! { #path }
     }
 }
@@ -643,13 +663,8 @@ impl FieldNaming for [Reference] {
             } else {
                 format!("position_{}_{}", prior + 1, base)
             };
-            let field = if name == "gen" {
-                // `gen` became a reserved keyword in Rust 2024. Syn accepts
-                // it without an edition context, so spell the generated field
-                // as the equivalent raw identifier.
-                Ident::new_raw(&name, Span::call_site())
-            } else if syn::parse_str::<Ident>(&name).is_ok() {
-                Ident::new(&name, Span::call_site())
+            let field = if syn::parse_str::<Ident>(&name).is_ok() {
+                name.as_str().rust_ident()
             } else if matches!(name.as_str(), "crate" | "self" | "super" | "Self") {
                 // The four keywords no raw identifier may spell.
                 Ident::new(&format!("{name}_"), Span::call_site())

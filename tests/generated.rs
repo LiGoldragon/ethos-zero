@@ -5,6 +5,9 @@
 extern crate self as flow;
 pub use flow_library::{Event, FlowId, Voice};
 
+extern crate self as r#gen;
+pub struct Thing;
+
 pub struct Wrapper<T>(pub T);
 
 /// What the trait fixtures import from `super`: the error a capability
@@ -214,6 +217,8 @@ fn recursive_generated_signal_archives_and_restores() {
 #[test]
 fn self_bearing_methods_are_sized_without_sizing_the_trait() {
     fn object_safe(value: &dyn self_traits::Mixed) -> String {
+        let _ = value.r#gen();
+        let _: r#gen::Thing = value.external();
         value.inspect()
     }
     let _ = object_safe;
