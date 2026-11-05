@@ -15,3 +15,9 @@ pub enum Marker {
 pub trait Processable<A: std::clone::Clone + std::marker::Send, B: serde::Serialize> {
     fn process(&self) -> String;
 }
+#[rustfmt::skip]
+pub trait DirectClone {
+    fn clone_it<N: std::clone::Clone>(&self, input: N) -> Self
+    where
+        Self: Sized;
+}

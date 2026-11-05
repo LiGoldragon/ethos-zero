@@ -1443,28 +1443,26 @@ impl Referring for Reference {
                 Problem::Name(self.name.0.clone()),
             ));
         }
-        // A direct Protos intrinsic has the same contract whether it arrives
+        // A known foreign declaration has the same contract whether it arrives
         // through an import or an explicit qualification. Other sources own
         // their declaration metadata.
-        if self
+        if let Some(requirement) = self
             .source
             .as_ref()
-            .is_some_and(|source| source.as_ref() == "protos")
-            && let Some(intrinsic) = Intrinsic::identify(&self.name.0)
+            .and_then(|source| source.known_requirement(&self.name))
         {
-            if intrinsic.role() != role {
+            if requirement.role != role {
                 return Err(Error::conceptual(
                     vec![],
                     Problem::Role(self.name.0.clone()),
                 ));
             }
-            if intrinsic.arity() != self.arguments.len() {
+            if let Some(arity) = requirement.arity
+                && arity != self.arguments.len()
+            {
                 return Err(Error::conceptual(
                     vec![],
-                    Problem::arity(
-                        intrinsic.arity() as Integer,
-                        self.arguments.len() as Integer,
-                    ),
+                    Problem::arity(arity as Integer, self.arguments.len() as Integer),
                 ));
             }
         }

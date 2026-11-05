@@ -2,5 +2,6 @@
 Library
 [ std:Clonable.Clone  std:Sendable.Send  serde:Serializable.Serialize ]
 [ Marker.[ Clonable Other ] ]
-[ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ]
+[ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ]
+  DirectClone.[ clone_it.{ [ std:Clone ] [ Self ] } ] ]
 []

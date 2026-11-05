@@ -508,6 +508,17 @@ fn a_known_imported_trait_is_not_accepted_as_a_data_type() {
 }
 
 #[test]
+fn a_directly_sourced_known_trait_keeps_its_trait_contract() {
+    assert_eq!(
+        "Library [] [ Holder.{ std:Clone } ] [] []".refusal(),
+        (vec![1, 1, 0, 1, 0], Problem::Role("Clone".to_owned()))
+    );
+
+    let rust = "Library [] [] [ T.[ clone_it.{ [ std:Clone ] [ Self ] } ] ] []".compact();
+    assert!(rust.contains("N:std::clone::Clone"), "{rust}");
+}
+
+#[test]
 fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
     // The audit's row-15 probe: two enums each declare X in place, and an
     // authored X_Data would capture the short name. The authored name is

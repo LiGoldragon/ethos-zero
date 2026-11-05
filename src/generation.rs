@@ -98,6 +98,28 @@ impl Tokening for Intrinsic {
     }
 }
 
+/// The trait whose capability yields the Rust declaration of a foreign name
+/// this compiler already knows.
+trait KnownEmitting {
+    fn known_tokens(&self, emitted: &Name) -> Option<TokenStream>;
+}
+
+impl KnownEmitting for Source {
+    fn known_tokens(&self, emitted: &Name) -> Option<TokenStream> {
+        if self.as_ref() == "protos" {
+            return Intrinsic::identify(&emitted.0).map(|intrinsic| intrinsic.tokens());
+        }
+        if self.as_ref() == "std" {
+            return match emitted.0.as_str() {
+                "Clone" => Some(quote! { std::clone::Clone }),
+                "Send" => Some(quote! { std::marker::Send }),
+                _ => None,
+            };
+        }
+        None
+    }
+}
+
 /// The trait whose capability yields the name of the parameter at an index: A, B, C.
 trait Lettering {
     fn letter(&self, scope: &Scope) -> Ident;
@@ -152,11 +174,8 @@ impl Emitting for Reference {
         };
         let name = self.name.tokens();
         if let Some(source) = &self.source {
-            if source.as_ref() == "protos"
-                && let Some(intrinsic) = Intrinsic::identify(&self.name.0)
-            {
-                let intrinsic = intrinsic.tokens();
-                return quote! { #intrinsic #applied };
+            if let Some(known) = source.known_tokens(&self.name) {
+                return quote! { #known #applied };
             }
             let source = source.tokens();
             return quote! { #source :: #name #applied };
@@ -167,19 +186,8 @@ impl Emitting for Reference {
                 quote! { #intrinsic #applied }
             }
             Resolution::Imported(source, emitted) => {
-                if source.as_ref() == "protos"
-                    && let Some(intrinsic) = Intrinsic::identify(&emitted.0)
-                {
-                    let intrinsic = intrinsic.tokens();
-                    return quote! { #intrinsic #applied };
-                }
-                if source.as_ref() == "std" {
-                    if emitted.0 == "Clone" {
-                        return quote! { std::clone::Clone #applied };
-                    }
-                    if emitted.0 == "Send" {
-                        return quote! { std::marker::Send #applied };
-                    }
+                if let Some(known) = source.known_tokens(&emitted) {
+                    return quote! { #known #applied };
                 }
                 let source = source.tokens();
                 let emitted = emitted.tokens();
