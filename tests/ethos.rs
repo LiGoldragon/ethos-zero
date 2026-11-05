@@ -753,6 +753,20 @@ fn every_inline_payload_has_a_finite_value_of_its_own() {
 }
 
 #[test]
+fn a_bare_variant_is_a_finite_value_even_when_its_name_is_a_type() {
+    for source in [
+        "Library [] [ Node.[ Node ] ] [] []",
+        "Library [] [ A.[ B ] B.[ A ] ] [] []",
+    ] {
+        let generated = match read(source).generate() {
+            Ok(generated) => generated,
+            Err(error) => panic!("{source} generates: {error:?}"),
+        };
+        syn::parse_file(&generated).expect("generated Rust parses");
+    }
+}
+
+#[test]
 fn outer_option_and_result_are_written_fully_qualified() {
     let generated = match read(
         "Library [] [ Wrapped.{ Option<Integer> Result<String Integer> } Chain.{ Option<Chain> } ] [] []",

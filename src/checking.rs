@@ -661,9 +661,7 @@ impl Inhabiting for Reference {
 impl Inhabiting for Variant {
     fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool {
         match self {
-            Variant::Bare(name) => {
-                file.declaration(name).is_none() || known.inhabited.contains(name)
-            }
+            Variant::Bare(_) => true,
             Variant::Typed(_, reference) => reference.inhabited(file, owner, known),
             Variant::Struct(_, positions) => positions
                 .iter()
