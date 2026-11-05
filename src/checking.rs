@@ -1532,126 +1532,6 @@ impl VariantCounting for [Variant] {
     }
 }
 
-/// The trait whose capability tells whether an alias reaches a name through aliases and intrinsic containers alone.
-trait Cycling {
-    fn cycles(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool;
-    fn cycles_substituting(
-        &self,
-        target: &Name,
-        file: &File,
-        visited: &mut Vec<Name>,
-        application: AliasApplication<'_>,
-    ) -> bool;
-}
-
-/// The identity and actual arguments of an alias while its body is followed.
-/// Parameter references in that body are replaced before cycle detection.
-#[derive(Clone, Copy)]
-struct AliasApplication<'a> {
-    identity: &'a Identity,
-    arguments: &'a [Reference],
-}
-
-impl Cycling for Reference {
-    fn cycles(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
-        if self.source.is_some() {
-            return self
-                .arguments
-                .iter()
-                .any(|argument| argument.cycles(target, file, visited));
-        }
-        if &self.name == target {
-            return true;
-        }
-        match file.resolve(&self.name) {
-            Resolution::Type(name) => {
-                if visited.contains(&name) {
-                    return false;
-                }
-                visited.push(name.clone());
-                match file.declaration(&name) {
-                    Some(TypeDeclaration::Alias(identity, aliased)) => aliased.cycles_substituting(
-                        target,
-                        file,
-                        visited,
-                        AliasApplication {
-                            identity,
-                            arguments: &self.arguments,
-                        },
-                    ),
-                    _ => false,
-                }
-            }
-            Resolution::Intrinsic(_) | Resolution::Imported(_, _) => {
-                for argument in &self.arguments {
-                    if argument.cycles(target, file, visited) {
-                        return true;
-                    }
-                }
-                false
-            }
-            Resolution::Trait(_)
-            | Resolution::Parameter(_)
-            | Resolution::Associated(_)
-            | Resolution::Ambiguous(_)
-            | Resolution::Undeclared => false,
-        }
-    }
-
-    fn cycles_substituting(
-        &self,
-        target: &Name,
-        file: &File,
-        visited: &mut Vec<Name>,
-        application: AliasApplication<'_>,
-    ) -> bool {
-        if self.source.is_none()
-            && self.arguments.is_empty()
-            && let Resolution::Parameter(index) = application.identity.resolve(&self.name)
-        {
-            return application.arguments[index as usize].cycles(target, file, visited);
-        }
-        if self.source.is_some() {
-            return self
-                .arguments
-                .iter()
-                .any(|argument| argument.cycles_substituting(target, file, visited, application));
-        }
-        if &self.name == target {
-            return true;
-        }
-        match file.resolve(&self.name) {
-            Resolution::Type(name) => {
-                if visited.contains(&name) {
-                    return false;
-                }
-                visited.push(name.clone());
-                match file.declaration(&name) {
-                    Some(TypeDeclaration::Alias(identity, aliased)) => aliased.cycles_substituting(
-                        target,
-                        file,
-                        visited,
-                        AliasApplication {
-                            identity,
-                            arguments: &self.arguments,
-                        },
-                    ),
-                    _ => false,
-                }
-            }
-            Resolution::Intrinsic(_) | Resolution::Imported(_, _) => self
-                .arguments
-                .iter()
-                .any(|argument| argument.cycles_substituting(target, file, visited, application)),
-            Resolution::Trait(_)
-            | Resolution::Parameter(_)
-            | Resolution::Associated(_)
-            | Resolution::Ambiguous(_)
-            | Resolution::Undeclared => false,
-        }
-    }
-}
-
 /// The trait whose capability finds the declaration of a name in a file.
 pub(crate) trait Declaring {
     /// The type declaration named, if the file declares one.
@@ -1773,14 +1653,8 @@ impl Checkable for TypeDeclaration {
                 names.distinct()?;
                 variants.check_children(&inner).place(1)
             }
-            TypeDeclaration::Alias(identity, aliased) => {
+            TypeDeclaration::Alias(_, aliased) => {
                 aliased.check(&inner).lifted(1)?;
-                if aliased.cycles(&identity.name, scope.file, &mut vec![]) {
-                    return Err(Error::conceptual(
-                        vec![0],
-                        Problem::Cycle(identity.name.0.clone()),
-                    ));
-                }
                 Ok(())
             }
         }

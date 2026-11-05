@@ -121,6 +121,60 @@ pub struct NestedNewtype(
         bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
     )
 )]
+pub struct NamedChain(
+    #[rkyv(omit_bounds)]
+    pub std::option::Option<std::boxed::Box<NamedChain>>,
+);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[rkyv(
+    serialize_bounds(
+        __S:rkyv::ser::Writer+rkyv::ser::Allocator,
+        __S::Error:rkyv::rancor::Source
+    )
+)]
+#[rkyv(deserialize_bounds(__D::Error:rkyv::rancor::Source))]
+#[rkyv(
+    bytecheck(
+        bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
+    )
+)]
+pub struct NamedChoice(
+    #[rkyv(omit_bounds)]
+    pub std::result::Result<std::boxed::Box<NamedChoice>, String>,
+);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[rkyv(
+    serialize_bounds(
+        __S:rkyv::ser::Writer+rkyv::ser::Allocator,
+        __S::Error:rkyv::rancor::Source
+    )
+)]
+#[rkyv(deserialize_bounds(__D::Error:rkyv::rancor::Source))]
+#[rkyv(
+    bytecheck(
+        bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
+    )
+)]
+pub struct NamedForest(#[rkyv(omit_bounds)] pub std::vec::Vec<NamedForest>);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[rkyv(
+    serialize_bounds(
+        __S:rkyv::ser::Writer+rkyv::ser::Allocator,
+        __S::Error:rkyv::rancor::Source
+    )
+)]
+#[rkyv(deserialize_bounds(__D::Error:rkyv::rancor::Source))]
+#[rkyv(
+    bytecheck(
+        bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
+    )
+)]
 pub struct Twin {
     #[rkyv(omit_bounds)]
     pub first_twig: Twig,

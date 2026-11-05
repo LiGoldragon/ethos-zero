@@ -7,6 +7,9 @@ Signal
   Chain.{ String Option<Chain> }
   NestedChain.{ Option<Option<NestedChain>> }
   NestedNewtype.Option<Option<Self>>
+  NamedChain.Option<NamedChain>
+  NamedChoice.Result<NamedChoice String>
+  NamedForest.Vector<NamedForest>
   Twin.{ Twig Twig }
   Twig.[ Tip  Grow.Twin ]
   Knot.[ End  Loop ]
