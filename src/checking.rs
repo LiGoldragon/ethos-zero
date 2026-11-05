@@ -662,7 +662,14 @@ impl Inhabiting for Variant {
     fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool {
         match self {
             Variant::Bare(name) => {
-                file.declaration(name).is_none() || known.inhabited.contains(name)
+                if !name.carries(file) {
+                    true
+                } else {
+                    match file.resolve(name) {
+                        Resolution::Type(resolved) => known.inhabited.contains(&resolved),
+                        _ => true,
+                    }
+                }
             }
             Variant::Typed(_, reference) => reference.inhabited(file, owner, known),
             Variant::Struct(_, positions) => positions
@@ -1647,6 +1654,31 @@ impl Declaring for File {
             }
         }
         None
+    }
+}
+
+/// The trait whose capability tells whether a bare variant name resolves as
+/// the type that variant carries.
+pub(crate) trait Carrying {
+    fn carries(&self, file: &File) -> bool;
+}
+
+impl Carrying for Name {
+    fn carries(&self, file: &File) -> bool {
+        match file.resolve(self) {
+            Resolution::Type(_) => true,
+            Resolution::Imported(source, emitted) if source.as_ref() == "protos" => {
+                Intrinsic::identify(&emitted.0)
+                    .is_none_or(|intrinsic| intrinsic.role() == Role::Type)
+            }
+            Resolution::Imported(_, _) => true,
+            Resolution::Intrinsic(intrinsic) => intrinsic.role() == Role::Type,
+            Resolution::Trait(_)
+            | Resolution::Parameter(_)
+            | Resolution::Associated(_)
+            | Resolution::Ambiguous(_)
+            | Resolution::Undeclared => false,
+        }
     }
 }
 

@@ -860,6 +860,24 @@ fn a_bare_variant_named_as_a_defined_type_carries_that_type() {
         "{generated}"
     );
     syn::parse_file(&generated).expect("generated Rust parses");
+
+    for (source, carried) in [
+        (
+            "Library [] [ Value.[ String Other ] ] [] []",
+            "String(String)",
+        ),
+        (
+            "Library [ gen:Thing ] [ Value.[ Thing Other ] ] [] []",
+            "Thing(r#gen::Thing)",
+        ),
+        (
+            "Signal [] [ Start ] [] [ Value.[ Query Other ] ]",
+            "Query(Query)",
+        ),
+    ] {
+        let generated = generates(source);
+        assert!(generated.contains(carried), "{generated}");
+    }
 }
 
 #[test]

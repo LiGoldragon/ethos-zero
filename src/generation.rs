@@ -21,7 +21,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::checking::{Checkable, Declaring, Inlining, IntrinsicResolving};
+use crate::checking::{Carrying, Checkable, Declaring, Inlining, IntrinsicResolving};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
@@ -388,10 +388,9 @@ impl Reaching for Variant {
         visited: &mut Vec<Name>,
     ) -> bool {
         match self {
-            Variant::Bare(name) => match file.declaration(name) {
-                Some(_) => name.carried().reaches(target, passage, file, visited),
-                None => false,
-            },
+            Variant::Bare(name) => {
+                name.carries(file) && name.carried().reaches(target, passage, file, visited)
+            }
             Variant::Typed(_, reference) => reference.reaches(target, passage, file, visited),
             Variant::Struct(_, positions) => positions.reaches(target, passage, file, visited),
             Variant::Enum(_, variants) => variants.reaches(target, passage, file, visited),
@@ -704,7 +703,7 @@ impl Varianted for Variant {
         match self {
             Variant::Bare(name) => {
                 let variant = name.tokens();
-                if scope.file.declaration(name).is_some() {
+                if name.carries(scope.file) {
                     let carried = name.carried();
                     let archival = carried.archival(scope, owner);
                     let ty = carried.position(scope, owner);
@@ -748,7 +747,7 @@ impl Varianted for Variant {
     fn recursive(&self, scope: &Scope, owner: &Name) -> bool {
         match self {
             Variant::Bare(name) => {
-                scope.file.declaration(name).is_some() && name.carried().recursive(scope, owner)
+                name.carries(scope.file) && name.carried().recursive(scope, owner)
             }
             Variant::Typed(_, reference) => reference.recursive(scope, owner),
             Variant::Struct(_, _) | Variant::Enum(_, _) => false,

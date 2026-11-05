@@ -6,7 +6,7 @@ extern crate self as flow;
 pub use flow_library::{Event, FlowId, Voice};
 
 extern crate self as r#gen;
-pub struct Thing;
+pub type Thing = String;
 
 pub struct Wrapper<T>(pub T);
 
@@ -358,7 +358,16 @@ fn several_declarations_generate_side_by_side() {
     let holder = multi_types::Holder {
         r#gen: multi_types::Gen(String::new()),
     };
-    let _ = (report, id, holder, multi_types::SinkError::Closed);
+    let text = multi_types::Text::String(String::new());
+    let external = multi_types::External::Thing(String::new());
+    let _ = (
+        report,
+        id,
+        holder,
+        text,
+        external,
+        multi_types::SinkError::Closed,
+    );
 }
 
 #[test]

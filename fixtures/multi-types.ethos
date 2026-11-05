@@ -1,11 +1,13 @@
 ; Multiple type declarations per Vision/ethos.md
 Library
-[]
+[ gen:Thing ]
 [ Record.{ String Integer }
   Report.{ String Vector<Integer> }
   SinkError.[ Closed Full ]
   LockId.Integer
   Gen.String
-  Holder.{ Gen } ]
+  Holder.{ Gen }
+  Text.[ String Other ]
+  External.[ Thing Other ] ]
 []
 []
