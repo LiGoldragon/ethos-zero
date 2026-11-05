@@ -19,3 +19,7 @@ pub trait Fillable {
     where
         Self: Sized;
 }
+#[rustfmt::skip]
+pub trait Indexed<AEthosParameter: super::Serializable> {
+    type A;
+}

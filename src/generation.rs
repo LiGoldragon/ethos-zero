@@ -87,12 +87,16 @@ impl Lettering for usize {
     fn letter(&self, scope: &Scope) -> Ident {
         let letter = char::from(b'A' + *self as u8);
         let simple = Name::try_from(letter.to_string()).expect("static identifier");
-        let allocated = if scope.file.declaration(&simple).is_none() {
+        let allocated = if scope.file.declaration(&simple).is_none()
+            && scope.associated.resolve(&simple) == Resolution::Undeclared
+        {
             simple
         } else {
             let mut allocated = Name::try_from(format!("{}EthosParameter", simple.0))
                 .expect("parameter identifiers are identifiers");
-            while scope.file.declaration(&allocated).is_some() {
+            while scope.file.declaration(&allocated).is_some()
+                || scope.associated.resolve(&allocated) != Resolution::Undeclared
+            {
                 allocated = Name::try_from(format!("{}X", allocated.0))
                     .expect("parameter identifiers are identifiers");
             }

@@ -706,6 +706,16 @@ fn self_and_the_traits_own_parameters_stay_as_they_are() {
 }
 
 #[test]
+fn a_trait_parameter_does_not_capture_an_associated_type() {
+    let rust = "Library [ serde:Serializable ] [] [ Indexed<Serializable>.{ [] [ A AEthosParameter ] [] [] } ] []".compact();
+    assert!(
+        rust.contains("traitIndexed<AEthosParameterX:serde::Serializable>"),
+        "{rust}"
+    );
+    assert!(rust.contains("typeA;typeAEthosParameter;"), "{rust}");
+}
+
+#[test]
 fn a_concrete_type_in_an_input_is_refused_as_wanting_a_trait() {
     assert_eq!(
         "Library [] [] [ Resolvable.[ resolve.{ [ String ] [ Self ] } ] ] []".refusal(),

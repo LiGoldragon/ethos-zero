@@ -128,7 +128,8 @@ declared inside a derived enum carries that enum's name as its stem
 (`Y_Data_X_Data`). An authored name equal to a derived name is refused as a
 `Duplicate` at the authored declaration.
 Generated generic parameters similarly move from `A`, `B`, and so on only
-when one would capture an authored type reference.
+when one would capture an authored type reference or an associated type of
+the trait being generated.
 
 ## Traits
 
