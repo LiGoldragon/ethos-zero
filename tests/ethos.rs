@@ -676,6 +676,30 @@ fn a_type_with_no_finite_value_is_refused() {
 }
 
 #[test]
+fn an_implied_enum_with_no_finite_value_is_refused() {
+    for (source, name) in [
+        ("Signal [] [ Again.Query ] [] []", "Query"),
+        ("Signal [] [] [ Again.Response ] []", "Response"),
+        ("Operation [] [ Again.Operation ] [] []", "Operation"),
+        ("Operation [] [] [ Again.Outcome ] []", "Outcome"),
+    ] {
+        assert_eq!(
+            source.refusal().1,
+            Problem::Cycle(name.to_owned()),
+            "{source}"
+        );
+    }
+
+    for finite in [
+        "Signal [] [ Stop Again.Query ] [] []",
+        "Signal [] [ Again.Option<Query> ] [] []",
+        "Operation [] [ Again.Outcome ] [ Done ] []",
+    ] {
+        assert!(read(finite).generate().is_ok(), "{finite} generates");
+    }
+}
+
+#[test]
 fn outer_option_and_result_are_written_fully_qualified() {
     let generated = match read(
         "Library [] [ Wrapped.{ Option<Integer> Result<String Integer> } Chain.{ Option<Chain> } ] [] []",

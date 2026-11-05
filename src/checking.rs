@@ -647,7 +647,9 @@ impl Inhabiting for Reference {
             Some(_) => true,
             None if self.source.is_some() => true,
             None => match file.resolve(&self.name) {
-                Resolution::Type(name) if file.declaration(&name).is_some() => {
+                Resolution::Type(name)
+                    if file.declaration(&name).is_some() || file.implied().contains(&name) =>
+                {
                     known.inhabited.contains(&name)
                 }
                 _ => true,
@@ -718,6 +720,19 @@ impl Finite for File {
                     grown = true;
                 }
             }
+            for implied in self.implied_enums() {
+                if implied.variants.is_empty() || known.inhabited.contains(&implied.name) {
+                    continue;
+                }
+                if implied
+                    .variants
+                    .iter()
+                    .any(|variant| variant.inhabited(self, &implied.name, &known))
+                {
+                    known.inhabited.push(implied.name);
+                    grown = true;
+                }
+            }
             if !grown {
                 break;
             }
@@ -728,6 +743,14 @@ impl Finite for File {
                 let mut path = placed.path;
                 path.push(0);
                 return Err(Error::conceptual(path, Problem::Cycle(name.0.clone())));
+            }
+        }
+        for implied in self.implied_enums() {
+            if !implied.variants.is_empty() && !known.inhabited.contains(&implied.name) {
+                return Err(Error::conceptual(
+                    vec![implied.section],
+                    Problem::Cycle(implied.name.0),
+                ));
             }
         }
         Ok(())
