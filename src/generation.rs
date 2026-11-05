@@ -109,14 +109,11 @@ impl KnownEmitting for Source {
         if self.as_ref() == "protos" {
             return Intrinsic::identify(&emitted.0).map(|intrinsic| intrinsic.tokens());
         }
-        if self.as_ref() == "std" {
-            return match emitted.0.as_str() {
-                "Clone" => Some(quote! { std::clone::Clone }),
-                "Send" => Some(quote! { std::marker::Send }),
-                _ => None,
-            };
+        match (self.as_ref(), emitted.0.as_str()) {
+            ("std" | "std::clone", "Clone") => Some(quote! { std::clone::Clone }),
+            ("std" | "std::marker", "Send") => Some(quote! { std::marker::Send }),
+            _ => None,
         }
-        None
     }
 }
 

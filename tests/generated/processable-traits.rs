@@ -20,4 +20,7 @@ pub trait DirectClone {
     fn clone_it<N: std::clone::Clone>(&self, input: N) -> Self
     where
         Self: Sized;
+    fn send_it<N: std::marker::Send>(&self, input: N) -> Self
+    where
+        Self: Sized;
 }

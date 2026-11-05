@@ -1349,7 +1349,11 @@ impl ImportedRequiring for Source {
                 arity: Some(intrinsic.arity()),
             });
         }
-        if self.as_ref() == "std" && matches!(emitted.0.as_str(), "Clone" | "Send") {
+        let standard_trait = matches!(
+            (self.as_ref(), emitted.0.as_str()),
+            ("std", "Clone" | "Send") | ("std::clone", "Clone") | ("std::marker", "Send")
+        );
+        if standard_trait {
             return Some(ReferenceRequirement {
                 role: Role::Trait,
                 arity: Some(0),

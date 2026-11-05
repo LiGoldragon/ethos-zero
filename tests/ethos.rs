@@ -501,18 +501,36 @@ fn a_protos_intrinsic_alias_keeps_its_intrinsic_contract_and_rust_type() {
 
 #[test]
 fn a_known_imported_trait_is_not_accepted_as_a_data_type() {
-    assert_eq!(
-        "Library [ std:Clonable.Clone ] [ Holder.{ Clonable } ] [] []".refusal(),
-        (vec![1, 1, 0, 1, 0], Problem::Role("Clonable".to_owned()))
-    );
+    for (import, name) in [
+        ("std:Clonable.Clone", "Clonable"),
+        (":std:clone:Clonable.Clone", "Clonable"),
+        ("std:Sendable.Send", "Sendable"),
+        (":std:marker:Sendable.Send", "Sendable"),
+    ] {
+        let source = format!("Library [ {import} ] [ Holder.{{ {name} }} ] [] []");
+        assert_eq!(
+            source.as_str().refusal(),
+            (vec![1, 1, 0, 1, 0], Problem::Role(name.to_owned())),
+            "{source}"
+        );
+    }
 }
 
 #[test]
 fn a_directly_sourced_known_trait_keeps_its_trait_contract() {
-    assert_eq!(
-        "Library [] [ Holder.{ std:Clone } ] [] []".refusal(),
-        (vec![1, 1, 0, 1, 0], Problem::Role("Clone".to_owned()))
-    );
+    for (reference, name) in [
+        ("std:Clone", "Clone"),
+        (":std:clone:Clone", "Clone"),
+        ("std:Send", "Send"),
+        (":std:marker:Send", "Send"),
+    ] {
+        let source = format!("Library [] [ Holder.{{ {reference} }} ] [] []");
+        assert_eq!(
+            source.as_str().refusal(),
+            (vec![1, 1, 0, 1, 0], Problem::Role(name.to_owned())),
+            "{source}"
+        );
+    }
 
     let rust = "Library [] [] [ T.[ clone_it.{ [ std:Clone ] [ Self ] } ] ] []".compact();
     assert!(rust.contains("N:std::clone::Clone"), "{rust}");

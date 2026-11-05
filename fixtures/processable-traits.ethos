@@ -1,7 +1,8 @@
 ; Trait identity constraints use the standard imported traits.
 Library
-[ std:Clonable.Clone  std:Sendable.Send  serde:Serializable.Serialize ]
+[ :std:clone:Clonable.Clone  :std:marker:Sendable.Send  serde:Serializable.Serialize ]
 [ Marker.[ Clonable Other ] ]
 [ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ]
-  DirectClone.[ clone_it.{ [ std:Clone ] [ Self ] } ] ]
+  DirectClone.[ clone_it.{ [ :std:clone:Clone ] [ Self ] }
+                send_it.{ [ :std:marker:Send ] [ Self ] } ] ]
 []
