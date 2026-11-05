@@ -1074,6 +1074,9 @@ impl TypeNaming for File {
     fn type_sites(&self) -> Vec<DeclarationSite> {
         let mut types = self.inline_sites();
         for implied in self.implied_enums() {
+            if implied.variants.is_empty() {
+                continue;
+            }
             types.push(DeclarationSite {
                 name: implied.name,
                 path: vec![implied.section],
@@ -1325,6 +1328,73 @@ struct ReferenceRequirement {
     arity: Option<usize>,
 }
 
+/// The trait whose capability resolves the role and arity a bare name requires.
+/// Imported declarations own metadata outside this file, so their position
+/// supplies the role and their arity remains unknown.
+trait Requiring {
+    fn requirement(
+        &self,
+        scope: &Scope,
+        imported_role: Role,
+    ) -> Result<ReferenceRequirement, Error>;
+}
+
+impl Requiring for Name {
+    fn requirement(
+        &self,
+        scope: &Scope,
+        imported_role: Role,
+    ) -> Result<ReferenceRequirement, Error> {
+        match scope.resolve(self) {
+            Resolution::Ambiguous(name) => {
+                Err(Error::conceptual(vec![], Problem::Duplicate(name.0)))
+            }
+            Resolution::Undeclared => Err(Error::conceptual(
+                vec![],
+                Problem::Undeclared(self.0.clone()),
+            )),
+            Resolution::Intrinsic(intrinsic) => Ok(ReferenceRequirement {
+                role: intrinsic.role(),
+                arity: Some(intrinsic.arity()),
+            }),
+            Resolution::Parameter(_) | Resolution::Associated(_) => Ok(ReferenceRequirement {
+                role: Role::Type,
+                arity: Some(0),
+            }),
+            Resolution::Type(name) => {
+                let arity = scope
+                    .file
+                    .declaration(&name)
+                    .map(|declaration| declaration.identity().constraints.len());
+                Ok(ReferenceRequirement {
+                    role: Role::Type,
+                    arity,
+                })
+            }
+            Resolution::Trait(_) => Ok(ReferenceRequirement {
+                role: Role::Trait,
+                arity: None,
+            }),
+            Resolution::Imported(source, emitted) if source.as_ref() == "protos" => {
+                match Intrinsic::identify(&emitted.0) {
+                    Some(intrinsic) => Ok(ReferenceRequirement {
+                        role: intrinsic.role(),
+                        arity: Some(intrinsic.arity()),
+                    }),
+                    None => Ok(ReferenceRequirement {
+                        role: imported_role,
+                        arity: None,
+                    }),
+                }
+            }
+            Resolution::Imported(_, _) => Ok(ReferenceRequirement {
+                role: imported_role,
+                arity: None,
+            }),
+        }
+    }
+}
+
 /// The trait whose capability checks every reference of a section in one role.
 trait ReferringEach {
     fn refer_each(&self, scope: &Scope, role: Role, section: Integer) -> Result<(), Error>;
@@ -1380,54 +1450,7 @@ impl Referring for Reference {
         // A sourced reference carries the foreign name in the headed body's
         // structural child at index one.
         if self.source.is_none() {
-            let requirement = match scope.resolve(&self.name) {
-                Resolution::Ambiguous(name) => {
-                    return Err(Error::conceptual(vec![], Problem::Duplicate(name.0)));
-                }
-                Resolution::Undeclared => {
-                    return Err(Error::conceptual(
-                        vec![],
-                        Problem::Undeclared(self.name.0.clone()),
-                    ));
-                }
-                Resolution::Intrinsic(intrinsic) => ReferenceRequirement {
-                    role: intrinsic.role(),
-                    arity: Some(intrinsic.arity()),
-                },
-                Resolution::Parameter(_) | Resolution::Associated(_) => ReferenceRequirement {
-                    role: Role::Type,
-                    arity: Some(0),
-                },
-                Resolution::Type(name) => {
-                    let arity =
-                        scope
-                            .file
-                            .declaration(&name)
-                            .map(|declaration| match declaration {
-                                TypeDeclaration::Struct(identity, _)
-                                | TypeDeclaration::Enum(identity, _)
-                                | TypeDeclaration::Alias(identity, _) => identity.constraints.len(),
-                            });
-                    ReferenceRequirement {
-                        role: Role::Type,
-                        arity,
-                    }
-                }
-                Resolution::Trait(_) => ReferenceRequirement {
-                    role: Role::Trait,
-                    arity: None,
-                },
-                Resolution::Imported(source, emitted) if source.as_ref() == "protos" => {
-                    match Intrinsic::identify(&emitted.0) {
-                        Some(intrinsic) => ReferenceRequirement {
-                            role: intrinsic.role(),
-                            arity: Some(intrinsic.arity()),
-                        },
-                        None => ReferenceRequirement { role, arity: None },
-                    }
-                }
-                Resolution::Imported(_, _) => ReferenceRequirement { role, arity: None },
-            };
+            let requirement = self.name.requirement(scope, role)?;
             if requirement.role != role {
                 return Err(Error::conceptual(
                     vec![],
@@ -1860,13 +1883,13 @@ impl Checkable for Capability {
 
 impl Checkable for Association {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        Reference {
-            source: None,
-            name: self.identity.name.clone(),
-            arguments: vec![],
+        let requirement = self.identity.name.requirement(scope, Role::Type).place(0)?;
+        if requirement.role != Role::Type {
+            return Err(Error::conceptual(
+                vec![0],
+                Problem::Role(self.identity.name.0.clone()),
+            ));
         }
-        .refer(scope, Role::Type)
-        .place(0)?;
         self.identity.check(scope).place(0)?;
         // The traits borne are named outside the identity that bears them.
         self.traits.refer_each(scope, Role::Trait, 0).place(1)

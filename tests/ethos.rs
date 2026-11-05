@@ -2,7 +2,10 @@
 //! the constructs that consumers write; detailed parser failures live beside
 //! the reader in `src/lib.rs`.
 
-use ethos_zero::{Actualizing, Error, File, Form, Generating, Potential, Problem};
+use ethos_zero::{
+    Actualizing, Association, Constraint, Error, File, Form, Generating, Identity, Import,
+    Imported, Library, Name, Potential, Problem, Reference, Source, TraitBody, TraitDeclaration,
+};
 use protos::{Protosizable, Textualizable};
 
 fn read(source: &str) -> File {
@@ -191,6 +194,19 @@ fn an_omitted_empty_implied_enum_cannot_be_referenced() {
     };
     assert!(generated.contains("pub enum Query"));
     assert!(generated.contains("pub query: Query"));
+
+    for source in [
+        "Signal [] [] [] [ ArchivedQuery.String ]",
+        "Signal [] [] [] [ QueryResolver.String ]",
+        "Operation [] [] [] [ ArchivedOutcome.String ]",
+        "Operation [] [] [] [ OperationResolver.String ]",
+    ] {
+        assert!(read(source).generate().is_ok(), "{source}");
+    }
+    assert_eq!(
+        "Signal [] [] [] [ Query.String ]".refusal().1,
+        Problem::Duplicate("Query".to_owned())
+    );
 }
 
 #[test]
@@ -639,6 +655,67 @@ fn an_association_subject_is_a_type() {
         read("Library [] [ Subject.{} ] [ Marker.[] ] [ Subject.[ Marker ] ]")
             .generate()
             .is_ok()
+    );
+}
+
+#[test]
+fn a_manual_generic_association_checks_and_its_rust_compiles() {
+    let named = |text| Name::try_from(text).expect("test identifier");
+    let reference = |text| Reference {
+        source: None,
+        name: named(text),
+        arguments: vec![],
+    };
+    let file = File::Library(Library {
+        imports: vec![Import::Many(
+            Source::try_from("external").expect("test source"),
+            ["Thing", "Serializable"]
+                .into_iter()
+                .map(|text| Imported {
+                    name: named(text),
+                    emitted: named(text),
+                })
+                .collect(),
+        )],
+        types: vec![],
+        traits: vec![TraitDeclaration {
+            identity: Identity {
+                name: named("Marker"),
+                constraints: vec![],
+            },
+            body: TraitBody::Simple(vec![]),
+        }],
+        associations: vec![Association {
+            identity: Identity {
+                name: named("Thing"),
+                constraints: vec![Constraint::One(reference("Serializable"))],
+            },
+            traits: vec![reference("Marker")],
+        }],
+    });
+    let mut generated = file
+        .generate()
+        .expect("manual generic association generates");
+    generated.push_str(
+        "\nmod external { pub trait Serializable {} pub struct Thing<A: Serializable>(pub A); }\nimpl<A: external::Serializable> Marker for external::Thing<A> {}\n",
+    );
+    let directory = format!(
+        "{}/generic-association-{}",
+        env!("CARGO_TARGET_TMPDIR"),
+        std::process::id()
+    );
+    std::fs::create_dir_all(&directory).expect("temporary source directory");
+    let source = format!("{directory}/lib.rs");
+    let output = format!("{directory}/lib.rlib");
+    std::fs::write(&source, generated).expect("generated source");
+    let compiled = std::process::Command::new("rustc")
+        .args(["--edition=2024", "--crate-type=lib", &source, "-o", &output])
+        .output()
+        .expect("rustc is available");
+    assert!(
+        compiled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compiled.stderr)
     );
 }
 
