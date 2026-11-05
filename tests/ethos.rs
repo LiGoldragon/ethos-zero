@@ -452,6 +452,46 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
 }
 
 #[test]
+fn authored_names_capturing_rkyv_derived_names_are_refused() {
+    assert!(
+        read("Library [ std:ArchivedFlow ] [ Flow.{ ArchivedFlow } ] [] []")
+            .generate()
+            .is_ok(),
+        "a qualified import does not occupy the generated module's namespace"
+    );
+    for (source, name, path) in [
+        (
+            "Memory [] [ Flow.{ String } ArchivedFlow.{ String } ]",
+            "ArchivedFlow",
+            vec![1, 1, 1, 0],
+        ),
+        (
+            "Memory [] [ Flow.{ String } FlowResolver.{ String } ]",
+            "FlowResolver",
+            vec![1, 1, 1, 0],
+        ),
+        (
+            "Signal [] [ Ask ] [ Answer ] [ ArchivedQuery.{ String } ]",
+            "ArchivedQuery",
+            vec![1, 3, 0, 0],
+        ),
+        (
+            "Memory [] [ Event.[ Added.{ String } ] ArchivedAdded_Data.{ String } ]",
+            "ArchivedAdded_Data",
+            vec![1, 1, 1, 0],
+        ),
+    ] {
+        match read(source).generate() {
+            Err(Error::Conceptual(data)) => {
+                assert_eq!(data.problem, Problem::Duplicate(name.to_owned()));
+                assert_eq!(data.integer_vector, path);
+            }
+            other => panic!("an authored name capturing an rkyv name is refused: {other:?}"),
+        }
+    }
+}
+
+#[test]
 fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
     let generated = match read("Signal [] [ Ask.{ String } ] [ Ask.{ Integer } ] []").generate() {
         Ok(generated) => generated,

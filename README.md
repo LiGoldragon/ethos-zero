@@ -115,8 +115,10 @@ A type or trait declaration is refused when its name is an intrinsic's
 later reference), or does not begin with a capital (`Case.a`). A declared
 type with no finite value, one that reaches itself with no `Vector`,
 `Option` or other variant to stop at, such as `S.{ Self }`, is refused as
-a `Cycle`. Every generated item carries `#[rustfmt::skip]`, an inline
-payload's as much as its enum's.
+a `Cycle`. A type also reserves the `ArchivedType` and `TypeResolver` names
+that its rkyv derive generates, so an authored declaration cannot make the
+generated Rust contain two items with one name. Every generated item carries
+`#[rustfmt::skip]`, an inline payload's as much as its enum's.
 
 A variant that declares its payload in place names a derived type:
 `X.{ … }` or `X.[ … ]` in an enum gives `X_Data`. Derived names are unique
