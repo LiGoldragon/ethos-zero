@@ -1860,12 +1860,13 @@ impl Checkable for Capability {
 
 impl Checkable for Association {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        if scope.resolve(&self.identity.name) == Resolution::Undeclared {
-            return Err(Error::conceptual(
-                vec![],
-                Problem::Undeclared(self.identity.name.0.clone()),
-            ));
+        Reference {
+            source: None,
+            name: self.identity.name.clone(),
+            arguments: vec![],
         }
+        .refer(scope, Role::Type)
+        .place(0)?;
         self.identity.check(scope).place(0)?;
         // The traits borne are named outside the identity that bears them.
         self.traits.refer_each(scope, Role::Trait, 0).place(1)

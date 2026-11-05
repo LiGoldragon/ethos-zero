@@ -626,6 +626,23 @@ fn a_declared_intrinsic_name_is_refused_by_name() {
 }
 
 #[test]
+fn an_association_subject_is_a_type() {
+    assert_eq!(
+        "Library [] [] [ Marker.[] ] [ Marker.[ Marker ] ]".refusal(),
+        (vec![1, 3, 0, 0], Problem::Role("Marker".to_owned()))
+    );
+    assert_eq!(
+        "Library [] [] [ Marker.[] ] [ Sized.[ Marker ] ]".refusal(),
+        (vec![1, 3, 0, 0], Problem::Role("Sized".to_owned()))
+    );
+    assert!(
+        read("Library [] [ Subject.{} ] [ Marker.[] ] [ Subject.[ Marker ] ]")
+            .generate()
+            .is_ok()
+    );
+}
+
+#[test]
 fn a_lowercase_type_or_trait_name_is_refused() {
     assert_eq!(
         "Library [] [ a.{ String } ] [] []".refusal(),
