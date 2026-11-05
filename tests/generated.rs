@@ -77,6 +77,12 @@ mod streamable_trait;
 mod tree_types;
 
 #[test]
+fn an_imported_trait_name_remains_a_unit_variant() {
+    let marker = processable_traits::Marker::Clonable;
+    assert!(matches!(marker, processable_traits::Marker::Clonable));
+}
+
+#[test]
 fn nested_inline_payloads_have_distinct_rust_types() {
     let left = nested_collision::Outer::A(nested_collision::A_Data::X(
         nested_collision::A_Data_X_Data {

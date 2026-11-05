@@ -15,7 +15,7 @@ use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name, Operation,
     Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal, Signature,
-    Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Source, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -1335,9 +1335,33 @@ struct ReferenceRequirement {
     arity: Option<usize>,
 }
 
+/// The trait whose capability gives the contract of an imported name whose
+/// Rust declaration this compiler already knows.
+trait ImportedRequiring {
+    fn known_requirement(&self, emitted: &Name) -> Option<ReferenceRequirement>;
+}
+
+impl ImportedRequiring for Source {
+    fn known_requirement(&self, emitted: &Name) -> Option<ReferenceRequirement> {
+        if self.as_ref() == "protos" {
+            return Intrinsic::identify(&emitted.0).map(|intrinsic| ReferenceRequirement {
+                role: intrinsic.role(),
+                arity: Some(intrinsic.arity()),
+            });
+        }
+        if self.as_ref() == "std" && matches!(emitted.0.as_str(), "Clone" | "Send") {
+            return Some(ReferenceRequirement {
+                role: Role::Trait,
+                arity: Some(0),
+            });
+        }
+        None
+    }
+}
+
 /// The trait whose capability resolves the role and arity a bare name requires.
-/// Imported declarations own metadata outside this file, so their position
-/// supplies the role and their arity remains unknown.
+/// An imported declaration this compiler does not know owns metadata outside
+/// this file, so its position supplies the role and its arity remains unknown.
 trait Requiring {
     fn requirement(
         &self,
@@ -1382,22 +1406,12 @@ impl Requiring for Name {
                 role: Role::Trait,
                 arity: None,
             }),
-            Resolution::Imported(source, emitted) if source.as_ref() == "protos" => {
-                match Intrinsic::identify(&emitted.0) {
-                    Some(intrinsic) => Ok(ReferenceRequirement {
-                        role: intrinsic.role(),
-                        arity: Some(intrinsic.arity()),
-                    }),
-                    None => Ok(ReferenceRequirement {
-                        role: imported_role,
-                        arity: None,
-                    }),
-                }
-            }
-            Resolution::Imported(_, _) => Ok(ReferenceRequirement {
-                role: imported_role,
-                arity: None,
-            }),
+            Resolution::Imported(source, emitted) => Ok(source
+                .known_requirement(&emitted)
+                .unwrap_or(ReferenceRequirement {
+                    role: imported_role,
+                    arity: None,
+                })),
         }
     }
 }
@@ -1667,11 +1681,9 @@ impl Carrying for Name {
     fn carries(&self, file: &File) -> bool {
         match file.resolve(self) {
             Resolution::Type(_) => true,
-            Resolution::Imported(source, emitted) if source.as_ref() == "protos" => {
-                Intrinsic::identify(&emitted.0)
-                    .is_none_or(|intrinsic| intrinsic.role() == Role::Type)
-            }
-            Resolution::Imported(_, _) => true,
+            Resolution::Imported(source, emitted) => source
+                .known_requirement(&emitted)
+                .is_none_or(|requirement| requirement.role == Role::Type),
             Resolution::Intrinsic(intrinsic) => intrinsic.role() == Role::Type,
             Resolution::Trait(_)
             | Resolution::Parameter(_)
