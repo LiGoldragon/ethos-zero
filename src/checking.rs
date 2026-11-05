@@ -753,6 +753,10 @@ impl Finite for File {
                 ));
             }
         }
+        for root in self.inline_roots() {
+            root.variants
+                .inline_finite(self, &root.owner, &root.owner, &root.path, &known)?;
+        }
         Ok(())
     }
 }
@@ -961,6 +965,64 @@ impl InlineWalking for [Variant] {
                 nested.walk_inline(file, owner, &derived, &placed, sites);
             }
         }
+    }
+}
+
+/// The trait whose capability checks every generated inline payload as a
+/// type in its own right, even when another variant inhabits its enclosing
+/// enum.
+trait InlineFiniteness {
+    fn inline_finite(
+        &self,
+        file: &File,
+        owner: &Name,
+        enclosing: &Name,
+        path: &Path,
+        known: &Inhabitation,
+    ) -> Result<(), Error>;
+}
+
+impl InlineFiniteness for [Variant] {
+    fn inline_finite(
+        &self,
+        file: &File,
+        owner: &Name,
+        enclosing: &Name,
+        path: &Path,
+        known: &Inhabitation,
+    ) -> Result<(), Error> {
+        let mut at = 0;
+        for variant in self {
+            let index = at;
+            at += variant.span();
+            let Some(name) = variant.payload() else {
+                continue;
+            };
+            let derived = file.inline_name(owner, enclosing, name);
+            let inhabited = match variant {
+                Variant::Struct(_, positions) => positions
+                    .iter()
+                    .all(|position| position.reference().inhabited(file, &derived, known)),
+                Variant::Enum(_, variants) => {
+                    variants.is_empty()
+                        || variants
+                            .iter()
+                            .any(|variant| variant.inhabited(file, &derived, known))
+                }
+                Variant::Bare(_) | Variant::Typed(_, _) => true,
+            };
+            let mut placed = path.clone();
+            placed.push(index);
+            if !inhabited {
+                placed.push(0);
+                return Err(Error::conceptual(placed, Problem::Cycle(derived.0)));
+            }
+            if let Variant::Enum(_, nested) = variant {
+                placed.push(1);
+                nested.inline_finite(file, owner, &derived, &placed, known)?;
+            }
+        }
+        Ok(())
     }
 }
 

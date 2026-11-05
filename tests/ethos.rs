@@ -700,6 +700,42 @@ fn an_implied_enum_with_no_finite_value_is_refused() {
 }
 
 #[test]
+fn every_inline_payload_has_a_finite_value_of_its_own() {
+    for (source, name) in [
+        (
+            "Library [] [ Outer.[ Base Inner.[ Again.Self ] ] ] [] []",
+            "Inner_Data",
+        ),
+        (
+            "Library [] [ Outer.[ Base Inner.{ Self } ] ] [] []",
+            "Inner_Data",
+        ),
+        (
+            "Signal [] [ Base Inner.[ Again.Self ] ] [] []",
+            "Inner_Data",
+        ),
+        (
+            "Library [] [ Outer.[ Base Inner.[ Leaf Deep.{ Self } ] ] ] [] []",
+            "Inner_Data_Deep_Data",
+        ),
+    ] {
+        assert_eq!(
+            source.refusal().1,
+            Problem::Cycle(name.to_owned()),
+            "{source}"
+        );
+    }
+
+    for finite in [
+        "Library [] [ Outer.[ Base Inner.[ End Again.Self ] ] ] [] []",
+        "Library [] [ Outer.[ Base Inner.{ Option<Self> } ] ] [] []",
+        "Signal [] [ Base Inner.[ End Again.Self ] ] [] []",
+    ] {
+        assert!(read(finite).generate().is_ok(), "{finite} generates");
+    }
+}
+
+#[test]
 fn outer_option_and_result_are_written_fully_qualified() {
     let generated = match read(
         "Library [] [ Wrapped.{ Option<Integer> Result<String Integer> } Chain.{ Option<Chain> } ] [] []",
