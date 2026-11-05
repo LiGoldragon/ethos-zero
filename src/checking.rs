@@ -1497,6 +1497,22 @@ impl Checkable for Position {
     }
 }
 
+/// The trait whose capability refuses an enum declaration with only one
+/// variant. An empty declaration deliberately names the empty type; a
+/// populated enum has at least two alternatives.
+trait VariantCounting {
+    fn count_variants(&self) -> Result<(), Error>;
+}
+
+impl VariantCounting for [Variant] {
+    fn count_variants(&self) -> Result<(), Error> {
+        if self.len() == 1 {
+            return Err(Error::conceptual(vec![0], Problem::arity(2, 1)));
+        }
+        Ok(())
+    }
+}
+
 /// The trait whose capability tells whether an alias reaches a name through aliases and intrinsic containers alone.
 trait Cycling {
     fn cycles(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool;
@@ -1706,6 +1722,7 @@ impl Checkable for TypeDeclaration {
         match self {
             TypeDeclaration::Struct(_, positions) => positions.check_children(&inner).place(1),
             TypeDeclaration::Enum(_, variants) => {
+                variants.count_variants().place(1)?;
                 let mut names = variants.names_in(0);
                 for declared in &mut names {
                     declared.path.remove(0);
@@ -1748,6 +1765,7 @@ impl Checkable for Variant {
             Variant::Enum(name, variants) => {
                 name.define().place(0)?;
                 name.capitalized().place(0)?;
+                variants.count_variants().place(1)?;
                 let mut names = variants.names_in(0);
                 for declared in &mut names {
                     declared.path.remove(0);

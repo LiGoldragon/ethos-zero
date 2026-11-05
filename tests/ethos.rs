@@ -17,7 +17,7 @@ fn read(source: &str) -> File {
 
 #[test]
 fn full_library_round_trips_and_generates_named_types_and_traits() {
-    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
     let file = read(source);
     let repeated = read(&file.protosize().textualize());
     assert_eq!(file, repeated);
@@ -525,11 +525,13 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
     // The audit's row-15 probe: two enums each declare X in place, and an
     // authored X_Data would capture the short name. The authored name is
     // the occurrence refused, at its declaration.
-    let probe = "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] X_Data.String ] [] []";
+    let probe =
+        "Library [] [ P.[ X.{ String } Other ] Q.[ X.{ Integer } Other ] X_Data.String ] [] []";
     assert!(read(probe).generate().is_ok());
-    let captured = "Library [] [ P.[ X.{ String } ] P_X_Data.String ] [] []";
+    let captured = "Library [] [ P.[ X.{ String } Other ] P_X_Data.String ] [] []";
     assert!(read(captured).generate().is_ok());
-    let captured = "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] P_X_Data.String ] [] []";
+    let captured =
+        "Library [] [ P.[ X.{ String } Other ] Q.[ X.{ Integer } Other ] P_X_Data.String ] [] []";
     match read(captured).generate() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Duplicate("P_X_Data".to_owned()));
@@ -537,7 +539,7 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
         }
         _ => panic!("an authored name capturing a derived one is refused"),
     }
-    let captured = "Library [] [ P.[ X.{ String } ] X_Data.String ] [] []";
+    let captured = "Library [] [ P.[ X.{ String } Other ] X_Data.String ] [] []";
     match read(captured).generate() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Duplicate("X_Data".to_owned()));
@@ -572,7 +574,7 @@ fn authored_names_capturing_rkyv_derived_names_are_refused() {
             vec![1, 3, 0, 0],
         ),
         (
-            "Memory [] [ Event.[ Added.{ String } ] ArchivedAdded_Data.{ String } ]",
+            "Memory [] [ Event.[ Added.{ String } Other ] ArchivedAdded_Data.{ String } ]",
             "ArchivedAdded_Data",
             vec![1, 1, 1, 0],
         ),
@@ -744,6 +746,37 @@ fn a_lowercase_variant_name_is_refused() {
 }
 
 #[test]
+fn a_one_variant_authored_or_inline_enum_is_refused() {
+    for (source, path) in [
+        (
+            "Library [] [ Reply.[ Accepted ] ] [] []",
+            vec![1, 1, 0, 1, 0],
+        ),
+        (
+            "Library [] [ Outer.[ Other Inner.[ Only ] ] ] [] []",
+            vec![1, 1, 0, 1, 1, 1, 0],
+        ),
+    ] {
+        assert_eq!(
+            source.refusal(),
+            (
+                path,
+                Problem::Arity(ethos_zero::Arity_Data {
+                    first_integer: 2,
+                    second_integer: 1,
+                }),
+            ),
+            "{source}"
+        );
+    }
+    assert!(
+        read("Library [] [ Empty.[] Pair.[ First Second ] ] [] []")
+            .generate()
+            .is_ok()
+    );
+}
+
+#[test]
 fn a_type_with_no_finite_value_is_refused() {
     assert_eq!(
         "Library [] [ S.{ Self } ] [] []".refusal(),
@@ -754,7 +787,7 @@ fn a_type_with_no_finite_value_is_refused() {
         (vec![1, 1, 1, 0], Problem::Cycle("A".to_owned()))
     );
     assert_eq!(
-        "Library [] [ E.[ Only.E ] ] [] []".refusal(),
+        "Library [] [ E.[ Only.E Again.E ] ] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Cycle("E".to_owned()))
     );
     // A Vector, an Option or another variant is a way out.
@@ -797,7 +830,7 @@ fn an_implied_enum_with_no_finite_value_is_refused() {
 fn every_inline_payload_has_a_finite_value_of_its_own() {
     for (source, name) in [
         (
-            "Library [] [ Outer.[ Base Inner.[ Again.Self ] ] ] [] []",
+            "Library [] [ Outer.[ Base Inner.[ Again.Self Still.Self ] ] ] [] []",
             "Inner_Data",
         ),
         (
@@ -805,7 +838,7 @@ fn every_inline_payload_has_a_finite_value_of_its_own() {
             "Inner_Data",
         ),
         (
-            "Signal [] [ Base Inner.[ Again.Self ] ] [] []",
+            "Signal [] [ Base Inner.[ Again.Self Still.Self ] ] [] []",
             "Inner_Data",
         ),
         (
@@ -832,11 +865,11 @@ fn every_inline_payload_has_a_finite_value_of_its_own() {
 #[test]
 fn a_bare_variant_named_as_a_defined_type_carries_that_type() {
     assert_eq!(
-        "Library [] [ Node.[ Node ] ] [] []".refusal(),
+        "Library [] [ Node.[ Node Again.Node ] ] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Cycle("Node".to_owned()))
     );
     assert_eq!(
-        "Library [] [ A.[ B ] B.[ A ] ] [] []".refusal(),
+        "Library [] [ A.[ B Again.B ] B.[ A Again.A ] ] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Cycle("A".to_owned()))
     );
 

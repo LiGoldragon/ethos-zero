@@ -15,6 +15,7 @@ pub struct A_Data_X_Data {
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum A_Data {
     X(A_Data_X_Data),
+    Other,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -27,6 +28,7 @@ pub struct B_Data_X_Data {
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum B_Data {
     X(B_Data_X_Data),
+    Other,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -47,4 +49,5 @@ pub struct PathOverlap_Data {
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Rejection {
     PathOverlap(PathOverlap_Data),
+    Other,
 }
