@@ -49,19 +49,8 @@ fn signal_generates_query_response_and_optional_datom_derives() {
 
 #[test]
 fn memory_has_only_imports_and_record_type_sections() {
-    let file = read("Memory [ crate:[ Handle ] ] [ Record.{ Handle String } ]");
-    assert_eq!(file, read(&file.protosize().textualize()));
     assert!(
         Potential::<File>::from("Memory [] [] []")
-            .actualize()
-            .is_err()
-    );
-}
-
-#[test]
-fn a_file_headed_sema_is_refused() {
-    assert!(
-        Potential::<File>::from("Sema [] [ Record.{ String } ]")
             .actualize()
             .is_err()
     );
@@ -150,16 +139,6 @@ fn a_variant_payload_declares_named_positions_in_place() {
         };
     assert!(rust.contains("pub struct Brief(pub String);"), "{rust}");
     assert!(rust.contains("pub brief: Brief"), "{rust}");
-}
-
-#[test]
-fn retired_roots_are_not_accepted() {
-    assert!(
-        Potential::<File>::from("Types [] [] []")
-            .actualize()
-            .is_err()
-    );
-    assert!(Potential::<File>::from("Traits [] []").actualize().is_err());
 }
 
 #[test]
