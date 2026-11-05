@@ -506,13 +506,7 @@ impl Positioning for Reference {
             let name = intrinsic.tokens();
             let mut arguments = Vec::with_capacity(self.arguments.len());
             for argument in &self.arguments {
-                let ty = if argument.boxed(scope, owner) {
-                    let inner = argument.emit(scope);
-                    quote! { std::boxed::Box<#inner> }
-                } else {
-                    argument.emit(scope)
-                };
-                arguments.push(ty);
+                arguments.push(argument.position(scope, owner));
             }
             return quote! { #name < #( #arguments ),* > };
         }

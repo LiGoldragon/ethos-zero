@@ -746,6 +746,30 @@ fn recursive_newtypes_use_the_same_boxing_and_archive_rules_as_positions() {
 }
 
 #[test]
+fn nested_optional_containers_box_the_recursive_leaf() {
+    for source in [
+        "Library [] [ Node.{ Option<Option<Self>> } ] [] []",
+        "Library [] [ Node.{ Option<Result<Self String>> } ] [] []",
+        "Library [] [ Node.Option<Option<Self>> ] [] []",
+        "Library [ protos:Maybe.Option ] [ Node.{ Maybe<Maybe<Self>> } ] [] []",
+    ] {
+        let generated = match read(source).generate() {
+            Ok(generated) => generated,
+            Err(_) => panic!("nested recursive containers generate"),
+        };
+        assert!(generated.contains("std::boxed::Box<Self>"), "{generated}");
+        assert!(
+            !generated.contains("std::boxed::Box<std::option::Option<Self>>"),
+            "{generated}"
+        );
+        assert!(
+            !generated.contains("std::boxed::Box<std::result::Result<Self, String>>"),
+            "{generated}"
+        );
+    }
+}
+
+#[test]
 fn every_generated_item_carries_rustfmt_skip() {
     let root = env!("CARGO_MANIFEST_DIR");
     let mut generated = vec![
