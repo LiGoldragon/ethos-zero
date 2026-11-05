@@ -753,17 +753,24 @@ fn every_inline_payload_has_a_finite_value_of_its_own() {
 }
 
 #[test]
-fn a_bare_variant_is_a_finite_value_even_when_its_name_is_a_type() {
-    for source in [
-        "Library [] [ Node.[ Node ] ] [] []",
-        "Library [] [ A.[ B ] B.[ A ] ] [] []",
-    ] {
-        let generated = match read(source).generate() {
-            Ok(generated) => generated,
-            Err(error) => panic!("{source} generates: {error:?}"),
-        };
-        syn::parse_file(&generated).expect("generated Rust parses");
-    }
+fn a_bare_variant_named_as_a_defined_type_carries_that_type() {
+    assert_eq!(
+        "Library [] [ Node.[ Node ] ] [] []".refusal(),
+        (vec![1, 1, 0, 0], Problem::Cycle("Node".to_owned()))
+    );
+    assert_eq!(
+        "Library [] [ A.[ B ] B.[ A ] ] [] []".refusal(),
+        (vec![1, 1, 0, 0], Problem::Cycle("A".to_owned()))
+    );
+
+    let generated = generates(
+        "Library [] [ FilePath.String SyntaxError.Vector<FilePath> GenerationFailure.[ SyntaxError Unwritable ] ] [] []",
+    );
+    assert!(
+        generated.contains("SyntaxError(SyntaxError)"),
+        "{generated}"
+    );
+    syn::parse_file(&generated).expect("generated Rust parses");
 }
 
 #[test]
