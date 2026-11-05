@@ -58,9 +58,7 @@ trait Binding {
 impl Binding for Reference {
     fn binding(&self, scope: &Scope) -> Stance {
         for associated in scope.associated {
-            if associated.bounds.iter().any(|bound| {
-                bound.arguments.is_empty() && bound.source == self.source && bound.name == self.name
-            }) {
+            if associated.bounds.iter().any(|bound| bound == self) {
                 return Stance::Bound(associated.name.clone());
             }
         }

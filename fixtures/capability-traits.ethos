@@ -11,7 +11,10 @@ Library
   A.[]
   Bounded<A>.[]
   SizedBounded<Sized>.[]
-  UsesSizedBounded.{ [ SizedBounded<String> ] [ Item<SizedBounded<String>> ] [] [] }
+  UsesSizedBounded.{ [ SizedBounded<String> ]
+                     [ Item<SizedBounded<String>> ]
+                     []
+                     [ use_item.{ [ SizedBounded<String> ] [ Self ] } ] }
   GenericallyBounded<SizedBounded<String>>.[]
   N.[]
   UsesN.[ use_n.{ [ N ] [ Self ] } ] ]

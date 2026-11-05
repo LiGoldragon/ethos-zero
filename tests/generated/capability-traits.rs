@@ -32,6 +32,9 @@ pub trait SizedBounded<AEthosParameter: Sized> {}
 #[rustfmt::skip]
 pub trait UsesSizedBounded: SizedBounded<String> {
     type Item: SizedBounded<String>;
+    fn use_item(&self, input: Self::Item) -> Self
+    where
+        Self: Sized;
 }
 #[rustfmt::skip]
 pub trait GenericallyBounded<AEthosParameter: SizedBounded<String>> {}
