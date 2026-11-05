@@ -455,6 +455,33 @@ fn a_sourced_type_or_trait_reference_is_capitalized() {
 }
 
 #[test]
+fn a_protos_intrinsic_alias_keeps_its_intrinsic_contract_and_rust_type() {
+    assert_eq!(
+        "Library [ protos:Maybe.Option ] [ Holder.Maybe ] [] []".refusal(),
+        (
+            vec![1, 1, 0, 1],
+            Problem::Arity(ethos_zero::Arity_Data {
+                first_integer: 1,
+                second_integer: 0,
+            })
+        )
+    );
+
+    let rust = "Library [ protos:Text.String protos:Maybe.Option ] [ Record.{ Text Maybe<Text> protos:Vector<Text> } ] [] []"
+        .compact();
+    assert!(rust.contains("pubtext:String"), "{rust}");
+    assert!(
+        rust.contains("pubtext_maybe:std::option::Option<String>"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("pubtext_vector:std::vec::Vec<String>"),
+        "{rust}"
+    );
+    assert!(!rust.contains("protos::String"), "{rust}");
+}
+
+#[test]
 fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
     // The audit's row-15 probe: two enums each declare X in place, and an
     // authored X_Data would capture the short name. The authored name is

@@ -1303,10 +1303,8 @@ impl Referring for Reference {
                     role: Role::Trait,
                     arity: None,
                 },
-                Resolution::Imported(source, emitted)
-                    if source.as_ref() == "protos" && emitted == self.name =>
-                {
-                    match Intrinsic::identify(&self.name.0) {
+                Resolution::Imported(source, emitted) if source.as_ref() == "protos" => {
+                    match Intrinsic::identify(&emitted.0) {
                         Some(intrinsic) => ReferenceRequirement {
                             role: intrinsic.role(),
                             arity: Some(intrinsic.arity()),

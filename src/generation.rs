@@ -26,8 +26,8 @@ use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
-    Identity, Intrinsic, Name, Position, Receiver, Reference, Resolution, Resolving, Scope,
-    Signature, Source, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Identifiable, Identity, Intrinsic, Name, Position, Receiver, Reference, Resolution, Resolving,
+    Scope, Signature, Source, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 // ---------------------------------------------------------------------------
@@ -132,6 +132,12 @@ impl Emitting for Reference {
         };
         let name = self.name.tokens();
         if let Some(source) = &self.source {
+            if source.as_ref() == "protos"
+                && let Some(intrinsic) = Intrinsic::identify(&self.name.0)
+            {
+                let intrinsic = intrinsic.tokens();
+                return quote! { #intrinsic #applied };
+            }
             let source = source.tokens();
             return quote! { #source :: #name #applied };
         }
@@ -141,6 +147,12 @@ impl Emitting for Reference {
                 quote! { #intrinsic #applied }
             }
             Resolution::Imported(source, emitted) => {
+                if source.as_ref() == "protos"
+                    && let Some(intrinsic) = Intrinsic::identify(&emitted.0)
+                {
+                    let intrinsic = intrinsic.tokens();
+                    return quote! { #intrinsic #applied };
+                }
                 if source.as_ref() == "std" {
                     if emitted.0 == "Clone" {
                         return quote! { std::clone::Clone #applied };
