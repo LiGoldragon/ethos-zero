@@ -670,6 +670,36 @@ fn outer_option_and_result_are_written_fully_qualified() {
 }
 
 #[test]
+fn sourced_and_aliased_protos_containers_keep_their_recursive_semantics() {
+    for source in [
+        "Library [] [ Node.{ protos:Option<Node> } ] [] []",
+        "Library [ protos:Maybe.Option ] [ Node.{ Maybe<Node> } ] [] []",
+    ] {
+        let generated = match read(source).generate() {
+            Ok(generated) => generated,
+            Err(_) => panic!("a recursive Protos Option generates"),
+        };
+        assert!(
+            generated.contains("std::option::Option<std::boxed::Box<Node>>"),
+            "{generated}"
+        );
+        assert!(!generated.contains("std::boxed::Box<std::option::Option<Node>>"));
+    }
+
+    let generated =
+        match read("Library [ protos:Many.Vector ] [ Node.{ Many<Node> } ] [] []").generate() {
+            Ok(generated) => generated,
+            Err(_) => panic!("an aliased Protos Vector generates"),
+        };
+    assert!(generated.contains("pub node_many: std::vec::Vec<Node>"));
+
+    assert_eq!(
+        "Library [ protos:Choice.Result ] [ Loop.{ Choice<Loop Loop> } ] [] []".refusal(),
+        (vec![1, 1, 0, 0], Problem::Cycle("Loop".to_owned()))
+    );
+}
+
+#[test]
 fn every_generated_item_carries_rustfmt_skip() {
     let root = env!("CARGO_MANIFEST_DIR");
     let mut generated = vec![

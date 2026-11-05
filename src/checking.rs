@@ -59,6 +59,29 @@ impl Resolving for [Import] {
     }
 }
 
+/// The trait whose capability recognizes a Protos intrinsic however it is
+/// named: directly, explicitly sourced, or through an import alias.
+pub(crate) trait IntrinsicResolving {
+    fn intrinsic(&self, file: &File) -> Option<Intrinsic>;
+}
+
+impl IntrinsicResolving for Reference {
+    fn intrinsic(&self, file: &File) -> Option<Intrinsic> {
+        if let Some(source) = &self.source {
+            return (source.as_ref() == "protos")
+                .then(|| Intrinsic::identify(&self.name.0))
+                .flatten();
+        }
+        match file.resolve(&self.name) {
+            Resolution::Intrinsic(intrinsic) => Some(intrinsic),
+            Resolution::Imported(source, emitted) if source.as_ref() == "protos" => {
+                Intrinsic::identify(&emitted.0)
+            }
+            _ => None,
+        }
+    }
+}
+
 impl Resolving for TypeDeclaration {
     fn resolve(&self, name: &Name) -> Resolution {
         let declared = match self {
@@ -607,22 +630,23 @@ trait Inhabiting {
 
 impl Inhabiting for Reference {
     fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool {
-        if self.source.is_some() {
-            return true;
-        }
-        match file.resolve(&self.name) {
-            Resolution::Intrinsic(Intrinsic::Itself) => known.inhabited.contains(owner),
-            Resolution::Intrinsic(Intrinsic::Result) => {
+        match self.intrinsic(file) {
+            Some(Intrinsic::Itself) => known.inhabited.contains(owner),
+            Some(Intrinsic::Result) => {
                 self.arguments.is_empty()
                     || self
                         .arguments
                         .iter()
                         .any(|argument| argument.inhabited(file, owner, known))
             }
-            Resolution::Type(name) if file.declaration(&name).is_some() => {
-                known.inhabited.contains(&name)
-            }
-            _ => true,
+            Some(_) => true,
+            None if self.source.is_some() => true,
+            None => match file.resolve(&self.name) {
+                Resolution::Type(name) if file.declaration(&name).is_some() => {
+                    known.inhabited.contains(&name)
+                }
+                _ => true,
+            },
         }
     }
 }

@@ -21,7 +21,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::checking::{Checkable, Declaring, Inlining};
+use crate::checking::{Checkable, Declaring, Inlining, IntrinsicResolving};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
@@ -279,14 +279,14 @@ impl Reaching for Reference {
         file: &File,
         visited: &mut Vec<Name>,
     ) -> bool {
+        if self.intrinsic(file) == Some(Intrinsic::Vector) && passage == Passage::ByValue {
+            return false;
+        }
         if self.source.is_none() {
             if &self.name == target || self.name.0 == "Self" {
                 return true;
             }
             match file.resolve(&self.name) {
-                Resolution::Intrinsic(Intrinsic::Vector) if passage == Passage::ByValue => {
-                    return false;
-                }
                 Resolution::Type(name) if !visited.contains(&name) => {
                     visited.push(name.clone());
                     if let Some(declaration) = file.declaration(&name)
@@ -437,15 +437,18 @@ trait Closing {
 
 impl Closing for Reference {
     fn closes(&self, owner: &Name, file: &File) -> bool {
-        if self.source.is_some() {
+        let intrinsic = self.intrinsic(file);
+        if intrinsic == Some(Intrinsic::Vector) {
+            return false;
+        }
+        if self.source.is_some() && intrinsic.is_none() {
             return false;
         }
         if &self.name == owner || self.name.0 == "Self" {
             return true;
         }
-        match file.resolve(&self.name) {
-            Resolution::Intrinsic(Intrinsic::Vector) => return false,
-            Resolution::Type(name) => match file.declaration(&name) {
+        if let Resolution::Type(name) = file.resolve(&self.name) {
+            match file.declaration(&name) {
                 Some(TypeDeclaration::Alias(_, aliased)) => {
                     if aliased.closes(owner, file) {
                         return true;
@@ -463,8 +466,7 @@ impl Closing for Reference {
                     }
                 }
                 None => {}
-            },
-            _ => {}
+            }
         }
         for argument in &self.arguments {
             if argument.closes(owner, file) {
@@ -498,9 +500,8 @@ impl Positioning for Reference {
         // `Option<Box<Tree>>` lets the Datom derive see the recursive edge,
         // while `Box<Option<Tree>>` hides it behind the container and causes
         // an infinitely recursive derive bound.
-        if self.source.is_none()
-            && let Resolution::Intrinsic(intrinsic @ (Intrinsic::Option | Intrinsic::Result)) =
-                scope.file.resolve(&self.name)
+        if let Some(intrinsic @ (Intrinsic::Option | Intrinsic::Result)) =
+            self.intrinsic(scope.file)
         {
             let name = intrinsic.tokens();
             let mut arguments = Vec::with_capacity(self.arguments.len());
