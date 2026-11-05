@@ -85,8 +85,12 @@ trait Lettering {
 
 impl Lettering for usize {
     fn letter(&self, scope: &Scope) -> Ident {
-        let letter = char::from(b'A' + *self as u8);
-        let simple = Name::try_from(letter.to_string()).expect("static identifier");
+        let simple = if *self < 26 {
+            let letter = char::from(b'A' + *self as u8);
+            Name::try_from(letter.to_string()).expect("static identifier")
+        } else {
+            Name::try_from(format!("EthosParameter{self}")).expect("generated parameter identifier")
+        };
         let allocated = if scope.file.declaration(&simple).is_none()
             && scope.associated.resolve(&simple) == Resolution::Undeclared
         {

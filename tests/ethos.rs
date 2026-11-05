@@ -714,6 +714,14 @@ fn self_and_the_traits_own_parameters_stay_as_they_are() {
 }
 
 #[test]
+fn method_parameters_past_z_keep_valid_identifiers() {
+    let rust = "Library [] [] [ T.[] K.[ run.{ [ T T T T T T T T T T T T T T ] [ Self ] } ] ] []"
+        .compact();
+    assert!(rust.contains("EthosParameter26:T"), "{rust}");
+    assert!(rust.contains("input_13:EthosParameter26"), "{rust}");
+}
+
+#[test]
 fn a_trait_parameter_does_not_capture_an_associated_type() {
     let rust = "Library [ serde:Serializable ] [] [ Indexed<Serializable>.{ [] [ A AEthosParameter ] [] [] } ] []".compact();
     assert!(
