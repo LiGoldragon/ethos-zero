@@ -425,6 +425,21 @@ fn a_rooted_namespace_segment_is_uncapitalized_and_a_name_seen_twice_is_placed_b
 }
 
 #[test]
+fn an_imported_type_or_trait_name_is_capitalized() {
+    for (source, name) in [
+        ("Library [ std:lower ] [] [] []", "lower"),
+        ("Library [ std:Local.lower ] [] [] []", "lower"),
+    ] {
+        match read(source).generate() {
+            Err(Error::Conceptual(data)) => {
+                assert_eq!(data.problem, Problem::Case(name.to_owned()), "{source}");
+            }
+            other => panic!("a lowercase imported name is refused: {other:?}"),
+        }
+    }
+}
+
+#[test]
 fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
     // The audit's row-15 probe: two enums each declare X in place, and an
     // authored X_Data would capture the short name. The authored name is

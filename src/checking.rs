@@ -769,6 +769,8 @@ impl Checkable for crate::Imported {
     fn check(&self, _: &Scope) -> Result<(), Error> {
         self.name.define()?;
         self.emitted.define()?;
+        self.name.capitalized()?;
+        self.emitted.capitalized()?;
         Ok(())
     }
 }
