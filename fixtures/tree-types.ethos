@@ -5,6 +5,8 @@ Signal
 [ Planted.Forest  Twined.Twig ]
 [ Tree.[ Leaf.Integer  Node.{ Tree Tree }  Many.Vector<Tree>  Maybe.Option<Tree> ]
   Chain.{ String Option<Chain> }
+  NestedChain.{ Option<Option<NestedChain>> }
+  NestedNewtype.Option<Option<Self>>
   Twin.{ Twig Twig }
   Twig.[ Tip  Grow.Twin ]
   Knot.[ End  Loop ]

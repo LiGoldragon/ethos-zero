@@ -145,7 +145,9 @@ fn generated_decimal_signal_archives_and_bears_datom_derives() {
 
 #[test]
 fn recursive_generated_signal_archives_and_restores() {
-    use tree_types::{Chain, Node_Data, Query, Response, Tree, Twig, Twin};
+    use tree_types::{
+        Chain, NestedChain, NestedNewtype, Node_Data, Query, Response, Tree, Twig, Twin,
+    };
     let tree = Tree::Node(Node_Data {
         first_tree: Box::new(Tree::Many(vec![Tree::Leaf(1), Tree::Maybe(None)])),
         second_tree: Box::new(Tree::Maybe(Some(Box::new(Tree::Many(vec![
@@ -188,6 +190,21 @@ fn recursive_generated_signal_archives_and_restores() {
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&chain).expect("archive chain");
     let restored = rkyv::from_bytes::<Chain, rkyv::rancor::Error>(&bytes).expect("restore chain");
     assert_eq!(restored, chain);
+    let nested_chain = NestedChain {
+        nested_chain_option_option: Some(Some(Box::new(NestedChain {
+            nested_chain_option_option: None,
+        }))),
+    };
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&nested_chain).expect("archive nested chain");
+    let restored =
+        rkyv::from_bytes::<NestedChain, rkyv::rancor::Error>(&bytes).expect("restore nested chain");
+    assert_eq!(restored, nested_chain);
+    let nested_newtype = NestedNewtype(Some(Some(Box::new(NestedNewtype(None)))));
+    let bytes =
+        rkyv::to_bytes::<rkyv::rancor::Error>(&nested_newtype).expect("archive nested newtype");
+    let restored = rkyv::from_bytes::<NestedNewtype, rkyv::rancor::Error>(&bytes)
+        .expect("restore nested newtype");
+    assert_eq!(restored, nested_newtype);
     let knot = tree_types::Knot::Loop(tree_types::Loop {
         knot: Box::new(tree_types::Knot::Loop(tree_types::Loop {
             knot: Box::new(tree_types::Knot::End),
