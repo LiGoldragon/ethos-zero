@@ -23,3 +23,15 @@ pub trait Fillable {
 pub trait Indexed<AEthosParameter: super::Serializable> {
     type A;
 }
+#[rustfmt::skip]
+pub trait A {}
+#[rustfmt::skip]
+pub trait Bounded<AEthosParameter: A> {}
+#[rustfmt::skip]
+pub trait N {}
+#[rustfmt::skip]
+pub trait UsesN {
+    fn use_n<NEthosParameter: N>(&self, input: NEthosParameter) -> Self
+    where
+        Self: Sized;
+}

@@ -7,5 +7,9 @@ Library
   Fillable.[ push!{ [ Summarizable ] [ Result<Integer SinkError> ] }
              drain![ Vector<String> ]
              create:[ Self ] ]
-  Indexed<Serializable>.{ [] [ A ] [] [] } ]
+  Indexed<Serializable>.{ [] [ A ] [] [] }
+  A.[]
+  Bounded<A>.[]
+  N.[]
+  UsesN.[ use_n.{ [ N ] [ Self ] } ] ]
 []

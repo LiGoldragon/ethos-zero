@@ -1112,6 +1112,17 @@ fn a_trait_parameter_does_not_capture_an_associated_type() {
 }
 
 #[test]
+fn generated_parameters_do_not_capture_the_traits_that_bound_them() {
+    let rust =
+        "Library [] [] [ A.[] Bounded<A>.[] N.[] UsesN.[ use_n.{ [ N ] [ Self ] } ] ] []".compact();
+    assert!(rust.contains("traitBounded<AEthosParameter:A>"), "{rust}");
+    assert!(
+        rust.contains("fnuse_n<NEthosParameter:N>(&self,input:NEthosParameter)->Self"),
+        "{rust}"
+    );
+}
+
+#[test]
 fn a_concrete_type_in_an_input_is_refused_as_wanting_a_trait() {
     assert_eq!(
         "Library [] [] [ Resolvable.[ resolve.{ [ String ] [ Self ] } ] ] []".refusal(),

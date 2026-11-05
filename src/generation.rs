@@ -111,14 +111,14 @@ impl Lettering for usize {
         } else {
             Name::try_from(format!("EthosParameter{self}")).expect("generated parameter identifier")
         };
-        let allocated = if scope.file.declaration(&simple).is_none()
+        let allocated = if scope.file.resolve(&simple) == Resolution::Undeclared
             && scope.associated.resolve(&simple) == Resolution::Undeclared
         {
             simple
         } else {
             let mut allocated = Name::try_from(format!("{}EthosParameter", simple.0))
                 .expect("parameter identifiers are identifiers");
-            while scope.file.declaration(&allocated).is_some()
+            while scope.file.resolve(&allocated) != Resolution::Undeclared
                 || scope.associated.resolve(&allocated) != Resolution::Undeclared
             {
                 allocated = Name::try_from(format!("{}X", allocated.0))
