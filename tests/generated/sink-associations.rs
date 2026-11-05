@@ -20,8 +20,8 @@ pub enum SinkError {
 }
 #[rustfmt::skip]
 const _: () = {
-    fn assert_sink_summarizable<T: super::Summarizable>() {}
-    let _ = assert_sink_summarizable::<Sink>;
-    fn assert_sink_fillable<T: super::Fillable>() {}
-    let _ = assert_sink_fillable::<Sink>;
+    fn assertion_0<T: super::Summarizable>() {}
+    let _ = assertion_0::<Sink>;
+    fn assertion_1<T: super::Fillable>() {}
+    let _ = assertion_1::<Sink>;
 };

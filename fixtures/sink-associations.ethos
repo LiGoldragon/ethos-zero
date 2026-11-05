@@ -1,7 +1,7 @@
 ; Sink associations from Vision/ethos.md; the traits are the enclosing module's, the interactions hand-written there
 Library
-[ super:[ Summarizable Fillable ] ]
+[ super:[ Foo.Summarizable FOO.Fillable ] ]
 [ Sink.{ String Vector<String> }
   SinkError.[ Closed Full ] ]
 []
-[ Sink.[ Summarizable Fillable ] ]
+[ Sink.[ Foo FOO ] ]

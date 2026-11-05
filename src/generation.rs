@@ -106,22 +106,6 @@ impl Lettering for usize {
     }
 }
 
-/// The trait whose capability lowercases a name for an assertion function.
-trait Lowering {
-    fn lowered(&self) -> String;
-}
-
-impl Lowering for Reference {
-    fn lowered(&self) -> String {
-        let mut lowered = self.name.0.to_lowercase();
-        for argument in &self.arguments {
-            lowered.push('_');
-            lowered.push_str(&argument.lowered());
-        }
-        lowered
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Emitting: Rust tokens in a scope
 // ---------------------------------------------------------------------------
@@ -1114,15 +1098,8 @@ impl Emitting for Association {
         let arguments = self.identity.arguments(&inner);
         let parameters = self.identity.parameters(&inner);
         let mut assertions = Vec::with_capacity(self.traits.len());
-        for trait_definition in &self.traits {
-            let assertion = Ident::new(
-                &format!(
-                    "assert_{}_{}",
-                    self.identity.name.0.to_lowercase(),
-                    trait_definition.lowered()
-                ),
-                Span::call_site(),
-            );
+        for (index, trait_definition) in self.traits.iter().enumerate() {
+            let assertion = Ident::new(&format!("assertion_{index}"), Span::call_site());
             let bound = trait_definition.emit(scope);
             if self.identity.constraints.is_empty() {
                 assertions.push(quote! {
