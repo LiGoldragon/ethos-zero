@@ -881,6 +881,24 @@ fn a_bare_variant_named_as_a_defined_type_carries_that_type() {
 }
 
 #[test]
+fn a_bare_variant_cannot_carry_a_generic_type_without_its_arguments() {
+    for (name, arity) in [("Option", 1), ("Vector", 1), ("Result", 2)] {
+        let source = format!("Library [] [ Value.[ {name} Other ] ] [] []");
+        assert_eq!(
+            source.refusal(),
+            (
+                vec![1, 1, 0, 1, 0],
+                Problem::Arity(ethos_zero::Arity_Data {
+                    first_integer: arity,
+                    second_integer: 0,
+                }),
+            ),
+            "{source}"
+        );
+    }
+}
+
+#[test]
 fn outer_option_and_result_are_written_fully_qualified() {
     let generated = match read(
         "Library [] [ Wrapped.{ Option<Integer> Result<String Integer> } Chain.{ Option<Chain> } ] [] []",

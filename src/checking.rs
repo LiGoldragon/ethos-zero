@@ -1782,7 +1782,19 @@ impl Checkable for Variant {
         match self {
             Variant::Bare(name) => {
                 name.define()?;
-                name.capitalized()
+                name.capitalized()?;
+                if name.carries(scope.file) {
+                    let requirement = name.requirement(scope, Role::Type)?;
+                    if let Some(expected) = requirement.arity
+                        && expected != 0
+                    {
+                        return Err(Error::conceptual(
+                            vec![],
+                            Problem::arity(expected as Integer, 0),
+                        ));
+                    }
+                }
+                Ok(())
             }
             Variant::Typed(name, reference) => {
                 name.define().place(0)?;
