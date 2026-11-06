@@ -1,0 +1,9 @@
+Library
+[] ; imports
+[ ExchangeId.Integer ; scalar newtypes: the scalar implies the supported traits
+  Port.ExchangeId
+  Enabled.Boolean
+  Host.String ; a string newtype stays without Copy and the orderings
+  Record.{ ExchangeId Host } ]
+[] ; traits
+[] ; associations

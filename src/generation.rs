@@ -754,6 +754,7 @@ trait Enumerating {
 /// The trait whose capability yields what a declared type derives.
 trait DatomDeriving {
     fn datom_derives(&self) -> TokenStream;
+    fn scalar_datom_derives(&self) -> TokenStream;
 }
 
 /// What every declared type derives, and what none does.
@@ -781,6 +782,59 @@ impl DatomDeriving for Identity {
             #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
             #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
         }
+    }
+
+    /// The same derives with the scalar's added: `Copy` after `Clone`, the
+    /// orderings after `PartialEq` and `Eq`.
+    fn scalar_datom_derives(&self) -> TokenStream {
+        quote! {
+            #[rustfmt::skip]
+            #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+            #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+        }
+    }
+}
+
+/// The trait whose capability yields what a newtype's scalar adds to the
+/// derives of every declared type.
+///
+/// A newtype whose underlying type is `Integer` or `Boolean`, directly or
+/// through other newtypes, derives what that scalar supports: `Copy`,
+/// `PartialOrd` and `Ord`. No association is written; the scalar implies the
+/// traits. A newtype of `String` or of any other type stays without them, and
+/// arithmetic is never derived: a capability that mints or combines values
+/// is declared on the type through a trait with a handwritten body.
+trait ScalarDeriving {
+    fn scalar_derives(&self, scope: &Scope) -> TokenStream;
+}
+
+impl ScalarDeriving for Reference {
+    fn scalar_derives(&self, scope: &Scope) -> TokenStream {
+        let mut reference = self;
+        let mut resolution = scope.resolve(&reference.name);
+        // The chain of newtypes ends at the file's declarations, so it is
+        // bounded by their count.
+        for _ in 0..=scope.file.declarations().len() {
+            if reference.source.is_some() || !reference.arguments.is_empty() {
+                break;
+            }
+            match resolution {
+                Resolution::Intrinsic(Intrinsic::Integer | Intrinsic::Boolean) => {
+                    return quote! { Copy, PartialOrd, Ord };
+                }
+                Resolution::Type(name) => match scope.file.declaration(&name) {
+                    Some(TypeDeclaration::Alias(identity, aliased))
+                        if identity.constraints.is_empty() =>
+                    {
+                        reference = aliased;
+                        resolution = scope.file.resolve(&reference.name);
+                    }
+                    _ => break,
+                },
+                _ => break,
+            }
+        }
+        TokenStream::new()
     }
 }
 
@@ -881,8 +935,13 @@ impl Emitting for TypeDeclaration {
                 };
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
+                let aliased_reference = aliased;
                 let aliased = aliased.emit(&inner);
-                let derive = identity.datom_derives();
+                let derive = if aliased_reference.scalar_derives(&inner).is_empty() {
+                    identity.datom_derives()
+                } else {
+                    identity.scalar_datom_derives()
+                };
                 quote! { #derive pub struct #name #parameters (pub #aliased); }
             }
         }

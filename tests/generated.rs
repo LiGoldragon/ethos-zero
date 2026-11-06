@@ -62,6 +62,8 @@ mod placed_types;
 mod processable_traits;
 #[path = "generated/record-types.rs"]
 mod record_types;
+#[path = "generated/scalar-newtypes.rs"]
+mod scalar_newtypes;
 #[path = "generated/self-traits.rs"]
 mod self_traits;
 #[path = "generated/signal-decimal.rs"]
@@ -540,4 +542,30 @@ fn generated_launch_parses_the_supplied_newtype_form() {
         })
     );
     assert_eq!(actual.datomize(vec![]).protosize().compact(), text);
+}
+
+#[test]
+fn a_scalar_newtype_derives_what_its_scalar_supports() {
+    use scalar_newtypes::{Enabled, ExchangeId, Port};
+    fn copyable<T: Copy + Ord + std::hash::Hash>() {}
+    copyable::<ExchangeId>();
+    copyable::<Port>();
+    copyable::<Enabled>();
+    let first = ExchangeId(0);
+    let copy = first;
+    assert!(first < ExchangeId(1) && copy == first);
+    assert!(Port(ExchangeId(1)) > Port(first));
+}
+
+#[test]
+fn a_string_newtype_stays_without_copy_and_ordering() {
+    // `Host` wraps `String`: the derive list says so, and the generated text
+    // is what the freshness test pins.
+    let text = include_str!("generated/scalar-newtypes.rs");
+    let host = text
+        .split("pub struct Host")
+        .next()
+        .and_then(|before| before.rsplit("#[rustfmt::skip]").next())
+        .unwrap();
+    assert!(!host.contains("Copy") && !host.contains("Ord"));
 }
