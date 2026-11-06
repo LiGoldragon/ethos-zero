@@ -546,26 +546,54 @@ fn generated_launch_parses_the_supplied_newtype_form() {
 
 #[test]
 fn a_scalar_newtype_derives_what_its_scalar_supports() {
-    use scalar_newtypes::{Enabled, ExchangeId, Port};
+    use scalar_newtypes::{Alias, Enabled, ExchangeId, Host, Port, Weight};
     fn copyable<T: Copy + Ord + std::hash::Hash>() {}
+    fn ordered<T: Ord + std::hash::Hash>() {}
+    // Integer, Boolean and Decimal newtypes, direct and chained: Copy and Ord.
     copyable::<ExchangeId>();
     copyable::<Port>();
     copyable::<Enabled>();
+    copyable::<Weight>();
+    // String newtypes, direct and chained: Ord without Copy.
+    ordered::<Host>();
+    ordered::<Alias>();
     let first = ExchangeId(0);
     let copy = first;
     assert!(first < ExchangeId(1) && copy == first);
     assert!(Port(ExchangeId(1)) > Port(first));
+    assert!(Host("a".into()) < Host("b".into()));
+}
+
+/// The derive list the generated text carries for a declared type.
+fn derives_of(declaration: &str) -> &'static str {
+    let text = include_str!("generated/scalar-newtypes.rs");
+    let marker = format!("pub struct {declaration}");
+    let before = text.split(&marker).next().unwrap();
+    let list = before.rsplit("#[derive(").next().unwrap();
+    list.split(")]").next().unwrap().to_owned().leak()
 }
 
 #[test]
-fn a_string_newtype_stays_without_copy_and_ordering() {
-    // `Host` wraps `String`: the derive list says so, and the generated text
-    // is what the freshness test pins.
-    let text = include_str!("generated/scalar-newtypes.rs");
-    let host = text
-        .split("pub struct Host")
-        .next()
-        .and_then(|before| before.rsplit("#[rustfmt::skip]").next())
-        .unwrap();
-    assert!(!host.contains("Copy") && !host.contains("Ord"));
+fn the_capability_matrix_adds_only_what_the_scalar_supports() {
+    let supported = |name: &str, copy: bool, ordering: bool| {
+        let derives = derives_of(name);
+        let has = |word: &str| derives.split(", ").any(|derived| derived == word);
+        assert_eq!(has("Copy"), copy, "{name}: Copy");
+        assert_eq!(has("PartialOrd"), ordering, "{name}: PartialOrd");
+        assert_eq!(has("Ord"), ordering, "{name}: Ord");
+        assert!(has("Eq") && has("Hash"), "{name}: Eq and Hash stay");
+        for arithmetic in ["Add", "Sub", "Mul", "Div", "Default"] {
+            assert!(!has(arithmetic), "{name}: {arithmetic} is never derived");
+        }
+    };
+    for name in ["ExchangeId", "Port", "Enabled", "Weight"] {
+        supported(name, true, true);
+    }
+    for name in ["Host", "Alias"] {
+        supported(name, false, true);
+    }
+    // Meaning has no order; a container and an imported name establish none.
+    for name in ["Note", "Names", "Failure", "Record"] {
+        supported(name, false, false);
+    }
 }

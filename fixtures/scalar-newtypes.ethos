@@ -1,9 +1,14 @@
 Library
-[] ; imports
+[ protos:Error ] ; imports
 [ ExchangeId.Integer ; scalar newtypes: the scalar implies the supported traits
-  Port.ExchangeId
+  Port.ExchangeId ; chained: the same scalar
   Enabled.Boolean
-  Host.String ; a string newtype stays without Copy and the orderings
+  Weight.Decimal
+  Host.String ; ordered, not copyable
+  Alias.Host ; chained: the same scalar
+  Note.Meaning ; no total order, not copyable
+  Names.Vector<Host> ; a container is no scalar
+  Failure.Error ; imported: the capability is not established
   Record.{ ExchangeId Host } ]
 [] ; traits
 [] ; associations
