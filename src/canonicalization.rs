@@ -7,7 +7,7 @@
 //! inserted right after it and a closing brace appended on its own
 //! line. A text already in the braced form is left as it is.
 
-use protos::{Extent, Protos, Protosizable};
+use protos::{Extent, ExtentAccess, PositionAccess, Protos, Protosizable};
 
 use crate::{Canonical, Canonicalizable, Resituating};
 
@@ -39,15 +39,12 @@ impl Canonicalizable for String {
             text.push_str("\n}");
             return Ok(Canonical {
                 text,
-                seam: Extent {
-                    start: head_end,
-                    end: head_end + 2,
-                },
+                seam: Extent::from_offsets(head_end, head_end + 2),
             });
         }
         let protos = <str as Protosizable>::protosize(self)?;
         if let Protos::Bare { extent, .. } = protos {
-            let end = extent.end;
+            let end = extent.end().get();
             let mut text = String::with_capacity(self.len() + 4);
             text.push_str(&self[..end]);
             text.push_str(".{");
@@ -55,15 +52,12 @@ impl Canonicalizable for String {
             text.push_str("\n}");
             return Ok(Canonical {
                 text,
-                seam: Extent {
-                    start: end,
-                    end: end + 2,
-                },
+                seam: Extent::from_offsets(end, end + 2),
             });
         }
         Ok(Canonical {
             text: self.clone(),
-            seam: Extent { start: 0, end: 0 },
+            seam: Extent::from_offsets(0, 0),
         })
     }
 }
@@ -75,7 +69,8 @@ trait Shifting {
 
 impl Shifting for Canonical {
     fn shift(&self, position: usize) -> usize {
-        let Extent { start, end } = self.seam;
+        let start = self.seam.start().get();
+        let end = self.seam.end().get();
         let inserted = end - start;
         let source_end = self.text.len() - 2 * inserted;
         if position <= start {
@@ -90,9 +85,9 @@ impl Shifting for Canonical {
 
 impl Resituating for Canonical {
     fn resituate(&self, extent: Extent) -> Extent {
-        Extent {
-            start: self.shift(extent.start),
-            end: self.shift(extent.end),
-        }
+        Extent::from_offsets(
+            self.shift(extent.start().get()),
+            self.shift(extent.end().get()),
+        )
     }
 }

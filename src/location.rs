@@ -7,7 +7,7 @@
 //! seam into the source, where it is counted in lines and columns.
 
 use datom_codec::Integer;
-use protos::{Extent, Protos, Protosizable};
+use protos::{Extent, ExtentAccess, PositionAccess, Protos, Protosizable};
 
 use crate::{Canonicalizable, Error, File, Locating, Location, Potential, Resituating};
 
@@ -31,10 +31,9 @@ impl Finding for Protos {
             } => match (step, constraints) {
                 // A qualified head's arguments are children of the head.
                 (0, Some(constraints)) if !rest.is_empty() => constraints.find(rest),
-                (0, _) => Extent {
-                    start: extent.start,
-                    end: extent.start + head.0.len(),
-                },
+                (0, _) => {
+                    Extent::from_offsets(extent.start().get(), extent.start().get() + head.0.len())
+                }
                 (1, _) => body.find(rest),
                 _ => *extent,
             },
@@ -95,10 +94,13 @@ impl Lining for str {
 impl Locating for Potential<File> {
     fn locate(&self, error: &Error) -> Location {
         let offset = match error {
-            Error::Structural(error) => error.extent.start,
+            Error::Structural(error) => error.extent.start().get(),
             Error::Conceptual(data) => match self.0.canonicalize() {
                 Ok(canonical) => match canonical.text.protosize() {
-                    Ok(protos) => canonical.resituate(protos.find(&data.integer_vector)).start,
+                    Ok(protos) => canonical
+                        .resituate(protos.find(&data.integer_vector))
+                        .start()
+                        .get(),
                     Err(_) => 0,
                 },
                 Err(_) => 0,

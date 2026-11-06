@@ -1,6 +1,8 @@
 //! Protosization: the infallible structural ascent of a checked Ethos file.
 
-use protos::{Canonicalizable, Enclosure, Extent, Protos, Protosizable, Separator, Symbol};
+use protos::{
+    Canonicalizable, Enclosure, Extent, ExtentAccess, Protos, Protosizable, Separator, Symbol,
+};
 
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Identity,
@@ -21,20 +23,20 @@ trait Structuring {
 impl Structuring for str {
     fn bare(&self) -> Protos {
         Protos::Bare {
-            extent: Extent { start: 0, end: 0 },
+            extent: Extent::from_offsets(0, 0),
             text: self.to_owned(),
         }
     }
     fn enclosed(&self, enclosure: Enclosure, children: Vec<Protos>) -> Protos {
         Protos::Enclosed {
-            extent: Extent { start: 0, end: 0 },
+            extent: Extent::from_offsets(0, 0),
             enclosure,
             children,
         }
     }
     fn headed(&self, constraints: Option<Protos>, separator: Separator, body: Protos) -> Protos {
         Protos::Headed {
-            extent: Extent { start: 0, end: 0 },
+            extent: Extent::from_offsets(0, 0),
             head: Symbol(self.to_owned()),
             constraints: constraints.map(Box::new),
             separator,

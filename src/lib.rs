@@ -796,7 +796,7 @@ mod behavior {
         Actualizing, Canonicalizable, Error, File, Generating, Identity, Library, Name, Potential,
         Problem, TypeDeclaration,
     };
-    use protos::{Extent, Protosizable, Textualizable};
+    use protos::{Extent, ExtentAccess, PositionAccess, Protosizable, Textualizable};
 
     #[test]
     fn library_record_generates_named_datom_fields() {
@@ -1099,8 +1099,8 @@ mod behavior {
         let source = "Library\n[]\n[ Record.{ String ]\n[]\n[]";
         match Potential::<File>::from(source).actualize() {
             Err(Error::Structural(data)) => {
-                assert_eq!(data.extent, Extent { start: 29, end: 29 });
-                assert_eq!(source.as_bytes()[data.extent.start], b']');
+                assert_eq!(data.extent, Extent::from_offsets(29, 29));
+                assert_eq!(source.as_bytes()[data.extent.start().get()], b']');
             }
             _ => panic!("expected structural error"),
         }
@@ -1120,13 +1120,7 @@ mod behavior {
         let protos::Protos::Headed { extent, .. } = projected else {
             panic!("a File ascends as a headed Protos form")
         };
-        assert_eq!(
-            extent,
-            Extent {
-                start: 0,
-                end: canonical.len()
-            }
-        );
+        assert_eq!(extent, Extent::from_offsets(0, canonical.len()));
     }
 
     #[test]
@@ -1151,8 +1145,8 @@ mod behavior {
         let protos::Protos::Headed { extent, .. } = &protos else {
             panic!("a File ascends as a headed Protos form")
         };
-        assert_eq!(extent.start, 0);
-        assert_eq!(extent.end, protos.textualize().len());
+        assert_eq!(extent.start().get(), 0);
+        assert_eq!(extent.end().get(), protos.textualize().len());
     }
 
     #[test]
