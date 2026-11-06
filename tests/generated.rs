@@ -237,7 +237,7 @@ fn operation_free_signal_shared_record_archives_and_round_trips_as_datom_text() 
         pending
             .actualize(&mut Budget {
                 remaining: 1024,
-                reader: ReaderBudget { remaining: 1024 },
+                reader: ReaderBudget::try_from(1024).unwrap(),
                 depth: 0,
                 maximum_depth: 1024,
             })
@@ -265,7 +265,7 @@ fn generated_memory_records_round_trip_as_datom_text() {
         pending
             .actualize(&mut Budget {
                 remaining: 1024,
-                reader: ReaderBudget { remaining: 1024 },
+                reader: ReaderBudget::try_from(1024).unwrap(),
                 depth: 0,
                 maximum_depth: 1024,
             })
@@ -286,7 +286,7 @@ fn declared_newtypes_round_trip_as_datom_text() {
     let restored = pending
         .actualize(&mut Budget {
             remaining: 1024,
-            reader: ReaderBudget { remaining: 1024 },
+            reader: ReaderBudget::try_from(1024).unwrap(),
             depth: 0,
             maximum_depth: 1024,
         })
@@ -472,7 +472,7 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
     use protos::{Protosizable, ReaderBudget, Textualizable};
     let budget = || Budget {
         remaining: 1024,
-        reader: ReaderBudget { remaining: 1024 },
+        reader: ReaderBudget::try_from(1024).unwrap(),
         depth: 0,
         maximum_depth: 1024,
     };
@@ -522,7 +522,7 @@ fn generated_launch_parses_the_supplied_newtype_form() {
     let actual = Potential::<Query>::from(text)
         .actualize(&mut Budget {
             remaining: 1024,
-            reader: ReaderBudget { remaining: 1024 },
+            reader: ReaderBudget::try_from(1024).unwrap(),
             depth: 0,
             maximum_depth: 128,
         })

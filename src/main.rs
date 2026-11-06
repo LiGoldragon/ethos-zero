@@ -157,7 +157,7 @@ impl Serving for Potential<Query> {
     fn serve(&mut self) -> Response {
         let mut budget = Budget {
             remaining: 4_096,
-            reader: protos::ReaderBudget { remaining: 4_096 },
+            reader: protos::ReaderBudget::try_from(4_096).unwrap(),
             depth: 0,
             maximum_depth: 4_096,
         };
