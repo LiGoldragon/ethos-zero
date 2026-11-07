@@ -2,6 +2,14 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 19.2.1: selects datom-codec 5cd6219 (0.33.1)
+
+Not breaking: the generator's output, its command line and its public API are unchanged. The crate
+now depends on datom-codec 0.33.1 where it depended on 0.33.0 (eabead4), and the flake input
+`datom-codec` is locked to the same revision. A consumer that pins datom-codec 5cd6219 (for example
+for its checked reconstruction of an archived `Decimal`) and uses ethos-zero, even only as a
+dev-dependency, then holds one datom-codec source instead of two; a consumer on eabead4 still holds two.
+
 ## 19.0.0: a head over one type is a newtype
 
 What breaks:
