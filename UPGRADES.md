@@ -2,6 +2,25 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 19.3.0: a declaration uses a named composite type directly
+
+An alias-shaped declaration in a root's types section may name a scalar or a
+newtype. It is refused as `Problem.Wrapping.{ Head WrappedType }` when the
+named type resolves to a struct, enum or root-implied enum: the position uses
+that existing type directly instead of giving it a second head. For example,
+`DuplicateName.Lock` is refused when `Lock` is a declared struct.
+
+This check applies to declarations in the types section only. A variant may
+carry any named type (`Lock.LockRequest`), a declaration may directly carry a
+vector or an inline shape, and a newtype may carry another newtype. Generated
+Rust for every accepted file is unchanged.
+
+To deploy, check every Ethos file before repinning. Replace a refused wrapper
+declaration with the wrapped type at each position, or declare the distinct
+type the head actually means and update all of its consumers in the same
+change. Version 19.3.0 intentionally refuses 26 tracked source files found by
+the release inventory; those consumers are updated separately.
+
 ## 19.2.1: selects datom-codec 5cd6219 (0.33.1)
 
 Not breaking: the generator's output, its command line and its public API are unchanged. The crate

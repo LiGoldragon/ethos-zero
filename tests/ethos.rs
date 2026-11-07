@@ -2,7 +2,7 @@
 //! the constructs that consumers write; detailed parser failures live beside
 //! the reader in `src/lib.rs`.
 
-use ethos_zero::{Actualizing, Error, File, Form, Generating, Potential, Problem};
+use ethos_zero::{Actualizing, Error, File, Form, Generating, Potential, Problem, Wrapping_Data};
 use protos::{Protosizable, Textualizable};
 
 fn read(source: &str) -> File {
@@ -474,6 +474,53 @@ impl Refusing for str {
             Err(Error::Structural(_)) => panic!("{self} must be refused conceptually"),
             Ok(_) => panic!("{self} must be refused"),
         }
+    }
+}
+
+/// The wrapping problem carrying the head and the structural type it wrapped.
+fn wrapping(head: &str, wrapped: &str) -> Problem {
+    Problem::Wrapping(Wrapping_Data {
+        first_string: head.to_owned(),
+        second_string: wrapped.to_owned(),
+    })
+}
+
+#[test]
+fn types_section_declarations_refuse_wrapping_named_structs_and_enums() {
+    for (source, problem) in [
+        (
+            "Library [] [ Record.{ String } Wrapped.Record ] [] []",
+            wrapping("Wrapped", "Record"),
+        ),
+        (
+            "Library [] [ Choice.[ First Second ] Wrapped.Choice ] [] []",
+            wrapping("Wrapped", "Choice"),
+        ),
+        (
+            "Signal [] [ Ask ] [] [ Wrapped.Query ]",
+            wrapping("Wrapped", "Query"),
+        ),
+    ] {
+        assert_eq!(source.refusal().1, problem, "{source}");
+    }
+}
+
+#[test]
+fn variant_wrapping_of_named_types_and_inline_shapes_remains_valid() {
+    let source = "Library [] [ Record.{ String } Inner.[ First Second ] Outer.[ Other Wrapped.Record Nested.Inner Items.Vector<String> Inline.{ String Integer } ] ] [] []";
+    assert!(read(source).generate().is_ok(), "{source}");
+}
+
+#[test]
+fn scalar_vector_inline_and_nested_newtype_wrapping_remains_valid() {
+    for source in [
+        "Library [] [ Distance.Integer ] [] []",
+        "Library [] [ Meters.Integer Distance.Meters ] [] []",
+        "Library [] [ Names.Vector<String> More.Names ] [] []",
+        "Library [] [ Record.{ String } Holder.{ Inline.Record } ] [] []",
+        "Signal [] [ Lock.LockRequest ] [ Locked.Lock ] [ LockRequest.{ String } Lock.{ String } ]",
+    ] {
+        assert!(read(source).generate().is_ok(), "{source}");
     }
 }
 

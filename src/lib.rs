@@ -47,6 +47,7 @@ mod error;
 
 pub use error::{
     Arity_Data, Column, Conceptual_Data, Error, Form, Line, Location, Problem, Structural_Error,
+    Wrapping_Data,
 };
 
 // ---------------------------------------------------------------------------

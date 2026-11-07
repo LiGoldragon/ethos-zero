@@ -15,7 +15,7 @@ use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name, Operation,
     Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal, Signature,
-    Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant, Wrapping_Data,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -992,6 +992,7 @@ impl Checkable for crate::Library {
         self.declared().distinct()?;
         self.imports.check_each(scope, 0)?;
         self.types.check_each(scope, 1)?;
+        self.types.refuse_wrapping(scope).place(1)?;
         self.traits.check_each(scope, 2)?;
         self.associations.check_each(scope, 3)
     }
@@ -1005,7 +1006,8 @@ impl Checkable for Signal {
         self.responses.names_in(2).distinct()?;
         self.queries.check_each(scope, 1)?;
         self.responses.check_each(scope, 2)?;
-        self.types.check_each(scope, 3)
+        self.types.check_each(scope, 3)?;
+        self.types.refuse_wrapping(scope).place(3)
     }
 }
 
@@ -1017,7 +1019,8 @@ impl Checkable for Operation {
         self.outcomes.names_in(2).distinct()?;
         self.operations.check_each(scope, 1)?;
         self.outcomes.check_each(scope, 2)?;
-        self.types.check_each(scope, 3)
+        self.types.check_each(scope, 3)?;
+        self.types.refuse_wrapping(scope).place(3)
     }
 }
 
@@ -1025,7 +1028,8 @@ impl Checkable for Memory {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.declared().distinct()?;
         self.imports.check_each(scope, 0)?;
-        self.types.check_each(scope, 1)
+        self.types.check_each(scope, 1)?;
+        self.types.refuse_wrapping(scope).place(1)
     }
 }
 
@@ -1233,6 +1237,60 @@ impl Referring for Reference {
         for argument in &self.arguments {
             argument.refer(scope, Role::Type).beside(at).place(BESIDE)?;
             at += argument.span();
+        }
+        Ok(())
+    }
+}
+
+/// The trait whose capability refuses a types-section declaration wrapped
+/// around a named structural type.
+trait Wrapping {
+    fn refuse_wrapping(&self, scope: &Scope) -> Result<(), Error>;
+}
+
+impl Wrapping for TypeDeclaration {
+    fn refuse_wrapping(&self, scope: &Scope) -> Result<(), Error> {
+        let TypeDeclaration::Alias(identity, wrapped) = self else {
+            return Ok(());
+        };
+        if wrapped.source.is_some() || !wrapped.arguments.is_empty() {
+            return Ok(());
+        }
+        let structural = match scope.resolve(&wrapped.name) {
+            Resolution::Type(name) => {
+                scope.file.implied().contains(&name)
+                    || matches!(
+                        scope.file.declaration(&name),
+                        Some(TypeDeclaration::Struct(_, _) | TypeDeclaration::Enum(_, _))
+                    )
+            }
+            Resolution::Intrinsic(_)
+            | Resolution::Imported(_, _)
+            | Resolution::Trait(_)
+            | Resolution::Parameter(_)
+            | Resolution::Associated(_)
+            | Resolution::Ambiguous(_)
+            | Resolution::Undeclared => false,
+        };
+        if structural {
+            return Err(Error::conceptual(
+                vec![1],
+                Problem::Wrapping(Wrapping_Data {
+                    first_string: identity.name.0.clone(),
+                    second_string: wrapped.name.0.clone(),
+                }),
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl Wrapping for [TypeDeclaration] {
+    fn refuse_wrapping(&self, scope: &Scope) -> Result<(), Error> {
+        let mut at = 0;
+        for declaration in self {
+            declaration.refuse_wrapping(scope).beside(at)?;
+            at += declaration.span();
         }
         Ok(())
     }
