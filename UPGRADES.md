@@ -2,6 +2,10 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 19.3.1: the crate's own orchestrate fixture follows 19.3.0
+
+Not breaking: the generator, its command line and its public API are unchanged. `fixtures/orchestrate.ethos` declared `DuplicateName.Lock`, a second head over the struct `Lock`, which 19.3.0 refuses as `Problem.Wrapping`, so `regenerate_library_fixtures` failed. The declaration was never used; `LockRejection` carries `DuplicateName.Lock` as a variant, which stays valid. The fixture drops the declaration and `tests/generated/orchestrate.rs` loses the unused `DuplicateName` newtype. The generated variant `LockRejection::DuplicateName(Lock)` is unchanged.
+
 ## 19.3.0: a declaration uses a named composite type directly
 
 An alias-shaped declaration in a root's types section may name a scalar or a
