@@ -136,11 +136,12 @@ A capability's separator says who is called: `.` takes `&self`, `!` takes
 `&mut self`, `:` takes no self. `name.[ Yield ]` yields alone;
 `name.{ [ inputs ] [ Yield ] }` takes inputs.
 
-A capability speaks in `Self`, its trait's parameters and other traits.
+A capability speaks in `Self`, its trait's parameters, other traits and, for
+now, concrete types.
 A declared trait in an input becomes a parameter of the generated method,
 bounded by that trait; an imported name in an input is assumed to be a
-trait. A known concrete type in an input is refused. Parameters are lettered
-from `N`:
+trait. A concrete type in an input is taken as that type. Parameters are
+lettered from `N`:
 
 ```
 Resolvable.[ resolve.{ [ Textualizable ] [ Self ] } ]
@@ -152,9 +153,9 @@ Where an associated type of the trait is already bounded by that trait
 the input is that associated type, `Self::Item`. `Self`, a parameter of the
 trait's head, and an associated type named directly stay as they are. A
 concrete type in an input (`String`, `Vector<Self>`, a declared type) is
-refused: `Conceptual.{ [ path ] TraitWanted.String }`, the path and its line
-and column naming the input. An imported name says nothing of its role, so
-in an input it is taken as a trait. A yield may name a concrete type; a
+written as that type (`resolve.{ [ Rec ] [ Self ] }` gives
+`fn resolve(&self, input: Rec) -> Self`). An imported name says nothing of
+its role, so in an input it is taken as a trait. A yield may name a concrete type; a
 declared trait in a yield is a method parameter too (`make:[ Textualizable ]`
 gives `fn make<N: Textualizable>() -> N`).
 

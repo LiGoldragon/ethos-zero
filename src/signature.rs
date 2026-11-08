@@ -1,12 +1,11 @@
 //! Signature: where a reference in a capability's signature stands.
 //!
-//! A capability speaks in Self, the trait's own parameters and other traits;
-//! a concrete type in an input is a trait not yet named. So a reference in
-//! an input stands as one of four things: kept as it is written (Self, a
-//! parameter of the trait's head, an associated type), a trait the method
-//! takes a parameter bounded by, a trait an associated type of the head
-//! already binds, or a concrete type, which an input refuses. A yield may
-//! name a concrete type; a declared trait there is a parameter too.
+//! A capability speaks in Self, the trait's own parameters, other traits and,
+//! for now, concrete types. So a reference in a signature stands as one of
+//! four things: kept as it is written (Self, a parameter of the trait's head,
+//! an associated type), a trait the method takes a parameter bounded by, a
+//! trait an associated type of the head already binds, or a concrete type,
+//! written as that type in an input and in a yield alike.
 //!
 //! An imported name says nothing of its role: in an input it is taken as a
 //! trait, in a yield as a type.

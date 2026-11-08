@@ -274,7 +274,7 @@ fn check_of_a_missing_file_is_unreadable() {
 }
 
 #[test]
-fn check_takes_a_trait_in_an_input_and_locates_a_concrete_type_there() {
+fn check_takes_a_trait_and_a_concrete_type_in_an_input() {
     let directory = "traits".scratch();
     let taken = directory.write_source(
         "taken",
@@ -285,19 +285,14 @@ fn check_takes_a_trait_in_an_input_and_locates_a_concrete_type_there() {
     assert!(success, "{output}");
     assert_eq!(output, format!("Checked.{taken}\n"));
 
-    let refused = directory.write_source(
-        "refused",
+    let typed = directory.write_source(
+        "typed",
         "Library\n[]\n[ Rec.String ]\n[ Resolvable.[ resolve.{ [ Rec ]\n                         [ Self ] } ] ]\n[]\n",
     );
-    let argument = check(&refused);
+    let argument = check(&typed);
     let (success, output) = [argument.as_str()].invoke();
-    assert!(!success);
-    assert_eq!(
-        output,
-        format!(
-            "Rejected.{{ {refused} {{ 4 28 }} Conceptual.{{ [ 1 2 0 1 0 1 0 0 ] TraitWanted.Rec }} }}\n"
-        )
-    );
+    assert!(success, "{output}");
+    assert_eq!(output, format!("Checked.{typed}\n"));
 }
 
 #[test]

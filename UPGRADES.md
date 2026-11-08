@@ -2,6 +2,14 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 20.0.0: a concrete type in a capability input is accepted
+
+What breaks: the `Error` contract loses `Problem.TraitWanted.String`, which 14.0.0 added and nothing raises now. Every input that 19.x accepted generates the same Rust.
+
+A capability input that names a concrete type (`String`, `Vector<Outline>`, a declared type such as `Rec`) is written as that type: `resolve.{ [ Rec ] [ Self ] }` gives `fn resolve(&self, input: Rec) -> Self where Self: Sized;`. A declared trait in an input is still a method parameter bounded by that trait, and an imported name in an input is still taken as a trait. 14.0.0 had refused the concrete type; 13.0.0 had accepted it.
+
+To deploy, a consumer that matched `TraitWanted` drops that arm; a consumer that worked around the refusal by declaring a trait for a type may keep it. A held `ethos-test` check that asserts `TraitWanted.String` for `String` in an input (`checks/ethos-zero-trait-concrete-input.nix`) asserts the old behavior and is updated when ethos-test repins.
+
 ## 19.3.1: the crate's own orchestrate fixture follows 19.3.0
 
 Not breaking: the generator, its command line and its public API are unchanged. `fixtures/orchestrate.ethos` declared `DuplicateName.Lock`, a second head over the struct `Lock`, which 19.3.0 refuses as `Problem.Wrapping`, so `regenerate_library_fixtures` failed. The declaration was never used; `LockRejection` carries `DuplicateName.Lock` as a variant, which stays valid. The fixture drops the declaration and `tests/generated/orchestrate.rs` loses the unused `DuplicateName` newtype. The generated variant `LockRejection::DuplicateName(Lock)` is unchanged.

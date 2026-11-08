@@ -1664,10 +1664,6 @@ trait Signing {
 impl Signing for Reference {
     fn sign(&self, scope: &Scope, place: Place) -> Result<(), Error> {
         match self.stance(scope, place) {
-            Stance::Concrete if place == Place::Input => Err(Error::conceptual(
-                vec![],
-                Problem::TraitWanted(self.name.0.clone()),
-            )),
             Stance::Bounding | Stance::Bound(_) => self.refer(scope, Role::Trait),
             Stance::Concrete | Stance::Kept => self.refer(scope, Role::Type),
         }

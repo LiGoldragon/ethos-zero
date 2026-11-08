@@ -55,7 +55,6 @@ pub enum Problem {
     Empty,
     Depth,
     Role(String),
-    TraitWanted(String),
     Intrinsic(String),
     Case(String),
     Renamed(String),

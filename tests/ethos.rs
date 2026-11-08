@@ -713,33 +713,21 @@ fn self_and_the_traits_own_parameters_stay_as_they_are() {
 }
 
 #[test]
-fn a_concrete_type_in_an_input_is_refused_as_wanting_a_trait() {
-    assert_eq!(
-        "Library [] [] [ Resolvable.[ resolve.{ [ String ] [ Self ] } ] ] []".refusal(),
-        (
-            vec![1, 2, 0, 1, 0, 1, 0, 0],
-            Problem::TraitWanted("String".to_owned())
-        )
+fn a_concrete_type_in_an_input_is_written_as_that_type() {
+    let rust = "Library [] [ Rec.String ] [ Resolvable.[ resolve.{ [ Self Rec ] [ Self ] } ] ] []"
+        .compact();
+    assert!(
+        rust.contains("fnresolve(&self,input_0:Self,input_1:Rec)->SelfwhereSelf:Sized;"),
+        "{rust}"
     );
-    assert_eq!(
-        "Library [] [ Rec.String ] [ Resolvable.[ resolve.{ [ Self Rec ] [ Self ] } ] ] []"
-            .refusal(),
-        (
-            vec![1, 2, 0, 1, 0, 1, 0, 1],
-            Problem::TraitWanted("Rec".to_owned())
-        )
+    let rust = "Library [] [] [ Resolvable.[ resolve.{ [ String ] [ Self ] } ] ] []".compact();
+    assert!(
+        rust.contains("fnresolve(&self,input:String)->SelfwhereSelf:Sized;"),
+        "{rust}"
     );
-    assert_eq!(
-        "Library [] [] [ Fillable.[ push!{ [ Vector<Self> ] [ Self ] } ] ] []".refusal(),
-        (
-            vec![1, 2, 0, 1, 0, 1, 0, 0],
-            Problem::TraitWanted("Vector".to_owned())
-        )
-    );
-    assert_eq!(
-        "Library [] [] [ Fillable.[ push!{ [ protos:String ] [ Self ] } ] ] []"
-            .refusal()
-            .1,
-        Problem::TraitWanted("String".to_owned())
+    let rust = "Library [] [ Outline.String ] [ Outlined.[ outline.{ [ Vector<Outline> ] [ Self ] } ] ] []".compact();
+    assert!(
+        rust.contains("fnoutline(&self,input:std::vec::Vec<Outline>)->SelfwhereSelf:Sized;"),
+        "{rust}"
     );
 }
