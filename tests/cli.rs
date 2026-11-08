@@ -274,6 +274,24 @@ fn check_of_a_missing_file_is_unreadable() {
 }
 
 #[test]
+fn check_locates_a_variant_named_as_a_defined_type_declaring_a_payload() {
+    let directory = "payload".scratch();
+    let refused = directory.write_source(
+        "refused",
+        "Library\n[]\n[ Code.String\n  TextPart.[ Plain.String\n             Code.String ] ]\n[]\n[]\n",
+    );
+    let argument = check(&refused);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert_eq!(
+        output,
+        format!(
+            "Rejected.{{ {refused} {{ 5 14 }} Conceptual.{{ [ 1 1 1 1 1 0 ] Payload.Code }} }}\n"
+        )
+    );
+}
+
+#[test]
 fn check_takes_a_trait_and_a_concrete_type_in_an_input() {
     let directory = "traits".scratch();
     let taken = directory.write_source(

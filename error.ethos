@@ -21,7 +21,8 @@ Library
             Intrinsic.String
             Case.String
             Renamed.String
-            Wrapping.{ String String } ]
+            Wrapping.{ String String }
+            Payload.String ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association ]
   Location.{ Line Column }
   Line.Integer

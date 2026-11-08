@@ -506,6 +506,49 @@ fn types_section_declarations_refuse_wrapping_named_structs_and_enums() {
 }
 
 #[test]
+fn a_variant_named_as_a_defined_type_declaring_a_payload_is_refused() {
+    for (source, path) in [
+        (
+            "Library [] [ Code.String TextPart.[ Plain.String Code.String ] ] [] []",
+            vec![1, 1, 1, 1, 1, 0],
+        ),
+        (
+            "Library [] [ Code.String TextPart.[ Plain.String Code.Code ] ] [] []",
+            vec![1, 1, 1, 1, 1, 0],
+        ),
+        (
+            "Library [] [ Code.String TextPart.[ Plain Code.{ String Integer } ] ] [] []",
+            vec![1, 1, 1, 1, 1, 0],
+        ),
+        (
+            "Library [] [ Code.String Outer.[ Plain Inner.[ Other Code.[ A B ] ] ] ] [] []",
+            vec![1, 1, 1, 1, 1, 1, 1, 0],
+        ),
+        (
+            "Signal [] [ Ask ] [ Told ] [ Code.String Part.[ Plain Code.Integer ] ]",
+            vec![1, 3, 1, 1, 1, 0],
+        ),
+    ] {
+        assert_eq!(
+            source.refusal(),
+            (path, Problem::Payload("Code".to_owned())),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn a_variant_named_as_a_defined_type_and_written_bare_carries_it() {
+    let rust = "Library [] [ Code.String TextPart.[ Plain.String Code ] ] [] []".compact();
+    assert!(
+        rust.contains("pubenumTextPart{Plain(String),Code(Code),}"),
+        "{rust}"
+    );
+    let source = "Signal [] [ Lock.Request ] [ Locked.Lock ] [ Request.String Lock.String ]";
+    assert!(read(source).generate().is_ok(), "{source}");
+}
+
+#[test]
 fn variant_wrapping_of_named_types_and_inline_shapes_remains_valid() {
     let source = "Library [] [ Record.{ String } Inner.[ First Second ] Outer.[ Other Wrapped.Record Nested.Inner Items.Vector<String> Inline.{ String Integer } ] ] [] []";
     assert!(read(source).generate().is_ok(), "{source}");

@@ -1532,7 +1532,8 @@ impl Checkable for TypeDeclaration {
                     declared.path.insert(0, 1);
                 }
                 names.distinct()?;
-                variants.check_children(&inner).place(1)
+                variants.check_children(&inner).place(1)?;
+                variants.refuse_payload(&inner).place(1)
             }
             TypeDeclaration::Alias(identity, aliased) => {
                 aliased.check(&inner).lifted(1)?;
@@ -1545,6 +1546,44 @@ impl Checkable for TypeDeclaration {
                 Ok(())
             }
         }
+    }
+}
+
+/// The trait whose capability refuses a variant named as a defined type that
+/// declares a payload of its own: such a variant carries that type, bare.
+trait Carrying {
+    fn refuse_payload(&self, scope: &Scope) -> Result<(), Error>;
+}
+
+impl Carrying for Variant {
+    fn refuse_payload(&self, scope: &Scope) -> Result<(), Error> {
+        let name = match self {
+            Variant::Bare(_) => return Ok(()),
+            Variant::Typed(name, _) | Variant::Struct(name, _) | Variant::Enum(name, _) => name,
+        };
+        match scope.resolve(name) {
+            Resolution::Type(_) => {
+                Err(Error::conceptual(vec![0], Problem::Payload(name.0.clone())))
+            }
+            Resolution::Intrinsic(_)
+            | Resolution::Imported(_, _)
+            | Resolution::Trait(_)
+            | Resolution::Parameter(_)
+            | Resolution::Associated(_)
+            | Resolution::Ambiguous(_)
+            | Resolution::Undeclared => Ok(()),
+        }
+    }
+}
+
+impl Carrying for [Variant] {
+    fn refuse_payload(&self, scope: &Scope) -> Result<(), Error> {
+        let mut at = 0;
+        for variant in self {
+            variant.refuse_payload(scope).beside(at)?;
+            at += variant.span();
+        }
+        Ok(())
     }
 }
 
@@ -1568,7 +1607,8 @@ impl Checkable for Variant {
                     declared.path.insert(0, 1);
                 }
                 names.distinct()?;
-                variants.check_children(scope).place(1)
+                variants.check_children(scope).place(1)?;
+                variants.refuse_payload(scope).place(1)
             }
         }
     }

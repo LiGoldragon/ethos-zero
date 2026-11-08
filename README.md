@@ -118,6 +118,14 @@ type with no finite value, one that reaches itself with no `Vector`,
 a `Cycle`. Every generated item carries `#[rustfmt::skip]`, an inline
 payload's as much as its enum's.
 
+A variant in an enum declaration whose name is a type the file defines
+carries that type and is written bare: `Failure.[ SyntaxError Unwritable ]`
+with `SyntaxError` declared gives `SyntaxError(SyntaxError)`. Such a variant
+declaring a payload of its own, `Code.String`, `Code.Code` or `Code.{ … }`
+with `Code` declared, is refused as `Payload.Code` at the variant. A Signal's
+or an Operation's own sections are verbs over their payloads and are not
+held to this.
+
 A variant that declares its payload in place names a derived type:
 `X.{ … }` or `X.[ … ]` in an enum gives `X_Data`. Derived names are unique
 across the whole file: where two enums each declare an `X` in place, each

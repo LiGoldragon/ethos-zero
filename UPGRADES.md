@@ -2,6 +2,12 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 21.0.0: a variant named as a defined type carries it bare
+
+What breaks: an enum declaration (in a types section, or inline in a variant) whose variant is named as a type the file defines and declares a payload of its own is refused as `Conceptual.{ [ path ] Payload.<Name> }`, the path naming the variant. `Code.String` in `TextPart.[ Plain.String Code.String ]` with `Code.String` declared was accepted and generated `Code(String)`; the vision says such a variant carries the type it is named for. The `Error` contract gains `Problem.Payload.String`. A Signal's or an Operation's own sections are not held to this: `Lock.LockRequest` as a Signal input beside a declared `Lock` stays valid.
+
+To deploy: for each `Payload.<Name>`, write the variant bare when it is to carry `<Name>` (`Code.Code` becomes `Code`, generating the same Rust), or rename the variant when it is to carry something else (`Code.String` becomes, say, `Snippet.String`). A consumer that matches `Problem` exhaustively adds the arm. The crate's own `fixtures/orchestrate.ethos` writes `Observation.[ Locks ]` for `Locks.Locks`; its generated Rust is unchanged.
+
 ## 20.0.0: a concrete type in a capability input is accepted
 
 What breaks: the `Error` contract loses `Problem.TraitWanted.String`, which 14.0.0 added and nothing raises now. Every input that 19.x accepted generates the same Rust.
