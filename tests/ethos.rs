@@ -538,14 +538,58 @@ fn a_variant_named_as_a_defined_type_declaring_a_payload_is_refused() {
 }
 
 #[test]
+fn a_root_section_variant_named_as_a_defined_type_declaring_a_payload_is_refused() {
+    for (source, path) in [
+        (
+            "Signal [] [ Lock.Request ] [ Locked.Lock ] [ Request.String Lock.String ]",
+            vec![1, 1, 0, 0],
+        ),
+        (
+            "Signal [] [ Ask.Lock ] [ Lock.Lock ] [ Lock.String ]",
+            vec![1, 2, 0, 0],
+        ),
+        (
+            "Operation [] [ Lock.{ String Integer } ] [ Done ] [ Lock.String ]",
+            vec![1, 1, 0, 0],
+        ),
+        (
+            "Operation [] [ Start.Lock ] [ Lock.[ Held Free ] ] [ Lock.String ]",
+            vec![1, 2, 0, 0],
+        ),
+    ] {
+        assert_eq!(
+            source.refusal(),
+            (path, Problem::Payload("Lock".to_owned())),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn a_bare_variant_named_as_an_imported_type_carries_it() {
+    let rust = "Library [ :sema:Block ] [ Part.[ Plain.String Block ] ] [] []".compact();
+    assert!(rust.contains("Block(sema::Block)"), "{rust}");
+    assert_eq!(
+        "Library [ :sema:Block ] [ Part.[ Plain Block.Block ] ] [] []".refusal(),
+        (vec![1, 1, 0, 1, 1, 0], Problem::Payload("Block".to_owned()))
+    );
+}
+
+#[test]
+fn a_variant_named_as_an_implied_type_carries_nothing_and_takes_a_payload() {
+    let rust = "Signal [] [ Query.Ask ] [ Told ] [ Ask.String ]".compact();
+    assert!(rust.contains("pubenumQuery{Query(Ask),}"), "{rust}");
+}
+
+#[test]
 fn a_variant_named_as_a_defined_type_and_written_bare_carries_it() {
     let rust = "Library [] [ Code.String TextPart.[ Plain.String Code ] ] [] []".compact();
     assert!(
         rust.contains("pubenumTextPart{Plain(String),Code(Code),}"),
         "{rust}"
     );
-    let source = "Signal [] [ Lock.Request ] [ Locked.Lock ] [ Request.String Lock.String ]";
-    assert!(read(source).generate().is_ok(), "{source}");
+    let rust = "Signal [] [ Acquire.Request ] [ Lock ] [ Request.String Lock.String ]".compact();
+    assert!(rust.contains("pubenumResponse{Lock(Lock),}"), "{rust}");
 }
 
 #[test]
@@ -561,7 +605,7 @@ fn scalar_vector_inline_and_nested_newtype_wrapping_remains_valid() {
         "Library [] [ Meters.Integer Distance.Meters ] [] []",
         "Library [] [ Names.Vector<String> More.Names ] [] []",
         "Library [] [ Record.{ String } Holder.{ Inline.Record } ] [] []",
-        "Signal [] [ Lock.LockRequest ] [ Locked.Lock ] [ LockRequest.{ String } Lock.{ String } ]",
+        "Signal [] [ Acquire.LockRequest ] [ Locked.Lock ] [ LockRequest.{ String } Lock.{ String } ]",
     ] {
         assert!(read(source).generate().is_ok(), "{source}");
     }

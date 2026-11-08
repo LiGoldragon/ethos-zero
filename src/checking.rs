@@ -1006,6 +1006,8 @@ impl Checkable for Signal {
         self.responses.names_in(2).distinct()?;
         self.queries.check_each(scope, 1)?;
         self.responses.check_each(scope, 2)?;
+        self.queries.refuse_payload(scope).place(1)?;
+        self.responses.refuse_payload(scope).place(2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)
     }
@@ -1019,6 +1021,8 @@ impl Checkable for Operation {
         self.outcomes.names_in(2).distinct()?;
         self.operations.check_each(scope, 1)?;
         self.outcomes.check_each(scope, 2)?;
+        self.operations.refuse_payload(scope).place(1)?;
+        self.outcomes.refuse_payload(scope).place(2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)
     }
@@ -1549,34 +1553,49 @@ impl Checkable for TypeDeclaration {
     }
 }
 
-/// The trait whose capability refuses a variant named as a defined type that
-/// declares a payload of its own: such a variant carries that type, bare.
-trait Carrying {
+/// The trait whose capability says whether a variant of this name carries
+/// the type of that name: a type the file declares, or an imported one. A
+/// name a root implies (a Signal's `Query`) is generated beside the file's
+/// own names, and no variant carries it.
+pub(crate) trait Carrying {
+    fn carries(&self, name: &Name) -> bool;
+}
+
+impl Carrying for Scope<'_> {
+    fn carries(&self, name: &Name) -> bool {
+        match self.resolve(name) {
+            Resolution::Type(_) => self.file.declaration(name).is_some(),
+            Resolution::Imported(_, _) => true,
+            Resolution::Intrinsic(_)
+            | Resolution::Trait(_)
+            | Resolution::Parameter(_)
+            | Resolution::Associated(_)
+            | Resolution::Ambiguous(_)
+            | Resolution::Undeclared => false,
+        }
+    }
+}
+
+/// The trait whose capability refuses a variant named as a type it carries
+/// that declares a payload of its own: such a variant is written bare.
+trait Refusing {
     fn refuse_payload(&self, scope: &Scope) -> Result<(), Error>;
 }
 
-impl Carrying for Variant {
+impl Refusing for Variant {
     fn refuse_payload(&self, scope: &Scope) -> Result<(), Error> {
         let name = match self {
             Variant::Bare(_) => return Ok(()),
             Variant::Typed(name, _) | Variant::Struct(name, _) | Variant::Enum(name, _) => name,
         };
-        match scope.resolve(name) {
-            Resolution::Type(_) => {
-                Err(Error::conceptual(vec![0], Problem::Payload(name.0.clone())))
-            }
-            Resolution::Intrinsic(_)
-            | Resolution::Imported(_, _)
-            | Resolution::Trait(_)
-            | Resolution::Parameter(_)
-            | Resolution::Associated(_)
-            | Resolution::Ambiguous(_)
-            | Resolution::Undeclared => Ok(()),
+        if scope.carries(name) {
+            return Err(Error::conceptual(vec![0], Problem::Payload(name.0.clone())));
         }
+        Ok(())
     }
 }
 
-impl Carrying for [Variant] {
+impl Refusing for [Variant] {
     fn refuse_payload(&self, scope: &Scope) -> Result<(), Error> {
         let mut at = 0;
         for variant in self {

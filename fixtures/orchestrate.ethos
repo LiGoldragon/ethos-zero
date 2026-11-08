@@ -1,7 +1,7 @@
 ; Orchestrate lock signal
 Signal
 []
-[ Lock.LockRequest  Release.LockId  Observe.ObserveSelection ]
+[ Acquire.LockRequest  Release.LockId  Observe.ObserveSelection ]
 [ Locked.Lock  LockRejected.LockRejection  Released.Lock  ReleaseRejected.ReleaseRejection  Observed.Observation ]
 [ LockId.Integer
   LockName.String

@@ -118,13 +118,17 @@ type with no finite value, one that reaches itself with no `Vector`,
 a `Cycle`. Every generated item carries `#[rustfmt::skip]`, an inline
 payload's as much as its enum's.
 
-A variant in an enum declaration whose name is a type the file defines
-carries that type and is written bare: `Failure.[ SyntaxError Unwritable ]`
-with `SyntaxError` declared gives `SyntaxError(SyntaxError)`. Such a variant
-declaring a payload of its own, `Code.String`, `Code.Code` or `Code.{ … }`
-with `Code` declared, is refused as `Payload.Code` at the variant. A Signal's
-or an Operation's own sections are verbs over their payloads and are not
-held to this.
+A variant whose name is a type the file declares or imports carries that
+type and is written bare: `Failure.[ SyntaxError Unwritable ]` with
+`SyntaxError` declared gives `SyntaxError(SyntaxError)`, and with
+`[ :sema:Block ]` imported, `Part.[ Block ]` gives `Block(sema::Block)`.
+Such a variant declaring a payload of its own, `Code.String`, `Code.Code` or
+`Code.{ … }` with `Code` declared, is refused as `Payload.Code` at the
+variant. The rule holds in every section, a Signal's inputs and outputs and
+an Operation's operations and outcomes as much as an enum declaration:
+`Lock.LockRequest` as an input beside a declared `Lock` is refused, and the
+input is named `Acquire`. A name a root implies, a Signal's `Query`, is
+generated beside the file's own names, and no variant carries it.
 
 A variant that declares its payload in place names a derived type:
 `X.{ … }` or `X.[ … ]` in an enum gives `X_Data`. Derived names are unique

@@ -21,7 +21,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::checking::{Checkable, Declaring, Inlining};
+use crate::checking::{Carrying, Checkable, Declaring, Inlining};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
@@ -685,7 +685,7 @@ impl Varianted for Variant {
         match self {
             Variant::Bare(name) => {
                 let variant = name.tokens();
-                if scope.file.declaration(name).is_some() {
+                if scope.carries(name) {
                     let carried = name.carried();
                     let archival = carried.archival(scope, owner);
                     let ty = carried.position(scope, owner);

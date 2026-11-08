@@ -9,7 +9,7 @@ Library
   Problem.[ Root
             Arity.{ Integer Integer }
             Expected.Form
-            Separator.Separator
+            Separator
             Name.String
             Duplicate.String
             Undeclared.String

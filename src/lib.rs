@@ -326,7 +326,7 @@ pub enum TypeDeclaration {
 pub enum Variant {
     /// Carrying nothing: `Closed`.
     Bare(Name),
-    /// Carrying one type: `Lock.LockRequest`.
+    /// Carrying one type: `Acquire.LockRequest`.
     Typed(Name, Reference),
     /// Carrying an inline struct, a tuple variant: `Node.{ Tree Tree }`.
     Struct(Name, Vec<Position>),

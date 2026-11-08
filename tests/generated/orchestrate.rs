@@ -87,7 +87,7 @@ pub enum Observation {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Query {
-    Lock(LockRequest),
+    Acquire(LockRequest),
     Release(LockId),
     Observe(ObserveSelection),
 }

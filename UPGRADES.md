@@ -2,6 +2,16 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 22.0.0: one carrying rule in every section, imported types included
+
+What breaks, in three parts.
+
+1. The `Payload` refusal of 21.0.0 holds in every section: a Signal's inputs and outputs and an Operation's operations and outcomes as much as an enum declaration. `Lock.LockRequest` as a Signal input beside a declared `Lock` is now `Conceptual.{ [ 1 1 0 0 ] Payload.Lock }`.
+2. A bare variant named after an imported type carries that type, as one named after a declared type does: with `[ :sema:Block ]` imported, `Part.[ Plain.String Block ]` generates `Block(sema::Block)`, where 21.x generated a `Block` carrying nothing. An imported name is held to the refusal too: `Block.Block` is `Payload.Block`.
+3. A name a root implies, a Signal's `Query` or `Response`, is generated beside the file's own names: no variant carries it, so `Query.Ask` stays valid and a bare `Query` carries nothing, as before.
+
+To deploy: run `ethos-zero 'Check.<file>'` over every ethos file. For each `Payload.<Name>`, write the variant bare when it is to carry `<Name>` (`Configured.Configured` becomes `Configured`; the generated Rust is the same, an imported `<Name>` included only from 22.0.0, so repin before writing an imported one bare). Rename the variant when it is to carry something else: the orchestrate input `Lock.LockRequest` becomes `Acquire.LockRequest`, and every consumer matching `Query::Lock` matches `Query::Acquire`. A file whose bare variant named an imported type and meant no payload renames that variant. The crate's own `fixtures/orchestrate.ethos` takes `Acquire.LockRequest`, and `error.ethos` writes `Separator` bare, its Rust unchanged.
+
 ## 21.0.0: a variant named as a defined type carries it bare
 
 What breaks: an enum declaration (in a types section, or inline in a variant) whose variant is named as a type the file defines and declares a payload of its own is refused as `Conceptual.{ [ path ] Payload.<Name> }`, the path naming the variant. `Code.String` in `TextPart.[ Plain.String Code.String ]` with `Code.String` declared was accepted and generated `Code(String)`; the vision says such a variant carries the type it is named for. The `Error` contract gains `Problem.Payload.String`. A Signal's or an Operation's own sections are not held to this: `Lock.LockRequest` as a Signal input beside a declared `Lock` stays valid.
