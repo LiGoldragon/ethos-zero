@@ -327,6 +327,7 @@ rec {
           {
             name = "serde";
             packageId = "serde";
+            features = [ "derive" ];
           }
         ];
         features = {
@@ -929,6 +930,11 @@ rec {
             usesDefaultFeatures = false;
             features = [ "result" ];
           }
+          {
+            name = "serde_derive";
+            packageId = "serde_derive";
+            optional = true;
+          }
         ];
         features = {
           "alloc" = [ "serde_core/alloc" ];
@@ -939,7 +945,7 @@ rec {
           "std" = [ "serde_core/std" ];
           "unstable" = [ "serde_core/unstable" ];
         };
-        resolvedDefaultFeatures = [ "default" "std" ];
+        resolvedDefaultFeatures = [ "default" "derive" "serde_derive" "std" ];
       };
       "serde_core" = rec {
         crateName = "serde_core";

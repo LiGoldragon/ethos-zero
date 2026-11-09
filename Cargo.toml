@@ -33,7 +33,7 @@ prettyplease = "0.3"
 rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 
 [dev-dependencies]
-serde = "1"
+serde = { version = "1", features = ["derive"] }
 
 [[test]]
 name = "ethos"
