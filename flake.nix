@@ -31,10 +31,13 @@
           pkgs,
           toolchain,
           workspace,
+          tests,
+          buildRustCrateForPkgs,
           ...
         }:
         let
           lib = pkgs.lib;
+          manifest = builtins.fromTOML (builtins.readFile ./Cargo.toml);
           src = lib.cleanSourceWith {
             src = lib.cleanSource ./.;
             filter = path: type: lib.cleanSourceFilter path type;
@@ -45,8 +48,116 @@
           resourcePolicy = ''
             ulimit -v 8388608
           '';
+
+          # A crate made of what the built tool generates from the fixtures,
+          # built as its own derivation by the base's buildRustCrate. Its
+          # dependencies are the very crate derivations ethos-zero links.
+          fixtures = lib.fileset.toSource {
+            root = ./fixtures;
+            fileset = ./fixtures;
+          };
+          linked =
+            name:
+            lib.findFirst (dependency: dependency.crateName == name)
+              (throw "ethos-zero links no ${name}")
+              package.dependencies;
+          rkyv = linked "rkyv";
+          datom-codec = linked "datom-codec";
+          generatedCrate =
+            {
+              name,
+              declarations,
+              libPath ? "src/lib.rs",
+              root ? "",
+              features ? [ ],
+              dependencies,
+              buildTests ? false,
+            }:
+            (buildRustCrateForPkgs pkgs) {
+              crateName = name;
+              version = "0.1.0";
+              edition = manifest.package.edition;
+              src = pkgs.runCommand "${name}-source" {
+                inherit package fixtures root declarations;
+              } (builtins.readFile ./checks/generated-source.sh);
+              inherit
+                libPath
+                features
+                dependencies
+                buildTests
+                ;
+            };
+          # Runs the test binaries of a generated crate's test build.
+          runTests =
+            name: build:
+            pkgs.runCommand name { } ''
+              ${resourcePolicy}
+              for binary in ${build}/tests/*; do
+                echo "running $(basename "$binary")"
+                "$binary"
+              done
+              touch "$out"
+            '';
+          # A generated Signal contract built without its datom feature, and
+          # with no datom-codec anywhere in its dependency graph.
+          withoutDatom =
+            name: declaration:
+            let
+              crate = generatedCrate {
+                inherit name;
+                declarations = [ declaration ];
+                libPath = "generated/${lib.removeSuffix ".ethos" (baseNameOf declaration)}.rs";
+                dependencies = [ rkyv ];
+              };
+              graph = map (dependency: dependency.crateName) crate.completeDeps;
+            in
+            pkgs.runCommand name { inherit crate; graph = toString graph; } ''
+              echo "$crate depends on: $graph"
+              for dependency in $graph; do
+                if [ "$dependency" = datom-codec ]; then
+                  echo "$crate has datom-codec in its dependency graph" >&2
+                  exit 1
+                fi
+              done
+              touch "$out"
+            '';
+          # The Flow Nexus contract under a feature set, its test build.
+          flowContract =
+            features: dependencies:
+            generatedCrate {
+              name = "flow-contract";
+              declarations = map (stem: "print/flow-${stem}.ethos") [
+                "library"
+                "signal"
+                "operation"
+                "memory"
+              ];
+              root = ./tests/flow-contract/lib.rs;
+              inherit features dependencies;
+              buildTests = true;
+            };
         in
         {
+          signal-without-datom = withoutDatom "signal-without-datom" "orchestrate.ethos";
+          operation-free-signal-without-datom = withoutDatom "operation-free-signal-without-datom" "empty-signal.ethos";
+          flow-contract = runTests "flow-contract" (flowContract [ ] [ rkyv ]);
+          flow-contract-datom = runTests "flow-contract-datom" (
+            flowContract [ "datom" ] [
+              rkyv
+              datom-codec
+            ]
+          );
+          # The test build compiled by clippy-driver under the crate's lints,
+          # every target, warnings refused.
+          clippy = tests."ethos-zero".override {
+            useClippy = true;
+            clippy = toolchain;
+            inherit (manifest) lints;
+            extraRustcOpts = [
+              "-D"
+              "warnings"
+            ];
+          };
           fmt = pkgs.runCommand "ethos-zero-fmt" { nativeBuildInputs = [ toolchain ]; inherit src; } ''
             ${resourcePolicy}
             cd "$src"
