@@ -62,7 +62,7 @@
               (throw "ethos-zero links no ${name}")
               package.dependencies;
           rkyv = linked "rkyv";
-          datom-codec = linked "datom-codec";
+          datomCodec = linked "datom-codec";
           generatedCrate =
             {
               name,
@@ -144,7 +144,7 @@
           flow-contract-datom = runTests "flow-contract-datom" (
             flowContract [ "datom" ] [
               rkyv
-              datom-codec
+              datomCodec
             ]
           );
           # The test build compiled by clippy-driver under the crate's lints,

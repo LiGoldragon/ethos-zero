@@ -277,15 +277,14 @@ fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
 #[test]
 fn a_second_inline_source_is_refused_instead_of_overwriting_the_first() {
     // A chained source is one segment; more segments are written rooted.
-    for source in ["Library [] [ Holder.{ std:sync:Mutex<String> String } ] [] []"] {
-        match Potential::<File>::from(source).actualize() {
-            Err(Error::Conceptual(data)) => {
-                assert_eq!(data.problem, Problem::Expected(Form::Reference));
-                assert_eq!(data.integer_vector, vec![1, 1, 0, 1, 0, 1]);
-            }
-            Err(Error::Structural(_)) => panic!("{source} is a conceptual refusal"),
-            Ok(_) => panic!("{source} must be refused"),
+    let source = "Library [] [ Holder.{ std:sync:Mutex<String> String } ] [] []";
+    match Potential::<File>::from(source).actualize() {
+        Err(Error::Conceptual(data)) => {
+            assert_eq!(data.problem, Problem::Expected(Form::Reference));
+            assert_eq!(data.integer_vector, vec![1, 1, 0, 1, 0, 1]);
         }
+        Err(Error::Structural(_)) => panic!("{source} is a conceptual refusal"),
+        Ok(_) => panic!("{source} must be refused"),
     }
 
     match Potential::<File>::from("Library [] [ MyType.std.custom:Mutex ] [] []").actualize() {
