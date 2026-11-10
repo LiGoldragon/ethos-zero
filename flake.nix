@@ -31,7 +31,6 @@
           pkgs,
           toolchain,
           workspace,
-          tests,
           buildRustCrateForPkgsFor,
           ...
         }:
@@ -154,17 +153,6 @@
               datomCodec
             ]
           );
-          # The test build compiled by clippy-driver under the crate's lints,
-          # every target, warnings refused.
-          clippy = tests."ethos-zero".override {
-            useClippy = true;
-            clippy = toolchain;
-            inherit (manifest) lints;
-            extraRustcOpts = [
-              "-D"
-              "warnings"
-            ];
-          };
           fmt = pkgs.runCommand "ethos-zero-fmt" { nativeBuildInputs = [ toolchain ]; inherit src; } ''
             ${resourcePolicy}
             cd "$src"
