@@ -31,6 +31,7 @@
           pkgs,
           toolchain,
           workspace,
+          binaries,
           buildRustCrateForPkgsFor,
           ...
         }:
@@ -42,7 +43,10 @@
             filter = path: type: lib.cleanSourceFilter path type;
             name = "source";
           };
-          package = workspace.workspaceMembers."ethos-zero".build;
+          # The member's library, whose dependencies the generated crates
+          # link, and its binaries, which generate them.
+          library = workspace.workspaceMembers."ethos-zero".build;
+          package = binaries "ethos-zero" [ "default" ];
           # The base's crate builder, under the feature-set name the
           # package's own build takes.
           buildRustCrateForPkgs = buildRustCrateForPkgsFor {
@@ -66,7 +70,7 @@
             name:
             lib.findFirst (dependency: dependency.crateName == name)
               (throw "ethos-zero links no ${name}")
-              package.dependencies;
+              library.dependencies;
           rkyv = linked "rkyv";
           datomCodec = linked "datom-codec";
           generatedCrate =
