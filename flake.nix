@@ -32,7 +32,7 @@
           toolchain,
           workspace,
           tests,
-          buildRustCrateForPkgs,
+          buildRustCrateForPkgsFor,
           ...
         }:
         let
@@ -44,6 +44,13 @@
             name = "source";
           };
           package = workspace.workspaceMembers."ethos-zero".build;
+          # The base's crate builder, under the feature-set name the
+          # package's own build takes.
+          buildRustCrateForPkgs = buildRustCrateForPkgsFor {
+            packageId = workspace.workspaceMembers."ethos-zero".packageId;
+            features = [ "default" ];
+            runTests = false;
+          };
           # These limits run inside each derivation, so test children inherit them.
           resourcePolicy = ''
             ulimit -v 8388608
