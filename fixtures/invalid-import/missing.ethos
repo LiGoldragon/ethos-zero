@@ -1,0 +1,6 @@
+; External existence is the Rust compiler's oracle in this bounded step.
+Signal
+[ :signal:namespace_ordinary:signal:Absent ]
+[ Ask.Absent ]
+[ Done ]
+[]

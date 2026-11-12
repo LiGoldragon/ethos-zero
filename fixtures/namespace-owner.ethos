@@ -3,7 +3,8 @@ Signal
 [ :signal:namespace_ordinary:signal:[ Request.Input Reply.Output ] ]
 [ Forward.Request
   Inspect.{ :signal:namespace_ordinary:Input
-            :signal:namespace_ordinary:signal:Input } ]
+            :signal:namespace_ordinary:signal:Input }
+  Wrap.Envelope ]
 [ Forwarded.Reply
   Empty ]
-[]
+[ Envelope.{ Request } ]

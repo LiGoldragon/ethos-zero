@@ -146,7 +146,7 @@ fn a_variant_payload_declares_named_positions_in_place() {
             Err(_) => panic!("a payload with a named position generates"),
         };
     assert!(rust.contains("pub struct Brief(pub String);"), "{rust}");
-    assert!(rust.contains("pub brief: Brief"), "{rust}");
+    assert!(rust.contains("pub brief: super::Brief"), "{rust}");
 }
 
 #[test]
@@ -478,10 +478,10 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
 }
 
 #[test]
-fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
+fn signal_input_and_output_inline_payloads_are_unique_in_the_implied_namespace() {
     let generated = match read("Signal [] [ Ask.{ String } ] [ Ask.{ Integer } ] []").generate() {
         Ok(generated) => generated,
-        Err(_) => panic!("Query and Response each declaring Ask in place generate"),
+        Err(_) => panic!("Input and Output each declaring Ask in place generate"),
     };
     assert!(generated.contains("pub struct Input_Ask_Data"));
     assert!(generated.contains("pub struct Output_Ask_Data"));
@@ -602,7 +602,7 @@ fn a_bare_variant_named_as_an_imported_type_carries_it() {
 }
 
 #[test]
-fn a_variant_named_as_an_implied_type_carries_nothing_and_takes_a_payload() {
+fn a_signal_variant_name_is_independent_of_implied_names() {
     let rust = "Signal [] [ Query.Ask ] [ Told ] [ Ask.String ]".compact();
     assert!(rust.contains("pubenumInput{Query(super::Ask),}"), "{rust}");
 }

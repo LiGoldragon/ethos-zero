@@ -128,8 +128,10 @@ Such a variant declaring a payload of its own, `Code.String`, `Code.Code` or
 variant. The rule holds in every section, a Signal's inputs and outputs and
 an Operation's operations and outcomes as much as an enum declaration:
 `Lock.LockRequest` as an input beside a declared `Lock` is refused, and the
-input is named `Acquire`. A name a root implies, a Signal's `Query`, is
-generated beside the file's own names, and no variant carries it.
+input is named `Acquire`. Signal's implied names belong only to its child
+namespace: authored `Input` and `Output` remain ordinary carried types in the
+file namespace. Operation's implied `Operation` and `Outcome` retain their
+existing file-root placement.
 
 A variant that declares its payload in place names a derived type:
 `X.{ … }` or `X.[ … ]` in an enum gives `X_Data`. Derived names are unique

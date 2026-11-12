@@ -41,6 +41,11 @@ mod wire {
             second_input: authored.clone(),
         });
         crosses(input.clone());
+        crosses(namespace_owner::signal::Input::Wrap(
+            namespace_owner::Envelope {
+                request: input.clone(),
+            },
+        ));
         crosses(namespace_owner::signal::Input::Forward(input.clone()));
         crosses(namespace_owner::signal::Input::Inspect(
             namespace_owner::signal::Inspect_Data {
@@ -64,8 +69,8 @@ mod wire {
     #[test]
     fn imported_signal_values_keep_their_datom_behavior() {
         use super::{namespace_emission, namespace_owner};
-        use datom_codec::{Actualizing, Budget, Potential};
-        use signal::{library, namespace_ordinary};
+        use datom_codec::{Actualizing, Budget, Composable, Datomizable, Potential};
+        use signal::namespace_ordinary;
         let mut budget = Budget {
             remaining: 4096,
             reader: 4096.try_into().expect("reader budget"),
@@ -79,6 +84,11 @@ mod wire {
             request,
             namespace_owner::signal::Input::Forward(namespace_ordinary::signal::Input::Inspect)
         );
+        let restored: namespace_owner::signal::Input = request
+            .datomize(vec![])
+            .compose(&mut budget)
+            .expect("owner round trip");
+        assert_eq!(restored, request);
         let emission = Potential::<namespace_emission::signal::Input>::from("Send.Inspect")
             .actualize(&mut budget)
             .expect("emission input");
@@ -86,6 +96,11 @@ mod wire {
             emission,
             namespace_emission::signal::Input::Send(namespace_ordinary::signal::Input::Inspect)
         );
+        let restored: namespace_emission::signal::Input = emission
+            .datomize(vec![])
+            .compose(&mut budget)
+            .expect("emission round trip");
+        assert_eq!(restored, emission);
     }
 
     #[test]
@@ -104,7 +119,7 @@ mod wire {
     #[cfg(feature = "datom")]
     #[test]
     fn recursive_generated_enums_keep_their_datom_behavior() {
-        use datom_codec::{Actualizing, Budget, Datomizable, Potential};
+        use datom_codec::{Actualizing, Budget, Composable, Datomizable, Potential};
         use signal::namespace_recursive::signal::{Input, Output};
         let mut budget = Budget {
             remaining: 4096,
@@ -116,10 +131,19 @@ mod wire {
             .actualize(&mut budget)
             .expect("recursive generated input");
         assert_eq!(value, Input::Recur(Box::new(Input::Leaf)));
+        let restored: Input = value
+            .datomize(vec![])
+            .compose(&mut budget)
+            .expect("recursive input round trip");
+        assert_eq!(restored, value);
         let value = Potential::<Output>::from("Again.Some.Done")
             .actualize(&mut budget)
             .expect("recursive generated output");
         assert_eq!(value, Output::Again(Some(Box::new(Output::Done))));
-        let _ = value.datomize(datom_codec::Path::root());
+        let restored: Output = value
+            .datomize(vec![])
+            .compose(&mut budget)
+            .expect("recursive output round trip");
+        assert_eq!(restored, value);
     }
 }

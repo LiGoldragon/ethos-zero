@@ -146,27 +146,65 @@
               inherit features dependencies;
               buildTests = true;
             };
+          # Producer outputs are libraries reused by the consumer and rejection proof.
+          namespaceProducer =
+            features: dependencies:
+            generatedCrate {
+              name = "signal";
+              declarations = [ "print/flow-library.ethos" "namespace-ordinary.ethos" "namespace-recursive.ethos" ];
+              root = ./tests/namespace-producer/lib.rs;
+              inherit features dependencies;
+            };
           # A real dependency named signal is linked into a separate consumer.
           namespaceContract =
             features: dependencies:
-            let
-              producer = generatedCrate {
-                name = "signal";
-                declarations = [ "print/flow-library.ethos" "namespace-ordinary.ethos" "namespace-recursive.ethos" ];
-                root = ./tests/namespace-producer/lib.rs;
-                inherit features dependencies;
-              };
-            in
             generatedCrate {
               name = "namespace-contract";
               declarations = [ "namespace-owner.ethos" "namespace-emission.ethos" ];
               root = ./tests/namespace-contract/lib.rs;
               inherit features;
-              dependencies = dependencies ++ [ producer ];
+              dependencies = dependencies ++ [ (namespaceProducer features dependencies) ];
               buildTests = true;
             };
+          # A rejected compilation is its own build output; the check only reads it.
+          missingImport =
+            let
+              producer = namespaceProducer [ ] [ rkyv ];
+              source = pkgs.runCommand "namespace-missing-import-source" {
+                inherit package fixtures;
+                root = "";
+                declarations = [ "invalid-import/missing.ethos" ];
+              } (builtins.readFile ./checks/generated-source.sh);
+            in
+            pkgs.runCommand "namespace-missing-import-compile" {
+              nativeBuildInputs = [ toolchain ];
+            } ''
+              ${resourcePolicy}
+              mkdir "$out"
+              ${package}/bin/ethos-zero 'Check.${fixtures}/invalid-import/missing.ethos' > "$out/check.datom"
+              grep -x Checked "$out/check.datom"
+              flags=()
+              for dependency in ${toString (map lib.getLib producer.completeDeps)}; do
+                flags+=(-L "dependency=$dependency/lib")
+              done
+              signal_library=(${lib.getLib producer}/lib/libsignal-*.rlib)
+              rkyv_library=(${lib.getLib rkyv}/lib/librkyv-*.rlib)
+              if rustc --crate-name missing_import --crate-type lib --edition ${manifest.package.edition} \
+                --emit=metadata --error-format=json \
+                "''${flags[@]}" --extern "signal=''${signal_library[0]}" --extern "rkyv=''${rkyv_library[0]}" \
+                ${source}/generated/missing.rs --out-dir "$TMPDIR" > "$out/stdout" 2> "$out/stderr"; then
+                echo 'An absent external export compiled' >&2
+                exit 1
+              fi
+              grep -F '"code":"E0412"' "$out/stderr"
+              grep -F 'cannot find type `Absent` in module' "$out/stderr"
+            '';
         in
         {
+          namespace-missing-import = pkgs.runCommand "namespace-missing-import" { } ''
+            test -s ${missingImport}/stderr
+            cp ${missingImport}/stderr "$out"
+          '';
           namespace-contract = runTests "namespace-contract" (namespaceContract [ ] [ rkyv ]);
           namespace-contract-datom = runTests "namespace-contract-datom" (
             namespaceContract [ "datom" ] [ rkyv datomCodec ]
