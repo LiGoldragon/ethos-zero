@@ -182,7 +182,7 @@
               ${resourcePolicy}
               mkdir "$out"
               ${package}/bin/ethos-zero 'Check.${fixtures}/invalid-import/missing.ethos' > "$out/check.datom"
-              grep -x Checked "$out/check.datom"
+              grep -Fx 'Checked.${fixtures}/invalid-import/missing.ethos' "$out/check.datom"
               flags=()
               for dependency in ${toString (map lib.getLib producer.completeDeps)}; do
                 flags+=(-L "dependency=$dependency/lib")

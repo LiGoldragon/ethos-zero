@@ -211,6 +211,19 @@ fn a_signal_keeps_authored_names_beside_its_generated_namespace() {
 }
 
 #[test]
+fn signal_external_imports_stay_external_beside_the_implied_namespace() {
+    let rust = generates(
+        "Signal [ :signal:library:Request ] [ Ask.Envelope ] [ Told ] [ Envelope.{ Request } ]",
+    );
+    assert!(
+        rust.contains("pub request: ::signal::library::Request"),
+        "{rust}"
+    );
+    let rust = generates("Signal [ :signal:library:Request ] [ Ask.Request ] [ Told ] []");
+    assert!(rust.contains("Ask(::signal::library::Request)"), "{rust}");
+}
+
+#[test]
 fn old_signal_names_are_not_implicit_types() {
     for name in ["Query", "Response", "Input", "Output"] {
         let source = format!("Signal [] [ Ask.{name} ] [ Told ] []");

@@ -118,6 +118,10 @@ impl ScopedTokening for Source {
                 quote! { #path }
             }
             (EmissionSite::Implied, Some("super")) => quote! { super::#path },
+            (_, Some("self" | "super" | "crate")) => path,
+            // Signal adds a child namespace. An external import keeps its
+            // external origin even beside a child bearing the crate's name.
+            _ if matches!(scope.file, File::Signal(_)) => quote! { ::#path },
             _ => path,
         }
     }
