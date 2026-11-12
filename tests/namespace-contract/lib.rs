@@ -4,6 +4,9 @@ pub mod namespace_emission;
 #[path = "../generated/namespace-owner.rs"]
 pub mod namespace_owner;
 
+#[path = "../generated/namespace-selection.rs"]
+pub mod namespace_selection;
+
 #[cfg(test)]
 mod wire {
     fn crosses<T>(value: T)
@@ -47,6 +50,15 @@ mod wire {
             },
         ));
         crosses(namespace_owner::signal::Input::Forward(input.clone()));
+        crosses(namespace_owner::signal::Input::Request(input.clone()));
+        crosses(namespace_owner::signal::Input::Envelope(
+            namespace_owner::Envelope {
+                request: input.clone(),
+            },
+        ));
+        crosses(namespace_owner::signal::Output::Reply(
+            namespace_ordinary::signal::Output::Empty,
+        ));
         crosses(namespace_owner::signal::Input::Inspect(
             namespace_owner::signal::Inspect_Data {
                 first_input: authored,
@@ -84,6 +96,18 @@ mod wire {
             request,
             namespace_owner::signal::Input::Forward(namespace_ordinary::signal::Input::Inspect)
         );
+        let imported_bare = Potential::<namespace_owner::signal::Input>::from("Request.Inspect")
+            .actualize(&mut budget)
+            .expect("imported bare Signal variant");
+        assert_eq!(
+            imported_bare,
+            namespace_owner::signal::Input::Request(namespace_ordinary::signal::Input::Inspect)
+        );
+        let restored: namespace_owner::signal::Input = imported_bare
+            .datomize(vec![])
+            .compose(&mut budget)
+            .expect("imported bare Signal round trip");
+        assert_eq!(restored, imported_bare);
         let restored: namespace_owner::signal::Input = request
             .datomize(vec![])
             .compose(&mut budget)
@@ -145,5 +169,41 @@ mod wire {
             .compose(&mut budget)
             .expect("recursive output round trip");
         assert_eq!(restored, value);
+    }
+    #[test]
+    fn energy_imported_bare_variants_preserve_payloads_like_local_variants() {
+        use super::namespace_selection::{Local, LocalUsage, SelectionResult, WeekUsage};
+        use signal::namespace_ordinary::Output;
+        let usage = WeekUsage::Percent(Output(87));
+        let selection = SelectionResult::Reset(Output(11));
+        let local = LocalUsage::Local(Local(600));
+        crosses(usage.clone());
+        crosses(selection.clone());
+        crosses(local.clone());
+        #[cfg(feature = "datom")]
+        {
+            use datom_codec::{Budget, Composable, Datomizable};
+            let mut budget = Budget {
+                remaining: 4096,
+                reader: 4096.try_into().unwrap(),
+                depth: 0,
+                maximum_depth: 4096,
+            };
+            let restored: WeekUsage = usage
+                .datomize(vec![])
+                .compose(&mut budget)
+                .expect("imported Percent round trip");
+            assert_eq!(restored, usage);
+            let restored: SelectionResult = selection
+                .datomize(vec![])
+                .compose(&mut budget)
+                .expect("imported Reset round trip");
+            assert_eq!(restored, selection);
+            let restored: LocalUsage = local
+                .datomize(vec![])
+                .compose(&mut budget)
+                .expect("local control round trip");
+            assert_eq!(restored, local);
+        }
     }
 }

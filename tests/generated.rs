@@ -610,3 +610,6 @@ fn the_capability_matrix_adds_only_what_the_scalar_supports() {
 
 #[path = "generated/namespace-recursive.rs"]
 pub mod namespace_recursive;
+
+#[path = "generated/namespace-selection.rs"]
+pub mod namespace_selection;

@@ -4,7 +4,10 @@ Signal
 [ Forward.Request
   Inspect.{ :signal:namespace_ordinary:Input
             :signal:namespace_ordinary:signal:Input }
-  Wrap.Envelope ]
+  Wrap.Envelope
+  Request
+  Envelope ]
 [ Forwarded.Reply
-  Empty ]
+  Empty
+  Reply ]
 [ Envelope.{ Request } ]

@@ -41,23 +41,61 @@ pub struct Address {
     pub topic: Topic,
     pub layer: Layer,
 }
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct Launch_Data {
-    pub address: Address,
-    pub remembering: Remembering,
-    pub brief: Brief,
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Query {
-    Launch(Launch_Data),
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Response {
-    Launched,
+pub mod signal {
+    #[rustfmt::skip]
+    #[derive(
+        rkyv::Archive,
+        rkyv::Serialize,
+        rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(datom_codec::Datomizable, datom_codec::Composing)
+    )]
+    pub struct Launch_Data {
+        pub address: super::Address,
+        pub remembering: super::Remembering,
+        pub brief: super::Brief,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        rkyv::Archive,
+        rkyv::Serialize,
+        rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(datom_codec::Datomizable, datom_codec::Composing)
+    )]
+    pub enum Input {
+        Launch(Launch_Data),
+    }
+    #[rustfmt::skip]
+    #[derive(
+        rkyv::Archive,
+        rkyv::Serialize,
+        rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(datom_codec::Datomizable, datom_codec::Composing)
+    )]
+    pub enum Output {
+        Launched,
+    }
 }

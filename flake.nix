@@ -160,7 +160,7 @@
             features: dependencies:
             generatedCrate {
               name = "namespace-contract";
-              declarations = [ "namespace-owner.ethos" "namespace-emission.ethos" ];
+              declarations = [ "namespace-owner.ethos" "namespace-emission.ethos" "namespace-selection.ethos" ];
               root = ./tests/namespace-contract/lib.rs;
               inherit features;
               dependencies = dependencies ++ [ (namespaceProducer features dependencies) ];

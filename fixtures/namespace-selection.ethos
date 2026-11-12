@@ -1,0 +1,9 @@
+; Energy regression: imported bare variants retain payloads, like local ones.
+Library
+[ :signal:namespace_ordinary:[ Percent.Output Reset.Output ] ]
+[ WeekUsage.[ Percent Unknown ]
+  SelectionResult.[ Reset NoReset ]
+  Local.Integer
+  LocalUsage.[ Local Unknown ] ]
+[]
+[]

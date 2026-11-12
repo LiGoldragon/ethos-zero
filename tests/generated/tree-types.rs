@@ -186,17 +186,43 @@ pub struct Deep(
         >,
     >,
 );
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Query {
-    Plant(Tree),
-    Twine(Twin),
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Response {
-    Planted(Forest),
-    Twined(Twig),
+pub mod signal {
+    #[rustfmt::skip]
+    #[derive(
+        rkyv::Archive,
+        rkyv::Serialize,
+        rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(datom_codec::Datomizable, datom_codec::Composing)
+    )]
+    pub enum Input {
+        Plant(super::Tree),
+        Twine(super::Twin),
+    }
+    #[rustfmt::skip]
+    #[derive(
+        rkyv::Archive,
+        rkyv::Serialize,
+        rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(datom_codec::Datomizable, datom_codec::Composing)
+    )]
+    pub enum Output {
+        Planted(super::Forest),
+        Twined(super::Twig),
+    }
 }

@@ -605,6 +605,20 @@ fn a_root_section_variant_named_as_a_defined_type_declaring_a_payload_is_refused
 }
 
 #[test]
+fn energy_imported_bare_variants_emit_qualified_payloads_alongside_the_local_control() {
+    let rust = generates(include_str!("../fixtures/namespace-selection.ethos"));
+    assert!(
+        rust.contains("Percent(signal::namespace_ordinary::Output)"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("Reset(signal::namespace_ordinary::Output)"),
+        "{rust}"
+    );
+    assert!(rust.contains("Local(Local)"), "{rust}");
+}
+
+#[test]
 fn a_bare_variant_named_as_an_imported_type_carries_it() {
     let rust = "Library [ :sema:Block ] [ Part.[ Plain.String Block ] ] [] []".compact();
     assert!(rust.contains("Block(sema::Block)"), "{rust}");

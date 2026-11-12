@@ -83,21 +83,47 @@ pub struct Locks(pub std::vec::Vec<Lock>);
 pub enum Observation {
     Locks(Locks),
 }
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Query {
-    Acquire(LockRequest),
-    Release(LockId),
-    Observe(ObserveSelection),
-}
-#[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Response {
-    Locked(Lock),
-    LockRejected(LockRejection),
-    Released(Lock),
-    ReleaseRejected(ReleaseRejection),
-    Observed(Observation),
+pub mod signal {
+    #[rustfmt::skip]
+    #[derive(
+        rkyv::Archive,
+        rkyv::Serialize,
+        rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(datom_codec::Datomizable, datom_codec::Composing)
+    )]
+    pub enum Input {
+        Acquire(super::LockRequest),
+        Release(super::LockId),
+        Observe(super::ObserveSelection),
+    }
+    #[rustfmt::skip]
+    #[derive(
+        rkyv::Archive,
+        rkyv::Serialize,
+        rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(datom_codec::Datomizable, datom_codec::Composing)
+    )]
+    pub enum Output {
+        Locked(super::Lock),
+        LockRejected(super::LockRejection),
+        Released(super::Lock),
+        ReleaseRejected(super::ReleaseRejection),
+        Observed(super::Observation),
+    }
 }
