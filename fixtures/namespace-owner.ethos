@@ -1,0 +1,9 @@
+; Section and inline imports distinguish authored and generated namespaces.
+Signal
+[ :signal:namespace_ordinary:signal:[ Request.Input Reply.Output ] ]
+[ Forward.Request
+  Inspect.{ :signal:namespace_ordinary:Input
+            :signal:namespace_ordinary:signal:Input } ]
+[ Forwarded.Reply
+  Empty ]
+[]

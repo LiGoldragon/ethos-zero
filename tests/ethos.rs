@@ -31,14 +31,14 @@ fn full_library_round_trips_and_generates_named_types_and_traits() {
 }
 
 #[test]
-fn signal_generates_query_response_and_optional_datom_derives() {
+fn signal_generates_namespaced_input_output_and_optional_datom_derives() {
     let file = read(include_str!("../fixtures/orchestrate.ethos"));
     let rust = match file.generate() {
         Ok(rust) => rust,
         Err(_) => panic!("checked Signal generates"),
     };
-    assert!(rust.contains("pub enum Query"));
-    assert!(rust.contains("pub enum Response"));
+    assert!(rust.contains("pub enum Input"));
+    assert!(rust.contains("pub enum Output"));
     assert!(rust.contains("feature = \"datom\""));
     assert!(rust.contains("datom_codec::Datomizable, datom_codec::Composing"));
     assert!(rust.contains("pub struct LockId(pub i64)"));
@@ -171,30 +171,57 @@ fn operation_free_signal_generates_only_its_declared_shared_data() {
 }
 
 #[test]
-fn a_signal_declaring_the_query_type_is_refused() {
-    // The generator emits `pub enum Query` (Vision/ethos.md: "pub enum Query
-    // { Lock(LockRequest), Release(LockId) }"), so `Query` is the name a
-    // Signal may not also declare.
-    let signal = read("Signal [] [ Ask.Query ] [ Told.Query ] [ Query.{ String } ]");
-    assert!(signal.generate().is_err());
-    // `Request` is an ordinary name: nothing is generated under it.
-    let generated = match read("Signal [] [ Ask.Request ] [ Told.Request ] [ Request.{ String } ]")
-        .generate()
-    {
-        Ok(generated) => generated,
-        Err(_) => panic!("a Signal declaring Request generates"),
-    };
-    assert!(generated.contains("pub struct Request"));
-    assert_eq!(generated.matches("pub enum Query").count(), 1);
+fn a_signal_keeps_authored_names_beside_its_generated_namespace() {
+    let source = "Signal [] [ Ask.Input ] [ Told.Output ] [ Input.{ String } Output.Integer Query.String Response.String ]";
+    let generated = read(source).generate().expect("independent namespaces");
+    let rust = syn::parse_file(&generated).expect("generated Rust");
+    assert!(
+        rust.items
+            .iter()
+            .any(|item| matches!(item, syn::Item::Struct(item) if item.ident == "Input"))
+    );
+    assert!(
+        rust.items
+            .iter()
+            .any(|item| matches!(item, syn::Item::Struct(item) if item.ident == "Output"))
+    );
+    let namespace = rust
+        .items
+        .iter()
+        .find_map(|item| match item {
+            syn::Item::Mod(item) if item.ident == "signal" => item.content.as_ref(),
+            _ => None,
+        })
+        .expect("implied signal namespace");
+    assert!(
+        namespace
+            .1
+            .iter()
+            .any(|item| matches!(item, syn::Item::Enum(item) if item.ident == "Input"))
+    );
+    assert!(
+        namespace
+            .1
+            .iter()
+            .any(|item| matches!(item, syn::Item::Enum(item) if item.ident == "Output"))
+    );
+    assert!(generated.contains("Ask(super::Input)"));
+    assert!(generated.contains("Told(super::Output)"));
+    assert!(!generated.contains("Box<super::Input>"));
 }
 
 #[test]
-fn a_signal_declaring_the_response_type_is_refused() {
-    assert!(
-        read("Signal [] [ Ask.Response ] [ Told.Response ] [ Response.{ String } ]")
-            .generate()
-            .is_err()
-    );
+fn old_signal_names_are_not_implicit_types() {
+    for name in ["Query", "Response", "Input", "Output"] {
+        let source = format!("Signal [] [ Ask.{name} ] [ Told ] []");
+        assert!(read(&source).generate().is_err(), "{source}");
+    }
+}
+
+#[test]
+fn authored_signal_names_still_refuse_duplicates() {
+    let source = "Signal [] [ Ask ] [ Told ] [ Input.String Input.Integer ]";
+    assert!(read(source).generate().is_err());
 }
 
 #[test]
@@ -456,8 +483,8 @@ fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
         Ok(generated) => generated,
         Err(_) => panic!("Query and Response each declaring Ask in place generate"),
     };
-    assert!(generated.contains("pub struct Query_Ask_Data"));
-    assert!(generated.contains("pub struct Response_Ask_Data"));
+    assert!(generated.contains("pub struct Input_Ask_Data"));
+    assert!(generated.contains("pub struct Output_Ask_Data"));
     syn::parse_file(&generated).expect("generated Rust parses");
 }
 
@@ -496,8 +523,8 @@ fn types_section_declarations_refuse_wrapping_named_structs_and_enums() {
             wrapping("Wrapped", "Choice"),
         ),
         (
-            "Signal [] [ Ask ] [] [ Wrapped.Query ]",
-            wrapping("Wrapped", "Query"),
+            "Signal [] [ Ask ] [] [ Input.{ String } Wrapped.Input ]",
+            wrapping("Wrapped", "Input"),
         ),
     ] {
         assert_eq!(source.refusal().1, problem, "{source}");
@@ -577,7 +604,7 @@ fn a_bare_variant_named_as_an_imported_type_carries_it() {
 #[test]
 fn a_variant_named_as_an_implied_type_carries_nothing_and_takes_a_payload() {
     let rust = "Signal [] [ Query.Ask ] [ Told ] [ Ask.String ]".compact();
-    assert!(rust.contains("pubenumQuery{Query(Ask),}"), "{rust}");
+    assert!(rust.contains("pubenumInput{Query(super::Ask),}"), "{rust}");
 }
 
 #[test]
@@ -588,7 +615,7 @@ fn a_variant_named_as_a_defined_type_and_written_bare_carries_it() {
         "{rust}"
     );
     let rust = "Signal [] [ Acquire.Request ] [ Lock ] [ Request.String Lock.String ]".compact();
-    assert!(rust.contains("pubenumResponse{Lock(Lock),}"), "{rust}");
+    assert!(rust.contains("pubenumOutput{Lock(super::Lock),}"), "{rust}");
 }
 
 #[test]

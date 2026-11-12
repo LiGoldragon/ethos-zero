@@ -1,0 +1,9 @@
+; Authored Input/Output and an inline named type stay beside the implied namespace.
+Signal
+[ super:Voice ]
+[ Put.{ Input Output Voice Inline.String :self:Input }
+  Inspect ]
+[ Stored.Output
+  Empty ]
+[ Input.{ String }
+  Output.Integer ]

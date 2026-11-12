@@ -146,8 +146,31 @@
               inherit features dependencies;
               buildTests = true;
             };
+          # A real dependency named signal is linked into a separate consumer.
+          namespaceContract =
+            features: dependencies:
+            let
+              producer = generatedCrate {
+                name = "signal";
+                declarations = [ "print/flow-library.ethos" "namespace-ordinary.ethos" "namespace-recursive.ethos" ];
+                root = ./tests/namespace-producer/lib.rs;
+                inherit features dependencies;
+              };
+            in
+            generatedCrate {
+              name = "namespace-contract";
+              declarations = [ "namespace-owner.ethos" "namespace-emission.ethos" ];
+              root = ./tests/namespace-contract/lib.rs;
+              inherit features;
+              dependencies = dependencies ++ [ producer ];
+              buildTests = true;
+            };
         in
         {
+          namespace-contract = runTests "namespace-contract" (namespaceContract [ ] [ rkyv ]);
+          namespace-contract-datom = runTests "namespace-contract-datom" (
+            namespaceContract [ "datom" ] [ rkyv datomCodec ]
+          );
           signal-without-datom = withoutDatom "signal-without-datom" "orchestrate.ethos";
           operation-free-signal-without-datom = withoutDatom "operation-free-signal-without-datom" "empty-signal.ethos";
           flow-contract = runTests "flow-contract" (flowContract [ ] [ rkyv ]);

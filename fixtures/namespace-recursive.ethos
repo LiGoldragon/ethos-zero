@@ -1,0 +1,9 @@
+; Generated Self recursion and authored Input recursion have separate owners.
+Signal
+[]
+[ Leaf
+  Recur.Self
+  Parent.Input ]
+[ Done
+  Again.Option<Self> ]
+[ Input.{ Option<Input> } ]

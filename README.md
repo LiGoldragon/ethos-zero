@@ -44,20 +44,21 @@ what it remembers; Library what they share.
 
 ```
 Library    [ imports ] [ types ] [ traits ] [ associations ]
-Signal     [ imports ] [ queries ] [ responses ] [ types ]     ; Query and Response implied
+Signal     [ imports ] [ inputs ] [ outputs ] [ types ]       ; signal::Input and signal::Output implied
 Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; Operation and Outcome implied
 Memory     [ imports ] [ record types ]
 ```
 
 Operation's sections are proposed, not yet the living's word.
 
-A Signal generates `pub enum Query` and `pub enum Response` from its
-first two sections, so those two names are the ones a Signal may not
-also declare; an Operation likewise generates `pub enum Operation` and
-`pub enum Outcome`, each variant carrying its declared payload. A Memory
-generates nothing but its declared record types and reserves no name; a
-Memory record may be named `Record`. A file headed `Sema`, Memory's head
-before 15.0.0, is refused as `Conceptual.{ [ 0 ] Renamed.Memory }`.
+A Signal generates `signal::Input` and `signal::Output` in its implied
+child namespace. Its authored types stay in the file's own module, where
+`Input`, `Output`, `Query` and `Response` are ordinary names. Named types
+written inline in an input/output payload also stay in the authored module;
+the generated payload structs live with their enums. Imports name either
+namespace explicitly, such as `:peer:signal:Input` or `:peer:Input`.
+Operation still generates file-root `Operation` and `Outcome`. Memory
+generates only its declared records and reserves no generated names.
 
 Every root's types archive (rkyv) and gate their datom derives behind the
 `datom` feature, a Library's, an Operation's and a Memory's as a Signal's:

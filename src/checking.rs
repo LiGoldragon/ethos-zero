@@ -118,6 +118,10 @@ pub(crate) trait Implying {
 impl Implying for File {
     fn implied(&self) -> Vec<Name> {
         let mut names = Vec::new();
+        // Signal's generated names belong to its child namespace, not this file.
+        if matches!(self, File::Signal(_)) {
+            return names;
+        }
         for implied in self.implied_enums() {
             names.push(implied.name);
         }

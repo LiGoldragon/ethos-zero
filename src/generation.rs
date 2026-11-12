@@ -26,9 +26,30 @@ use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
-    Identity, Intrinsic, Name, Position, Receiver, Reference, Resolution, Resolving, Scope,
-    Signature, Source, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Identity, Intrinsic, Name, Position, Receiver, Reference, Resolution, Resolving, Signature,
+    Source, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
+
+/// Where generated Rust is being written relative to the authored file.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EmissionSite {
+    Written,
+    Implied,
+}
+
+/// Generation adds its Rust location to the unchanged Ethos resolution scope.
+pub(crate) struct Scope<'a> {
+    ethos: crate::Scope<'a>,
+    site: EmissionSite,
+}
+
+impl<'a> std::ops::Deref for Scope<'a> {
+    type Target = crate::Scope<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.ethos
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Tokens of names and sources
@@ -74,6 +95,30 @@ impl Tokening for Intrinsic {
             Intrinsic::Result => quote! { std::result::Result },
             Intrinsic::Itself => quote! { Self },
             Intrinsic::Sized => quote! { Sized },
+        }
+    }
+}
+
+/// An imported Rust path retains the authored file as its relative origin.
+trait ScopedTokening {
+    fn scoped_tokens(&self, scope: &Scope) -> TokenStream;
+}
+
+impl ScopedTokening for Source {
+    fn scoped_tokens(&self, scope: &Scope) -> TokenStream {
+        let path = self.tokens();
+        match (
+            scope.site,
+            self.segments.first().map(|segment| segment.0.as_str()),
+        ) {
+            (EmissionSite::Implied, Some("self")) => {
+                let mut path: syn::Path = syn::parse2(path).expect("validated source path");
+                path.segments.first_mut().expect("nonempty source").ident =
+                    Ident::new("super", Span::call_site());
+                quote! { #path }
+            }
+            (EmissionSite::Implied, Some("super")) => quote! { super::#path },
+            _ => path,
         }
     }
 }
@@ -140,7 +185,7 @@ impl Emitting for Reference {
         };
         let name = self.name.tokens();
         if let Some(source) = &self.source {
-            let source = source.tokens();
+            let source = source.scoped_tokens(scope);
             return quote! { #source :: #name #applied };
         }
         match scope.resolve(&self.name) {
@@ -157,14 +202,15 @@ impl Emitting for Reference {
                         return quote! { std::marker::Send #applied };
                     }
                 }
-                let source = source.tokens();
+                let source = source.scoped_tokens(scope);
                 let emitted = emitted.tokens();
                 quote! { #source :: #emitted #applied }
             }
-            Resolution::Type(_)
-            | Resolution::Trait(_)
-            | Resolution::Ambiguous(_)
-            | Resolution::Undeclared => {
+            Resolution::Type(_) | Resolution::Trait(_) => match scope.site {
+                EmissionSite::Written => quote! { #name #applied },
+                EmissionSite::Implied => quote! { super::#name #applied },
+            },
+            Resolution::Ambiguous(_) | Resolution::Undeclared => {
                 quote! { #name #applied }
             }
             Resolution::Parameter(index) => {
@@ -217,9 +263,12 @@ impl Parametrizing for Identity {
         }
         // The bounds name traits outside the identity they bound.
         let outer = Scope {
-            file: scope.file,
-            identity: None,
-            associated: scope.associated,
+            ethos: crate::Scope {
+                file: scope.file,
+                identity: None,
+                associated: scope.associated,
+            },
+            site: scope.site,
         };
         let mut parameters = Vec::with_capacity(self.constraints.len());
         for (index, constraint) in self.constraints.iter().enumerate() {
@@ -480,13 +529,27 @@ pub(crate) trait Positioning {
     fn archival(&self, scope: &Scope, owner: &Name) -> TokenStream;
 }
 
+/// An implied enum can recur through Self, while unqualified authored names
+/// continue to refer to its parent's independent types.
+trait SelfReferencing {
+    fn references_self(&self) -> bool;
+}
+
+impl SelfReferencing for Reference {
+    fn references_self(&self) -> bool {
+        self.name.0 == "Self" || self.arguments.iter().any(SelfReferencing::references_self)
+    }
+}
+
 impl Positioning for Reference {
     fn boxed(&self, scope: &Scope, owner: &Name) -> bool {
-        self.closes(owner, scope.file)
+        (scope.site == EmissionSite::Written || self.references_self())
+            && self.closes(owner, scope.file)
     }
 
     fn recursive(&self, scope: &Scope, owner: &Name) -> bool {
-        self.reaches(owner, Passage::Any, scope.file, &mut vec![])
+        (scope.site == EmissionSite::Written || self.references_self())
+            && self.reaches(owner, Passage::Any, scope.file, &mut vec![])
     }
 
     fn position(&self, scope: &Scope, owner: &Name) -> TokenStream {
@@ -867,13 +930,18 @@ impl Structuring for [Position] {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
         let outer = Scope {
-            file: scope.file,
-            identity: None,
-            associated: &[],
+            ethos: crate::Scope {
+                file: scope.file,
+                identity: None,
+                associated: &[],
+            },
+            site: scope.site,
         };
         let mut declared = Vec::new();
         for position in self {
-            if let Position::Declared(declaration) = position {
+            if let Position::Declared(declaration) = position
+                && scope.site == EmissionSite::Written
+            {
                 declared.push(declaration.emit(&outer));
             }
         }
@@ -934,25 +1002,34 @@ impl Emitting for TypeDeclaration {
         match self {
             TypeDeclaration::Struct(identity, positions) => {
                 let inner = Scope {
-                    file: scope.file,
-                    identity: Some(identity),
-                    associated: scope.associated,
+                    ethos: crate::Scope {
+                        file: scope.file,
+                        identity: Some(identity),
+                        associated: scope.associated,
+                    },
+                    site: scope.site,
                 };
                 positions.structure(&inner, &identity.name, identity)
             }
             TypeDeclaration::Enum(identity, variants) => {
                 let inner = Scope {
-                    file: scope.file,
-                    identity: Some(identity),
-                    associated: scope.associated,
+                    ethos: crate::Scope {
+                        file: scope.file,
+                        identity: Some(identity),
+                        associated: scope.associated,
+                    },
+                    site: scope.site,
                 };
                 variants.enumeration(&inner, &identity.name, identity)
             }
             TypeDeclaration::Alias(identity, aliased) => {
                 let inner = Scope {
-                    file: scope.file,
-                    identity: Some(identity),
-                    associated: scope.associated,
+                    ethos: crate::Scope {
+                        file: scope.file,
+                        identity: Some(identity),
+                        associated: scope.associated,
+                    },
+                    site: scope.site,
                 };
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
@@ -1141,9 +1218,12 @@ impl Emitting for TraitDeclaration {
             capabilities,
         } = self.contents();
         let inner = Scope {
-            file: scope.file,
-            identity: Some(&self.identity),
-            associated: types,
+            ethos: crate::Scope {
+                file: scope.file,
+                identity: Some(&self.identity),
+                associated: types,
+            },
+            site: scope.site,
         };
         let name = self.identity.name.tokens();
         let parameters = self.identity.parameters(&inner);
@@ -1176,9 +1256,12 @@ impl Emitting for TraitDeclaration {
 impl Emitting for Association {
     fn emit(&self, scope: &Scope) -> TokenStream {
         let inner = Scope {
-            file: scope.file,
-            identity: Some(&self.identity),
-            associated: scope.associated,
+            ethos: crate::Scope {
+                file: scope.file,
+                identity: Some(&self.identity),
+                associated: scope.associated,
+            },
+            site: scope.site,
         };
         let subject = Reference {
             source: None,
@@ -1245,12 +1328,45 @@ impl Emitting for File {
                     items.push(quote! { #[rustfmt::skip] #item });
                 }
             }
-            File::Signal(_) | File::Operation(_) | File::Memory(_) => {
+            File::Signal(_) => {
                 for declaration in self.types() {
                     items.push(declaration.emit(scope));
                 }
-                // A Signal's `Query` and `Response`, an Operation's
-                // `Operation` and `Outcome`: each an enum of its section's
+                // A named declaration written inside a Signal variant still belongs
+                // to the authored namespace. Its own nested declarations emit with it.
+                let mut emitted: Vec<datom_codec::Path> = Vec::new();
+                for placed in self.declarations() {
+                    if matches!(placed.path.first(), Some(1 | 2))
+                        && !emitted.iter().any(|parent| placed.path.starts_with(parent))
+                    {
+                        items.push(placed.declaration.emit(scope));
+                        emitted.push(placed.path);
+                    }
+                }
+                let inner = Scope {
+                    ethos: scope.ethos,
+                    site: EmissionSite::Implied,
+                };
+                let mut enums = Vec::new();
+                for implied in self.implied_enums() {
+                    if !implied.variants.is_empty() {
+                        let enumeration = TypeDeclaration::Enum(
+                            Identity {
+                                name: implied.name,
+                                constraints: vec![],
+                            },
+                            implied.variants.to_vec(),
+                        );
+                        enums.push(enumeration.emit(&inner));
+                    }
+                }
+                items.push(quote! { pub mod signal { #( #enums )* } });
+            }
+            File::Operation(_) | File::Memory(_) => {
+                for declaration in self.types() {
+                    items.push(declaration.emit(scope));
+                }
+                // An Operation's `Operation` and `Outcome`: each an enum of its section's
                 // variants, emitted when it has any.
                 for implied in self.implied_enums() {
                     if implied.variants.is_empty() {
@@ -1330,9 +1446,12 @@ impl AllowFormatting for String {
 impl Generating for File {
     fn generate(&self) -> Result<String, crate::Error> {
         let scope = Scope {
-            file: self,
-            identity: None,
-            associated: &[],
+            ethos: crate::Scope {
+                file: self,
+                identity: None,
+                associated: &[],
+            },
+            site: EmissionSite::Written,
         };
         self.check(&scope)?;
         let tokens = self.emit(&scope);

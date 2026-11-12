@@ -3,6 +3,7 @@
 // The Flow Nexus files import `flow:[ FlowId Voice Event ]`; here the crate
 // itself is `flow`, re-exporting the generated Flow Library.
 extern crate self as flow;
+extern crate self as signal;
 pub use flow_library::{Event, FlowId, Voice};
 
 pub struct Wrapper<T>(pub T);
@@ -75,6 +76,13 @@ mod streamable_trait;
 #[path = "generated/tree-types.rs"]
 mod tree_types;
 
+#[path = "generated/namespace-emission.rs"]
+pub mod namespace_emission;
+#[path = "generated/namespace-ordinary.rs"]
+pub mod namespace_ordinary;
+#[path = "generated/namespace-owner.rs"]
+pub mod namespace_owner;
+
 #[test]
 fn nested_inline_payloads_have_distinct_rust_types() {
     let left = nested_collision::Outer::A(nested_collision::A_Data::X(
@@ -113,41 +121,42 @@ fn named_fields_and_signal_query_response_compile() {
         integer: 1990,
     };
     assert_eq!(record.integer, 1990);
-    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(
+    let query = orchestrate::signal::Input::Observe(orchestrate::ObserveSelection::Locks(
         orchestrate::Locks(vec![]),
     ));
-    let response = orchestrate::Response::Observed(orchestrate::Observation::Locks(
+    let response = orchestrate::signal::Output::Observed(orchestrate::Observation::Locks(
         orchestrate::Locks(vec![]),
     ));
-    assert!(matches!(query, orchestrate::Query::Observe(_)));
-    assert!(matches!(response, orchestrate::Response::Observed(_)));
+    assert!(matches!(query, orchestrate::signal::Input::Observe(_)));
+    assert!(matches!(response, orchestrate::signal::Output::Observed(_)));
 }
 
 #[test]
 fn generated_signal_query_round_trips_as_a_portable_archive() {
-    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(
+    let query = orchestrate::signal::Input::Observe(orchestrate::ObserveSelection::Locks(
         orchestrate::Locks(vec![]),
     ));
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive query");
-    let restored =
-        rkyv::from_bytes::<orchestrate::Query, rkyv::rancor::Error>(&bytes).expect("restore query");
-    assert!(matches!(restored, orchestrate::Query::Observe(_)));
+    let restored = rkyv::from_bytes::<orchestrate::signal::Input, rkyv::rancor::Error>(&bytes)
+        .expect("restore query");
+    assert!(matches!(restored, orchestrate::signal::Input::Observe(_)));
 }
 
 #[test]
 fn generated_decimal_signal_archives_and_bears_datom_derives() {
-    let query = signal_decimal::Query::Measure(signal_decimal::Measurement {
+    let query = signal_decimal::signal::Input::Measure(signal_decimal::Measurement {
         decimal: datom_codec::Decimal::try_from(1.25).expect("1.25 is finite"),
     });
     let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive decimal query");
-    let restored = rkyv::from_bytes::<signal_decimal::Query, rkyv::rancor::Error>(&bytes)
+    let restored = rkyv::from_bytes::<signal_decimal::signal::Input, rkyv::rancor::Error>(&bytes)
         .expect("restore decimal query");
     assert_eq!(restored, query);
 }
 
 #[test]
 fn recursive_generated_signal_archives_and_restores() {
-    use tree_types::{Chain, Node_Data, Query, Response, Tree, Twig, Twin};
+    use tree_types::signal::{Input as Query, Output as Response};
+    use tree_types::{Chain, Node_Data, Tree, Twig, Twin};
     let tree = Tree::Node(Node_Data {
         first_tree: Box::new(Tree::Many(vec![Tree::Leaf(1), Tree::Maybe(None)])),
         second_tree: Box::new(Tree::Maybe(Some(Box::new(Tree::Many(vec![
@@ -518,7 +527,8 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
 #[test]
 fn generated_launch_parses_the_supplied_newtype_form() {
     use datom_codec::{Actualizing, Budget, Datomizable, Potential};
-    use launch_newtypes::{Address, Aspect, Brief, Launch_Data, Layer, Query, Remembering, Topic};
+    use launch_newtypes::signal::{Input as Query, Launch_Data};
+    use launch_newtypes::{Address, Aspect, Brief, Layer, Remembering, Topic};
     use protos::{Compactable, Protosizable, ReaderBudget};
     let text = "Launch.{ { Mind flowNexus Tertiary } «» «Report that this test flow started.» }";
     let actual = Potential::<Query>::from(text)
@@ -597,3 +607,6 @@ fn the_capability_matrix_adds_only_what_the_scalar_supports() {
         supported(name, false, false);
     }
 }
+
+#[path = "generated/namespace-recursive.rs"]
+pub mod namespace_recursive;

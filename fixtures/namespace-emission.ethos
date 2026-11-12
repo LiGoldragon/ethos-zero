@@ -1,0 +1,7 @@
+; Emission uses the approved Signal compromise, not a new root.
+Signal
+[ :signal:namespace_ordinary:signal:[ Request.Input Reply.Output ] ]
+[ Send.Request ]
+[ Sent.Reply
+  Failed.String ]
+[]
