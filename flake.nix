@@ -196,7 +196,8 @@
                 echo 'An absent external export compiled' >&2
                 exit 1
               fi
-              grep -F '"code":"E0412"' "$out/stderr"
+              cat "$out/stderr"
+              grep -F '"code":"E0425"' "$out/stderr"
               grep -F 'cannot find type `Absent` in module' "$out/stderr"
             '';
         in
