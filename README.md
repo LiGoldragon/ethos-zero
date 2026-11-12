@@ -116,7 +116,7 @@ A type or trait declaration is refused when its name is an intrinsic's
 later reference), or does not begin with a capital (`Case.a`). A declared
 type with no finite value, one that reaches itself with no `Vector`,
 `Option` or other variant to stop at, such as `S.{ Self }`, is refused as
-a `Cycle`. Every generated item carries `#[rustfmt::skip]`, an inline
+a `Cycle`. Every generated declaration carries `#[rustfmt::skip]`, an inline
 payload's as much as its enum's.
 
 A variant whose name is a type the file declares or imports carries that

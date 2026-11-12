@@ -753,9 +753,10 @@ impl Checkable for File {
         checked.place(1)?;
         // The derived names come first, so an authored name that would
         // capture one is the occurrence refused.
-        let mut names = self.inline_sites();
-        names.extend(self.declared());
-        names.distinct().place(1)?;
+        let mut namespaces = self.inline_sites();
+        namespaces.implied.distinct().place(1)?;
+        namespaces.written.extend(self.declared());
+        namespaces.written.distinct().place(1)?;
         self.finite().place(1)
     }
 }
@@ -764,9 +765,22 @@ impl Checkable for File {
 // Inline payloads: the names derived for them, unique file-wide
 // ---------------------------------------------------------------------------
 
-/// An enum whose variants may declare inline payloads: a declared enum type,
-/// or a Signal's implied `Query` or `Response`.
+/// The namespace in which a derived declaration is emitted.
+#[derive(Clone, Copy)]
+enum DeclarationNamespace {
+    Written,
+    Implied,
+}
+
+/// Derived declarations grouped by their actual emitted namespace.
+pub(crate) struct InlineSites {
+    written: Vec<DeclarationSite>,
+    implied: Vec<DeclarationSite>,
+}
+
+/// An enum whose variants may declare inline payloads: written or root-implied.
 struct InlineRoot<'a> {
+    namespace: DeclarationNamespace,
     owner: Name,
     variants: &'a [Variant],
     path: Path,
@@ -784,7 +798,7 @@ pub(crate) trait Inlining {
     /// which is the declared type `owner` itself or a payload derived under it.
     fn inline_name(&self, owner: &Name, enclosing: &Name, variant: &Name) -> Name;
     /// Every derived name, at the path of the variant that declares it.
-    fn inline_sites(&self) -> Vec<DeclarationSite>;
+    fn inline_sites(&self) -> InlineSites;
 }
 
 /// The trait whose capability lists the enums of a file whose variants are named first-level.
@@ -797,6 +811,11 @@ impl Rooting for File {
         let mut roots = Vec::new();
         for implied in self.implied_enums() {
             roots.push(InlineRoot {
+                namespace: if matches!(self, File::Signal(_)) {
+                    DeclarationNamespace::Implied
+                } else {
+                    DeclarationNamespace::Written
+                },
                 owner: implied.name,
                 variants: implied.variants,
                 path: vec![implied.section],
@@ -807,6 +826,7 @@ impl Rooting for File {
                 let mut path = placed.path;
                 path.push(1);
                 roots.push(InlineRoot {
+                    namespace: DeclarationNamespace::Written,
                     owner: identity.name.clone(),
                     variants,
                     path,
@@ -898,13 +918,20 @@ impl Inlining for File {
         Name::try_from(name).expect("derived inline identifiers are identifiers")
     }
 
-    fn inline_sites(&self) -> Vec<DeclarationSite> {
-        let mut sites = Vec::new();
+    fn inline_sites(&self) -> InlineSites {
+        let mut namespaces = InlineSites {
+            written: Vec::new(),
+            implied: Vec::new(),
+        };
         for root in self.inline_roots() {
+            let sites = match root.namespace {
+                DeclarationNamespace::Written => &mut namespaces.written,
+                DeclarationNamespace::Implied => &mut namespaces.implied,
+            };
             root.variants
-                .walk_inline(self, &root.owner, &root.owner, &root.path, &mut sites);
+                .walk_inline(self, &root.owner, &root.owner, &root.path, sites);
         }
-        sites
+        namespaces
     }
 }
 
@@ -925,17 +952,7 @@ impl Declared for crate::Library {
 
 impl Declared for Signal {
     fn declared(&self) -> Vec<DeclarationSite> {
-        let mut names = vec![
-            DeclarationSite {
-                name: Name::try_from("Query").expect("static identifier"),
-                path: vec![1],
-            },
-            DeclarationSite {
-                name: Name::try_from("Response").expect("static identifier"),
-                path: vec![2],
-            },
-        ];
-        names.extend(self.imports.names_in(0));
+        let mut names = self.imports.names_in(0);
         names.extend(self.types.names_in(3));
         names
     }
@@ -1559,8 +1576,8 @@ impl Checkable for TypeDeclaration {
 
 /// The trait whose capability says whether a variant of this name carries
 /// the type of that name: a type the file declares, or an imported one. A
-/// name a root implies (a Signal's `Query`) is generated beside the file's
-/// own names, and no variant carries it.
+/// Operation's file-root implied names remain generated, not authored types;
+/// Signal's implied names belong only to its child namespace.
 pub(crate) trait Carrying {
     fn carries(&self, name: &Name) -> bool;
 }

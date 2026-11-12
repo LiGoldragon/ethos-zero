@@ -224,6 +224,31 @@ fn signal_external_imports_stay_external_beside_the_implied_namespace() {
 }
 
 #[test]
+fn generated_payload_names_reserve_nothing_in_the_written_namespace() {
+    let rust = generates("Signal [] [ Ask.{ String } ] [ Told ] [ Ask_Data.String ]");
+    let file = syn::parse_file(&rust).expect("generated Rust");
+    assert!(
+        file.items
+            .iter()
+            .any(|item| matches!(item, syn::Item::Struct(item) if item.ident == "Ask_Data"))
+    );
+    let module = file
+        .items
+        .iter()
+        .find_map(|item| match item {
+            syn::Item::Mod(module) => module.content.as_ref(),
+            _ => None,
+        })
+        .expect("signal namespace");
+    assert!(
+        module
+            .1
+            .iter()
+            .any(|item| matches!(item, syn::Item::Struct(item) if item.ident == "Ask_Data"))
+    );
+}
+
+#[test]
 fn old_signal_names_are_not_implicit_types() {
     for name in ["Query", "Response", "Input", "Output"] {
         let source = format!("Signal [] [ Ask.{name} ] [ Told ] []");
@@ -752,7 +777,7 @@ fn outer_option_and_result_are_written_fully_qualified() {
 }
 
 #[test]
-fn every_generated_item_carries_rustfmt_skip() {
+fn every_generated_declaration_carries_rustfmt_skip() {
     let root = env!("CARGO_MANIFEST_DIR");
     let mut generated = vec![
         format!("{root}/src/error.rs"),
@@ -770,8 +795,15 @@ fn every_generated_item_carries_rustfmt_skip() {
             "{path} opens with the generated-file header"
         );
         let file = syn::parse_file(&text).expect("generated module parses");
-        for item in &file.items {
+        let mut pending: Vec<&syn::Item> = file.items.iter().collect();
+        while let Some(item) = pending.pop() {
             let attributes = match item {
+                syn::Item::Mod(module) => {
+                    assert_eq!(module.ident, "signal", "{path}: generated namespace");
+                    let (_, items) = module.content.as_ref().expect("inline generated namespace");
+                    pending.extend(items);
+                    continue;
+                }
                 syn::Item::Struct(item) => &item.attrs,
                 syn::Item::Enum(item) => &item.attrs,
                 syn::Item::Type(_) => panic!("{path} holds a public type alias"),

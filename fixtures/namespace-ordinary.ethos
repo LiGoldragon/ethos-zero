@@ -6,4 +6,5 @@ Signal
 [ Stored.Output
   Empty ]
 [ Input.{ String }
-  Output.Integer ]
+  Output.Integer
+  Put_Data.String ]

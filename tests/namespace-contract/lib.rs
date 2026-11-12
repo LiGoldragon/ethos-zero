@@ -33,6 +33,9 @@ mod wire {
     fn independent_namespaces_and_external_contracts_cross_the_wire() {
         use super::{namespace_emission, namespace_owner};
         use signal::{library, namespace_ordinary};
+        crosses(namespace_ordinary::Put_Data(
+            "written payload name".to_owned(),
+        ));
         let authored = namespace_ordinary::Input {
             string: "authored".to_owned(),
         };
