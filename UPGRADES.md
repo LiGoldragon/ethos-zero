@@ -2,16 +2,17 @@
 
 How to deploy each breaking change of ethos-zero.
 
-## 29.0.0: an enum of one variant is refused
+## 29.0.0: an enum of fewer than two variants is refused; a bare emission carries a unit of its own
 
-What breaks, in two parts.
+What breaks, in three parts.
 
-1. An enum of one variant is refused as `Conceptual.{ [ path ] SingleVariant.<enum> }` at its variants, as the vision has it (vision/ethos/0.md: an enum has two variants or more). A declared enum is named by its declaration, `Reply.[ Accepted ]` refused as `SingleVariant.Reply`; an enum a variant declares in place is named by that variant, `Reply.[ Accepted Refused.[ Busy ] ]` refused as `SingleVariant.Refused`. The rule holds in every root's types. A root's sections, a Signal's inputs and outputs, an Operation's operations and outcomes and an Emission's emissions and outcomes, are the root's and may hold one variant. An enum of no variants, `Never.[]`, is accepted as before.
-2. The `Error` contract's `Problem` gains `SingleVariant.String`, after `Unpaired`. A consumer matching `Problem` exhaustively adds the arm.
+1. An enum of one variant or none is refused as `Conceptual.{ [ path ] TooFewVariants.<enum> }` at its variants, as the vision has it (vision/ethos/0.md: an enum has two variants or more). A declared enum is named by its declaration, `Reply.[ Accepted ]` refused as `TooFewVariants.Reply` and `Never.[]` as `TooFewVariants.Never`; an enum a variant declares in place is named by that variant, `Reply.[ Accepted Refused.[ Busy ] ]` refused as `TooFewVariants.Refused`. The rule holds in every root's types. A root's sections, a Signal's inputs and outputs, an Operation's operations and outcomes and an Emission's emissions and outcomes, are the root's and may hold one variant or none.
+2. The `Error` contract's `Problem` gains `TooFewVariants.String`, after `Unpaired`. A consumer matching `Problem` exhaustively adds the arm.
+3. A bare emission whose name the file neither declares nor imports carries a unit of its own: `Emission [] [ Go ] [ Gone ] []` generates `pub struct Go {}`, `Emission::Go(Go)` and `impl Emitted for Go { type Outcome = (); }`, where 28.x generated the unit variant `Emission::Go` and bound nothing, so no type could bear `Emittable`. A consumer matching `Emission::Go` writes `Emission::Go(Go {})` or `Emission::Go(_)`. The unit is a declaration of the file, so a bare emission named `Emission`, `Outcome`, `Emitted`, `Emittable` or a derived name is refused as `Duplicate.<name>`, and one named as an intrinsic as `Intrinsic.<name>`; 28.x generated each as a unit variant.
 
-Generation is unchanged: every file 28.x generated and 29.0.0 accepts is generated the same.
+Every other file 28.x generated and 29.0.0 accepts is generated the same. A bare emission naming a declared or imported type carries it as before, so a file that declared an empty struct for its emission to bear `Emittable` (`CodexRateLimits.{}`) generates the same types with the declaration or, now, without it.
 
-To deploy: give every one-variant enum a second variant, or replace the enum by the type its variant carries, then repin ethos-zero to 29.0.0.
+To deploy: give every enum of fewer than two variants a second variant, or replace the enum by the type its variant carries; match a bare emission's variant with its unit; then repin ethos-zero to 29.0.0.
 
 ## 28.0.0: a variant with its own payload carries it; fields that would meet are refused
 

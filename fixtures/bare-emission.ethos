@@ -1,0 +1,9 @@
+Emission
+[]                                      ; imports
+[ Probe                                 ; emissions: a bare one carries a unit of its own
+  Consume.{ Reset Idempotency.String }
+  Ping ]
+[ Probed.[ Observed.Integer Down ]      ; outcomes, the n-th the n-th emission's
+  Consumed.[ Done Nothing ]
+  Pong ]
+[ Reset.Integer ]                       ; types

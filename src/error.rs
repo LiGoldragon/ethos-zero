@@ -61,7 +61,7 @@ pub enum Problem {
     Wrapping(Wrapping_Data),
     DuplicateField(String),
     Unpaired(String),
-    SingleVariant(String),
+    TooFewVariants(String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

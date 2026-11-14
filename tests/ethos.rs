@@ -134,8 +134,72 @@ fn an_outcome_past_the_last_emission_pairs_with_none_and_a_bare_outcome_binds_un
         rust.contains("implEmittedforQuestion{typeOutcome=Answer;}"),
         "{rust}"
     );
-    // `Stop` carries no type to bear the trait; `Extra` pairs with none.
-    assert_eq!(rust.matches("implEmittedfor").count(), 2, "{rust}");
+    // `Stop`, bare, carries its unit and binds the second outcome; `Extra`
+    // pairs with none.
+    assert!(
+        rust.contains("implEmittedforStop{typeOutcome=i64;}"),
+        "{rust}"
+    );
+    assert_eq!(rust.matches("implEmittedfor").count(), 3, "{rust}");
+}
+
+#[test]
+fn a_bare_emission_carries_a_unit_of_its_own_and_binds_its_outcome() {
+    let source =
+        "Emission [] [ Go Stop.{ String } Ask ] [ Gone.[ Fast Slow ] Stopped Told ] [ Ask.String ]";
+    let file = read(source);
+    assert_eq!(file, read(&file.protosize().textualize()));
+    let rust = source.compact();
+    for expected in [
+        "pubstructGo{}",
+        "pubenumEmission{Go(Go),Stop(Stop_Data),Ask(Ask),}",
+        "implEmittedforGo{typeOutcome=Gone_Data;}",
+        "implEmittedforStop_Data{typeOutcome=();}",
+        "implEmittedforAsk{typeOutcome=();}",
+    ] {
+        assert!(rust.contains(expected), "{expected} in {rust}");
+    }
+    // A bare emission naming a declared type carries that type, so `Ask`
+    // has no unit; the unit is the emission's alone, and an outcome of its
+    // name carries nothing.
+    assert!(!rust.contains("pubstructAsk{}"), "{rust}");
+    let rust = "Emission [] [ Go Halt ] [ Go Halted ] []".compact();
+    for expected in [
+        "pubstructGo{}",
+        "pubstructHalt{}",
+        "pubenumEmission{Go(Go),Halt(Halt),}",
+        "pubenumOutcome{Go,Halted,}",
+        "implEmittedforGo{typeOutcome=();}",
+        "implEmittedforHalt{typeOutcome=();}",
+    ] {
+        assert!(rust.contains(expected), "{expected} in {rust}");
+    }
+    // A bare emission naming an imported type carries the import.
+    let rust = "Emission [ :herdr:Pane ] [ Pane ] [ Shown ] []".compact();
+    assert!(
+        rust.contains("pubenumEmission{Pane(herdr::Pane),}"),
+        "{rust}"
+    );
+    assert!(!rust.contains("pubstructPane"), "{rust}");
+}
+
+#[test]
+fn a_bare_emission_whose_unit_a_type_may_not_take_is_refused() {
+    for name in ["Emission", "Outcome", "Emitted", "Emittable"] {
+        assert_eq!(
+            format!("Emission [] [ {name} ] [ Done ] []").refusal(),
+            (vec![1, 1, 0], Problem::Duplicate(name.to_owned()))
+        );
+    }
+    assert_eq!(
+        "Emission [] [ Go String ] [ Gone Done ] []".refusal(),
+        (vec![1, 1, 1], Problem::Intrinsic("String".to_owned()))
+    );
+    // A unit meets a derived name as any declaration does.
+    assert_eq!(
+        "Emission [] [ Go_Data Go.{ String } ] [ Gone Done ] []".refusal(),
+        (vec![1, 1, 0], Problem::Duplicate("Go_Data".to_owned()))
+    );
 }
 
 #[test]
@@ -832,7 +896,7 @@ fn an_enum_of_one_variant_is_refused_naming_the_enum() {
     ] {
         assert_eq!(
             source.refusal(),
-            (path, Problem::SingleVariant(enumeration.to_owned())),
+            (path, Problem::TooFewVariants(enumeration.to_owned())),
             "{source}"
         );
     }
@@ -859,15 +923,54 @@ fn an_inline_enum_of_one_variant_is_refused_naming_its_variant() {
     ] {
         assert_eq!(
             source.refusal(),
-            (path, Problem::SingleVariant(enumeration.to_owned())),
+            (path, Problem::TooFewVariants(enumeration.to_owned())),
             "{source}"
         );
     }
 }
 
 #[test]
+fn an_enum_of_no_variants_is_refused_naming_the_enum() {
+    // Two variants or more: an enum of none is refused as one of one is,
+    // declared, declared in place by a variant, or in a struct position.
+    for (source, path, enumeration) in [
+        ("Library [] [ Never.[] ] [] []", vec![1, 1, 0, 1], "Never"),
+        (
+            "Library [] [ Never.[] Holder.{ Never } ] [] []",
+            vec![1, 1, 0, 1],
+            "Never",
+        ),
+        (
+            "Library [] [ Reply.[ Accepted Refused.[] ] ] [] []",
+            vec![1, 1, 0, 1, 1, 1],
+            "Refused",
+        ),
+        (
+            "Memory [] [ Holder.{ State.[] } ]",
+            vec![1, 1, 0, 1, 0, 1],
+            "State",
+        ),
+        (
+            "Emission [] [ Go ] [ Gone ] [ Never.[] ]",
+            vec![1, 3, 0, 1],
+            "Never",
+        ),
+    ] {
+        assert_eq!(
+            source.refusal(),
+            (path, Problem::TooFewVariants(enumeration.to_owned())),
+            "{source}"
+        );
+    }
+    // A root's sections are the root's: a Signal with no inputs and no
+    // outputs generates no Input and no Output, and is accepted.
+    assert!(read("Signal [] [] [] []").generate().is_ok());
+    assert!(read("Emission [] [] [] []").generate().is_ok());
+}
+
+#[test]
 fn an_enum_of_two_variants_is_accepted_declared_and_inline() {
-    let rust = "Library [] [ Reply.[ Accepted Refused.[ Busy Down ] ] Never.[] ] [] []".compact();
+    let rust = "Library [] [ Reply.[ Accepted Refused.[ Busy Down ] ] ] [] []".compact();
     assert!(
         rust.contains("pubenumReply{Accepted,Refused(Refused_Data),}"),
         "{rust}"
@@ -991,7 +1094,6 @@ fn a_type_with_no_finite_value_is_refused() {
         "Library [] [ S.{ Option<Self> } ] [] []",
         "Library [] [ E.[ Leaf Node.{ E E } ] ] [] []",
         "Library [] [ S.{ Result<Self String> } ] [] []",
-        "Library [] [ Never.[] Holder.{ Never } ] [] []",
     ] {
         assert!(read(finite).generate().is_ok(), "{finite} generates");
     }

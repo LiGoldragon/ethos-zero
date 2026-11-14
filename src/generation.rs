@@ -18,10 +18,11 @@
 //! states the serializer, deserializer and validator bounds once instead, so
 //! a recursive type archives and restores.
 
+use datom_codec::Integer;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::checking::{Carrying, Checkable, Declaring, Inlining, Titled};
+use crate::checking::{Carrying, Checkable, Declaring, Inlining, Spanning, Titled, Uniting};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
@@ -1260,6 +1261,17 @@ impl Emitting for File {
                 for declaration in self.types() {
                     items.push(declaration.emit(scope));
                 }
+                // The unit each bare emission carries, a struct of no fields.
+                for unit in self.units() {
+                    let unit = TypeDeclaration::Struct(
+                        Identity {
+                            name: unit.name,
+                            constraints: vec![],
+                        },
+                        vec![],
+                    );
+                    items.push(unit.emit(scope));
+                }
                 // A Signal's `Input` and `Output`, an Operation's
                 // `Operation` and `Outcome`: each an enum of its section's
                 // variants, emitted when it has any.
@@ -1272,7 +1284,7 @@ impl Emitting for File {
                             name: implied.name,
                             constraints: vec![],
                         },
-                        implied.variants.to_vec(),
+                        implied.variants.united(scope, implied.section),
                     );
                     items.push(enumeration.emit(scope));
                 }
@@ -1296,6 +1308,41 @@ impl Emitting for File {
 // ---------------------------------------------------------------------------
 // Root-implied traits: the pairing of requests and replies by position
 // ---------------------------------------------------------------------------
+
+/// The trait whose capability yields a section's variants as its implied
+/// enum is generated: a bare emission that carries a unit of its own
+/// ([`Uniting`]) holds the unit by name, as a variant naming a type holds it,
+/// and every other variant is as written.
+trait United {
+    fn united(&self, scope: &Scope, section: Integer) -> Vec<Variant>;
+}
+
+impl United for [Variant] {
+    fn united(&self, scope: &Scope, section: Integer) -> Vec<Variant> {
+        let units = scope.file.units();
+        let mut variants = Vec::with_capacity(self.len());
+        let mut at = 0;
+        for variant in self {
+            let unit = units.iter().any(|unit| unit.path == [section, at]);
+            variants.push(match variant {
+                Variant::Bare(name) if unit => Variant::Typed(
+                    name.clone(),
+                    Reference {
+                        source: None,
+                        name: name.clone(),
+                        arguments: vec![],
+                    },
+                ),
+                Variant::Bare(_)
+                | Variant::Typed(_, _)
+                | Variant::Struct(_, _)
+                | Variant::Enum(_, _) => variant.clone(),
+            });
+            at += variant.span();
+        }
+        variants
+    }
+}
 
 /// The trait whose capability yields the Rust type a variant of an implied
 /// enum carries, as the variant's field holds it, or none where it carries
@@ -1375,9 +1422,10 @@ trait TraitImplying {
 /// and yields its outcome. The n-th outcome is the n-th emission's, bound by
 /// `Emitted` on the type the emission carries; `Emittable` extends
 /// `Emitted`, so a hand-written `emit` yields the bound outcome and no other.
-/// A payload-less outcome binds `()`; a payload-less emission carries no type
-/// to bear the trait and binds nothing. No standard library holds the
-/// root-implied traits yet, so both traits are generated into the file.
+/// A payload-less outcome binds `()`; a bare emission carries its unit
+/// ([`Uniting`]) where the file names no type of its name, so every emission
+/// binds its outcome. No standard library holds the root-implied traits yet,
+/// so both traits are generated into the file.
 impl TraitImplying for crate::Emission {
     fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream> {
         if self.emissions.is_empty() {
@@ -1393,7 +1441,8 @@ impl TraitImplying for crate::Emission {
                 }
             },
         ];
-        for (emission, outcome) in self.emissions.iter().zip(&self.outcomes) {
+        let emissions = self.emissions.united(scope, 1);
+        for (emission, outcome) in emissions.iter().zip(&self.outcomes) {
             let Some(carried) = emission.borne(scope, &emitted) else {
                 continue;
             };

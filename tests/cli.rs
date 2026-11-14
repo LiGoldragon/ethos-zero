@@ -287,7 +287,7 @@ fn check_takes_a_variant_named_as_a_defined_type_declaring_a_payload() {
 }
 
 #[test]
-fn check_locates_an_inline_enum_of_one_variant_naming_the_file_and_the_enum() {
+fn check_locates_an_inline_enum_of_too_few_variants_naming_the_file_and_the_enum() {
     let directory = "single".scratch();
     let refused = directory.write_source(
         "refused",
@@ -299,7 +299,7 @@ fn check_locates_an_inline_enum_of_one_variant_naming_the_file_and_the_enum() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {refused} {{ 4 19 }} Conceptual.{{ [ 1 1 0 1 1 1 ] SingleVariant.Refused }} }}\n"
+            "Rejected.{{ {refused} {{ 4 19 }} Conceptual.{{ [ 1 1 0 1 1 1 ] TooFewVariants.Refused }} }}\n"
         )
     );
 }

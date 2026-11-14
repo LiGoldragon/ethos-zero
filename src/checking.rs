@@ -110,7 +110,9 @@ impl Resolving for [TraitDeclaration] {
 }
 
 /// The trait whose capability yields the names a file variant implies: a
-/// Signal's input and output types, an Operation's operation and outcome types.
+/// Signal's input and output types, an Operation's operation and outcome
+/// types, an Emission's emission and outcome types and the units its bare
+/// emissions carry ([`Uniting`]).
 pub(crate) trait Implying {
     /// The implied type names.
     fn implied(&self) -> Vec<Name>;
@@ -122,7 +124,44 @@ impl Implying for File {
         for implied in self.implied_enums() {
             names.push(implied.name);
         }
+        for unit in self.units() {
+            names.push(unit.name);
+        }
         names
+    }
+}
+
+/// The trait whose capability lists the units an Emission's bare emissions
+/// carry. An emission is Emittable, so each carries a type to bear the
+/// trait: a bare emission whose name the file neither declares nor imports
+/// carries a struct of no fields named as it is, generated beside the file's
+/// own types. Each unit is a declaration of the file, at its emission's path.
+/// A bare emission naming a declared or imported type carries that type, and
+/// no other root implies a unit.
+pub(crate) trait Uniting {
+    fn units(&self) -> Vec<DeclarationSite>;
+}
+
+impl Uniting for File {
+    fn units(&self) -> Vec<DeclarationSite> {
+        let File::Emission(emission) = self else {
+            return vec![];
+        };
+        let mut units = Vec::new();
+        let mut at = 0;
+        for variant in &emission.emissions {
+            if let Variant::Bare(name) = variant
+                && self.declaration(name).is_none()
+                && self.imports().resolve(name) == Resolution::Undeclared
+            {
+                units.push(DeclarationSite {
+                    name: name.clone(),
+                    path: vec![1, at],
+                });
+            }
+            at += variant.span();
+        }
+        units
     }
 }
 
@@ -254,8 +293,8 @@ trait Naming {
 
 /// A declared name and its structural path.
 pub(crate) struct DeclarationSite {
-    name: Name,
-    path: Path,
+    pub(crate) name: Name,
+    pub(crate) path: Path,
 }
 
 /// A chained import holds its names below it, at child one; a rooted one is
@@ -603,12 +642,9 @@ impl Inhabiting for Variant {
             Variant::Struct(_, positions) => positions
                 .iter()
                 .all(|position| position.reference().inhabited(file, owner, known)),
-            Variant::Enum(_, variants) => {
-                variants.is_empty()
-                    || variants
-                        .iter()
-                        .any(|variant| variant.inhabited(file, owner, known))
-            }
+            Variant::Enum(_, variants) => variants
+                .iter()
+                .any(|variant| variant.inhabited(file, owner, known)),
         }
     }
 }
@@ -619,13 +655,9 @@ impl Inhabiting for TypeDeclaration {
             TypeDeclaration::Struct(_, positions) => positions
                 .iter()
                 .all(|position| position.reference().inhabited(file, owner, known)),
-            // An enum of no variants is declared empty on purpose, not by recursion.
-            TypeDeclaration::Enum(_, variants) => {
-                variants.is_empty()
-                    || variants
-                        .iter()
-                        .any(|variant| variant.inhabited(file, owner, known))
-            }
+            TypeDeclaration::Enum(_, variants) => variants
+                .iter()
+                .any(|variant| variant.inhabited(file, owner, known)),
             TypeDeclaration::Alias(_, aliased) => aliased.inhabited(file, owner, known),
         }
     }
@@ -1107,6 +1139,8 @@ impl Declared for File {
                 path,
             });
         }
+        // A unit a bare emission carries, named at the emission.
+        names.extend(self.units());
         names
     }
 }
@@ -1163,6 +1197,11 @@ impl Checkable for Emission {
         self.outcomes.check_each(scope, 2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)?;
+        // A unit is declared under its emission's name, which must be a
+        // name a type may take.
+        for unit in scope.file.units() {
+            unit.name.declare().under(&unit.path)?;
+        }
         self.emissions.paired(&self.outcomes).place(1)?;
         self.emissions.bound_once(scope).place(1)
     }
@@ -1856,22 +1895,23 @@ impl Checkable for Variant {
     }
 }
 
-/// The trait whose capability refuses an enum of one variant, as
-/// `SingleVariant.<enum>` at its variants: an enum has two variants or
-/// more. A declared enum is named by its declaration, an enum a variant
-/// declares in place by that variant. A Signal's inputs and outputs, an
-/// Operation's operations and outcomes, and an Emission's emissions and
-/// outcomes are sections, not enums the file declares, and may hold one.
+/// The trait whose capability refuses an enum of fewer than two variants,
+/// one or none, as `TooFewVariants.<enum>` at its variants: an enum has two
+/// variants or more. A declared enum is named by its declaration, an enum a
+/// variant declares in place by that variant. A Signal's inputs and outputs,
+/// an Operation's operations and outcomes, and an Emission's emissions and
+/// outcomes are sections, not enums the file declares, and may hold one or
+/// none.
 trait Plural {
     fn plural(&self, enumeration: &Name) -> Result<(), Error>;
 }
 
 impl Plural for [Variant] {
     fn plural(&self, enumeration: &Name) -> Result<(), Error> {
-        if self.len() == 1 {
+        if self.len() < 2 {
             return Err(Error::conceptual(
                 vec![],
-                Problem::SingleVariant(enumeration.0.clone()),
+                Problem::TooFewVariants(enumeration.0.clone()),
             ));
         }
         Ok(())

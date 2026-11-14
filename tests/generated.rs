@@ -30,6 +30,8 @@ impl Fillable for sink_associations::Sink {}
 mod alias_format;
 #[path = "generated/answer-input.rs"]
 mod answer_input;
+#[path = "generated/bare-emission.rs"]
+mod bare_emission;
 #[path = "generated/capability-traits.rs"]
 mod capability_traits;
 #[path = "generated/command-emission.rs"]
@@ -500,6 +502,33 @@ fn an_emission_yields_the_outcome_its_position_binds() {
         whole,
         command_emission::Outcome::Outcome(Outcome_Data::Refused(2))
     ));
+}
+
+/// A translator that observes what it was set to observe, for the emissions
+/// written bare.
+struct Prober(bare_emission::Probed_Data);
+
+/// A bare emission carries a unit of its own, so it bears `Emittable` as an
+/// emission with a payload does: `Probe` is bound to `Probed_Data`, the first
+/// outcome, and `Ping` to `()`, as its outcome `Pong` carries nothing.
+impl bare_emission::Emittable<Prober> for bare_emission::Probe {
+    fn emit(&self, translator: &Prober) -> bare_emission::Probed_Data {
+        translator.0.clone()
+    }
+}
+impl bare_emission::Emittable<Prober> for bare_emission::Ping {
+    fn emit(&self, _translator: &Prober) {}
+}
+
+#[test]
+fn a_bare_emission_carries_its_unit_and_yields_the_outcome_its_position_binds() {
+    use bare_emission::{Emission, Emittable, Emitted, Ping, Probe, Probed_Data};
+    let outcome: <Probe as Emitted>::Outcome = Probe {}.emit(&Prober(Probed_Data::Observed(7)));
+    assert_eq!(outcome, Probed_Data::Observed(7));
+    let (): <Ping as Emitted>::Outcome = Ping {}.emit(&Prober(Probed_Data::Down));
+    let emissions = [Emission::Probe(Probe {}), Emission::Ping(Ping {})];
+    assert!(matches!(emissions[0], Emission::Probe(Probe {})));
+    assert!(matches!(emissions[1], Emission::Ping(Ping {})));
 }
 
 /// A Flow Nexus that launches every voice but one, as flow 7, and takes

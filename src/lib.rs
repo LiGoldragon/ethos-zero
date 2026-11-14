@@ -266,6 +266,7 @@ pub struct Memory {
 /// emission one external call, whose type is `Emission`, and what the
 /// translator observed of each, whose type is `Outcome`. The n-th outcome is
 /// the n-th emission's; an outcome past the last emission pairs with none.
+/// A bare emission naming no type of the file carries a unit of its own.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Emission {
     /// Where imported names come from.

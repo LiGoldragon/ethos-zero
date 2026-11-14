@@ -129,10 +129,30 @@ impl Emitted for Command_Data { type Outcome = Outcome_Data; }   // from Command
 
 The consumer writes `impl Emittable<ItsTranslator> for Command_Data` with
 `emit` alone; `Emitted` already fixed the outcome, so `emit` yields it and
-no other. An outcome carrying nothing binds `()`; an emission carrying
-nothing has no type to bear the trait and binds nothing. Two emissions
+no other. An outcome carrying nothing binds `()`. Two emissions
 carrying the same type would bind it twice and are refused as
-`Duplicate.<type>` at the second. `Emitted` and `Emittable` are names an
+`Duplicate.<type>` at the second.
+
+An emission may carry nothing, as an input may. A bare emission whose
+name the file neither declares nor imports carries a unit of its own, a
+struct of no fields named as the emission is and generated beside the
+file's types, so it bears `Emittable` like any other and binds the n-th
+outcome (`fixtures/bare-emission.ethos`):
+
+```rust
+pub struct Probe {}                                          // from the bare emission Probe
+pub enum Emission { Probe(Probe), Consume(Consume_Data), Ping(Ping) }
+impl Emitted for Probe { type Outcome = Probed_Data; }        // Probed.[ … ], the first outcome
+impl Emitted for Ping { type Outcome = (); }                  // Pong, carrying nothing
+```
+
+A bare emission naming a declared or imported type carries that type, as
+any bare variant does, and has no unit. The unit is the emission's alone:
+an outcome of the same name carries nothing. The unit is a declaration of
+the file at its emission, so its name is one a type may take: a bare
+emission named `Emission`, `Outcome`, `Emitted`, `Emittable` or a derived
+name is refused as `Duplicate.<name>`, and one named as an intrinsic,
+`String`, as `Intrinsic.String`. `Emitted` and `Emittable` are names an
 Emission may not declare, as `Emission` and `Outcome` are not.
 `fixtures/command-emission.ethos` is the vision's example, its import
 written rooted.
@@ -209,14 +229,16 @@ type with no finite value, one that reaches itself with no `Vector`,
 a `Cycle`. Every generated item carries `#[rustfmt::skip]`, an inline
 payload's as much as its enum's.
 
-An enum has two variants or more. An enum of one variant is refused as
-`SingleVariant.<enum>` at its variants, a declared enum named by its
-declaration and an enum a variant declares in place named by that variant:
-`Reply.[ Accepted ]` is refused as `SingleVariant.Reply`, and
-`Reply.[ Accepted Refused.[ Busy ] ]` as `SingleVariant.Refused`, in every
+An enum has two variants or more. An enum of one variant or none is
+refused as `TooFewVariants.<enum>` at its variants, a declared enum named by
+its declaration and an enum a variant declares in place named by that
+variant: `Reply.[ Accepted ]` is refused as `TooFewVariants.Reply`,
+`Never.[]` as `TooFewVariants.Never`, and
+`Reply.[ Accepted Refused.[ Busy ] ]` as `TooFewVariants.Refused`, in every
 section's types alike. A root's sections, a Signal's inputs and outputs,
 an Operation's operations and outcomes and an Emission's emissions and
-outcomes, are counted as the root's and may hold one.
+outcomes, are counted as the root's and may hold one or none; a section
+with none generates no enum.
 
 A bare variant whose name is a type the file declares or imports carries
 that type: `Failure.[ SyntaxError Unwritable ]` with `SyntaxError` declared
