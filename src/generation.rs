@@ -1410,9 +1410,11 @@ impl TraitImplying for crate::Emission {
 /// A Signal's `Answering`: one capability per query, and the dispatch that
 /// answers a query by it. The n-th response answers the n-th query; a
 /// response past the last query answers none, a refusal or a reaction. A
-/// capability is the query's variant in snake case; it takes what the query
-/// carries, by value, or nothing, and yields what its response carries, or
+/// capability is the query's variant in snake case; it borrows what the
+/// query carries, or takes nothing, and yields what its response carries, or
 /// `()`, or the refusal: any `Response`, which the dispatch answers whole.
+/// The dispatch owns the input: `answer` borrows the query and lends each
+/// capability the payload it matched.
 impl TraitImplying for crate::Signal {
     fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream> {
         if self.queries.is_empty() {
@@ -1436,7 +1438,7 @@ impl TraitImplying for crate::Signal {
                 (Some(ty), Some(input)) => {
                     let input = input.identifier();
                     capabilities.push(quote! {
-                        fn #capability(&self, #input: #ty) -> std::result::Result<#yields, Response>;
+                        fn #capability(&self, #input: &#ty) -> std::result::Result<#yields, Response>;
                     });
                     arms.push(quote! {
                         Query::#variant(#input) => self.#capability(#input).map_or_else(|refusal| refusal, #wrapping),
@@ -1454,11 +1456,14 @@ impl TraitImplying for crate::Signal {
         }
         // A refusal is any `Response`, however large its largest variant:
         // the wire value is answered whole, so it is not boxed for the lint.
+        // A capability borrows exactly the type its query carries, so the
+        // dispatch lends the matched payload as it is: `&String`, `&Vec<_>`
+        // and `&Box<_>` stand where the lints would ask for a narrower borrow.
         vec![quote! {
-            #[allow(clippy::result_large_err)]
+            #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
             pub trait Answering {
                 #( #capabilities )*
-                fn answer(&self, query: Query) -> Response {
+                fn answer(&self, query: &Query) -> Response {
                     match query { #( #arms )* }
                 }
             }

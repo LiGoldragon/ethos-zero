@@ -2,6 +2,12 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 25.0.0: an Answering capability borrows its input
+
+What breaks: every capability of a Signal's generated `Answering` borrows what its query carries, and the dispatch borrows the query. 24.0.0 generated `fn launch(&self, launch: Launch_Data) -> std::result::Result<flow::FlowId, Response>` and `fn answer(&self, query: Query) -> Response`; 25.0.0 generates `fn launch(&self, launch: &Launch_Data) -> …` and `fn answer(&self, query: &Query) -> Response`, matching on the borrow and lending each capability the payload it matched. The input's type is the query's carried type exactly, borrowed: `&String`, `&Vec<_>` and `&Box<_>` stay as they are, and the trait allows `clippy::ptr_arg` and `clippy::borrowed_box` beside `clippy::result_large_err`. A capability that carries nothing still takes nothing. Only `Answering` changes: a declared trait's capabilities keep their by-value form, and every type the file generates is as under 24.0.0.
+
+To deploy: in each `impl Answering`, write every capability's input as a borrow (`launch: &Launch_Data`), cloning what the capability keeps, and call `answer(&query)`.
+
 ## 24.0.0: a Signal pairs its responses with its queries and generates Answering
 
 What breaks, in three parts.

@@ -201,11 +201,11 @@ pub enum Response {
     Twined(Twig),
 }
 #[rustfmt::skip]
-#[allow(clippy::result_large_err)]
+#[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
-    fn plant(&self, tree: Tree) -> std::result::Result<Forest, Response>;
-    fn twine(&self, twin: Twin) -> std::result::Result<Twig, Response>;
-    fn answer(&self, query: Query) -> Response {
+    fn plant(&self, tree: &Tree) -> std::result::Result<Forest, Response>;
+    fn twine(&self, twin: &Twin) -> std::result::Result<Twig, Response>;
+    fn answer(&self, query: &Query) -> Response {
         match query {
             Query::Plant(tree) => {
                 self.plant(tree).map_or_else(|refusal| refusal, Response::Planted)

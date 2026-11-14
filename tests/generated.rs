@@ -503,19 +503,20 @@ fn an_emission_yields_the_outcome_its_position_binds() {
 /// every report.
 struct Launcher(Voice);
 
-/// The capabilities a Signal leaves to its consumer: each query's own, by
-/// value; the generated `answer` dispatches to them.
+/// The capabilities a Signal leaves to its consumer: each query's own,
+/// borrowing what the query carries; the generated `answer` dispatches to
+/// them.
 impl flow_signal::Answering for Launcher {
-    fn launch(&self, launch: flow_signal::Launch_Data) -> Result<FlowId, flow_signal::Response> {
+    fn launch(&self, launch: &flow_signal::Launch_Data) -> Result<FlowId, flow_signal::Response> {
         if launch.voice == self.0 {
             return Err(flow_signal::Response::Refused(
-                flow_signal::Refused_Data::VoiceBusy(launch.voice),
+                flow_signal::Refused_Data::VoiceBusy(launch.voice.clone()),
             ));
         }
         Ok(FlowId(7))
     }
 
-    fn report(&self, _report: flow_signal::Report_Data) -> Result<(), flow_signal::Response> {
+    fn report(&self, _report: &flow_signal::Report_Data) -> Result<(), flow_signal::Response> {
         Ok(())
     }
 }
@@ -532,15 +533,15 @@ fn a_signal_answers_each_query_by_its_capability_and_the_response_its_position_p
         })
     };
     assert_eq!(
-        launcher.answer(launch(Voice::Psyche(flow_library::Rank::Secondary))),
+        launcher.answer(&launch(Voice::Psyche(flow_library::Rank::Secondary))),
         Response::Launched(FlowId(7))
     );
     assert_eq!(
-        launcher.answer(launch(busy.clone())),
+        launcher.answer(&launch(busy.clone())),
         Response::Refused(Refused_Data::VoiceBusy(busy))
     );
     assert_eq!(
-        launcher.answer(Query::Report(Report_Data {
+        launcher.answer(&Query::Report(Report_Data {
             flow_id: FlowId(7),
             event: Event::Stopped,
         })),

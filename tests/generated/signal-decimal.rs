@@ -23,13 +23,13 @@ pub enum Response {
     Measured(Measurement),
 }
 #[rustfmt::skip]
-#[allow(clippy::result_large_err)]
+#[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
     fn measure(
         &self,
-        measurement: Measurement,
+        measurement: &Measurement,
     ) -> std::result::Result<Measurement, Response>;
-    fn answer(&self, query: Query) -> Response {
+    fn answer(&self, query: &Query) -> Response {
         match query {
             Query::Measure(measurement) => {
                 self.measure(measurement)

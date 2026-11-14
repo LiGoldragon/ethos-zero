@@ -62,10 +62,10 @@ pub enum Response {
     Launched,
 }
 #[rustfmt::skip]
-#[allow(clippy::result_large_err)]
+#[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
-    fn launch(&self, launch: Launch_Data) -> std::result::Result<(), Response>;
-    fn answer(&self, query: Query) -> Response {
+    fn launch(&self, launch: &Launch_Data) -> std::result::Result<(), Response>;
+    fn answer(&self, query: &Query) -> Response {
         match query {
             Query::Launch(launch) => {
                 self.launch(launch)

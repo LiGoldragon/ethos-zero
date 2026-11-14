@@ -188,10 +188,10 @@ fn a_signal_generates_answering_with_one_capability_per_query_and_its_dispatch()
     let rust = rust.replace(",)", ")");
     for expected in [
         "pubtraitAnswering{",
-        "fnlaunch(&self,launch_request:LaunchRequest)->std::result::Result<FlowId,Response>;",
-        "fnreport(&self,report:Report_Data)->std::result::Result<(),Response>;",
+        "fnlaunch(&self,launch_request:&LaunchRequest)->std::result::Result<FlowId,Response>;",
+        "fnreport(&self,report:&Report_Data)->std::result::Result<(),Response>;",
         "fnping(&self)->std::result::Result<(),Response>;",
-        "fnanswer(&self,query:Query)->Response{matchquery{",
+        "fnanswer(&self,query:&Query)->Response{matchquery{",
         "Query::Launch(launch_request)=>",
         "self.launch(launch_request).map_or_else(|refusal|refusal,Response::Launched)",
         "Query::Report(report)=>",
@@ -206,15 +206,15 @@ fn a_signal_generates_answering_with_one_capability_per_query_and_its_dispatch()
 }
 
 #[test]
-fn a_query_s_capability_takes_self_as_the_query_and_a_keyword_raw() {
+fn a_query_s_capability_borrows_self_as_the_query_and_a_keyword_raw() {
     let rust =
         "Signal [] [ Again.Vector<Self> Match.Type ] [ Done.Option<Self> Matched ] [ Type.String ]"
             .compact();
     // prettyplease ends a parameter list it wraps with a comma.
     let rust = rust.replace(",)", ")");
     for expected in [
-        "fnagain(&self,query_vector:std::vec::Vec<Query>)->std::result::Result<std::option::Option<std::boxed::Box<Response>>,Response>;",
-        "fnr#match(&self,r#type:Type)->std::result::Result<(),Response>;",
+        "fnagain(&self,query_vector:&std::vec::Vec<Query>)->std::result::Result<std::option::Option<std::boxed::Box<Response>>,Response>;",
+        "fnr#match(&self,r#type:&Type)->std::result::Result<(),Response>;",
     ] {
         assert!(rust.contains(expected), "{expected} in {rust}");
     }

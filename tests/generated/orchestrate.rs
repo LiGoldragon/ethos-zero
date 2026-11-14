@@ -102,15 +102,15 @@ pub enum Response {
     ReleaseRejected(ReleaseRejection),
 }
 #[rustfmt::skip]
-#[allow(clippy::result_large_err)]
+#[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
-    fn acquire(&self, lock_request: LockRequest) -> std::result::Result<Lock, Response>;
-    fn release(&self, lock_id: LockId) -> std::result::Result<Lock, Response>;
+    fn acquire(&self, lock_request: &LockRequest) -> std::result::Result<Lock, Response>;
+    fn release(&self, lock_id: &LockId) -> std::result::Result<Lock, Response>;
     fn observe(
         &self,
-        observe_selection: ObserveSelection,
+        observe_selection: &ObserveSelection,
     ) -> std::result::Result<Observation, Response>;
-    fn answer(&self, query: Query) -> Response {
+    fn answer(&self, query: &Query) -> Response {
         match query {
             Query::Acquire(lock_request) => {
                 self.acquire(lock_request)
