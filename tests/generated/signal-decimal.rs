@@ -29,11 +29,17 @@ pub trait Answering {
         &self,
         measurement: &Measurement,
     ) -> std::result::Result<Measurement, Output>;
-    fn answer(&self, input: &Input) -> Output {
-        match input {
-            Input::Measure(measurement) => {
-                self.measure(measurement)
-                    .map_or_else(|refusal| refusal, Output::Measured)
+}
+#[rustfmt::skip]
+pub trait Answerable {
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output;
+}
+#[rustfmt::skip]
+impl Answerable for Input {
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output {
+        match self {
+            Input::Measure(carried) => {
+                nexus.measure(carried).map_or_else(|refusal| refusal, Output::Measured)
             }
         }
     }

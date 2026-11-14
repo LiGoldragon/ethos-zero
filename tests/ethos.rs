@@ -182,22 +182,22 @@ fn an_emission_declaring_an_implied_enum_or_trait_name_is_refused() {
 }
 
 #[test]
-fn a_signal_generates_answering_with_one_capability_per_input_and_its_dispatch() {
+fn a_signal_generates_answering_with_one_capability_per_input_and_the_input_answerable_by_it() {
     let rust = "Signal [] [ Launch.LaunchRequest Report.{ String } Ping ] [ Launched.FlowId Reported Pong Refused.String ] [ LaunchRequest.{ String } FlowId.Integer ]".compact();
     // prettyplease ends a parameter list it wraps with a comma.
     let rust = rust.replace(",)", ")");
     for expected in [
-        "pubtraitAnswering{",
-        "fnlaunch(&self,launch_request:&LaunchRequest)->std::result::Result<FlowId,Output>;",
+        "pubtraitAnswering{fnlaunch(&self,launch_request:&LaunchRequest)->std::result::Result<FlowId,Output>;",
         "fnreport(&self,report:&Report_Data)->std::result::Result<(),Output>;",
-        "fnping(&self)->std::result::Result<(),Output>;",
-        "fnanswer(&self,input:&Input)->Output{matchinput{",
-        "Input::Launch(launch_request)=>",
-        "self.launch(launch_request).map_or_else(|refusal|refusal,Output::Launched)",
-        "Input::Report(report)=>",
-        "self.report(report).map_or_else(|refusal|refusal,|()|Output::Reported)",
+        "fnping(&self)->std::result::Result<(),Output>;}",
+        "pubtraitAnswerable{fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Output;}",
+        "implAnswerableforInput{fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Output{matchself{",
+        "Input::Launch(carried)=>",
+        "nexus.launch(carried).map_or_else(|refusal|refusal,Output::Launched)",
+        "Input::Report(carried)=>",
+        "nexus.report(carried).map_or_else(|refusal|refusal,|()|Output::Reported)",
         "Input::Ping=>",
-        "self.ping().map_or_else(|refusal|refusal,|()|Output::Pong)",
+        "nexus.ping().map_or_else(|refusal|refusal,|()|Output::Pong)",
     ] {
         assert!(rust.contains(expected), "{expected} in {rust}");
     }
@@ -224,6 +224,19 @@ fn an_input_s_capability_borrows_self_as_the_input_and_a_keyword_raw() {
 fn a_signal_without_inputs_generates_no_answering() {
     let rust = "Signal [] [] [ Told ] []".compact();
     assert!(!rust.contains("Answering"), "{rust}");
+    assert!(!rust.contains("Answerable"), "{rust}");
+}
+
+#[test]
+fn an_input_named_answer_has_the_capability_answer() {
+    let rust = "Signal [] [ Answer ] [ Answered ] []".compact();
+    for expected in [
+        "pubtraitAnswering{fnanswer(&self)->std::result::Result<(),Output>;}",
+        "Input::Answer=>",
+        "nexus.answer().map_or_else(|refusal|refusal,|()|Output::Answered)",
+    ] {
+        assert!(rust.contains(expected), "{expected} in {rust}");
+    }
 }
 
 #[test]
@@ -237,17 +250,15 @@ fn an_input_left_without_an_output_is_refused_at_its_path() {
 #[test]
 fn an_input_whose_capability_name_is_taken_is_refused() {
     assert_eq!(
-        "Signal [] [ Answer ] [ Answered ] []".refusal(),
-        (vec![1, 1, 0], Problem::Duplicate("answer".to_owned()))
-    );
-    assert_eq!(
         "Signal [] [ UrlFetch URLFetch ] [ Fetched Fetched2 ] []".refusal(),
         (vec![1, 1, 1], Problem::Duplicate("url_fetch".to_owned()))
     );
-    assert_eq!(
-        "Signal [] [ Ask ] [ Told ] [ Answering.String ]".refusal(),
-        (vec![1, 3, 0, 0], Problem::Duplicate("Answering".to_owned()))
-    );
+    for name in ["Answering", "Answerable"] {
+        assert_eq!(
+            format!("Signal [] [ Ask ] [ Told ] [ {name}.String ]").refusal(),
+            (vec![1, 3, 0, 0], Problem::Duplicate(name.to_owned()))
+        );
+    }
 }
 
 #[test]

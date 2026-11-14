@@ -110,17 +110,23 @@ pub trait Answering {
         &self,
         observe_selection: &ObserveSelection,
     ) -> std::result::Result<Observation, Output>;
-    fn answer(&self, input: &Input) -> Output {
-        match input {
-            Input::Acquire(lock_request) => {
-                self.acquire(lock_request).map_or_else(|refusal| refusal, Output::Locked)
+}
+#[rustfmt::skip]
+pub trait Answerable {
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output;
+}
+#[rustfmt::skip]
+impl Answerable for Input {
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output {
+        match self {
+            Input::Acquire(carried) => {
+                nexus.acquire(carried).map_or_else(|refusal| refusal, Output::Locked)
             }
-            Input::Release(lock_id) => {
-                self.release(lock_id).map_or_else(|refusal| refusal, Output::Released)
+            Input::Release(carried) => {
+                nexus.release(carried).map_or_else(|refusal| refusal, Output::Released)
             }
-            Input::Observe(observe_selection) => {
-                self.observe(observe_selection)
-                    .map_or_else(|refusal| refusal, Output::Observed)
+            Input::Observe(carried) => {
+                nexus.observe(carried).map_or_else(|refusal| refusal, Output::Observed)
             }
         }
     }

@@ -1,0 +1,9 @@
+Signal
+[]
+[ Answer.Question
+  Wake.Nexus ]
+[ Answered.Reply
+  Woken ]
+[ Question.String
+  Reply.String
+  Nexus.String ]

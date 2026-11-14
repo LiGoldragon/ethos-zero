@@ -224,7 +224,8 @@ pub struct Library {
 ///
 /// The n-th output answers the n-th input; an output past the last input
 /// answers none. The file generates `Answering`, a capability per input,
-/// borrowing what the input carries, and the dispatch over a borrowed input.
+/// borrowing what the input carries, and `Answerable`, whose `answer` the
+/// input implements: it borrows the bearer of `Answering` and dispatches.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signal {
     /// Where imported names come from.

@@ -2,6 +2,20 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 27.0.0: the input is Answerable; Answering holds the capabilities alone
+
+What breaks, in three parts.
+
+1. A Signal's generated `Answering` holds one capability per input and nothing else: 26.x's provided `fn answer(&self, input: &Input) -> Output` is gone from it. Each capability is as under 26.x, borrowing what its input carries and yielding `std::result::Result<_, Output>`.
+2. The dispatch is the input's. Beside `Answering`, every Signal with inputs generates `pub trait Answerable { fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output; }` and `impl Answerable for Input`, holding the match: `Input::Launch(carried) => nexus.launch(carried).map_or_else(|refusal| refusal, Output::Launched)`. Every arm binds the payload as `carried`. No standard library crate holds the root-implied traits yet, so `Answerable` is generated into each Signal's file, as `Answering` is; two Signals' generated modules glob-imported into one module meet two traits of each name.
+3. `Answerable` is reserved in a Signal, as `Answering` is: `Signal [] [ Ask ] [ Told ] [ Answerable.String ]` is refused as `Conceptual.{ [ 1 3 0 0 ] Duplicate.Answerable }`.
+
+What is now accepted: an input named `Answer`. 24.0.0 to 26.x refused it as `Duplicate.answer`, the dispatch's name; its capability is now `fn answer(&self, …)` on `Answering`, and the dispatch, on `Input`, meets no name of it. `fixtures/answer-input.ethos` is such a Signal. Two inputs whose capabilities share a name stay refused as `Duplicate.<capability>`.
+
+The wire is unchanged: every generated type is as under 26.x.
+
+To deploy: replace each `nexus.answer(&input)` with `input.answer(&nexus)`, importing `<signal>::Answerable` where `answer` is called; `Answering` need not be imported there. An `impl Answering` is unchanged unless it overrode the provided `answer`, which no longer exists. A Signal that declares or imports a type named `Answerable` renames it.
+
 ## 26.0.0: a Signal implies Input and Output
 
 What breaks, in three parts.

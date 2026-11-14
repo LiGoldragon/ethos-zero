@@ -28,6 +28,8 @@ impl Fillable for sink_associations::Sink {}
 
 #[path = "generated/alias-format.rs"]
 mod alias_format;
+#[path = "generated/answer-input.rs"]
+mod answer_input;
 #[path = "generated/capability-traits.rs"]
 mod capability_traits;
 #[path = "generated/command-emission.rs"]
@@ -503,8 +505,8 @@ fn an_emission_yields_the_outcome_its_position_binds() {
 struct Launcher(Voice);
 
 /// The capabilities a Signal leaves to its consumer: each input's own,
-/// borrowing what the input carries; the generated `answer` dispatches to
-/// them.
+/// borrowing what the input carries; the input's generated `answer`
+/// dispatches to them.
 impl flow_signal::Answering for Launcher {
     fn launch(&self, launch: &flow_signal::Launch_Data) -> Result<FlowId, flow_signal::Output> {
         if launch.voice == self.0 {
@@ -522,7 +524,7 @@ impl flow_signal::Answering for Launcher {
 
 #[test]
 fn a_signal_answers_each_input_by_its_capability_and_the_output_its_position_pairs() {
-    use flow_signal::{Answering, Brief, Input, Launch_Data, Output, Refused_Data, Report_Data};
+    use flow_signal::{Answerable, Brief, Input, Launch_Data, Output, Refused_Data, Report_Data};
     let busy = Voice::Mind(flow_library::Rank::Primary);
     let launcher = Launcher(busy.clone());
     let launch = |voice: Voice| {
@@ -532,19 +534,53 @@ fn a_signal_answers_each_input_by_its_capability_and_the_output_its_position_pai
         })
     };
     assert_eq!(
-        launcher.answer(&launch(Voice::Psyche(flow_library::Rank::Secondary))),
+        launch(Voice::Psyche(flow_library::Rank::Secondary)).answer(&launcher),
         Output::Launched(FlowId(7))
     );
     assert_eq!(
-        launcher.answer(&launch(busy.clone())),
+        launch(busy.clone()).answer(&launcher),
         Output::Refused(Refused_Data::VoiceBusy(busy))
     );
     assert_eq!(
-        launcher.answer(&Input::Report(Report_Data {
+        Input::Report(Report_Data {
             flow_id: FlowId(7),
             event: Event::Stopped,
-        })),
+        })
+        .answer(&launcher),
         Output::Reported
+    );
+}
+
+/// A Nexus whose Signal has an input named `Answer`: its capability is
+/// `answer`, which the dispatch, the input's own `answer`, leaves free.
+struct Oracle;
+
+impl answer_input::Answering for Oracle {
+    fn answer(
+        &self,
+        question: &answer_input::Question,
+    ) -> Result<answer_input::Reply, answer_input::Output> {
+        Ok(answer_input::Reply(format!("{} answered", question.0)))
+    }
+
+    fn wake(&self, nexus: &answer_input::Nexus) -> Result<(), answer_input::Output> {
+        if nexus.0.is_empty() {
+            return Err(answer_input::Output::Woken);
+        }
+        Ok(())
+    }
+}
+
+#[test]
+fn an_input_named_answer_is_answered_by_its_own_capability() {
+    use answer_input::{Answerable, Input, Nexus, Output, Question, Reply};
+    assert_eq!(
+        Input::Answer(Question("why".to_owned())).answer(&Oracle),
+        Output::Answered(Reply("why answered".to_owned()))
+    );
+    assert_eq!(
+        Input::Wake(Nexus("flow".to_owned())).answer(&Oracle),
+        Output::Woken
     );
 }
 

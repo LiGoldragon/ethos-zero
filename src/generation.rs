@@ -1407,14 +1407,18 @@ impl TraitImplying for crate::Emission {
     }
 }
 
-/// A Signal's `Answering`: one capability per input, and the dispatch that
-/// answers an input by it. The n-th output answers the n-th input; an
-/// output past the last input answers none, a refusal or a reaction. A
-/// capability is the input's variant in snake case; it borrows what the
-/// input carries, or takes nothing, and yields what its output carries, or
-/// `()`, or the refusal: any `Output`, which the dispatch answers whole.
-/// The dispatch owns the input: `answer` borrows it and lends each
-/// capability the payload it matched.
+/// A Signal's `Answering`, one capability per input, and `Answerable`, the
+/// input answered by the bearer of `Answering`. The n-th output answers the
+/// n-th input; an output past the last input answers none, a refusal or a
+/// reaction. A capability is the input's variant in snake case; it borrows
+/// what the input carries, or takes nothing, and yields what its output
+/// carries, or `()`, or the refusal: any `Output`, which the dispatch
+/// answers whole. The dispatch is the input's: `Input`'s `answer` borrows
+/// the bearer and lends each capability the payload it matched, so an input
+/// named `Answer` meets no name of the dispatch. Every arm binds the payload
+/// as `carried`, a name no capability's parameter shadows the bearer with.
+/// No standard library holds the root-implied traits yet, so `Answerable` is
+/// generated into the file.
 impl TraitImplying for crate::Signal {
     fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream> {
         if self.inputs.is_empty() {
@@ -1441,7 +1445,7 @@ impl TraitImplying for crate::Signal {
                         fn #capability(&self, #parameter: &#ty) -> std::result::Result<#yields, Output>;
                     });
                     arms.push(quote! {
-                        Input::#variant(#parameter) => self.#capability(#parameter).map_or_else(|refusal| refusal, #wrapping),
+                        Input::#variant(carried) => nexus.#capability(carried).map_or_else(|refusal| refusal, #wrapping),
                     });
                 }
                 _ => {
@@ -1449,7 +1453,7 @@ impl TraitImplying for crate::Signal {
                         fn #capability(&self) -> std::result::Result<#yields, Output>;
                     });
                     arms.push(quote! {
-                        Input::#variant => self.#capability().map_or_else(|refusal| refusal, #wrapping),
+                        Input::#variant => nexus.#capability().map_or_else(|refusal| refusal, #wrapping),
                     });
                 }
             }
@@ -1459,15 +1463,26 @@ impl TraitImplying for crate::Signal {
         // A capability borrows exactly the type its input carries, so the
         // dispatch lends the matched payload as it is: `&String`, `&Vec<_>`
         // and `&Box<_>` stand where the lints would ask for a narrower borrow.
-        vec![quote! {
-            #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
-            pub trait Answering {
-                #( #capabilities )*
-                fn answer(&self, input: &Input) -> Output {
-                    match input { #( #arms )* }
+        vec![
+            quote! {
+                #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
+                pub trait Answering {
+                    #( #capabilities )*
                 }
-            }
-        }]
+            },
+            quote! {
+                pub trait Answerable {
+                    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output;
+                }
+            },
+            quote! {
+                impl Answerable for Input {
+                    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output {
+                        match self { #( #arms )* }
+                    }
+                }
+            },
+        ]
     }
 }
 

@@ -205,13 +205,20 @@ pub enum Output {
 pub trait Answering {
     fn plant(&self, tree: &Tree) -> std::result::Result<Forest, Output>;
     fn twine(&self, twin: &Twin) -> std::result::Result<Twig, Output>;
-    fn answer(&self, input: &Input) -> Output {
-        match input {
-            Input::Plant(tree) => {
-                self.plant(tree).map_or_else(|refusal| refusal, Output::Planted)
+}
+#[rustfmt::skip]
+pub trait Answerable {
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output;
+}
+#[rustfmt::skip]
+impl Answerable for Input {
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output {
+        match self {
+            Input::Plant(carried) => {
+                nexus.plant(carried).map_or_else(|refusal| refusal, Output::Planted)
             }
-            Input::Twine(twin) => {
-                self.twine(twin).map_or_else(|refusal| refusal, Output::Twined)
+            Input::Twine(carried) => {
+                nexus.twine(carried).map_or_else(|refusal| refusal, Output::Twined)
             }
         }
     }

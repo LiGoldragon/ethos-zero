@@ -923,7 +923,7 @@ impl Declared for crate::Library {
 
 impl Declared for Signal {
     fn declared(&self) -> Vec<DeclarationSite> {
-        // The two implied enums, and the trait generated beside them.
+        // The two implied enums, and the two traits generated beside them.
         let mut names = vec![
             DeclarationSite {
                 name: Name::try_from("Input").expect("static identifier"),
@@ -935,6 +935,10 @@ impl Declared for Signal {
             },
             DeclarationSite {
                 name: Name::try_from("Answering").expect("static identifier"),
+                path: vec![1],
+            },
+            DeclarationSite {
+                name: Name::try_from("Answerable").expect("static identifier"),
                 path: vec![1],
             },
         ];
@@ -1697,15 +1701,14 @@ impl Pairing for [Variant] {
 
 /// The trait whose capability refuses two inputs whose capabilities in the
 /// generated `Answering` would share a name, the input's variant in snake
-/// case, or an input whose capability would be named `answer`, the dispatch:
-/// the later is a `Duplicate` of the name, at its path.
+/// case: the later is a `Duplicate` of the name, at its path.
 trait CapabilityNaming {
     fn capabilities_distinct(&self) -> Result<(), Error>;
 }
 
 impl CapabilityNaming for [Variant] {
     fn capabilities_distinct(&self) -> Result<(), Error> {
-        let mut names = vec!["answer".to_owned()];
+        let mut names: Vec<String> = Vec::with_capacity(self.len());
         let mut at = 0;
         for input in self {
             let name = input.title().0.snake_case().identifier().to_string();

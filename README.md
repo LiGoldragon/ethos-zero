@@ -71,18 +71,25 @@ reaction. An input left without an output is refused as
 `Answering`: one capability per input, the variant in snake case,
 borrowing what the input carries (taking nothing where it carries nothing)
 and yielding what its output carries (`()` where it carries nothing) or
-the refusal, any `Output`; and the dispatch, generated whole. The
-dispatch owns the input: `answer` borrows it and lends each capability
-the payload it matched:
+the refusal, any `Output`, and nothing else. The input is `Answerable`: the
+file generates `impl Answerable for Input`, whose one capability `answer`
+borrows the bearer of `Answering` and yields the `Output`, holding the
+dispatch. It lends each capability the payload it matched, bound as
+`carried`. A Nexus answers an input with `input.answer(&nexus)`:
 
 ```rust
 pub trait Answering {
     fn launch(&self, launch_request: &LaunchRequest) -> std::result::Result<FlowId, Output>;
     fn report(&self, report: &Report_Data) -> std::result::Result<(), Output>;
-    fn answer(&self, input: &Input) -> Output {
-        match input {
-            Input::Launch(launch_request) => self.launch(launch_request).map_or_else(|refusal| refusal, Output::Launched),
-            Input::Report(report) => self.report(report).map_or_else(|refusal| refusal, |()| Output::Reported),
+}
+pub trait Answerable {
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output;
+}
+impl Answerable for Input {
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output {
+        match self {
+            Input::Launch(carried) => nexus.launch(carried).map_or_else(|refusal| refusal, Output::Launched),
+            Input::Report(carried) => nexus.report(carried).map_or_else(|refusal| refusal, |()| Output::Reported),
         }
     }
 }
@@ -90,10 +97,13 @@ pub trait Answering {
 
 A capability's parameter is named as a field of its type is
 (`launch_request`), or for the variant where the payload is declared in
-place (`report`); a keyword is written raw. An input whose capability
-would be named as another's, or `answer`, is refused as
-`Duplicate.<capability>`, and `Answering` is a name a Signal may not
-declare. The trait carries
+place (`report`); a keyword is written raw. An input may be named `Answer`:
+its capability is `answer`, on `Answering`, and the dispatch is the input's
+own (`fixtures/answer-input.ethos`). An input whose capability would be
+named as another input's is refused as `Duplicate.<capability>`, and
+`Answering` and `Answerable` are names a Signal may not declare. No
+standard library crate holds the root-implied traits yet, so `Answerable`
+is generated into every Signal's file. `Answering` carries
 `#[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]`:
 the refusal is the wire's `Output`, answered whole, however large its
 largest variant, and a capability borrows exactly the type its input

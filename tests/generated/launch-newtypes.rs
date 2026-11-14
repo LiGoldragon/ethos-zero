@@ -65,10 +65,19 @@ pub enum Output {
 #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
     fn launch(&self, launch: &Launch_Data) -> std::result::Result<(), Output>;
-    fn answer(&self, input: &Input) -> Output {
-        match input {
-            Input::Launch(launch) => {
-                self.launch(launch).map_or_else(|refusal| refusal, |()| Output::Launched)
+}
+#[rustfmt::skip]
+pub trait Answerable {
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output;
+}
+#[rustfmt::skip]
+impl Answerable for Input {
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output {
+        match self {
+            Input::Launch(carried) => {
+                nexus
+                    .launch(carried)
+                    .map_or_else(|refusal| refusal, |()| Output::Launched)
             }
         }
     }
