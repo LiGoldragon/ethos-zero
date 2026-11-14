@@ -1,10 +1,11 @@
 //! Sectioning: a file's sections by role, whatever its root, and every type
 //! it declares, in place or at the top of its types section.
 //!
-//! Signal and Operation share one shape: imports, the variants of a request
-//! enum, the variants of a reply enum, the types they carry. Signal implies
-//! `Query` and `Response`; Operation implies `Operation` and `Outcome`.
-//! Library and Memory imply nothing.
+//! Signal, Operation and Emission share one shape: imports, the variants of a
+//! request enum, the variants of a reply enum, the types they carry. Signal
+//! implies `Query` and `Response`; Operation implies `Operation` and
+//! `Outcome`; Emission implies `Emission` and `Outcome`. Library and Memory
+//! imply nothing.
 //!
 //! A struct position may declare its type in place, `Brief.String`; that
 //! type is a declaration of the file like any other, named by its own name,
@@ -47,6 +48,7 @@ impl Sectioning for File {
             File::Signal(signal) => &signal.imports,
             File::Operation(operation) => &operation.imports,
             File::Memory(memory) => &memory.imports,
+            File::Emission(emission) => &emission.imports,
         }
     }
 
@@ -56,13 +58,14 @@ impl Sectioning for File {
             File::Signal(signal) => &signal.types,
             File::Operation(operation) => &operation.types,
             File::Memory(memory) => &memory.types,
+            File::Emission(emission) => &emission.types,
         }
     }
 
     fn types_section(&self) -> Integer {
         match self {
             File::Library(_) | File::Memory(_) => 1,
-            File::Signal(_) | File::Operation(_) => 3,
+            File::Signal(_) | File::Operation(_) | File::Emission(_) => 3,
         }
     }
 
@@ -75,6 +78,12 @@ impl Sectioning for File {
                 &operation.operations,
                 "Outcome",
                 &operation.outcomes,
+            ),
+            File::Emission(emission) => (
+                "Emission",
+                &emission.emissions,
+                "Outcome",
+                &emission.outcomes,
             ),
         };
         vec![

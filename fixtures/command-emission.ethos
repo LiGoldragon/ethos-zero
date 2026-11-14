@@ -1,0 +1,6 @@
+Emission
+[ :signal_herdr:signal:[ Input Output ] ] ; imports
+[ Command.{ Verb Vector<Argument> } ]    ; emissions: one external call each
+[ Outcome.[ Done Refused.Integer ] ]     ; outcomes: what the translator observed
+[ Verb.[ List Show ]                     ; types
+  Argument.[ Name.String Quiet ] ]

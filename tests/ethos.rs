@@ -101,6 +101,87 @@ fn an_operation_declaring_the_operation_or_outcome_type_is_refused() {
 }
 
 #[test]
+fn emission_generates_its_enums_and_binds_each_emission_to_its_outcome() {
+    let source = include_str!("../fixtures/command-emission.ethos");
+    let file = read(source);
+    assert!(matches!(file, File::Emission(_)));
+    assert_eq!(file, read(&file.protosize().textualize()));
+    let rust = source.compact();
+    for expected in [
+        "pubstructCommand_Data{pubverb:Verb,pubargument_vector:std::vec::Vec<Argument>,}",
+        "pubenumEmission{Command(Command_Data),}",
+        "pubenumOutcome_Data{Done,Refused(i64),}",
+        "pubenumOutcome{Outcome(Outcome_Data),}",
+        "pubtraitEmitted{typeOutcome;}",
+        "pubtraitEmittable<Translator>:Emitted{fnemit(&self,translator:&Translator)->Self::Outcome;}",
+        "implEmittedforCommand_Data{typeOutcome=Outcome_Data;}",
+    ] {
+        assert!(rust.contains(expected), "{expected} in {rust}");
+    }
+    // The imported Signal names are written where they are used, and the
+    // fixture uses neither.
+    assert!(!rust.contains("signal_herdr"), "{rust}");
+}
+
+#[test]
+fn an_outcome_past_the_last_emission_pairs_with_none_and_a_bare_outcome_binds_unit() {
+    let rust = "Emission [] [ Go.Vector<String> Stop Ask.Question ] [ Gone Stopped.Integer Answer Extra.String ] [ Question.String Answer.Integer ]".compact();
+    assert!(
+        rust.contains("implEmittedforstd::vec::Vec<String>{typeOutcome=();}"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("implEmittedforQuestion{typeOutcome=Answer;}"),
+        "{rust}"
+    );
+    // `Stop` carries no type to bear the trait; `Extra` pairs with none.
+    assert_eq!(rust.matches("implEmittedfor").count(), 2, "{rust}");
+}
+
+#[test]
+fn self_in_an_emission_or_outcome_is_bound_as_the_enum_it_stands_for() {
+    let rust = "Emission [] [ Go.Vector<Self> ] [ Gone.Option<Self> ] []".compact();
+    assert!(
+        rust.contains("implEmittedforstd::vec::Vec<Emission>{typeOutcome=std::option::Option<std::boxed::Box<Outcome>>;}"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn an_emission_left_without_an_outcome_is_refused_at_its_path() {
+    assert_eq!(
+        "Emission [] [ Go.Vector<String> Stop ] [ Gone ] []".refusal(),
+        (vec![1, 1, 2], Problem::Unpaired("Stop".to_owned()))
+    );
+    assert_eq!(
+        "Emission [] [ Go ] [] []".refusal(),
+        (vec![1, 1, 0], Problem::Unpaired("Go".to_owned()))
+    );
+}
+
+#[test]
+fn two_emissions_carrying_one_type_are_refused_at_the_second() {
+    assert_eq!(
+        "Emission [] [ Show.Pane Close.Pane ] [ Shown Closed ] [ Pane.String ]".refusal(),
+        (vec![1, 1, 1], Problem::Duplicate("Pane".to_owned()))
+    );
+    assert_eq!(
+        "Emission [] [ Show.Pane Pane ] [ Shown Closed ] [ Pane.String ]".refusal(),
+        (vec![1, 1, 1], Problem::Duplicate("Pane".to_owned()))
+    );
+}
+
+#[test]
+fn an_emission_declaring_an_implied_enum_or_trait_name_is_refused() {
+    for name in ["Emission", "Outcome", "Emitted", "Emittable"] {
+        assert_eq!(
+            format!("Emission [] [ Go ] [ Gone ] [ {name}.String ]").refusal(),
+            (vec![1, 3, 0, 0], Problem::Duplicate(name.to_owned()))
+        );
+    }
+}
+
+#[test]
 fn a_named_position_declares_its_type_in_place() {
     let file = read(
         "Memory [] [ Flow.{ Integer Brief.String State.[ Running Ended ] Capsule.{ Home.String Login.Vector<String> } } ]",
@@ -723,6 +804,7 @@ fn every_generated_item_carries_rustfmt_skip() {
                 syn::Item::Type(_) => panic!("{path} holds a public type alias"),
                 syn::Item::Trait(item) => &item.attrs,
                 syn::Item::Const(item) => &item.attrs,
+                syn::Item::Impl(item) => &item.attrs,
                 _ => panic!("{path} holds an item generation does not emit"),
             };
             assert!(

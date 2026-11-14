@@ -13,9 +13,9 @@ use crate::sectioning::{Hoisting, Referencing, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
-    Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name, Operation,
-    Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal, Signature,
-    Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant, Wrapping_Data,
+    Constraint, Emission, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name,
+    Operation, Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal,
+    Signature, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant, Wrapping_Data,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -745,6 +745,7 @@ impl Checkable for File {
             File::Signal(signal) => signal.check(scope),
             File::Operation(operation) => operation.check(scope),
             File::Memory(memory) => memory.check(scope),
+            File::Emission(emission) => emission.check(scope),
         };
         checked.place(1)?;
         // The derived names come first, so an authored name that would
@@ -955,6 +956,27 @@ impl Declared for Operation {
     }
 }
 
+impl Declared for Emission {
+    fn declared(&self) -> Vec<DeclarationSite> {
+        // The two implied enums, and the two traits generated beside them.
+        let mut names = Vec::new();
+        for (implied, section) in [
+            ("Emission", 1),
+            ("Outcome", 2),
+            ("Emitted", 1),
+            ("Emittable", 1),
+        ] {
+            names.push(DeclarationSite {
+                name: Name::try_from(implied).expect("static identifier"),
+                path: vec![section],
+            });
+        }
+        names.extend(self.imports.names_in(0));
+        names.extend(self.types.names_in(3));
+        names
+    }
+}
+
 impl Declared for Memory {
     fn declared(&self) -> Vec<DeclarationSite> {
         let mut names = self.imports.names_in(0);
@@ -970,6 +992,7 @@ impl Declared for File {
             File::Signal(signal) => signal.declared(),
             File::Operation(operation) => operation.declared(),
             File::Memory(memory) => memory.declared(),
+            File::Emission(emission) => emission.declared(),
         };
         // A type declared in place is a declaration of the file, named at its head.
         for placed in self.inlined() {
@@ -1025,6 +1048,23 @@ impl Checkable for Operation {
         self.outcomes.refuse_payload(scope).place(2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)
+    }
+}
+
+impl Checkable for Emission {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
+        self.declared().distinct()?;
+        self.imports.check_each(scope, 0)?;
+        self.emissions.names_in(1).distinct()?;
+        self.outcomes.names_in(2).distinct()?;
+        self.emissions.check_each(scope, 1)?;
+        self.outcomes.check_each(scope, 2)?;
+        self.emissions.refuse_payload(scope).place(1)?;
+        self.outcomes.refuse_payload(scope).place(2)?;
+        self.types.check_each(scope, 3)?;
+        self.types.refuse_wrapping(scope).place(3)?;
+        self.emissions.paired(&self.outcomes).place(1)?;
+        self.emissions.bound_once(scope).place(1)
     }
 }
 
@@ -1601,6 +1641,95 @@ impl Refusing for [Variant] {
         for variant in self {
             variant.refuse_payload(scope).beside(at)?;
             at += variant.span();
+        }
+        Ok(())
+    }
+}
+
+/// The trait whose capability yields the name a variant is written under.
+trait Titled {
+    fn title(&self) -> &Name;
+}
+
+impl Titled for Variant {
+    fn title(&self) -> &Name {
+        match self {
+            Variant::Bare(name)
+            | Variant::Typed(name, _)
+            | Variant::Struct(name, _)
+            | Variant::Enum(name, _) => name,
+        }
+    }
+}
+
+/// The trait whose capability refuses a section of requests that outnumbers
+/// the section of replies pairing with it by position: the n-th reply is the
+/// n-th request's, so every request has one, and a reply past the last
+/// request pairs with none. The first request left without a reply is
+/// refused as `Unpaired`, at its path.
+trait Pairing {
+    fn paired(&self, replies: &[Variant]) -> Result<(), Error>;
+}
+
+impl Pairing for [Variant] {
+    fn paired(&self, replies: &[Variant]) -> Result<(), Error> {
+        let mut at = 0;
+        for (index, request) in self.iter().enumerate() {
+            if index >= replies.len() {
+                return Err(Error::conceptual(
+                    vec![at],
+                    Problem::Unpaired(request.title().0.clone()),
+                ));
+            }
+            at += request.span();
+        }
+        Ok(())
+    }
+}
+
+/// The trait whose capability yields the type a variant carries by name: the
+/// type it is typed with, or the declared or imported type it is named for.
+/// A payload declared in place is a type of its own and yields none.
+trait NamingCarried {
+    fn named_carried(&self, scope: &Scope) -> Option<Reference>;
+}
+
+impl NamingCarried for Variant {
+    fn named_carried(&self, scope: &Scope) -> Option<Reference> {
+        match self {
+            Variant::Bare(name) if scope.carries(name) => Some(Reference {
+                source: None,
+                name: name.clone(),
+                arguments: vec![],
+            }),
+            Variant::Typed(_, reference) => Some(reference.clone()),
+            Variant::Bare(_) | Variant::Struct(_, _) | Variant::Enum(_, _) => None,
+        }
+    }
+}
+
+/// The trait whose capability refuses two emissions that carry the same
+/// type: each carried type is bound to the one outcome its emission pairs
+/// with, so the second is a `Duplicate` of the type, at its path.
+trait Binding {
+    fn bound_once(&self, scope: &Scope) -> Result<(), Error>;
+}
+
+impl Binding for [Variant] {
+    fn bound_once(&self, scope: &Scope) -> Result<(), Error> {
+        let mut carried: Vec<Reference> = Vec::new();
+        let mut at = 0;
+        for emission in self {
+            if let Some(reference) = emission.named_carried(scope) {
+                if carried.contains(&reference) {
+                    return Err(Error::conceptual(
+                        vec![at],
+                        Problem::Duplicate(reference.name.0.clone()),
+                    ));
+                }
+                carried.push(reference);
+            }
+            at += emission.span();
         }
         Ok(())
     }

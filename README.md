@@ -38,15 +38,18 @@ regenerates both and every fixture under `tests/generated/`.
 
 ## File variants
 
-Four roots: Library, Signal, Operation, Memory. Signal declares what a
-Nexus says; Operation what it does, one operation for every effect; Memory
-what it remembers; Library what they share.
+Five roots: Library, Signal, Operation, Memory, Emission. Signal declares
+what a Nexus says; Operation what it does, one operation for every effect;
+Memory what it remembers; Emission what it sends into the world, each
+emission one external call and its outcome what the translator observed;
+Library what they share.
 
 ```
 Library    [ imports ] [ types ] [ traits ] [ associations ]
 Signal     [ imports ] [ queries ] [ responses ] [ types ]     ; Query and Response implied
 Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; Operation and Outcome implied
 Memory     [ imports ] [ record types ]
+Emission   [ imports ] [ emissions ] [ outcomes ] [ types ]    ; Emission and Outcome implied
 ```
 
 Operation's sections are proposed, not yet the living's word.
@@ -54,10 +57,39 @@ Operation's sections are proposed, not yet the living's word.
 A Signal generates `pub enum Query` and `pub enum Response` from its
 first two sections, so those two names are the ones a Signal may not
 also declare; an Operation likewise generates `pub enum Operation` and
+`pub enum Outcome`, and an Emission `pub enum Emission` and
 `pub enum Outcome`, each variant carrying its declared payload. A Memory
 generates nothing but its declared record types and reserves no name; a
 Memory record may be named `Record`. A file headed `Sema`, Memory's head
 before 15.0.0, is refused as `Conceptual.{ [ 0 ] Renamed.Memory }`.
+
+An Emission pairs its sections by position: the n-th outcome is the n-th
+emission's, and an outcome past the last emission pairs with none. An
+emission left without an outcome is refused as `Unpaired.<emission>` at its
+path (`Emission [] [ Go Stop ] [ Gone ] []` is
+`Conceptual.{ [ 1 1 1 ] Unpaired.Stop }`). An emission is Emittable: the
+translator turns it into the call and yields its outcome. No standard
+library holds the root-implied traits yet, so the file generates both
+traits beside its enums, and binds each emission's carried type to its
+outcome's:
+
+```rust
+pub trait Emitted { type Outcome; }
+pub trait Emittable<Translator>: Emitted {
+    fn emit(&self, translator: &Translator) -> Self::Outcome;
+}
+impl Emitted for Command_Data { type Outcome = Outcome_Data; }   // from Command.{ … } and Outcome.[ … ]
+```
+
+The consumer writes `impl Emittable<ItsTranslator> for Command_Data` with
+`emit` alone; `Emitted` already fixed the outcome, so `emit` yields it and
+no other. An outcome carrying nothing binds `()`; an emission carrying
+nothing has no type to bear the trait and binds nothing. Two emissions
+carrying the same type would bind it twice and are refused as
+`Duplicate.<type>` at the second. `Emitted` and `Emittable` are names an
+Emission may not declare, as `Emission` and `Outcome` are not.
+`fixtures/command-emission.ethos` is the vision's example, its import
+written rooted.
 
 Every root's types archive (rkyv) and gate their datom derives behind the
 `datom` feature, a Library's, an Operation's and a Memory's as a Signal's:

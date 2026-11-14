@@ -1245,7 +1245,7 @@ impl Emitting for File {
                     items.push(quote! { #[rustfmt::skip] #item });
                 }
             }
-            File::Signal(_) | File::Operation(_) | File::Memory(_) => {
+            File::Signal(_) | File::Operation(_) | File::Memory(_) | File::Emission(_) => {
                 for declaration in self.types() {
                     items.push(declaration.emit(scope));
                 }
@@ -1265,12 +1265,112 @@ impl Emitting for File {
                     );
                     items.push(enumeration.emit(scope));
                 }
+                if let File::Emission(emission) = self {
+                    for item in emission.implied_traits(scope) {
+                        items.push(quote! { #[rustfmt::skip] #item });
+                    }
+                }
             }
         }
         quote! {
             #![allow(dead_code, non_camel_case_types, non_snake_case, clippy::type_complexity)]
             #( #items )*
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Root-implied traits: the pairing of requests and replies by position
+// ---------------------------------------------------------------------------
+
+/// The trait whose capability yields the Rust type a variant of an implied
+/// enum carries, as the variant's field holds it, or none where it carries
+/// nothing.
+trait Borne {
+    fn borne(&self, scope: &Scope, owner: &Name) -> Option<TokenStream>;
+}
+
+impl Borne for Variant {
+    fn borne(&self, scope: &Scope, owner: &Name) -> Option<TokenStream> {
+        match self {
+            Variant::Bare(name) if scope.carries(name) => {
+                Some(name.carried().position(scope, owner))
+            }
+            Variant::Bare(_) => None,
+            Variant::Typed(_, reference) => Some(reference.owned(owner).position(scope, owner)),
+            Variant::Struct(name, _) | Variant::Enum(name, _) => {
+                Some(scope.file.inline_name(owner, owner, name).tokens())
+            }
+        }
+    }
+}
+
+/// The trait whose capability writes `Self` in a variant's reference as the
+/// enum it stands for, so the type reads the same outside that enum: in a
+/// trait or an impl, `Self` would name something else.
+trait Owning {
+    fn owned(&self, owner: &Name) -> Reference;
+}
+
+impl Owning for Reference {
+    fn owned(&self, owner: &Name) -> Reference {
+        let mut arguments = Vec::with_capacity(self.arguments.len());
+        for argument in &self.arguments {
+            arguments.push(argument.owned(owner));
+        }
+        let name = if self.source.is_none() && self.name.0 == "Self" {
+            owner.clone()
+        } else {
+            self.name.clone()
+        };
+        Reference {
+            source: self.source.clone(),
+            name,
+            arguments,
+        }
+    }
+}
+
+/// The trait whose capability emits the traits a root implies on what it
+/// declares, beside its implied enums: the items, each to be skipped by
+/// rustfmt.
+trait TraitImplying {
+    fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream>;
+}
+
+/// An Emission's `Emittable`: the translator turns an emission into its call
+/// and yields its outcome. The n-th outcome is the n-th emission's, bound by
+/// `Emitted` on the type the emission carries; `Emittable` extends
+/// `Emitted`, so a hand-written `emit` yields the bound outcome and no other.
+/// A payload-less outcome binds `()`; a payload-less emission carries no type
+/// to bear the trait and binds nothing. No standard library holds the
+/// root-implied traits yet, so both traits are generated into the file.
+impl TraitImplying for crate::Emission {
+    fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream> {
+        if self.emissions.is_empty() {
+            return vec![];
+        }
+        let emitted = Name::try_from("Emission").expect("static identifier");
+        let observed = Name::try_from("Outcome").expect("static identifier");
+        let mut items = vec![
+            quote! { pub trait Emitted { type Outcome; } },
+            quote! {
+                pub trait Emittable<Translator>: Emitted {
+                    fn emit(&self, translator: &Translator) -> Self::Outcome;
+                }
+            },
+        ];
+        for (emission, outcome) in self.emissions.iter().zip(&self.outcomes) {
+            let Some(carried) = emission.borne(scope, &emitted) else {
+                continue;
+            };
+            let outcome = match outcome.borne(scope, &observed) {
+                Some(outcome) => outcome,
+                None => quote! { () },
+            };
+            items.push(quote! { impl Emitted for #carried { type Outcome = #outcome; } });
+        }
+        items
     }
 }
 

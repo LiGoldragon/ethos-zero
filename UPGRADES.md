@@ -2,6 +2,17 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 23.0.0: the Emission root
+
+What breaks, in two parts.
+
+1. The public model gains a fifth root: `File::Emission(Emission)` and `Root::Emission`, with `Emission { imports, emissions, outcomes, types }`. A consumer matching `File` or `Root` exhaustively adds the arm.
+2. The `Error` contract gains `Problem.Unpaired.String`, the emission left without an outcome. A consumer matching `Problem` exhaustively adds the arm.
+
+What is added: a file headed `Emission`, with four sections read as an Operation's: imports, emissions, outcomes, types. It generates its declared types, `pub enum Emission` over the emissions and `pub enum Outcome` over the outcomes, and the traits `Emitted` and `Emittable<Translator>: Emitted`, with `impl Emitted for <the n-th emission's carried type> { type Outcome = <the n-th outcome's carried type, or ()>; }`. The consumer writes `emit` for each emission type it sends. An emission past the last outcome is refused as `Unpaired.<emission>` at its path; two emissions carrying the same type as `Duplicate.<type>` at the second; a type, trait or import named `Emission`, `Outcome`, `Emitted` or `Emittable` as `Duplicate`. Every file of the four other roots generates the same Rust as under 22.0.0.
+
+To deploy: repin ethos-zero to 23.0.0 and add the arms. An Emission written as a Signal in `emission.ethos` (the interim form) may be rewritten under the `Emission` head: its inputs are its emissions, its outputs its outcomes. The generated variant types keep their names (`Command.{ … }` still gives `Command_Data`); the consumer's own Emittable trait, if it declares one, gives way to the generated `Emittable` (energy-nexus's `crates/emission` declares `Emittable<T>`).
+
 ## 22.0.0: one carrying rule in every section, imported types included
 
 What breaks, in three parts.

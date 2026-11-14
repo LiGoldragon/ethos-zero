@@ -60,6 +60,7 @@ pub enum Problem {
     Renamed(String),
     Wrapping(Wrapping_Data),
     Payload(String),
+    Unpaired(String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

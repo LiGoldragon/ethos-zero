@@ -5,9 +5,9 @@ use protos::{
 };
 
 use crate::{
-    AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Identity,
-    Import, Imported, Library, Memory, Operation, Position, Receiver, Reference, Signal, Signature,
-    Source, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    AssociatedConstant, AssociatedType, Association, Capability, Constraint, Emission, File,
+    Identity, Import, Imported, Library, Memory, Operation, Position, Receiver, Reference, Signal,
+    Signature, Source, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Protosizing {
@@ -478,6 +478,19 @@ impl Protosizing for Operation {
         )
     }
 }
+impl Protosizing for Emission {
+    fn protos(&self) -> Protos {
+        "".enclosed(
+            Enclosure::Braced,
+            vec![
+                "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.emissions.variant_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.outcomes.variant_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
+            ],
+        )
+    }
+}
 impl Protosizing for Memory {
     fn protos(&self) -> Protos {
         "".enclosed(
@@ -498,6 +511,9 @@ impl Protosizing for File {
                 "Operation".headed(None, Separator::Period, operation.protos())
             }
             Self::Memory(memory) => "Memory".headed(None, Separator::Period, memory.protos()),
+            Self::Emission(emission) => {
+                "Emission".headed(None, Separator::Period, emission.protos())
+            }
         };
         // Shared Protos canonicalization assigns exact UTF-8 byte spans
         // without routing a valid conceptual ascent through a finite reader.

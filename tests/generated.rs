@@ -30,6 +30,8 @@ impl Fillable for sink_associations::Sink {}
 mod alias_format;
 #[path = "generated/capability-traits.rs"]
 mod capability_traits;
+#[path = "generated/command-emission.rs"]
+mod command_emission;
 #[path = "generated/composition-types.rs"]
 mod composition_types;
 #[path = "generated/empty-signal.rs"]
@@ -466,6 +468,35 @@ fn a_complex_trait_carries_its_supertrait_type_and_constant() {
     assert_eq!(counter.next(), Some(1));
     assert_eq!(counter.next(), Some(2));
     assert_eq!(counter.next(), None);
+}
+
+/// A translator that observes what it was set to observe, whatever the call.
+struct Scripted(command_emission::Outcome_Data);
+
+/// The hand-written body an Emission leaves to its consumer: `Emitted`
+/// already binds `Command_Data` to `Outcome_Data`, the first outcome, so
+/// `emit` yields that type and no other.
+impl command_emission::Emittable<Scripted> for command_emission::Command_Data {
+    fn emit(&self, translator: &Scripted) -> command_emission::Outcome_Data {
+        translator.0.clone()
+    }
+}
+
+#[test]
+fn an_emission_yields_the_outcome_its_position_binds() {
+    use command_emission::{Argument, Command_Data, Emittable, Emitted, Outcome_Data, Verb};
+    let command = Command_Data {
+        verb: Verb::Show,
+        argument_vector: vec![Argument::Name("pane".to_owned()), Argument::Quiet],
+    };
+    let outcome: <Command_Data as Emitted>::Outcome =
+        command.emit(&Scripted(Outcome_Data::Refused(2)));
+    assert_eq!(outcome, Outcome_Data::Refused(2));
+    let whole = command_emission::Outcome::Outcome(outcome);
+    assert!(matches!(
+        whole,
+        command_emission::Outcome::Outcome(Outcome_Data::Refused(2))
+    ));
 }
 
 #[test]

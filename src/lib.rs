@@ -176,7 +176,7 @@ impl AsRef<str> for Source {
     }
 }
 
-/// The unit of declaration: one file, one Rust module; an enum of its four roots.
+/// The unit of declaration: one file, one Rust module; an enum of its five roots.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum File {
     /// Library: imports, types, traits and associations in that order.
@@ -187,6 +187,8 @@ pub enum File {
     Operation(Operation),
     /// Memory: imports, the record types stored.
     Memory(Memory),
+    /// Emission: imports, the emission variants, the outcome variants, the types they carry.
+    Emission(Emission),
 }
 
 /// The head of a file: which variant of [`File`] it is.
@@ -200,6 +202,8 @@ pub enum Root {
     Operation,
     /// The memory root: what a Nexus remembers.
     Memory,
+    /// The emission root: what a Nexus sends into the world.
+    Emission,
 }
 
 /// A library's complete declaration surface.  Types and traits share one
@@ -250,6 +254,22 @@ pub struct Memory {
     /// Where imported names come from.
     pub imports: Vec<Import>,
     /// The record type declarations.
+    pub types: Vec<TypeDeclaration>,
+}
+
+/// The emission variant of a file: what a Nexus sends into the world, each
+/// emission one external call, whose type is `Emission`, and what the
+/// translator observed of each, whose type is `Outcome`. The n-th outcome is
+/// the n-th emission's; an outcome past the last emission pairs with none.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Emission {
+    /// Where imported names come from.
+    pub imports: Vec<Import>,
+    /// The variants of the emission type `Emission`.
+    pub emissions: Vec<Variant>,
+    /// The variants of the outcome type `Outcome`.
+    pub outcomes: Vec<Variant>,
+    /// The types the emissions and outcomes carry.
     pub types: Vec<TypeDeclaration>,
 }
 
@@ -700,13 +720,20 @@ impl Named for Root {
             Root::Signal => "Signal",
             Root::Operation => "Operation",
             Root::Memory => "Memory",
+            Root::Emission => "Emission",
         }
     }
 }
 
 impl Identifiable for Root {
     fn identify(name: &str) -> Option<Self> {
-        for root in [Root::Library, Root::Signal, Root::Operation, Root::Memory] {
+        for root in [
+            Root::Library,
+            Root::Signal,
+            Root::Operation,
+            Root::Memory,
+            Root::Emission,
+        ] {
             if root.name() == name {
                 return Some(root);
             }
@@ -733,6 +760,7 @@ impl Rooted for File {
             File::Signal(_) => Root::Signal,
             File::Operation(_) => Root::Operation,
             File::Memory(_) => Root::Memory,
+            File::Emission(_) => Root::Emission,
         }
     }
 }
@@ -832,6 +860,7 @@ mod behavior {
             "Signal [] [ Ask.{ String Integer } ] [ Told ] []",
             "Operation [] [ Do.{ String Integer } ] [ Done ] []",
             "Memory [] [ Record.{ String Integer } ]",
+            "Emission [] [ Do.{ String Integer } ] [ Done ] []",
         ] {
             let file = match Potential::<File>::from(source).actualize() {
                 Ok(file) => file,
@@ -1015,6 +1044,21 @@ mod behavior {
     }
 
     #[test]
+    fn emission_reads_its_four_sections_and_ascends() {
+        let source = "Emission [ :signal_herdr:signal:[ Input Output ] ] [ Command.{ Verb Vector<Argument> } ] [ Outcome.[ Done Refused.Integer ] ] [ Verb.[ List Show ] Argument.[ Name.String Quiet ] ]";
+        let file = match Potential::<File>::from(source).actualize() {
+            Ok(file) => file,
+            Err(_) => panic!("approved Emission reads"),
+        };
+        assert!(matches!(file, File::Emission(_)));
+        let repeated = match Potential::<File>::from(file.protosize().textualize()).actualize() {
+            Ok(file) => file,
+            Err(_) => panic!("Emission ascent reads"),
+        };
+        assert_eq!(file, repeated);
+    }
+
+    #[test]
     fn a_file_headed_sema_is_refused_naming_memory() {
         match Potential::<File>::from("Sema [] [ Record.{ String } ]").actualize() {
             Err(Error::Conceptual(data)) => {
@@ -1156,6 +1200,7 @@ mod behavior {
             ("Signal [ 1 ] [] [] []", vec![1, 0, 0]),
             ("Memory [] [ 1 ]", vec![1, 1, 0]),
             ("Operation [ 1 ] [] [] []", vec![1, 0, 0]),
+            ("Emission [ 1 ] [] [] []", vec![1, 0, 0]),
             ("Library [] [ Alias.Vector<1> ] [] []", vec![1, 1, 1, 0]),
         ];
         for (source, expected) in cases {
@@ -1196,6 +1241,7 @@ mod behavior {
             "Signal [ 1 ] [] [] []",
             "Memory [] [ 1 ]",
             "Operation [] [ Go.Vector<Bogus> ] [] []",
+            "Emission [] [ Go.Vector<Bogus> ] [ Gone ] []",
             "Library [] [ Alias.Vector<1> ] [] []",
             "Library [] [] [ K.[ 1 ] ] []",
             "Library [] [] [ K.{ [ 1 ] [] [] [] } ] []",
