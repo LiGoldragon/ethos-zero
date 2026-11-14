@@ -13,13 +13,13 @@ pub struct Measurement {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Query {
+pub enum Input {
     Measure(Measurement),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Response {
+pub enum Output {
     Measured(Measurement),
 }
 #[rustfmt::skip]
@@ -28,12 +28,12 @@ pub trait Answering {
     fn measure(
         &self,
         measurement: &Measurement,
-    ) -> std::result::Result<Measurement, Response>;
-    fn answer(&self, query: &Query) -> Response {
-        match query {
-            Query::Measure(measurement) => {
+    ) -> std::result::Result<Measurement, Output>;
+    fn answer(&self, input: &Input) -> Output {
+        match input {
+            Input::Measure(measurement) => {
                 self.measure(measurement)
-                    .map_or_else(|refusal| refusal, Response::Measured)
+                    .map_or_else(|refusal| refusal, Output::Measured)
             }
         }
     }

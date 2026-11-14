@@ -4,7 +4,7 @@
 ; file, the line and column of the error in it, and the error.
 ; The files read are of five roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
-;   Signal     [ imports ] [ queries ] [ responses ] [ types ]
+;   Signal     [ imports ] [ inputs ] [ outputs ] [ types ]
 ;   Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; proposed, pending the living's word
 ;   Memory     [ imports ] [ record types ]
 ;   Emission   [ imports ] [ emissions ] [ outcomes ] [ types ]

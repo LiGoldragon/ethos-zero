@@ -45,11 +45,11 @@ mod wire {
     #[test]
     fn every_root_crosses_the_wire() {
         crosses(library::Voice::Mind(library::Rank::Primary));
-        crosses(signal::Query::Report(signal::Report_Data {
+        crosses(signal::Input::Report(signal::Report_Data {
             flow_id: library::FlowId(7),
             event: library::Event::ToolUsed("Bash".to_owned()),
         }));
-        crosses(signal::Response::Refused(signal::Refused_Data::VoiceBusy(
+        crosses(signal::Output::Refused(signal::Refused_Data::VoiceBusy(
             library::Voice::Field(library::Rank::Tertiary),
         )));
         crosses(operation::Operation::Start(operation::Start_Data {
@@ -73,7 +73,7 @@ mod wire {
     fn every_root_bears_its_datom_kinds_under_the_feature() {
         fn bears<T: datom_codec::Datomizable + datom_codec::Composing>() {}
         bears::<library::Voice>();
-        bears::<signal::Query>();
+        bears::<signal::Input>();
         bears::<operation::Operation>();
         bears::<memory::Flow>();
     }

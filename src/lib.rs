@@ -181,7 +181,7 @@ impl AsRef<str> for Source {
 pub enum File {
     /// Library: imports, types, traits and associations in that order.
     Library(Library),
-    /// Signal: imports, the query variants, the response variants, the types carried.
+    /// Signal: imports, the input variants, the output variants, the types carried.
     Signal(Signal),
     /// Operation: imports, the operation variants, the outcome variants, the types they carry.
     Operation(Operation),
@@ -220,20 +220,20 @@ pub struct Library {
     pub associations: Vec<Association>,
 }
 
-/// The signal variant of a file: a wire contract whose query type is `Query` and whose response type is `Response`.
+/// The signal variant of a file: a wire contract whose input type is `Input` and whose output type is `Output`.
 ///
-/// The n-th response answers the n-th query; a response past the last query
-/// answers none. The file generates `Answering`, a capability per query,
-/// borrowing what the query carries, and the dispatch over a borrowed query.
+/// The n-th output answers the n-th input; an output past the last input
+/// answers none. The file generates `Answering`, a capability per input,
+/// borrowing what the input carries, and the dispatch over a borrowed input.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signal {
     /// Where imported names come from.
     pub imports: Vec<Import>,
-    /// The variants of the query type `Query`.
-    pub queries: Vec<Variant>,
-    /// The variants of the response type `Response`.
-    pub responses: Vec<Variant>,
-    /// The types the queries and responses carry.
+    /// The variants of the input type `Input`.
+    pub inputs: Vec<Variant>,
+    /// The variants of the output type `Output`.
+    pub outputs: Vec<Variant>,
+    /// The types the inputs and outputs carry.
     pub types: Vec<TypeDeclaration>,
 }
 

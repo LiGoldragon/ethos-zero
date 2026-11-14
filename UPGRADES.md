@@ -2,6 +2,18 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 26.0.0: a Signal implies Input and Output
+
+What breaks, in three parts.
+
+1. A Signal's implied enums are renamed as the vision has them, `Signal [ imports ] [ inputs ] [ outputs ] [ types ]` with the implied namespace `signal:[ Input Output ]`: a Signal generates `pub enum Input` over its first section and `pub enum Output` over its second, where 25.x generated `pub enum Query` and `pub enum Response`. Inline payloads follow the enum's name: `Input_Ask_Data` and `Output_Ask_Data` where 25.x gave `Query_Ask_Data` and `Response_Ask_Data`. `Answering` speaks the same names: `fn launch(&self, launch: &Launch_Data) -> std::result::Result<flow::FlowId, Output>` and `fn answer(&self, input: &Input) -> Output`; a capability whose input carries `Vector<Self>` takes `input_vector: &Vec<Input>`.
+2. A Signal may not declare `Input` or `Output`, as a type, an inline payload or an import: `Signal [] [ Ask ] [ Told ] [ Input.{ String } ]` is refused as `Conceptual.{ [ 1 3 0 0 ] Duplicate.Input }`. `Query` and `Response` become ordinary names a Signal may declare. A Signal that 25.x accepted with a declared or imported `Input` or `Output` (signal-energy-nexus's `Call.{ Caller Input.[ … ] }` declares `Input` in place) is now refused.
+3. The public model's `Signal` struct renames its fields: `queries` is `inputs` and `responses` is `outputs`.
+
+The wire is unchanged: variant order, names and payloads stay as they were, so the rkyv archive of every value is the same. The ethos text of a Signal is unchanged too; only a Signal that declares `Input` or `Output` must be edited, which changes its text.
+
+To deploy: run `ethos-zero 'Check.<file>'` over every Signal and rename a declared or imported `Input` or `Output` (and its uses) that it refuses. In Rust, replace each generated `<signal>::Query` with `<signal>::Input` and `<signal>::Response` with `<signal>::Output`, in paths, `use` lists, matches, constructors, `Potential::<Query>` and rkyv type arguments, and an inline payload's `Query_<X>_Data` or `Response_<X>_Data` with `Input_<X>_Data` or `Output_<X>_Data`; an `impl Answering` returns `Output`. A consumer that reads `Signal { queries, responses, .. }` from the public model reads `inputs` and `outputs`. A Library whose own types are named `Query` and `Response` (ethos-zero's own `ethos-zero.ethos` among them) is not a Signal and keeps them.
+
 ## 25.0.0: an Answering capability borrows its input
 
 What breaks: every capability of a Signal's generated `Answering` borrows what its query carries, and the dispatch borrows the query. 24.0.0 generated `fn launch(&self, launch: Launch_Data) -> std::result::Result<flow::FlowId, Response>` and `fn answer(&self, query: Query) -> Response`; 25.0.0 generates `fn launch(&self, launch: &Launch_Data) -> …` and `fn answer(&self, query: &Query) -> Response`, matching on the borrow and lending each capability the payload it matched. The input's type is the query's carried type exactly, borrowed: `&String`, `&Vec<_>` and `&Box<_>` stay as they are, and the trait allows `clippy::ptr_arg` and `clippy::borrowed_box` beside `clippy::result_large_err`. A capability that carries nothing still takes nothing. Only `Answering` changes: a declared trait's capabilities keep their by-value form, and every type the file generates is as under 24.0.0.

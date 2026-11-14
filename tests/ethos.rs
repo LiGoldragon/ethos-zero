@@ -31,14 +31,14 @@ fn full_library_round_trips_and_generates_named_types_and_traits() {
 }
 
 #[test]
-fn signal_generates_query_response_and_optional_datom_derives() {
+fn signal_generates_input_output_and_optional_datom_derives() {
     let file = read(include_str!("../fixtures/orchestrate.ethos"));
     let rust = match file.generate() {
         Ok(rust) => rust,
         Err(_) => panic!("checked Signal generates"),
     };
-    assert!(rust.contains("pub enum Query"));
-    assert!(rust.contains("pub enum Response"));
+    assert!(rust.contains("pub enum Input"));
+    assert!(rust.contains("pub enum Output"));
     assert!(rust.contains("feature = \"datom\""));
     assert!(rust.contains("datom_codec::Datomizable, datom_codec::Composing"));
     assert!(rust.contains("pub struct LockId(pub i64)"));
@@ -182,52 +182,52 @@ fn an_emission_declaring_an_implied_enum_or_trait_name_is_refused() {
 }
 
 #[test]
-fn a_signal_generates_answering_with_one_capability_per_query_and_its_dispatch() {
+fn a_signal_generates_answering_with_one_capability_per_input_and_its_dispatch() {
     let rust = "Signal [] [ Launch.LaunchRequest Report.{ String } Ping ] [ Launched.FlowId Reported Pong Refused.String ] [ LaunchRequest.{ String } FlowId.Integer ]".compact();
     // prettyplease ends a parameter list it wraps with a comma.
     let rust = rust.replace(",)", ")");
     for expected in [
         "pubtraitAnswering{",
-        "fnlaunch(&self,launch_request:&LaunchRequest)->std::result::Result<FlowId,Response>;",
-        "fnreport(&self,report:&Report_Data)->std::result::Result<(),Response>;",
-        "fnping(&self)->std::result::Result<(),Response>;",
-        "fnanswer(&self,query:&Query)->Response{matchquery{",
-        "Query::Launch(launch_request)=>",
-        "self.launch(launch_request).map_or_else(|refusal|refusal,Response::Launched)",
-        "Query::Report(report)=>",
-        "self.report(report).map_or_else(|refusal|refusal,|()|Response::Reported)",
-        "Query::Ping=>",
-        "self.ping().map_or_else(|refusal|refusal,|()|Response::Pong)",
+        "fnlaunch(&self,launch_request:&LaunchRequest)->std::result::Result<FlowId,Output>;",
+        "fnreport(&self,report:&Report_Data)->std::result::Result<(),Output>;",
+        "fnping(&self)->std::result::Result<(),Output>;",
+        "fnanswer(&self,input:&Input)->Output{matchinput{",
+        "Input::Launch(launch_request)=>",
+        "self.launch(launch_request).map_or_else(|refusal|refusal,Output::Launched)",
+        "Input::Report(report)=>",
+        "self.report(report).map_or_else(|refusal|refusal,|()|Output::Reported)",
+        "Input::Ping=>",
+        "self.ping().map_or_else(|refusal|refusal,|()|Output::Pong)",
     ] {
         assert!(rust.contains(expected), "{expected} in {rust}");
     }
-    // `Refused` is past the last query: it answers none.
-    assert!(!rust.contains("Response::Refused"), "{rust}");
+    // `Refused` is past the last input: it answers none.
+    assert!(!rust.contains("Output::Refused"), "{rust}");
 }
 
 #[test]
-fn a_query_s_capability_borrows_self_as_the_query_and_a_keyword_raw() {
+fn an_input_s_capability_borrows_self_as_the_input_and_a_keyword_raw() {
     let rust =
         "Signal [] [ Again.Vector<Self> Match.Type ] [ Done.Option<Self> Matched ] [ Type.String ]"
             .compact();
     // prettyplease ends a parameter list it wraps with a comma.
     let rust = rust.replace(",)", ")");
     for expected in [
-        "fnagain(&self,query_vector:&std::vec::Vec<Query>)->std::result::Result<std::option::Option<std::boxed::Box<Response>>,Response>;",
-        "fnr#match(&self,r#type:&Type)->std::result::Result<(),Response>;",
+        "fnagain(&self,input_vector:&std::vec::Vec<Input>)->std::result::Result<std::option::Option<std::boxed::Box<Output>>,Output>;",
+        "fnr#match(&self,r#type:&Type)->std::result::Result<(),Output>;",
     ] {
         assert!(rust.contains(expected), "{expected} in {rust}");
     }
 }
 
 #[test]
-fn a_signal_without_queries_generates_no_answering() {
+fn a_signal_without_inputs_generates_no_answering() {
     let rust = "Signal [] [] [ Told ] []".compact();
     assert!(!rust.contains("Answering"), "{rust}");
 }
 
 #[test]
-fn a_query_left_without_a_response_is_refused_at_its_path() {
+fn an_input_left_without_an_output_is_refused_at_its_path() {
     assert_eq!(
         "Signal [] [ Ask.Vector<String> Tell ] [ Told ] []".refusal(),
         (vec![1, 1, 2], Problem::Unpaired("Tell".to_owned()))
@@ -235,7 +235,7 @@ fn a_query_left_without_a_response_is_refused_at_its_path() {
 }
 
 #[test]
-fn a_query_whose_capability_name_is_taken_is_refused() {
+fn an_input_whose_capability_name_is_taken_is_refused() {
     assert_eq!(
         "Signal [] [ Answer ] [ Answered ] []".refusal(),
         (vec![1, 1, 0], Problem::Duplicate("answer".to_owned()))
@@ -316,34 +316,39 @@ fn operation_free_signal_generates_only_its_declared_shared_data() {
         Err(_) => panic!("operation-free Signal generates"),
     };
     assert!(generated.contains("pub struct Shared"));
-    assert!(!generated.contains("pub enum Query"));
-    assert!(!generated.contains("pub enum Response"));
+    assert!(!generated.contains("pub enum Input"));
+    assert!(!generated.contains("pub enum Output"));
 }
 
 #[test]
-fn a_signal_declaring_the_query_type_is_refused() {
-    // The generator emits `pub enum Query` (Vision/ethos.md: "pub enum Query
-    // { Lock(LockRequest), Release(LockId) }"), so `Query` is the name a
-    // Signal may not also declare.
-    let signal = read("Signal [] [ Ask.Query ] [ Told.Query ] [ Query.{ String } ]");
-    assert!(signal.generate().is_err());
-    // `Request` is an ordinary name: nothing is generated under it.
-    let generated = match read("Signal [] [ Ask.Request ] [ Told.Request ] [ Request.{ String } ]")
-        .generate()
+fn a_signal_declaring_the_input_type_is_refused() {
+    // The generator emits `pub enum Input` (the vision's implied namespace
+    // `signal:[ Input Output ]`), so `Input` is the name a Signal may not
+    // also declare.
+    assert_eq!(
+        "Signal [] [ Ask.Input ] [ Told.Input ] [ Input.{ String } ]".refusal(),
+        (vec![1, 3, 0, 0], Problem::Duplicate("Input".to_owned()))
+    );
+    // `Query` and `Response` are ordinary names: nothing is generated under them.
+    let generated = match read(
+        "Signal [] [ Ask.Query ] [ Told.Response ] [ Query.{ String } Response.{ String } ]",
+    )
+    .generate()
     {
         Ok(generated) => generated,
-        Err(_) => panic!("a Signal declaring Request generates"),
+        Err(_) => panic!("a Signal declaring Query and Response generates"),
     };
-    assert!(generated.contains("pub struct Request"));
-    assert_eq!(generated.matches("pub enum Query").count(), 1);
+    assert!(generated.contains("pub struct Query"));
+    assert!(generated.contains("pub struct Response"));
+    assert_eq!(generated.matches("pub enum Input").count(), 1);
+    assert_eq!(generated.matches("pub enum Output").count(), 1);
 }
 
 #[test]
-fn a_signal_declaring_the_response_type_is_refused() {
-    assert!(
-        read("Signal [] [ Ask.Response ] [ Told.Response ] [ Response.{ String } ]")
-            .generate()
-            .is_err()
+fn a_signal_declaring_the_output_type_is_refused() {
+    assert_eq!(
+        "Signal [] [ Ask.Output ] [ Told.Output ] [ Output.{ String } ]".refusal(),
+        (vec![1, 3, 0, 0], Problem::Duplicate("Output".to_owned()))
     );
 }
 
@@ -465,18 +470,18 @@ fn generates(source: &str) -> String {
 
 #[test]
 fn rooted_imports_in_the_imports_section_take_every_namespace_segment() {
-    let source = "Library [ :flow_ethos:message:Type :flow_ethos:signal:[ Query Reply ] :protos:[ Textualizable ] ] [ Record.{ Type Query Vector<Reply> } ] [] [ Record.[ Textualizable ] ]";
+    let source = "Library [ :flow_ethos:message:Type :flow_ethos:signal:[ Input Output ] :protos:[ Textualizable ] ] [ Record.{ Type Input Vector<Output> } ] [] [ Record.[ Textualizable ] ]";
     let generated = generates(source);
     assert!(
         generated.contains(": flow_ethos::message::Type"),
         "{generated}"
     );
     assert!(
-        generated.contains(": flow_ethos::signal::Query"),
+        generated.contains(": flow_ethos::signal::Input"),
         "{generated}"
     );
     assert!(
-        generated.contains("std::vec::Vec<flow_ethos::signal::Reply>"),
+        generated.contains("std::vec::Vec<flow_ethos::signal::Output>"),
         "{generated}"
     );
 
@@ -484,7 +489,7 @@ fn rooted_imports_in_the_imports_section_take_every_namespace_segment() {
     assert!(print.contains(":flow_ethos:message:Type"), "{print}");
     // protos lays the bare source and its bracket out as two siblings.
     assert!(print.contains(":flow_ethos:signal:"), "{print}");
-    assert!(print.contains("[ Query Reply ]"), "{print}");
+    assert!(print.contains("[ Input Output ]"), "{print}");
 
     let memory = generates("Memory [ :crate:message:[ FlowId ] ] [ Flow.{ FlowId } ]");
     assert!(
@@ -601,13 +606,13 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
 }
 
 #[test]
-fn signal_query_and_response_inline_payloads_are_unique_file_wide() {
+fn signal_input_and_output_inline_payloads_are_unique_file_wide() {
     let generated = match read("Signal [] [ Ask.{ String } ] [ Ask.{ Integer } ] []").generate() {
         Ok(generated) => generated,
-        Err(_) => panic!("Query and Response each declaring Ask in place generate"),
+        Err(_) => panic!("Input and Output each declaring Ask in place generate"),
     };
-    assert!(generated.contains("pub struct Query_Ask_Data"));
-    assert!(generated.contains("pub struct Response_Ask_Data"));
+    assert!(generated.contains("pub struct Input_Ask_Data"));
+    assert!(generated.contains("pub struct Output_Ask_Data"));
     syn::parse_file(&generated).expect("generated Rust parses");
 }
 
@@ -646,8 +651,8 @@ fn types_section_declarations_refuse_wrapping_named_structs_and_enums() {
             wrapping("Wrapped", "Choice"),
         ),
         (
-            "Signal [] [ Ask ] [] [ Wrapped.Query ]",
-            wrapping("Wrapped", "Query"),
+            "Signal [] [ Ask ] [] [ Wrapped.Input ]",
+            wrapping("Wrapped", "Input"),
         ),
     ] {
         assert_eq!(source.refusal().1, problem, "{source}");
@@ -726,8 +731,8 @@ fn a_bare_variant_named_as_an_imported_type_carries_it() {
 
 #[test]
 fn a_variant_named_as_an_implied_type_carries_nothing_and_takes_a_payload() {
-    let rust = "Signal [] [ Query.Ask ] [ Told ] [ Ask.String ]".compact();
-    assert!(rust.contains("pubenumQuery{Query(Ask),}"), "{rust}");
+    let rust = "Signal [] [ Input.Ask ] [ Told ] [ Ask.String ]".compact();
+    assert!(rust.contains("pubenumInput{Input(Ask),}"), "{rust}");
 }
 
 #[test]
@@ -738,7 +743,7 @@ fn a_variant_named_as_a_defined_type_and_written_bare_carries_it() {
         "{rust}"
     );
     let rust = "Signal [] [ Acquire.Request ] [ Lock ] [ Request.String Lock.String ]".compact();
-    assert!(rust.contains("pubenumResponse{Lock(Lock),}"), "{rust}");
+    assert!(rust.contains("pubenumOutput{Lock(Lock),}"), "{rust}");
 }
 
 #[test]

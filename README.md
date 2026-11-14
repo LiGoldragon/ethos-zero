@@ -46,7 +46,7 @@ Library what they share.
 
 ```
 Library    [ imports ] [ types ] [ traits ] [ associations ]
-Signal     [ imports ] [ queries ] [ responses ] [ types ]     ; Query and Response implied
+Signal     [ imports ] [ inputs ] [ outputs ] [ types ]       ; Input and Output implied
 Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; Operation and Outcome implied
 Memory     [ imports ] [ record types ]
 Emission   [ imports ] [ emissions ] [ outcomes ] [ types ]    ; Emission and Outcome implied
@@ -54,47 +54,49 @@ Emission   [ imports ] [ emissions ] [ outcomes ] [ types ]    ; Emission and Ou
 
 Operation's sections are proposed, not yet the living's word.
 
-A Signal generates `pub enum Query` and `pub enum Response` from its
+A Signal generates `pub enum Input` and `pub enum Output` from its
 first two sections, so those two names are the ones a Signal may not
-also declare; an Operation likewise generates `pub enum Operation` and
+also declare (`Query` and `Response` are ordinary names); an Operation
+likewise generates `pub enum Operation` and
 `pub enum Outcome`, and an Emission `pub enum Emission` and
 `pub enum Outcome`, each variant carrying its declared payload. A Memory
 generates nothing but its declared record types and reserves no name; a
 Memory record may be named `Record`. A file headed `Sema`, Memory's head
 before 15.0.0, is refused as `Conceptual.{ [ 0 ] Renamed.Memory }`.
 
-A Signal pairs its sections by position: the n-th response answers the
-n-th query, and a response past the last query answers none, a refusal or a
-reaction. A query left without a response is refused as
-`Unpaired.<query>` at its path. A Signal with queries generates
-`Answering`: one capability per query, the variant in snake case,
-borrowing what the query carries (taking nothing where it carries nothing)
-and yielding what its response carries (`()` where it carries nothing) or
-the refusal, any `Response`; and the dispatch, generated whole. The
-dispatch owns the input: `answer` borrows the query and lends each
-capability the payload it matched:
+A Signal pairs its sections by position: the n-th output answers the
+n-th input, and an output past the last input answers none, a refusal or a
+reaction. An input left without an output is refused as
+`Unpaired.<input>` at its path. A Signal with inputs generates
+`Answering`: one capability per input, the variant in snake case,
+borrowing what the input carries (taking nothing where it carries nothing)
+and yielding what its output carries (`()` where it carries nothing) or
+the refusal, any `Output`; and the dispatch, generated whole. The
+dispatch owns the input: `answer` borrows it and lends each capability
+the payload it matched:
 
 ```rust
 pub trait Answering {
-    fn launch(&self, launch_request: &LaunchRequest) -> std::result::Result<FlowId, Response>;
-    fn report(&self, report: &Report_Data) -> std::result::Result<(), Response>;
-    fn answer(&self, query: &Query) -> Response {
-        match query {
-            Query::Launch(launch_request) => self.launch(launch_request).map_or_else(|refusal| refusal, Response::Launched),
-            Query::Report(report) => self.report(report).map_or_else(|refusal| refusal, |()| Response::Reported),
+    fn launch(&self, launch_request: &LaunchRequest) -> std::result::Result<FlowId, Output>;
+    fn report(&self, report: &Report_Data) -> std::result::Result<(), Output>;
+    fn answer(&self, input: &Input) -> Output {
+        match input {
+            Input::Launch(launch_request) => self.launch(launch_request).map_or_else(|refusal| refusal, Output::Launched),
+            Input::Report(report) => self.report(report).map_or_else(|refusal| refusal, |()| Output::Reported),
         }
     }
 }
 ```
 
-The input is named as a field of its type is (`launch_request`), or for the
-variant where the payload is declared in place (`report`); a keyword is
-written raw. A query whose capability would be named as another's, or
-`answer`, is refused as `Duplicate.<capability>`, and `Answering` is a name
-a Signal may not declare. The trait carries
+A capability's parameter is named as a field of its type is
+(`launch_request`), or for the variant where the payload is declared in
+place (`report`); a keyword is written raw. An input whose capability
+would be named as another's, or `answer`, is refused as
+`Duplicate.<capability>`, and `Answering` is a name a Signal may not
+declare. The trait carries
 `#[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]`:
-the refusal is the wire's `Response`, answered whole, however large its
-largest variant, and a capability borrows exactly the type its query
+the refusal is the wire's `Output`, answered whole, however large its
+largest variant, and a capability borrows exactly the type its input
 carries, `&String`, `&Vec<_>` or `&Box<_>` among them.
 
 An Emission pairs its sections by position: the n-th outcome is the n-th
@@ -193,7 +195,7 @@ Such a variant declaring a payload of its own, `Code.String`, `Code.Code` or
 variant. The rule holds in every section, a Signal's inputs and outputs and
 an Operation's operations and outcomes as much as an enum declaration:
 `Lock.LockRequest` as an input beside a declared `Lock` is refused, and the
-input is named `Acquire`. A name a root implies, a Signal's `Query`, is
+input is named `Acquire`. A name a root implies, a Signal's `Input`, is
 generated beside the file's own names, and no variant carries it.
 
 A variant that declares its payload in place names a derived type:

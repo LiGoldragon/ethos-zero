@@ -327,10 +327,10 @@ impl Conceiving<Library> for Protos {
 impl Conceiving<Signal> for Protos {
     fn conceive(&self) -> Result<Signal, Error> {
         let s = self.sections(4)?;
-        let Some(queries) = s[1].children(Enclosure::Bracketed) else {
+        let Some(inputs) = s[1].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
-        let Some(responses) = s[2].children(Enclosure::Bracketed) else {
+        let Some(outputs) = s[2].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![2], Problem::Expected(Form::Section)));
         };
         let Some(declarations) = s[3].children(Enclosure::Bracketed) else {
@@ -338,8 +338,8 @@ impl Conceiving<Signal> for Protos {
         };
         Ok(Signal {
             imports: s[0].imports().place(0)?,
-            queries: queries.variants().place(1)?,
-            responses: responses.variants().place(2)?,
+            inputs: inputs.variants().place(1)?,
+            outputs: outputs.variants().place(2)?,
             types: declarations.declarations().place(3)?,
         })
     }

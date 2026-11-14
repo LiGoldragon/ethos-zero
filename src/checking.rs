@@ -110,7 +110,7 @@ impl Resolving for [TraitDeclaration] {
 }
 
 /// The trait whose capability yields the names a file variant implies: a
-/// Signal's query and response types, an Operation's operation and outcome types.
+/// Signal's input and output types, an Operation's operation and outcome types.
 pub(crate) trait Implying {
     /// The implied type names.
     fn implied(&self) -> Vec<Name>;
@@ -763,7 +763,7 @@ impl Checkable for File {
 // ---------------------------------------------------------------------------
 
 /// An enum whose variants may declare inline payloads: a declared enum type,
-/// or a Signal's implied `Query` or `Response`.
+/// or a Signal's implied `Input` or `Output`.
 struct InlineRoot<'a> {
     owner: Name,
     variants: &'a [Variant],
@@ -926,11 +926,11 @@ impl Declared for Signal {
         // The two implied enums, and the trait generated beside them.
         let mut names = vec![
             DeclarationSite {
-                name: Name::try_from("Query").expect("static identifier"),
+                name: Name::try_from("Input").expect("static identifier"),
                 path: vec![1],
             },
             DeclarationSite {
-                name: Name::try_from("Response").expect("static identifier"),
+                name: Name::try_from("Output").expect("static identifier"),
                 path: vec![2],
             },
             DeclarationSite {
@@ -1031,16 +1031,16 @@ impl Checkable for Signal {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.declared().distinct()?;
         self.imports.check_each(scope, 0)?;
-        self.queries.names_in(1).distinct()?;
-        self.responses.names_in(2).distinct()?;
-        self.queries.check_each(scope, 1)?;
-        self.responses.check_each(scope, 2)?;
-        self.queries.refuse_payload(scope).place(1)?;
-        self.responses.refuse_payload(scope).place(2)?;
+        self.inputs.names_in(1).distinct()?;
+        self.outputs.names_in(2).distinct()?;
+        self.inputs.check_each(scope, 1)?;
+        self.outputs.check_each(scope, 2)?;
+        self.inputs.refuse_payload(scope).place(1)?;
+        self.outputs.refuse_payload(scope).place(2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)?;
-        self.queries.paired(&self.responses).place(1)?;
-        self.queries.capabilities_distinct().place(1)
+        self.inputs.paired(&self.outputs).place(1)?;
+        self.inputs.capabilities_distinct().place(1)
     }
 }
 
@@ -1603,7 +1603,7 @@ impl Checkable for TypeDeclaration {
 
 /// The trait whose capability says whether a variant of this name carries
 /// the type of that name: a type the file declares, or an imported one. A
-/// name a root implies (a Signal's `Query`) is generated beside the file's
+/// name a root implies (a Signal's `Input`) is generated beside the file's
 /// own names, and no variant carries it.
 pub(crate) trait Carrying {
     fn carries(&self, name: &Name) -> bool;
@@ -1695,9 +1695,9 @@ impl Pairing for [Variant] {
     }
 }
 
-/// The trait whose capability refuses two queries whose capabilities in the
-/// generated `Answering` would share a name, the query's variant in snake
-/// case, or a query whose capability would be named `answer`, the dispatch:
+/// The trait whose capability refuses two inputs whose capabilities in the
+/// generated `Answering` would share a name, the input's variant in snake
+/// case, or an input whose capability would be named `answer`, the dispatch:
 /// the later is a `Duplicate` of the name, at its path.
 trait CapabilityNaming {
     fn capabilities_distinct(&self) -> Result<(), Error>;
@@ -1707,13 +1707,13 @@ impl CapabilityNaming for [Variant] {
     fn capabilities_distinct(&self) -> Result<(), Error> {
         let mut names = vec!["answer".to_owned()];
         let mut at = 0;
-        for query in self {
-            let name = query.title().0.snake_case().identifier().to_string();
+        for input in self {
+            let name = input.title().0.snake_case().identifier().to_string();
             if names.contains(&name) {
                 return Err(Error::conceptual(vec![at], Problem::Duplicate(name)));
             }
             names.push(name);
-            at += query.span();
+            at += input.span();
         }
         Ok(())
     }

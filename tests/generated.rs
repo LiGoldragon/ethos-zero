@@ -109,47 +109,46 @@ fn colliding_inline_payloads_are_named_for_their_enums() {
 }
 
 #[test]
-fn named_fields_and_signal_query_response_compile() {
+fn named_fields_and_signal_input_output_compile() {
     let record = record_types::Record {
         string: "Ada".to_owned(),
         integer: 1990,
     };
     assert_eq!(record.integer, 1990);
-    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(
+    let input = orchestrate::Input::Observe(orchestrate::ObserveSelection::Locks(
         orchestrate::Locks(vec![]),
     ));
-    let response = orchestrate::Response::Observed(orchestrate::Observation::Locks(
-        orchestrate::Locks(vec![]),
-    ));
-    assert!(matches!(query, orchestrate::Query::Observe(_)));
-    assert!(matches!(response, orchestrate::Response::Observed(_)));
+    let output =
+        orchestrate::Output::Observed(orchestrate::Observation::Locks(orchestrate::Locks(vec![])));
+    assert!(matches!(input, orchestrate::Input::Observe(_)));
+    assert!(matches!(output, orchestrate::Output::Observed(_)));
 }
 
 #[test]
-fn generated_signal_query_round_trips_as_a_portable_archive() {
-    let query = orchestrate::Query::Observe(orchestrate::ObserveSelection::Locks(
+fn generated_signal_input_round_trips_as_a_portable_archive() {
+    let input = orchestrate::Input::Observe(orchestrate::ObserveSelection::Locks(
         orchestrate::Locks(vec![]),
     ));
-    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive query");
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&input).expect("archive input");
     let restored =
-        rkyv::from_bytes::<orchestrate::Query, rkyv::rancor::Error>(&bytes).expect("restore query");
-    assert!(matches!(restored, orchestrate::Query::Observe(_)));
+        rkyv::from_bytes::<orchestrate::Input, rkyv::rancor::Error>(&bytes).expect("restore input");
+    assert!(matches!(restored, orchestrate::Input::Observe(_)));
 }
 
 #[test]
 fn generated_decimal_signal_archives_and_bears_datom_derives() {
-    let query = signal_decimal::Query::Measure(signal_decimal::Measurement {
+    let input = signal_decimal::Input::Measure(signal_decimal::Measurement {
         decimal: datom_codec::Decimal::try_from(1.25).expect("1.25 is finite"),
     });
-    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive decimal query");
-    let restored = rkyv::from_bytes::<signal_decimal::Query, rkyv::rancor::Error>(&bytes)
-        .expect("restore decimal query");
-    assert_eq!(restored, query);
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&input).expect("archive decimal input");
+    let restored = rkyv::from_bytes::<signal_decimal::Input, rkyv::rancor::Error>(&bytes)
+        .expect("restore decimal input");
+    assert_eq!(restored, input);
 }
 
 #[test]
 fn recursive_generated_signal_archives_and_restores() {
-    use tree_types::{Chain, Node_Data, Query, Response, Tree, Twig, Twin};
+    use tree_types::{Chain, Input, Node_Data, Output, Tree, Twig, Twin};
     let tree = Tree::Node(Node_Data {
         first_tree: Box::new(Tree::Many(vec![Tree::Leaf(1), Tree::Maybe(None)])),
         second_tree: Box::new(Tree::Maybe(Some(Box::new(Tree::Many(vec![
@@ -164,23 +163,23 @@ fn recursive_generated_signal_archives_and_restores() {
         })),
         second_twig: Twig::Tip,
     };
-    let queries = [Query::Plant(tree.clone()), Query::Twine(twin.clone())];
-    for query in queries {
-        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&query).expect("archive recursive query");
-        let restored = rkyv::from_bytes::<Query, rkyv::rancor::Error>(&bytes)
-            .expect("restore recursive query");
-        assert_eq!(restored, query);
+    let inputs = [Input::Plant(tree.clone()), Input::Twine(twin.clone())];
+    for input in inputs {
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&input).expect("archive recursive input");
+        let restored = rkyv::from_bytes::<Input, rkyv::rancor::Error>(&bytes)
+            .expect("restore recursive input");
+        assert_eq!(restored, input);
     }
-    let responses = [
-        Response::Planted(tree_types::Forest(vec![tree, Tree::Leaf(3)])),
-        Response::Twined(Twig::Grow(Box::new(twin))),
+    let outputs = [
+        Output::Planted(tree_types::Forest(vec![tree, Tree::Leaf(3)])),
+        Output::Twined(Twig::Grow(Box::new(twin))),
     ];
-    for response in responses {
+    for output in outputs {
         let bytes =
-            rkyv::to_bytes::<rkyv::rancor::Error>(&response).expect("archive recursive response");
-        let restored = rkyv::from_bytes::<Response, rkyv::rancor::Error>(&bytes)
-            .expect("restore recursive response");
-        assert_eq!(restored, response);
+            rkyv::to_bytes::<rkyv::rancor::Error>(&output).expect("archive recursive output");
+        let restored = rkyv::from_bytes::<Output, rkyv::rancor::Error>(&bytes)
+            .expect("restore recursive output");
+        assert_eq!(restored, output);
     }
     let chain = Chain {
         string: "head".to_owned(),
@@ -503,49 +502,49 @@ fn an_emission_yields_the_outcome_its_position_binds() {
 /// every report.
 struct Launcher(Voice);
 
-/// The capabilities a Signal leaves to its consumer: each query's own,
-/// borrowing what the query carries; the generated `answer` dispatches to
+/// The capabilities a Signal leaves to its consumer: each input's own,
+/// borrowing what the input carries; the generated `answer` dispatches to
 /// them.
 impl flow_signal::Answering for Launcher {
-    fn launch(&self, launch: &flow_signal::Launch_Data) -> Result<FlowId, flow_signal::Response> {
+    fn launch(&self, launch: &flow_signal::Launch_Data) -> Result<FlowId, flow_signal::Output> {
         if launch.voice == self.0 {
-            return Err(flow_signal::Response::Refused(
+            return Err(flow_signal::Output::Refused(
                 flow_signal::Refused_Data::VoiceBusy(launch.voice.clone()),
             ));
         }
         Ok(FlowId(7))
     }
 
-    fn report(&self, _report: &flow_signal::Report_Data) -> Result<(), flow_signal::Response> {
+    fn report(&self, _report: &flow_signal::Report_Data) -> Result<(), flow_signal::Output> {
         Ok(())
     }
 }
 
 #[test]
-fn a_signal_answers_each_query_by_its_capability_and_the_response_its_position_pairs() {
-    use flow_signal::{Answering, Brief, Launch_Data, Query, Refused_Data, Report_Data, Response};
+fn a_signal_answers_each_input_by_its_capability_and_the_output_its_position_pairs() {
+    use flow_signal::{Answering, Brief, Input, Launch_Data, Output, Refused_Data, Report_Data};
     let busy = Voice::Mind(flow_library::Rank::Primary);
     let launcher = Launcher(busy.clone());
     let launch = |voice: Voice| {
-        Query::Launch(Launch_Data {
+        Input::Launch(Launch_Data {
             voice,
             brief: Brief("work".to_owned()),
         })
     };
     assert_eq!(
         launcher.answer(&launch(Voice::Psyche(flow_library::Rank::Secondary))),
-        Response::Launched(FlowId(7))
+        Output::Launched(FlowId(7))
     );
     assert_eq!(
         launcher.answer(&launch(busy.clone())),
-        Response::Refused(Refused_Data::VoiceBusy(busy))
+        Output::Refused(Refused_Data::VoiceBusy(busy))
     );
     assert_eq!(
-        launcher.answer(&Query::Report(Report_Data {
+        launcher.answer(&Input::Report(Report_Data {
             flow_id: FlowId(7),
             event: Event::Stopped,
         })),
-        Response::Reported
+        Output::Reported
     );
 }
 
@@ -599,10 +598,10 @@ fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
 #[test]
 fn generated_launch_parses_the_supplied_newtype_form() {
     use datom_codec::{Actualizing, Budget, Datomizable, Potential};
-    use launch_newtypes::{Address, Aspect, Brief, Launch_Data, Layer, Query, Remembering, Topic};
+    use launch_newtypes::{Address, Aspect, Brief, Input, Launch_Data, Layer, Remembering, Topic};
     use protos::{Compactable, Protosizable, ReaderBudget};
     let text = "Launch.{ { Mind flowNexus Tertiary } «» «Report that this test flow started.» }";
-    let actual = Potential::<Query>::from(text)
+    let actual = Potential::<Input>::from(text)
         .actualize(&mut Budget {
             remaining: 1024,
             reader: ReaderBudget::try_from(1024).unwrap(),
@@ -612,7 +611,7 @@ fn generated_launch_parses_the_supplied_newtype_form() {
         .expect("the supplied Launch form composes through generated newtypes");
     assert_eq!(
         actual,
-        Query::Launch(Launch_Data {
+        Input::Launch(Launch_Data {
             address: Address {
                 aspect: Aspect::Mind,
                 topic: Topic("flowNexus".into()),

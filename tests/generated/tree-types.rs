@@ -189,29 +189,29 @@ pub struct Deep(
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Query {
+pub enum Input {
     Plant(Tree),
     Twine(Twin),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Response {
+pub enum Output {
     Planted(Forest),
     Twined(Twig),
 }
 #[rustfmt::skip]
 #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
-    fn plant(&self, tree: &Tree) -> std::result::Result<Forest, Response>;
-    fn twine(&self, twin: &Twin) -> std::result::Result<Twig, Response>;
-    fn answer(&self, query: &Query) -> Response {
-        match query {
-            Query::Plant(tree) => {
-                self.plant(tree).map_or_else(|refusal| refusal, Response::Planted)
+    fn plant(&self, tree: &Tree) -> std::result::Result<Forest, Output>;
+    fn twine(&self, twin: &Twin) -> std::result::Result<Twig, Output>;
+    fn answer(&self, input: &Input) -> Output {
+        match input {
+            Input::Plant(tree) => {
+                self.plant(tree).map_or_else(|refusal| refusal, Output::Planted)
             }
-            Query::Twine(twin) => {
-                self.twine(twin).map_or_else(|refusal| refusal, Response::Twined)
+            Input::Twine(twin) => {
+                self.twine(twin).map_or_else(|refusal| refusal, Output::Twined)
             }
         }
     }

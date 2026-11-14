@@ -86,7 +86,7 @@ pub enum Observation {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Query {
+pub enum Input {
     Acquire(LockRequest),
     Release(LockId),
     Observe(ObserveSelection),
@@ -94,7 +94,7 @@ pub enum Query {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Response {
+pub enum Output {
     Locked(Lock),
     Released(Lock),
     Observed(Observation),
@@ -104,24 +104,23 @@ pub enum Response {
 #[rustfmt::skip]
 #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
-    fn acquire(&self, lock_request: &LockRequest) -> std::result::Result<Lock, Response>;
-    fn release(&self, lock_id: &LockId) -> std::result::Result<Lock, Response>;
+    fn acquire(&self, lock_request: &LockRequest) -> std::result::Result<Lock, Output>;
+    fn release(&self, lock_id: &LockId) -> std::result::Result<Lock, Output>;
     fn observe(
         &self,
         observe_selection: &ObserveSelection,
-    ) -> std::result::Result<Observation, Response>;
-    fn answer(&self, query: &Query) -> Response {
-        match query {
-            Query::Acquire(lock_request) => {
-                self.acquire(lock_request)
-                    .map_or_else(|refusal| refusal, Response::Locked)
+    ) -> std::result::Result<Observation, Output>;
+    fn answer(&self, input: &Input) -> Output {
+        match input {
+            Input::Acquire(lock_request) => {
+                self.acquire(lock_request).map_or_else(|refusal| refusal, Output::Locked)
             }
-            Query::Release(lock_id) => {
-                self.release(lock_id).map_or_else(|refusal| refusal, Response::Released)
+            Input::Release(lock_id) => {
+                self.release(lock_id).map_or_else(|refusal| refusal, Output::Released)
             }
-            Query::Observe(observe_selection) => {
+            Input::Observe(observe_selection) => {
                 self.observe(observe_selection)
-                    .map_or_else(|refusal| refusal, Response::Observed)
+                    .map_or_else(|refusal| refusal, Output::Observed)
             }
         }
     }

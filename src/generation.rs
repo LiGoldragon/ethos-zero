@@ -1260,7 +1260,7 @@ impl Emitting for File {
                 for declaration in self.types() {
                     items.push(declaration.emit(scope));
                 }
-                // A Signal's `Query` and `Response`, an Operation's
+                // A Signal's `Input` and `Output`, an Operation's
                 // `Operation` and `Outcome`: each an enum of its section's
                 // variants, emitted when it has any.
                 for implied in self.implied_enums() {
@@ -1407,64 +1407,64 @@ impl TraitImplying for crate::Emission {
     }
 }
 
-/// A Signal's `Answering`: one capability per query, and the dispatch that
-/// answers a query by it. The n-th response answers the n-th query; a
-/// response past the last query answers none, a refusal or a reaction. A
-/// capability is the query's variant in snake case; it borrows what the
-/// query carries, or takes nothing, and yields what its response carries, or
-/// `()`, or the refusal: any `Response`, which the dispatch answers whole.
-/// The dispatch owns the input: `answer` borrows the query and lends each
+/// A Signal's `Answering`: one capability per input, and the dispatch that
+/// answers an input by it. The n-th output answers the n-th input; an
+/// output past the last input answers none, a refusal or a reaction. A
+/// capability is the input's variant in snake case; it borrows what the
+/// input carries, or takes nothing, and yields what its output carries, or
+/// `()`, or the refusal: any `Output`, which the dispatch answers whole.
+/// The dispatch owns the input: `answer` borrows it and lends each
 /// capability the payload it matched.
 impl TraitImplying for crate::Signal {
     fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream> {
-        if self.queries.is_empty() {
+        if self.inputs.is_empty() {
             return vec![];
         }
-        let asked = Name::try_from("Query").expect("static identifier");
-        let answered = Name::try_from("Response").expect("static identifier");
-        let mut capabilities = Vec::with_capacity(self.queries.len());
-        let mut arms = Vec::with_capacity(self.queries.len());
-        for (query, response) in self.queries.iter().zip(&self.responses) {
-            let capability = query.title().0.snake_case().identifier();
-            let variant = query.title().tokens();
-            let answer = response.title().tokens();
-            let (yields, wrapping) = match response.borne(scope, &answered) {
-                Some(yields) => (yields, quote! { Response::#answer }),
-                None => (quote! { () }, quote! { |()| Response::#answer }),
+        let asked = Name::try_from("Input").expect("static identifier");
+        let answered = Name::try_from("Output").expect("static identifier");
+        let mut capabilities = Vec::with_capacity(self.inputs.len());
+        let mut arms = Vec::with_capacity(self.inputs.len());
+        for (input, output) in self.inputs.iter().zip(&self.outputs) {
+            let capability = input.title().0.snake_case().identifier();
+            let variant = input.title().tokens();
+            let answer = output.title().tokens();
+            let (yields, wrapping) = match output.borne(scope, &answered) {
+                Some(yields) => (yields, quote! { Output::#answer }),
+                None => (quote! { () }, quote! { |()| Output::#answer }),
             };
-            let carried = query.borne(scope, &asked);
-            let input = query.input_name(scope, &asked);
-            match (carried, input) {
-                (Some(ty), Some(input)) => {
-                    let input = input.identifier();
+            let carried = input.borne(scope, &asked);
+            let parameter = input.input_name(scope, &asked);
+            match (carried, parameter) {
+                (Some(ty), Some(parameter)) => {
+                    let parameter = parameter.identifier();
                     capabilities.push(quote! {
-                        fn #capability(&self, #input: &#ty) -> std::result::Result<#yields, Response>;
+                        fn #capability(&self, #parameter: &#ty) -> std::result::Result<#yields, Output>;
                     });
                     arms.push(quote! {
-                        Query::#variant(#input) => self.#capability(#input).map_or_else(|refusal| refusal, #wrapping),
+                        Input::#variant(#parameter) => self.#capability(#parameter).map_or_else(|refusal| refusal, #wrapping),
                     });
                 }
                 _ => {
                     capabilities.push(quote! {
-                        fn #capability(&self) -> std::result::Result<#yields, Response>;
+                        fn #capability(&self) -> std::result::Result<#yields, Output>;
                     });
                     arms.push(quote! {
-                        Query::#variant => self.#capability().map_or_else(|refusal| refusal, #wrapping),
+                        Input::#variant => self.#capability().map_or_else(|refusal| refusal, #wrapping),
                     });
                 }
             }
         }
-        // A refusal is any `Response`, however large its largest variant:
+        // A refusal is any `Output`, however large its largest variant:
         // the wire value is answered whole, so it is not boxed for the lint.
-        // A capability borrows exactly the type its query carries, so the
+        // A capability borrows exactly the type its input carries, so the
         // dispatch lends the matched payload as it is: `&String`, `&Vec<_>`
         // and `&Box<_>` stand where the lints would ask for a narrower borrow.
         vec![quote! {
             #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
             pub trait Answering {
                 #( #capabilities )*
-                fn answer(&self, query: &Query) -> Response {
-                    match query { #( #arms )* }
+                fn answer(&self, input: &Input) -> Output {
+                    match input { #( #arms )* }
                 }
             }
         }]

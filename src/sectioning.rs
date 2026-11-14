@@ -3,7 +3,7 @@
 //!
 //! Signal, Operation and Emission share one shape: imports, the variants of a
 //! request enum, the variants of a reply enum, the types they carry. Signal
-//! implies `Query` and `Response`; Operation implies `Operation` and
+//! implies `Input` and `Output`; Operation implies `Operation` and
 //! `Outcome`; Emission implies `Emission` and `Outcome`. Library and Memory
 //! imply nothing.
 //!
@@ -72,7 +72,7 @@ impl Sectioning for File {
     fn implied_enums(&self) -> Vec<Implied<'_>> {
         let (request, requests, reply, replies) = match self {
             File::Library(_) | File::Memory(_) => return vec![],
-            File::Signal(signal) => ("Query", &signal.queries, "Response", &signal.responses),
+            File::Signal(signal) => ("Input", &signal.inputs, "Output", &signal.outputs),
             File::Operation(operation) => (
                 "Operation",
                 &operation.operations,

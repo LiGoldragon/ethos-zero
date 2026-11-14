@@ -458,8 +458,8 @@ impl Protosizing for Signal {
             Enclosure::Braced,
             vec![
                 "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
-                "".enclosed(Enclosure::Bracketed, self.queries.variant_nodes()),
-                "".enclosed(Enclosure::Bracketed, self.responses.variant_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.inputs.variant_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.outputs.variant_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
             ],
         )

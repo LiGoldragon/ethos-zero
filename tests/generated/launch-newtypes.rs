@@ -52,24 +52,23 @@ pub struct Launch_Data {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Query {
+pub enum Input {
     Launch(Launch_Data),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub enum Response {
+pub enum Output {
     Launched,
 }
 #[rustfmt::skip]
 #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
-    fn launch(&self, launch: &Launch_Data) -> std::result::Result<(), Response>;
-    fn answer(&self, query: &Query) -> Response {
-        match query {
-            Query::Launch(launch) => {
-                self.launch(launch)
-                    .map_or_else(|refusal| refusal, |()| Response::Launched)
+    fn launch(&self, launch: &Launch_Data) -> std::result::Result<(), Output>;
+    fn answer(&self, input: &Input) -> Output {
+        match input {
+            Input::Launch(launch) => {
+                self.launch(launch).map_or_else(|refusal| refusal, |()| Output::Launched)
             }
         }
     }
