@@ -671,72 +671,157 @@ fn types_section_declarations_refuse_wrapping_named_structs_and_enums() {
 }
 
 #[test]
-fn a_variant_named_as_a_defined_type_declaring_a_payload_is_refused() {
-    for (source, path) in [
+fn a_variant_named_as_a_defined_type_declaring_a_payload_carries_that_payload() {
+    // The carrying rule is a bare variant's: a variant with a payload of its
+    // own is a variant of that name carrying that payload, the variant and
+    // the type being two names in Rust.
+    for (source, carried) in [
         (
             "Library [] [ Code.String TextPart.[ Plain.String Code.String ] ] [] []",
-            vec![1, 1, 1, 1, 1, 0],
+            "pubenumTextPart{Plain(String),Code(String),}",
         ),
         (
             "Library [] [ Code.String TextPart.[ Plain.String Code.Code ] ] [] []",
-            vec![1, 1, 1, 1, 1, 0],
+            "pubenumTextPart{Plain(String),Code(Code),}",
         ),
         (
             "Library [] [ Code.String TextPart.[ Plain Code.{ String Integer } ] ] [] []",
-            vec![1, 1, 1, 1, 1, 0],
+            "pubenumTextPart{Plain,Code(Code_Data),}",
         ),
         (
             "Library [] [ Code.String Outer.[ Plain Inner.[ Other Code.[ A B ] ] ] ] [] []",
-            vec![1, 1, 1, 1, 1, 1, 1, 0],
+            "Code(Inner_Data_Code_Data)",
         ),
         (
             "Signal [] [ Ask ] [ Told ] [ Code.String Part.[ Plain Code.Integer ] ]",
-            vec![1, 3, 1, 1, 1, 0],
+            "pubenumPart{Plain,Code(i64),}",
         ),
     ] {
-        assert_eq!(
-            source.refusal(),
-            (path, Problem::Payload("Code".to_owned())),
-            "{source}"
+        let rust = source.compact();
+        assert!(rust.contains(carried), "{source}: {rust}");
+        assert!(
+            rust.contains("pubstructCode(pubString);"),
+            "{source}: {rust}"
         );
     }
 }
 
 #[test]
-fn a_root_section_variant_named_as_a_defined_type_declaring_a_payload_is_refused() {
-    for (source, path) in [
+fn a_root_section_variant_named_as_a_defined_type_declaring_a_payload_carries_that_payload() {
+    for (source, carried) in [
         (
             "Signal [] [ Lock.Request ] [ Locked.Lock ] [ Request.String Lock.String ]",
-            vec![1, 1, 0, 0],
+            "pubenumInput{Lock(Request),}",
         ),
         (
             "Signal [] [ Ask.Lock ] [ Lock.Lock ] [ Lock.String ]",
-            vec![1, 2, 0, 0],
+            "pubenumOutput{Lock(Lock),}",
         ),
         (
             "Operation [] [ Lock.{ String Integer } ] [ Done ] [ Lock.String ]",
-            vec![1, 1, 0, 0],
+            "pubenumOperation{Lock(Lock_Data),}",
         ),
         (
             "Operation [] [ Start.Lock ] [ Lock.[ Held Free ] ] [ Lock.String ]",
-            vec![1, 2, 0, 0],
+            "pubenumOutcome{Lock(Lock_Data),}",
         ),
     ] {
-        assert_eq!(
-            source.refusal(),
-            (path, Problem::Payload("Lock".to_owned())),
-            "{source}"
-        );
+        let rust = source.compact();
+        assert!(rust.contains(carried), "{source}: {rust}");
     }
+}
+
+#[test]
+fn the_vision_lock_signal_takes_lock_beside_a_declared_lock() {
+    let rust = include_str!("../fixtures/lock-signal.ethos").compact();
+    assert!(
+        rust.contains("pubenumInput{Lock(LockRequest),Release(LockId),}"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("pubenumOutput{Locked(Lock),Released(Lock),}"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("pubstructLock{publock_id:LockId,publock_name:LockName,}"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("fnlock(&self,lock_request:&LockRequest)->std::result::Result<Lock,Output>;"),
+        "{rust}"
+    );
 }
 
 #[test]
 fn a_bare_variant_named_as_an_imported_type_carries_it() {
     let rust = "Library [ :sema:Block ] [ Part.[ Plain.String Block ] ] [] []".compact();
     assert!(rust.contains("Block(sema::Block)"), "{rust}");
-    assert_eq!(
-        "Library [ :sema:Block ] [ Part.[ Plain Block.Block ] ] [] []".refusal(),
-        (vec![1, 1, 0, 1, 1, 0], Problem::Payload("Block".to_owned()))
+    let rust = "Library [ :sema:Block ] [ Part.[ Plain Block.Block ] ] [] []".compact();
+    assert!(
+        rust.contains("pubenumPart{Plain,Block(sema::Block),}"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn a_field_is_named_for_its_type_alone_never_its_namespace() {
+    let rust = "Library [ nexus:[ ConfigurationState ] signal_orchestrate:[ OrchestrateNexusConfiguration ] ] [ StoredMetadata.{ ConfigurationState<OrchestrateNexusConfiguration> } Errors.{ :a:Error :b:sub:Error } Sourced.{ :flow_ethos:message:Type external:Vector<String> } ] [] []".compact();
+    assert!(
+        rust.contains("puborchestrate_nexus_configuration_configuration_state:nexus::ConfigurationState<signal_orchestrate::OrchestrateNexusConfiguration,>"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("pubstructErrors{pubfirst_error:a::Error,pubsecond_error:b::sub::Error,}"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("pubstructSourced{pubr#type:flow_ethos::message::Type,pubstring_vector:external::Vector<String>,}"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn positions_whose_fields_would_meet_are_refused_at_the_later_position() {
+    for (source, path) in [
+        (
+            "Library [] [ Pair.{ String String FirstString } FirstString.String ] [] []",
+            vec![1, 1, 0, 1, 2],
+        ),
+        (
+            "Library [] [ Holder.{ Inner.{ String String FirstString } } FirstString.String ] [] []",
+            vec![1, 1, 0, 1, 0, 1, 2],
+        ),
+        (
+            "Library [] [ Tree.[ Leaf Node.{ String String FirstString } ] FirstString.String ] [] []",
+            vec![1, 1, 0, 1, 1, 1, 2],
+        ),
+        (
+            "Signal [] [ Ask.{ String String FirstString } ] [ Told ] [ FirstString.String ]",
+            vec![1, 1, 0, 1, 2],
+        ),
+        (
+            "Memory [] [ Record.{ String FirstString String } FirstString.String ]",
+            vec![1, 1, 0, 1, 1],
+        ),
+    ] {
+        assert_eq!(
+            source.refusal(),
+            (path, Problem::DuplicateField("first_string".to_owned())),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn a_repeated_type_is_told_apart_as_first_and_second() {
+    let rust = "Library [] [ Pair.{ String String } StringVector.String Both.{ Vector<String> StringVector } ] [] []".compact();
+    assert!(
+        rust.contains("pubstructPair{pubfirst_string:String,pubsecond_string:String,}"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("pubstructBoth{pubfirst_string_vector:std::vec::Vec<String>,pubsecond_string_vector:StringVector,}"),
+        "{rust}"
     );
 }
 

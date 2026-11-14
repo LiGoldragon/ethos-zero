@@ -642,7 +642,7 @@ impl Identifying for str {
 }
 
 /// The trait whose capability names every field of a struct of these positions.
-trait FieldNaming {
+pub(crate) trait FieldNaming {
     fn field_names(&self, owner: &Name) -> Vec<Ident>;
 }
 

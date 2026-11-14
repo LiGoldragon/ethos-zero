@@ -54,6 +54,8 @@ mod generic_shadow;
 mod inline_collision;
 #[path = "generated/launch-newtypes.rs"]
 mod launch_newtypes;
+#[path = "generated/lock-signal.rs"]
+mod lock_signal;
 #[path = "generated/multi-types.rs"]
 mod multi_types;
 #[path = "generated/nested-collision.rs"]

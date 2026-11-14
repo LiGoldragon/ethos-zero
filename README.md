@@ -188,6 +188,19 @@ standard containers as `std::vec::Vec`, `std::option::Option`,
 capture those names. A variant `Name.{ T1 T2 }` carries a generated
 struct `Name_Data` with one field per position.
 
+A field is named for its type alone, in snake case, and never for the
+namespace the type comes from: `:protos:Error` gives `error`,
+`nexus:ConfigurationState<OrchestrateNexusConfiguration>` gives
+`orchestrate_nexus_configuration_configuration_state`. A constructed type
+is named type-first, `Vector<String>` as `string_vector`, `Option<Lock>` as
+`lock_option`. Positions whose names are the same are told apart as first
+and second, `Generation.{ String String }` giving `first_string` and
+`second_string`, and `Errors.{ :a:Error :b:Error }` giving `first_error`
+and `second_error`. Where a field so named still meets another,
+`Pair.{ String String FirstString }` giving `first_string` twice, the
+later position is refused as `DuplicateField.first_string` at its path; a
+head naming the position, `Brief.String`, tells the two apart.
+
 A type or trait declaration is refused when its name is an intrinsic's
 (`Intrinsic.Result`: the declaration would shadow the intrinsic for every
 later reference), or does not begin with a capital (`Case.a`). A declared
@@ -196,17 +209,18 @@ type with no finite value, one that reaches itself with no `Vector`,
 a `Cycle`. Every generated item carries `#[rustfmt::skip]`, an inline
 payload's as much as its enum's.
 
-A variant whose name is a type the file declares or imports carries that
-type and is written bare: `Failure.[ SyntaxError Unwritable ]` with
-`SyntaxError` declared gives `SyntaxError(SyntaxError)`, and with
-`[ :sema:Block ]` imported, `Part.[ Block ]` gives `Block(sema::Block)`.
-Such a variant declaring a payload of its own, `Code.String`, `Code.Code` or
-`Code.{ … }` with `Code` declared, is refused as `Payload.Code` at the
-variant. The rule holds in every section, a Signal's inputs and outputs and
-an Operation's operations and outcomes as much as an enum declaration:
-`Lock.LockRequest` as an input beside a declared `Lock` is refused, and the
-input is named `Acquire`. A name a root implies, a Signal's `Input`, is
-generated beside the file's own names, and no variant carries it.
+A bare variant whose name is a type the file declares or imports carries
+that type: `Failure.[ SyntaxError Unwritable ]` with `SyntaxError` declared
+gives `SyntaxError(SyntaxError)`, and with `[ :sema:Block ]` imported,
+`Part.[ Block ]` gives `Block(sema::Block)`. The rule is a bare variant's
+alone. A variant with a payload of its own is a variant of that name
+carrying that payload, whatever types the file declares, since a Rust
+variant and a Rust type are two names: the input `Lock.LockRequest` beside
+a declared `Lock` gives `Input::Lock(LockRequest)`, and `Code.String`,
+`Code.Code` or `Code.{ … }` in an enum beside a declared `Code` gives
+`Code(String)`, `Code(Code)` or `Code(Code_Data)`, in every section alike
+(`fixtures/lock-signal.ethos`). A name a root implies, a Signal's `Input`,
+is generated beside the file's own names, and no bare variant carries it.
 
 A variant that declares its payload in place names a derived type:
 `X.{ … }` or `X.[ … ]` in an enum gives `X_Data`. Derived names are unique

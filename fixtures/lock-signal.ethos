@@ -1,0 +1,20 @@
+; The vision's Signal (vision/ethos/0.md, Shapes and placement): the input
+; Lock carries a LockRequest beside a declared type Lock. Only a bare
+; variant carries the type it is named for; a variant with its own payload
+; is a variant of that name carrying that payload, and in Rust the variant
+; Input::Lock and the type Lock are two names.
+Signal
+[]                                 ; imports
+[ Lock.LockRequest                 ; inputs
+  Release.LockId ]
+[ Locked.Lock                      ; outputs
+  Released.Lock ]
+[ LockId.Integer                   ; types
+  LockName.String
+  FlowId.String
+  LockRequest.{
+     LockName
+     FlowId }
+  Lock.{
+     LockId
+     LockName } ]

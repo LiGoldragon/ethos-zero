@@ -9,8 +9,8 @@
 
 use datom_codec::{Integer, Path};
 
-use crate::generation::{Identifying, SnakeCasing};
-use crate::sectioning::{Hoisting, Referencing, Sectioning};
+use crate::generation::{FieldNaming, Identifying, SnakeCasing};
+use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
@@ -754,7 +754,101 @@ impl Checkable for File {
         let mut names = self.inline_sites();
         names.extend(self.declared());
         names.distinct().place(1)?;
+        self.fields_distinct().place(1)?;
         self.finite().place(1)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Fields: every struct's field names, as generation names them, distinct
+// ---------------------------------------------------------------------------
+
+/// The trait whose capability refuses a struct two of whose positions would
+/// generate one field name. A field is named for its type alone, and a
+/// repeated type is told apart as first and second; where a name still meets
+/// another (`String String FirstString` gives `first_string` twice), the
+/// later position is refused as `DuplicateField.<field>`, at its path.
+trait FieldsDistinct {
+    fn fields_distinct(&self) -> Result<(), Error>;
+}
+
+/// The trait whose capability refuses positions whose generated fields meet,
+/// the positions held by a struct whose `Self` is `owner`.
+trait PositionFielding {
+    fn positions_distinct(&self, owner: &Name) -> Result<(), Error>;
+}
+
+/// The trait whose capability walks the payloads a list of variants declares
+/// in place, refusing any struct among them whose fields meet.
+trait VariantFielding {
+    fn variants_distinct(&self, owner: &Name, path: &Path) -> Result<(), Error>;
+}
+
+/// The trait whose capability places an error under a whole path, its first
+/// index outermost.
+trait Underlying {
+    fn under(self, path: &Path) -> Self;
+}
+
+impl<T> Underlying for Result<T, Error> {
+    fn under(self, path: &Path) -> Self {
+        let mut placed = self;
+        for index in path.iter().rev() {
+            placed = placed.place(*index);
+        }
+        placed
+    }
+}
+
+impl PositionFielding for [Position] {
+    fn positions_distinct(&self, owner: &Name) -> Result<(), Error> {
+        let fields = self.references().field_names(owner);
+        let mut at = 0;
+        for (index, position) in self.iter().enumerate() {
+            if fields[..index].contains(&fields[index]) {
+                return Err(Error::conceptual(
+                    vec![at],
+                    Problem::DuplicateField(fields[index].to_string()),
+                ));
+            }
+            at += position.span();
+        }
+        Ok(())
+    }
+}
+
+impl VariantFielding for [Variant] {
+    fn variants_distinct(&self, owner: &Name, path: &Path) -> Result<(), Error> {
+        let mut at = 0;
+        for variant in self {
+            let mut body = path.clone();
+            body.extend([at, 1]);
+            match variant {
+                Variant::Struct(_, positions) => {
+                    positions.positions_distinct(owner).under(&body)?
+                }
+                Variant::Enum(_, variants) => variants.variants_distinct(owner, &body)?,
+                Variant::Bare(_) | Variant::Typed(_, _) => {}
+            }
+            at += variant.span();
+        }
+        Ok(())
+    }
+}
+
+impl FieldsDistinct for File {
+    fn fields_distinct(&self) -> Result<(), Error> {
+        for placed in self.declarations() {
+            if let TypeDeclaration::Struct(identity, positions) = placed.declaration {
+                let mut body = placed.path.clone();
+                body.push(1);
+                positions.positions_distinct(&identity.name).under(&body)?;
+            }
+        }
+        for root in self.inline_roots() {
+            root.variants.variants_distinct(&root.owner, &root.path)?;
+        }
+        Ok(())
     }
 }
 
@@ -1039,8 +1133,6 @@ impl Checkable for Signal {
         self.outputs.names_in(2).distinct()?;
         self.inputs.check_each(scope, 1)?;
         self.outputs.check_each(scope, 2)?;
-        self.inputs.refuse_payload(scope).place(1)?;
-        self.outputs.refuse_payload(scope).place(2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)?;
         self.inputs.paired(&self.outputs).place(1)?;
@@ -1056,8 +1148,6 @@ impl Checkable for Operation {
         self.outcomes.names_in(2).distinct()?;
         self.operations.check_each(scope, 1)?;
         self.outcomes.check_each(scope, 2)?;
-        self.operations.refuse_payload(scope).place(1)?;
-        self.outcomes.refuse_payload(scope).place(2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)
     }
@@ -1071,8 +1161,6 @@ impl Checkable for Emission {
         self.outcomes.names_in(2).distinct()?;
         self.emissions.check_each(scope, 1)?;
         self.outcomes.check_each(scope, 2)?;
-        self.emissions.refuse_payload(scope).place(1)?;
-        self.outcomes.refuse_payload(scope).place(2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)?;
         self.emissions.paired(&self.outcomes).place(1)?;
@@ -1588,8 +1676,7 @@ impl Checkable for TypeDeclaration {
                     declared.path.insert(0, 1);
                 }
                 names.distinct()?;
-                variants.check_children(&inner).place(1)?;
-                variants.refuse_payload(&inner).place(1)
+                variants.check_children(&inner).place(1)
             }
             TypeDeclaration::Alias(identity, aliased) => {
                 aliased.check(&inner).lifted(1)?;
@@ -1605,10 +1692,11 @@ impl Checkable for TypeDeclaration {
     }
 }
 
-/// The trait whose capability says whether a variant of this name carries
-/// the type of that name: a type the file declares, or an imported one. A
-/// name a root implies (a Signal's `Input`) is generated beside the file's
-/// own names, and no variant carries it.
+/// The trait whose capability says whether a bare variant of this name
+/// carries the type of that name: a type the file declares, or an imported
+/// one. A variant with a payload of its own carries that payload whatever
+/// its name. A name a root implies (a Signal's `Input`) is generated beside
+/// the file's own names, and no variant carries it.
 pub(crate) trait Carrying {
     fn carries(&self, name: &Name) -> bool;
 }
@@ -1625,36 +1713,6 @@ impl Carrying for Scope<'_> {
             | Resolution::Ambiguous(_)
             | Resolution::Undeclared => false,
         }
-    }
-}
-
-/// The trait whose capability refuses a variant named as a type it carries
-/// that declares a payload of its own: such a variant is written bare.
-trait Refusing {
-    fn refuse_payload(&self, scope: &Scope) -> Result<(), Error>;
-}
-
-impl Refusing for Variant {
-    fn refuse_payload(&self, scope: &Scope) -> Result<(), Error> {
-        let name = match self {
-            Variant::Bare(_) => return Ok(()),
-            Variant::Typed(name, _) | Variant::Struct(name, _) | Variant::Enum(name, _) => name,
-        };
-        if scope.carries(name) {
-            return Err(Error::conceptual(vec![0], Problem::Payload(name.0.clone())));
-        }
-        Ok(())
-    }
-}
-
-impl Refusing for [Variant] {
-    fn refuse_payload(&self, scope: &Scope) -> Result<(), Error> {
-        let mut at = 0;
-        for variant in self {
-            variant.refuse_payload(scope).beside(at)?;
-            at += variant.span();
-        }
-        Ok(())
     }
 }
 
@@ -1790,8 +1848,7 @@ impl Checkable for Variant {
                     declared.path.insert(0, 1);
                 }
                 names.distinct()?;
-                variants.check_children(scope).place(1)?;
-                variants.refuse_payload(scope).place(1)
+                variants.check_children(scope).place(1)
             }
         }
     }

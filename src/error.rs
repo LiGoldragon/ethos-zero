@@ -59,7 +59,7 @@ pub enum Problem {
     Case(String),
     Renamed(String),
     Wrapping(Wrapping_Data),
-    Payload(String),
+    DuplicateField(String),
     Unpaired(String),
 }
 #[rustfmt::skip]

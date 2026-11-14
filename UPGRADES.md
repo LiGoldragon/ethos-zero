@@ -2,6 +2,19 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 28.0.0: a variant with its own payload carries it; fields that would meet are refused
+
+What breaks, in two parts.
+
+1. The `Error` contract's `Problem.Payload.String` is gone, and `Problem.DuplicateField.String` stands in its place. A consumer matching `Problem` exhaustively replaces the arm.
+2. A struct two of whose positions would generate one field name is refused as `Conceptual.{ [ path ] DuplicateField.<field> }`, at the later position: `Pair.{ String String FirstString }` names `first_string` twice. 27.x generated both fields, a struct Rust refuses to compile; no file 27.x generated into compiling Rust is newly refused.
+
+What is now accepted: the carrying rule is a bare variant's alone (vision/ethos/0.md, Shapes and placement). A variant with a payload of its own is a variant of that name carrying that payload, beside a declared or imported type of the same name, in every section: the vision's `Lock.LockRequest` input beside a declared `Lock` gives `Input::Lock(LockRequest)`, and `Code.String`, `Code.Code` or `Code.{ … }` beside a declared `Code` gives `Code(String)`, `Code(Code)` or `Code(Code_Data)`. 21.0.0 to 27.x refused each as `Payload.<Name>`. `fixtures/lock-signal.ethos` is the vision's Signal.
+
+Field names are unchanged: a field is named for its type alone and never its namespace, as under 27.x (`nexus:ConfigurationState<OrchestrateNexusConfiguration>` gives `orchestrate_nexus_configuration_configuration_state`, the constructed type type-first; `:a:Error :b:Error` gives `first_error` and `second_error`). Every file 27.x generated is generated the same, so the wire is unchanged.
+
+To deploy: repin ethos-zero to 28.0.0 and replace a `Problem::Payload` arm with `Problem::DuplicateField`. A variant renamed to satisfy 22.0.0 (orchestrate's `Acquire.LockRequest`) may keep its name or return to the one it was meant to have.
+
 ## 27.0.0: the input is Answerable; Answering holds the capabilities alone
 
 What breaks, in three parts.

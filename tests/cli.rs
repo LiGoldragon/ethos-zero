@@ -274,11 +274,24 @@ fn check_of_a_missing_file_is_unreadable() {
 }
 
 #[test]
-fn check_locates_a_variant_named_as_a_defined_type_declaring_a_payload() {
+fn check_takes_a_variant_named_as_a_defined_type_declaring_a_payload() {
     let directory = "payload".scratch();
+    let taken = directory.write_source(
+        "taken",
+        "Signal\n[]\n[ Lock.LockRequest ]\n[ Locked.Lock ]\n[ LockRequest.String\n  Lock.Integer ]\n",
+    );
+    let argument = check(&taken);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(success, "{output}");
+    assert_eq!(output, format!("Checked.{taken}\n"));
+}
+
+#[test]
+fn check_locates_positions_whose_fields_would_meet_naming_the_file_and_the_field() {
+    let directory = "fields".scratch();
     let refused = directory.write_source(
         "refused",
-        "Library\n[]\n[ Code.String\n  TextPart.[ Plain.String\n             Code.String ] ]\n[]\n[]\n",
+        "Library\n[]\n[ FirstString.String\n  Pair.{ String\n         String\n         FirstString } ]\n[]\n[]\n",
     );
     let argument = check(&refused);
     let (success, output) = [argument.as_str()].invoke();
@@ -286,7 +299,7 @@ fn check_locates_a_variant_named_as_a_defined_type_declaring_a_payload() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {refused} {{ 5 14 }} Conceptual.{{ [ 1 1 1 1 1 0 ] Payload.Code }} }}\n"
+            "Rejected.{{ {refused} {{ 6 10 }} Conceptual.{{ [ 1 1 1 1 2 ] DuplicateField.first_string }} }}\n"
         )
     );
 }
