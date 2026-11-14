@@ -2,6 +2,16 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 24.0.0: a Signal pairs its responses with its queries and generates Answering
+
+What breaks, in three parts.
+
+1. A Signal pairs by position: the n-th response answers the n-th query, and a response past the last query answers none (a refusal or a reaction). A query left without a response is refused as `Conceptual.{ [ 1 1 <at> ] Unpaired.<query> }`: `Signal [] [ Ask Tell ] [ Told ] []`, which 23.x accepted, is refused at `Tell`.
+2. Every Signal with queries generates `pub trait Answering` beside `Query` and `Response`: one capability per query, its variant in snake case, taking the query's payload by value and yielding `std::result::Result<the paired response's payload or (), Response>`, and `fn answer(&self, query: Query) -> Response`, the dispatch, generated whole. A consumer that declares its own `Answering` in the module holding the generated Rust, or glob-imports it beside one of its own, meets two traits of one name.
+3. `Answering` is reserved in a Signal (`Duplicate.Answering`), and a query whose capability would be named as another query's or `answer` is refused as `Duplicate.<capability>` (`Answer` as a query, or `UrlFetch` beside `URLFetch`).
+
+To deploy: run `ethos-zero 'Check.<file>'` over every Signal. Order each Signal's responses so the n-th answers the n-th query and the refusals and reactions come after; reordering changes no variant's name or payload, but it does change the rkyv discriminant of every variant moved, so both ends of a wire repin together. Rename a consumer's own `Answering` trait, or implement the generated one: its capabilities in place of a hand-written match. The crate's own `fixtures/orchestrate.ethos` orders its responses `Locked Released Observed LockRejected ReleaseRejected`, and `fixtures/print/flow-signal.ethos` `Launched Reported Refused`.
+
 ## 23.0.0: the Emission root
 
 What breaks, in two parts.

@@ -96,8 +96,33 @@ pub enum Query {
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Response {
     Locked(Lock),
-    LockRejected(LockRejection),
     Released(Lock),
-    ReleaseRejected(ReleaseRejection),
     Observed(Observation),
+    LockRejected(LockRejection),
+    ReleaseRejected(ReleaseRejection),
+}
+#[rustfmt::skip]
+#[allow(clippy::result_large_err)]
+pub trait Answering {
+    fn acquire(&self, lock_request: LockRequest) -> std::result::Result<Lock, Response>;
+    fn release(&self, lock_id: LockId) -> std::result::Result<Lock, Response>;
+    fn observe(
+        &self,
+        observe_selection: ObserveSelection,
+    ) -> std::result::Result<Observation, Response>;
+    fn answer(&self, query: Query) -> Response {
+        match query {
+            Query::Acquire(lock_request) => {
+                self.acquire(lock_request)
+                    .map_or_else(|refusal| refusal, Response::Locked)
+            }
+            Query::Release(lock_id) => {
+                self.release(lock_id).map_or_else(|refusal| refusal, Response::Released)
+            }
+            Query::Observe(observe_selection) => {
+                self.observe(observe_selection)
+                    .map_or_else(|refusal| refusal, Response::Observed)
+            }
+        }
+    }
 }

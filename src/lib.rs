@@ -221,6 +221,10 @@ pub struct Library {
 }
 
 /// The signal variant of a file: a wire contract whose query type is `Query` and whose response type is `Response`.
+///
+/// The n-th response answers the n-th query; a response past the last query
+/// answers none. The file generates `Answering`, a capability per query and
+/// the dispatch over them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signal {
     /// Where imported names come from.

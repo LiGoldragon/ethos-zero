@@ -21,7 +21,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::checking::{Carrying, Checkable, Declaring, Inlining};
+use crate::checking::{Carrying, Checkable, Declaring, Inlining, Titled};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
@@ -557,7 +557,7 @@ trait Fielding {
     fn field_base(&self, owner: &Name) -> String;
 }
 
-trait SnakeCasing {
+pub(crate) trait SnakeCasing {
     fn snake_case(&self) -> String;
 }
 
@@ -622,6 +622,25 @@ impl Ordinaling for usize {
     }
 }
 
+/// The trait whose capability spells a snake-case name as a Rust identifier:
+/// as it is where it is one, raw where it is a keyword, and with a trailing
+/// underscore where it is one of the four keywords no raw identifier may spell.
+pub(crate) trait Identifying {
+    fn identifier(&self) -> Ident;
+}
+
+impl Identifying for str {
+    fn identifier(&self) -> Ident {
+        if syn::parse_str::<Ident>(self).is_ok() {
+            Ident::new(self, Span::call_site())
+        } else if matches!(self, "crate" | "self" | "super" | "Self") {
+            Ident::new(&format!("{self}_"), Span::call_site())
+        } else {
+            Ident::new_raw(self, Span::call_site())
+        }
+    }
+}
+
 /// The trait whose capability names every field of a struct of these positions.
 trait FieldNaming {
     fn field_names(&self, owner: &Name) -> Vec<Ident>;
@@ -644,15 +663,7 @@ impl FieldNaming for [Reference] {
             } else {
                 format!("position_{}_{}", prior + 1, base)
             };
-            let field = if syn::parse_str::<Ident>(&name).is_ok() {
-                Ident::new(&name, Span::call_site())
-            } else if matches!(name.as_str(), "crate" | "self" | "super" | "Self") {
-                // The four keywords no raw identifier may spell.
-                Ident::new(&format!("{name}_"), Span::call_site())
-            } else {
-                Ident::new_raw(&name, Span::call_site())
-            };
-            fields.push(field);
+            fields.push(name.identifier());
         }
         fields
     }
@@ -1265,10 +1276,13 @@ impl Emitting for File {
                     );
                     items.push(enumeration.emit(scope));
                 }
-                if let File::Emission(emission) = self {
-                    for item in emission.implied_traits(scope) {
-                        items.push(quote! { #[rustfmt::skip] #item });
-                    }
+                let implied = match self {
+                    File::Signal(signal) => signal.implied_traits(scope),
+                    File::Emission(emission) => emission.implied_traits(scope),
+                    File::Library(_) | File::Operation(_) | File::Memory(_) => vec![],
+                };
+                for item in implied {
+                    items.push(quote! { #[rustfmt::skip] #item });
                 }
             }
         }
@@ -1301,6 +1315,25 @@ impl Borne for Variant {
             Variant::Struct(name, _) | Variant::Enum(name, _) => {
                 Some(scope.file.inline_name(owner, owner, name).tokens())
             }
+        }
+    }
+}
+
+/// The trait whose capability names the input a capability takes for a
+/// variant: for the type the variant carries, as a field of it is named, and
+/// for a payload declared in place, for the variant. A variant that carries
+/// nothing takes no input.
+trait InputNaming {
+    fn input_name(&self, scope: &Scope, owner: &Name) -> Option<String>;
+}
+
+impl InputNaming for Variant {
+    fn input_name(&self, scope: &Scope, owner: &Name) -> Option<String> {
+        match self {
+            Variant::Bare(name) if scope.carries(name) => Some(name.0.snake_case()),
+            Variant::Bare(_) => None,
+            Variant::Typed(_, reference) => Some(reference.owned(owner).field_base(owner)),
+            Variant::Struct(name, _) | Variant::Enum(name, _) => Some(name.0.snake_case()),
         }
     }
 }
@@ -1371,6 +1404,65 @@ impl TraitImplying for crate::Emission {
             items.push(quote! { impl Emitted for #carried { type Outcome = #outcome; } });
         }
         items
+    }
+}
+
+/// A Signal's `Answering`: one capability per query, and the dispatch that
+/// answers a query by it. The n-th response answers the n-th query; a
+/// response past the last query answers none, a refusal or a reaction. A
+/// capability is the query's variant in snake case; it takes what the query
+/// carries, by value, or nothing, and yields what its response carries, or
+/// `()`, or the refusal: any `Response`, which the dispatch answers whole.
+impl TraitImplying for crate::Signal {
+    fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream> {
+        if self.queries.is_empty() {
+            return vec![];
+        }
+        let asked = Name::try_from("Query").expect("static identifier");
+        let answered = Name::try_from("Response").expect("static identifier");
+        let mut capabilities = Vec::with_capacity(self.queries.len());
+        let mut arms = Vec::with_capacity(self.queries.len());
+        for (query, response) in self.queries.iter().zip(&self.responses) {
+            let capability = query.title().0.snake_case().identifier();
+            let variant = query.title().tokens();
+            let answer = response.title().tokens();
+            let (yields, wrapping) = match response.borne(scope, &answered) {
+                Some(yields) => (yields, quote! { Response::#answer }),
+                None => (quote! { () }, quote! { |()| Response::#answer }),
+            };
+            let carried = query.borne(scope, &asked);
+            let input = query.input_name(scope, &asked);
+            match (carried, input) {
+                (Some(ty), Some(input)) => {
+                    let input = input.identifier();
+                    capabilities.push(quote! {
+                        fn #capability(&self, #input: #ty) -> std::result::Result<#yields, Response>;
+                    });
+                    arms.push(quote! {
+                        Query::#variant(#input) => self.#capability(#input).map_or_else(|refusal| refusal, #wrapping),
+                    });
+                }
+                _ => {
+                    capabilities.push(quote! {
+                        fn #capability(&self) -> std::result::Result<#yields, Response>;
+                    });
+                    arms.push(quote! {
+                        Query::#variant => self.#capability().map_or_else(|refusal| refusal, #wrapping),
+                    });
+                }
+            }
+        }
+        // A refusal is any `Response`, however large its largest variant:
+        // the wire value is answered whole, so it is not boxed for the lint.
+        vec![quote! {
+            #[allow(clippy::result_large_err)]
+            pub trait Answering {
+                #( #capabilities )*
+                fn answer(&self, query: Query) -> Response {
+                    match query { #( #arms )* }
+                }
+            }
+        }]
     }
 }
 

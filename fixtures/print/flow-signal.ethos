@@ -4,7 +4,7 @@ Signal
            Brief.String }
   Report.{ FlowId Event } ]
 [ Launched.FlowId
+  Reported
   Refused.[ NoCapsule
-            VoiceBusy.Voice ]
-  Reported ]
+            VoiceBusy.Voice ] ]
 []

@@ -499,6 +499,55 @@ fn an_emission_yields_the_outcome_its_position_binds() {
     ));
 }
 
+/// A Flow Nexus that launches every voice but one, as flow 7, and takes
+/// every report.
+struct Launcher(Voice);
+
+/// The capabilities a Signal leaves to its consumer: each query's own, by
+/// value; the generated `answer` dispatches to them.
+impl flow_signal::Answering for Launcher {
+    fn launch(&self, launch: flow_signal::Launch_Data) -> Result<FlowId, flow_signal::Response> {
+        if launch.voice == self.0 {
+            return Err(flow_signal::Response::Refused(
+                flow_signal::Refused_Data::VoiceBusy(launch.voice),
+            ));
+        }
+        Ok(FlowId(7))
+    }
+
+    fn report(&self, _report: flow_signal::Report_Data) -> Result<(), flow_signal::Response> {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_signal_answers_each_query_by_its_capability_and_the_response_its_position_pairs() {
+    use flow_signal::{Answering, Brief, Launch_Data, Query, Refused_Data, Report_Data, Response};
+    let busy = Voice::Mind(flow_library::Rank::Primary);
+    let launcher = Launcher(busy.clone());
+    let launch = |voice: Voice| {
+        Query::Launch(Launch_Data {
+            voice,
+            brief: Brief("work".to_owned()),
+        })
+    };
+    assert_eq!(
+        launcher.answer(launch(Voice::Psyche(flow_library::Rank::Secondary))),
+        Response::Launched(FlowId(7))
+    );
+    assert_eq!(
+        launcher.answer(launch(busy.clone())),
+        Response::Refused(Refused_Data::VoiceBusy(busy))
+    );
+    assert_eq!(
+        launcher.answer(Query::Report(Report_Data {
+            flow_id: FlowId(7),
+            event: Event::Stopped,
+        })),
+        Response::Reported
+    );
+}
+
 #[test]
 fn the_flow_nexus_operation_and_memory_compile_and_round_trip_as_datom_text() {
     use datom_codec::{Actualizing, Budget, Datomizable, Potential};

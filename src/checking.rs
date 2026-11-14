@@ -9,6 +9,7 @@
 
 use datom_codec::{Integer, Path};
 
+use crate::generation::{Identifying, SnakeCasing};
 use crate::sectioning::{Hoisting, Referencing, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
@@ -922,6 +923,7 @@ impl Declared for crate::Library {
 
 impl Declared for Signal {
     fn declared(&self) -> Vec<DeclarationSite> {
+        // The two implied enums, and the trait generated beside them.
         let mut names = vec![
             DeclarationSite {
                 name: Name::try_from("Query").expect("static identifier"),
@@ -930,6 +932,10 @@ impl Declared for Signal {
             DeclarationSite {
                 name: Name::try_from("Response").expect("static identifier"),
                 path: vec![2],
+            },
+            DeclarationSite {
+                name: Name::try_from("Answering").expect("static identifier"),
+                path: vec![1],
             },
         ];
         names.extend(self.imports.names_in(0));
@@ -1032,7 +1038,9 @@ impl Checkable for Signal {
         self.queries.refuse_payload(scope).place(1)?;
         self.responses.refuse_payload(scope).place(2)?;
         self.types.check_each(scope, 3)?;
-        self.types.refuse_wrapping(scope).place(3)
+        self.types.refuse_wrapping(scope).place(3)?;
+        self.queries.paired(&self.responses).place(1)?;
+        self.queries.capabilities_distinct().place(1)
     }
 }
 
@@ -1647,7 +1655,7 @@ impl Refusing for [Variant] {
 }
 
 /// The trait whose capability yields the name a variant is written under.
-trait Titled {
+pub(crate) trait Titled {
     fn title(&self) -> &Name;
 }
 
@@ -1682,6 +1690,30 @@ impl Pairing for [Variant] {
                 ));
             }
             at += request.span();
+        }
+        Ok(())
+    }
+}
+
+/// The trait whose capability refuses two queries whose capabilities in the
+/// generated `Answering` would share a name, the query's variant in snake
+/// case, or a query whose capability would be named `answer`, the dispatch:
+/// the later is a `Duplicate` of the name, at its path.
+trait CapabilityNaming {
+    fn capabilities_distinct(&self) -> Result<(), Error>;
+}
+
+impl CapabilityNaming for [Variant] {
+    fn capabilities_distinct(&self) -> Result<(), Error> {
+        let mut names = vec!["answer".to_owned()];
+        let mut at = 0;
+        for query in self {
+            let name = query.title().0.snake_case().identifier().to_string();
+            if names.contains(&name) {
+                return Err(Error::conceptual(vec![at], Problem::Duplicate(name)));
+            }
+            names.push(name);
+            at += query.span();
         }
         Ok(())
     }

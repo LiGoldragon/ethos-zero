@@ -63,6 +63,36 @@ generates nothing but its declared record types and reserves no name; a
 Memory record may be named `Record`. A file headed `Sema`, Memory's head
 before 15.0.0, is refused as `Conceptual.{ [ 0 ] Renamed.Memory }`.
 
+A Signal pairs its sections by position: the n-th response answers the
+n-th query, and a response past the last query answers none, a refusal or a
+reaction. A query left without a response is refused as
+`Unpaired.<query>` at its path. A Signal with queries generates
+`Answering`: one capability per query, the variant in snake case, taking
+what the query carries by value (nothing where it carries nothing) and
+yielding what its response carries (`()` where it carries nothing) or the
+refusal, any `Response`; and the dispatch, generated whole:
+
+```rust
+pub trait Answering {
+    fn launch(&self, launch_request: LaunchRequest) -> std::result::Result<FlowId, Response>;
+    fn report(&self, report: Report_Data) -> std::result::Result<(), Response>;
+    fn answer(&self, query: Query) -> Response {
+        match query {
+            Query::Launch(launch_request) => self.launch(launch_request).map_or_else(|refusal| refusal, Response::Launched),
+            Query::Report(report) => self.report(report).map_or_else(|refusal| refusal, |()| Response::Reported),
+        }
+    }
+}
+```
+
+The input is named as a field of its type is (`launch_request`), or for the
+variant where the payload is declared in place (`report`); a keyword is
+written raw. A query whose capability would be named as another's, or
+`answer`, is refused as `Duplicate.<capability>`, and `Answering` is a name
+a Signal may not declare. The trait carries
+`#[allow(clippy::result_large_err)]`: the refusal is the wire's `Response`,
+answered whole, however large its largest variant.
+
 An Emission pairs its sections by position: the n-th outcome is the n-th
 emission's, and an outcome past the last emission pairs with none. An
 emission left without an outcome is refused as `Unpaired.<emission>` at its

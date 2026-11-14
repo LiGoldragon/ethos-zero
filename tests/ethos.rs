@@ -182,6 +182,75 @@ fn an_emission_declaring_an_implied_enum_or_trait_name_is_refused() {
 }
 
 #[test]
+fn a_signal_generates_answering_with_one_capability_per_query_and_its_dispatch() {
+    let rust = "Signal [] [ Launch.LaunchRequest Report.{ String } Ping ] [ Launched.FlowId Reported Pong Refused.String ] [ LaunchRequest.{ String } FlowId.Integer ]".compact();
+    // prettyplease ends a parameter list it wraps with a comma.
+    let rust = rust.replace(",)", ")");
+    for expected in [
+        "pubtraitAnswering{",
+        "fnlaunch(&self,launch_request:LaunchRequest)->std::result::Result<FlowId,Response>;",
+        "fnreport(&self,report:Report_Data)->std::result::Result<(),Response>;",
+        "fnping(&self)->std::result::Result<(),Response>;",
+        "fnanswer(&self,query:Query)->Response{matchquery{",
+        "Query::Launch(launch_request)=>",
+        "self.launch(launch_request).map_or_else(|refusal|refusal,Response::Launched)",
+        "Query::Report(report)=>",
+        "self.report(report).map_or_else(|refusal|refusal,|()|Response::Reported)",
+        "Query::Ping=>",
+        "self.ping().map_or_else(|refusal|refusal,|()|Response::Pong)",
+    ] {
+        assert!(rust.contains(expected), "{expected} in {rust}");
+    }
+    // `Refused` is past the last query: it answers none.
+    assert!(!rust.contains("Response::Refused"), "{rust}");
+}
+
+#[test]
+fn a_query_s_capability_takes_self_as_the_query_and_a_keyword_raw() {
+    let rust =
+        "Signal [] [ Again.Vector<Self> Match.Type ] [ Done.Option<Self> Matched ] [ Type.String ]"
+            .compact();
+    // prettyplease ends a parameter list it wraps with a comma.
+    let rust = rust.replace(",)", ")");
+    for expected in [
+        "fnagain(&self,query_vector:std::vec::Vec<Query>)->std::result::Result<std::option::Option<std::boxed::Box<Response>>,Response>;",
+        "fnr#match(&self,r#type:Type)->std::result::Result<(),Response>;",
+    ] {
+        assert!(rust.contains(expected), "{expected} in {rust}");
+    }
+}
+
+#[test]
+fn a_signal_without_queries_generates_no_answering() {
+    let rust = "Signal [] [] [ Told ] []".compact();
+    assert!(!rust.contains("Answering"), "{rust}");
+}
+
+#[test]
+fn a_query_left_without_a_response_is_refused_at_its_path() {
+    assert_eq!(
+        "Signal [] [ Ask.Vector<String> Tell ] [ Told ] []".refusal(),
+        (vec![1, 1, 2], Problem::Unpaired("Tell".to_owned()))
+    );
+}
+
+#[test]
+fn a_query_whose_capability_name_is_taken_is_refused() {
+    assert_eq!(
+        "Signal [] [ Answer ] [ Answered ] []".refusal(),
+        (vec![1, 1, 0], Problem::Duplicate("answer".to_owned()))
+    );
+    assert_eq!(
+        "Signal [] [ UrlFetch URLFetch ] [ Fetched Fetched2 ] []".refusal(),
+        (vec![1, 1, 1], Problem::Duplicate("url_fetch".to_owned()))
+    );
+    assert_eq!(
+        "Signal [] [ Ask ] [ Told ] [ Answering.String ]".refusal(),
+        (vec![1, 3, 0, 0], Problem::Duplicate("Answering".to_owned()))
+    );
+}
+
+#[test]
 fn a_named_position_declares_its_type_in_place() {
     let file = read(
         "Memory [] [ Flow.{ Integer Brief.String State.[ Running Ended ] Capsule.{ Home.String Login.Vector<String> } } ]",

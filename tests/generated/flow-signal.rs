@@ -41,6 +41,23 @@ pub enum Refused_Data {
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Response {
     Launched(flow::FlowId),
-    Refused(Refused_Data),
     Reported,
+    Refused(Refused_Data),
+}
+#[rustfmt::skip]
+#[allow(clippy::result_large_err)]
+pub trait Answering {
+    fn launch(&self, launch: Launch_Data) -> std::result::Result<flow::FlowId, Response>;
+    fn report(&self, report: Report_Data) -> std::result::Result<(), Response>;
+    fn answer(&self, query: Query) -> Response {
+        match query {
+            Query::Launch(launch) => {
+                self.launch(launch).map_or_else(|refusal| refusal, Response::Launched)
+            }
+            Query::Report(report) => {
+                self.report(report)
+                    .map_or_else(|refusal| refusal, |()| Response::Reported)
+            }
+        }
+    }
 }

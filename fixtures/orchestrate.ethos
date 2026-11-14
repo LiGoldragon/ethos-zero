@@ -2,7 +2,7 @@
 Signal
 []
 [ Acquire.LockRequest  Release.LockId  Observe.ObserveSelection ]
-[ Locked.Lock  LockRejected.LockRejection  Released.Lock  ReleaseRejected.ReleaseRejection  Observed.Observation ]
+[ Locked.Lock  Released.Lock  Observed.Observation  LockRejected.LockRejection  ReleaseRejected.ReleaseRejection ]
 [ LockId.Integer
   LockName.String
   FlowId.String
