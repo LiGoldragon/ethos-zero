@@ -2,6 +2,17 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 29.0.0: an enum of one variant is refused
+
+What breaks, in two parts.
+
+1. An enum of one variant is refused as `Conceptual.{ [ path ] SingleVariant.<enum> }` at its variants, as the vision has it (vision/ethos/0.md: an enum has two variants or more). A declared enum is named by its declaration, `Reply.[ Accepted ]` refused as `SingleVariant.Reply`; an enum a variant declares in place is named by that variant, `Reply.[ Accepted Refused.[ Busy ] ]` refused as `SingleVariant.Refused`. The rule holds in every root's types. A root's sections, a Signal's inputs and outputs, an Operation's operations and outcomes and an Emission's emissions and outcomes, are the root's and may hold one variant. An enum of no variants, `Never.[]`, is accepted as before.
+2. The `Error` contract's `Problem` gains `SingleVariant.String`, after `Unpaired`. A consumer matching `Problem` exhaustively adds the arm.
+
+Generation is unchanged: every file 28.x generated and 29.0.0 accepts is generated the same.
+
+To deploy: give every one-variant enum a second variant, or replace the enum by the type its variant carries, then repin ethos-zero to 29.0.0.
+
 ## 28.0.0: a variant with its own payload carries it; fields that would meet are refused
 
 What breaks, in two parts.

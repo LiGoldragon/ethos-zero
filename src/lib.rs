@@ -914,7 +914,7 @@ mod behavior {
 
     #[test]
     fn library_traits_generate_trait_surfaces() {
-        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -1120,7 +1120,7 @@ mod behavior {
 
     #[test]
     fn nested_inline_data_names_include_ancestry_after_the_first_level() {
-        let source = "Library [] [ Outer.[ A.[ X.{ String } ] B.[ X.{ Integer } ] ] Rejection.[ PathOverlap.{ String String } ] ] [] []";
+        let source = "Library [] [ Outer.[ A.[ X.{ String } Y ] B.[ X.{ Integer } Y ] ] Rejection.[ DuplicateName PathOverlap.{ String String } ] ] [] []";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("nested collision source reads"),

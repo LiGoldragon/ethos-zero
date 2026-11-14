@@ -14,7 +14,7 @@ fn read(source: &str) -> File {
 
 #[test]
 fn full_library_round_trips_and_generates_named_types_and_traits() {
-    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
     let file = read(source);
     let repeated = read(&file.protosize().textualize());
     assert_eq!(file, repeated);
@@ -594,11 +594,12 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
     // The audit's row-15 probe: two enums each declare X in place, and an
     // authored X_Data would capture the short name. The authored name is
     // the occurrence refused, at its declaration.
-    let probe = "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] X_Data.String ] [] []";
+    let probe = "Library [] [ P.[ X.{ String } Y ] Q.[ X.{ Integer } Y ] X_Data.String ] [] []";
     assert!(read(probe).generate().is_ok());
-    let captured = "Library [] [ P.[ X.{ String } ] P_X_Data.String ] [] []";
+    let captured = "Library [] [ P.[ X.{ String } Y ] P_X_Data.String ] [] []";
     assert!(read(captured).generate().is_ok());
-    let captured = "Library [] [ P.[ X.{ String } ] Q.[ X.{ Integer } ] P_X_Data.String ] [] []";
+    let captured =
+        "Library [] [ P.[ X.{ String } Y ] Q.[ X.{ Integer } Y ] P_X_Data.String ] [] []";
     match read(captured).generate() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Duplicate("P_X_Data".to_owned()));
@@ -606,7 +607,7 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
         }
         _ => panic!("an authored name capturing a derived one is refused"),
     }
-    let captured = "Library [] [ P.[ X.{ String } ] X_Data.String ] [] []";
+    let captured = "Library [] [ P.[ X.{ String } Y ] X_Data.String ] [] []";
     match read(captured).generate() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Duplicate("X_Data".to_owned()));
@@ -813,6 +814,71 @@ fn positions_whose_fields_would_meet_are_refused_at_the_later_position() {
 }
 
 #[test]
+fn an_enum_of_one_variant_is_refused_naming_the_enum() {
+    // An enum has two variants or more: a declared enum is named by its
+    // declaration, an enum a variant declares in place by that variant.
+    for (source, path, enumeration) in [
+        (
+            "Library [] [ Reply.[ Accepted ] ] [] []",
+            vec![1, 1, 0, 1],
+            "Reply",
+        ),
+        ("Memory [] [ Mode.[ Strict ] ]", vec![1, 1, 0, 1], "Mode"),
+        (
+            "Signal [] [ Ask ] [ Told ] [ Mode.[ Strict ] ]",
+            vec![1, 3, 0, 1],
+            "Mode",
+        ),
+    ] {
+        assert_eq!(
+            source.refusal(),
+            (path, Problem::SingleVariant(enumeration.to_owned())),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn an_inline_enum_of_one_variant_is_refused_naming_its_variant() {
+    for (source, path, enumeration) in [
+        (
+            "Library [] [ Reply.[ Accepted Refused.[ Busy ] ] ] [] []",
+            vec![1, 1, 0, 1, 1, 1],
+            "Refused",
+        ),
+        (
+            "Library [] [ Reply.[ Accepted Refused.[ Busy Down.[ Hard ] ] ] ] [] []",
+            vec![1, 1, 0, 1, 1, 1, 1, 1],
+            "Down",
+        ),
+        (
+            "Signal [] [ Ask.[ Strict ] ] [ Told ] []",
+            vec![1, 1, 0, 1],
+            "Ask",
+        ),
+    ] {
+        assert_eq!(
+            source.refusal(),
+            (path, Problem::SingleVariant(enumeration.to_owned())),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn an_enum_of_two_variants_is_accepted_declared_and_inline() {
+    let rust = "Library [] [ Reply.[ Accepted Refused.[ Busy Down ] ] Never.[] ] [] []".compact();
+    assert!(
+        rust.contains("pubenumReply{Accepted,Refused(Refused_Data),}"),
+        "{rust}"
+    );
+    assert!(rust.contains("pubenumRefused_Data{Busy,Down,}"), "{rust}");
+    // A root's sections are not enums the file declares: a Signal of one
+    // input and one output is accepted.
+    assert!(read("Signal [] [ Ask ] [ Told ] []").generate().is_ok());
+}
+
+#[test]
 fn a_repeated_type_is_told_apart_as_first_and_second() {
     let rust = "Library [] [ Pair.{ String String } StringVector.String Both.{ Vector<String> StringVector } ] [] []".compact();
     assert!(
@@ -916,7 +982,7 @@ fn a_type_with_no_finite_value_is_refused() {
         (vec![1, 1, 1, 0], Problem::Cycle("A".to_owned()))
     );
     assert_eq!(
-        "Library [] [ E.[ Only.E ] ] [] []".refusal(),
+        "Library [] [ E.[ Only.E Also.E ] ] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Cycle("E".to_owned()))
     );
     // A Vector, an Option or another variant is a way out.

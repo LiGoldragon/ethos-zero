@@ -23,7 +23,8 @@ Library
             Renamed.String
             Wrapping.{ String String }
             DuplicateField.String
-            Unpaired.String ]
+            Unpaired.String
+            SingleVariant.String ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association ]
   Location.{ Line Column }
   Line.Integer

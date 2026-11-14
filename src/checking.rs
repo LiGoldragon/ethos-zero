@@ -1676,6 +1676,7 @@ impl Checkable for TypeDeclaration {
                     declared.path.insert(0, 1);
                 }
                 names.distinct()?;
+                variants.plural(&identity.name).place(1)?;
                 variants.check_children(&inner).place(1)
             }
             TypeDeclaration::Alias(identity, aliased) => {
@@ -1848,9 +1849,32 @@ impl Checkable for Variant {
                     declared.path.insert(0, 1);
                 }
                 names.distinct()?;
+                variants.plural(name).place(1)?;
                 variants.check_children(scope).place(1)
             }
         }
+    }
+}
+
+/// The trait whose capability refuses an enum of one variant, as
+/// `SingleVariant.<enum>` at its variants: an enum has two variants or
+/// more. A declared enum is named by its declaration, an enum a variant
+/// declares in place by that variant. A Signal's inputs and outputs, an
+/// Operation's operations and outcomes, and an Emission's emissions and
+/// outcomes are sections, not enums the file declares, and may hold one.
+trait Plural {
+    fn plural(&self, enumeration: &Name) -> Result<(), Error>;
+}
+
+impl Plural for [Variant] {
+    fn plural(&self, enumeration: &Name) -> Result<(), Error> {
+        if self.len() == 1 {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::SingleVariant(enumeration.0.clone()),
+            ));
+        }
+        Ok(())
     }
 }
 

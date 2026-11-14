@@ -209,10 +209,19 @@ type with no finite value, one that reaches itself with no `Vector`,
 a `Cycle`. Every generated item carries `#[rustfmt::skip]`, an inline
 payload's as much as its enum's.
 
+An enum has two variants or more. An enum of one variant is refused as
+`SingleVariant.<enum>` at its variants, a declared enum named by its
+declaration and an enum a variant declares in place named by that variant:
+`Reply.[ Accepted ]` is refused as `SingleVariant.Reply`, and
+`Reply.[ Accepted Refused.[ Busy ] ]` as `SingleVariant.Refused`, in every
+section's types alike. A root's sections, a Signal's inputs and outputs,
+an Operation's operations and outcomes and an Emission's emissions and
+outcomes, are counted as the root's and may hold one.
+
 A bare variant whose name is a type the file declares or imports carries
 that type: `Failure.[ SyntaxError Unwritable ]` with `SyntaxError` declared
 gives `SyntaxError(SyntaxError)`, and with `[ :sema:Block ]` imported,
-`Part.[ Block ]` gives `Block(sema::Block)`. The rule is a bare variant's
+`Part.[ Block Text.String ]` gives `Block(sema::Block)`. The rule is a bare variant's
 alone. A variant with a payload of its own is a variant of that name
 carrying that payload, whatever types the file declares, since a Rust
 variant and a Rust type are two names: the input `Lock.LockRequest` beside

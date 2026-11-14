@@ -1,1 +1,1 @@
-Library [] [ Outer.[ A.[ X.{ String } ] B.[ X.{ Integer } ] ] Rejection.[ PathOverlap.{ String String } ] ] [] []
+Library [] [ Outer.[ A.[ X.{ String } Y ] B.[ X.{ Integer } Y ] ] Rejection.[ DuplicateName PathOverlap.{ String String } ] ] [] []

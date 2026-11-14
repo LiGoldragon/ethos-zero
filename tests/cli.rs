@@ -287,6 +287,24 @@ fn check_takes_a_variant_named_as_a_defined_type_declaring_a_payload() {
 }
 
 #[test]
+fn check_locates_an_inline_enum_of_one_variant_naming_the_file_and_the_enum() {
+    let directory = "single".scratch();
+    let refused = directory.write_source(
+        "refused",
+        "Library\n[]\n[ Reply.[ Accepted\n          Refused.[ Busy ] ] ]\n[]\n[]\n",
+    );
+    let argument = check(&refused);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert_eq!(
+        output,
+        format!(
+            "Rejected.{{ {refused} {{ 4 19 }} Conceptual.{{ [ 1 1 0 1 1 1 ] SingleVariant.Refused }} }}\n"
+        )
+    );
+}
+
+#[test]
 fn check_locates_positions_whose_fields_would_meet_naming_the_file_and_the_field() {
     let directory = "fields".scratch();
     let refused = directory.write_source(
