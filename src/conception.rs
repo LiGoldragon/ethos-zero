@@ -6,7 +6,7 @@ use protos::{Enclosure, Protos, Separator, Symbol};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported, Library,
-    Memory, Name, Named, Operation, Placing, Position, Problem, Receiver, Reference, Root, Signal,
+    Emission, Memory, Name, Named, Operation, Placing, Position, Problem, Receiver, Reference, Root, Signal,
     Signature, Source, Succeeding, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
@@ -86,6 +86,7 @@ impl Conceiving<File> for Protos {
             Some(Root::Signal) => Ok(File::Signal(body.conceive().place(1)?)),
             Some(Root::Operation) => Ok(File::Operation(body.conceive().place(1)?)),
             Some(Root::Memory) => Ok(File::Memory(body.conceive().place(1)?)),
+            Some(Root::Emission) => Ok(File::Emission(body.conceive().place(1)?)),
             None => match Root::successor(&head.0) {
                 Some(successor) => Err(Error::conceptual(
                     vec![0],
@@ -358,6 +359,26 @@ impl Conceiving<Operation> for Protos {
         Ok(Operation {
             imports: s[0].imports().place(0)?,
             operations: operations.variants().place(1)?,
+            outcomes: outcomes.variants().place(2)?,
+            types: declarations.declarations().place(3)?,
+        })
+    }
+}
+impl Conceiving<Emission> for Protos {
+    fn conceive(&self) -> Result<Emission, Error> {
+        let s = self.sections(4)?;
+        let Some(emissions) = s[1].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
+        };
+        let Some(outcomes) = s[2].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![2], Problem::Expected(Form::Section)));
+        };
+        let Some(declarations) = s[3].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![3], Problem::Expected(Form::Section)));
+        };
+        Ok(Emission {
+            imports: s[0].imports().place(0)?,
+            emissions: emissions.declarations().place(1)?,
             outcomes: outcomes.variants().place(2)?,
             types: declarations.declarations().place(3)?,
         })

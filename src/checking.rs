@@ -13,7 +13,8 @@ use crate::sectioning::{Hoisting, Referencing, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
-    Constraint, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name, Operation,
+    Constraint, Emission, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name,
+    Operation,
     Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal, Signature,
     Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant, Wrapping_Data,
 };
@@ -120,6 +121,13 @@ impl Implying for File {
         let mut names = Vec::new();
         for implied in self.implied_enums() {
             names.push(implied.name);
+        }
+        // An Emission's `Emission` is implied from its emissions, which are
+        // declarations rather than variants.
+        if let File::Emission(emission) = self
+            && !emission.emissions.is_empty()
+        {
+            names.push(Name::try_from("Emission").expect("static identifier"));
         }
         names
     }
@@ -745,6 +753,7 @@ impl Checkable for File {
             File::Signal(signal) => signal.check(scope),
             File::Operation(operation) => operation.check(scope),
             File::Memory(memory) => memory.check(scope),
+            File::Emission(emission) => emission.check(scope),
         };
         checked.place(1)?;
         // The derived names come first, so an authored name that would
@@ -955,6 +964,25 @@ impl Declared for Operation {
     }
 }
 
+impl Declared for Emission {
+    fn declared(&self) -> Vec<DeclarationSite> {
+        let mut names = vec![
+            DeclarationSite {
+                name: Name::try_from("Emission").expect("static identifier"),
+                path: vec![1],
+            },
+            DeclarationSite {
+                name: Name::try_from("Outcome").expect("static identifier"),
+                path: vec![2],
+            },
+        ];
+        names.extend(self.imports.names_in(0));
+        names.extend(self.emissions.names_in(1));
+        names.extend(self.types.names_in(3));
+        names
+    }
+}
+
 impl Declared for Memory {
     fn declared(&self) -> Vec<DeclarationSite> {
         let mut names = self.imports.names_in(0);
@@ -970,6 +998,7 @@ impl Declared for File {
             File::Signal(signal) => signal.declared(),
             File::Operation(operation) => operation.declared(),
             File::Memory(memory) => memory.declared(),
+            File::Emission(emission) => emission.declared(),
         };
         // A type declared in place is a declaration of the file, named at its head.
         for placed in self.inlined() {
@@ -1022,6 +1051,20 @@ impl Checkable for Operation {
         self.operations.check_each(scope, 1)?;
         self.outcomes.check_each(scope, 2)?;
         self.operations.refuse_payload(scope).place(1)?;
+        self.outcomes.refuse_payload(scope).place(2)?;
+        self.types.check_each(scope, 3)?;
+        self.types.refuse_wrapping(scope).place(3)
+    }
+}
+
+impl Checkable for Emission {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
+        self.declared().distinct()?;
+        self.imports.check_each(scope, 0)?;
+        self.emissions.check_each(scope, 1)?;
+        self.emissions.refuse_wrapping(scope).place(1)?;
+        self.outcomes.names_in(2).distinct()?;
+        self.outcomes.check_each(scope, 2)?;
         self.outcomes.refuse_payload(scope).place(2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)

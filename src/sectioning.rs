@@ -4,7 +4,10 @@
 //! Signal and Operation share one shape: imports, the variants of a request
 //! enum, the variants of a reply enum, the types they carry. Signal implies
 //! `Query` and `Response`; Operation implies `Operation` and `Outcome`.
-//! Library and Memory imply nothing.
+//! Emission declares its emissions as types of their own, then the outcome
+//! variants and the types they carry; it implies `Outcome` from its variants
+//! and `Emission`, the enum of its emissions. Library and Memory imply
+//! nothing.
 //!
 //! A struct position may declare its type in place, `Brief.String`; that
 //! type is a declaration of the file like any other, named by its own name,
@@ -22,6 +25,12 @@ pub(crate) struct Implied<'a> {
     pub(crate) section: Integer,
 }
 
+/// A section of type declarations and its index in the file's body.
+pub(crate) struct DeclarationSection<'a> {
+    pub(crate) section: Integer,
+    pub(crate) declarations: &'a [TypeDeclaration],
+}
+
 /// A type declaration and the path of its node from the file's body.
 pub(crate) struct Placed<'a> {
     pub(crate) path: Path,
@@ -32,11 +41,10 @@ pub(crate) struct Placed<'a> {
 pub(crate) trait Sectioning {
     /// Where imported names come from.
     fn imports(&self) -> &[Import];
-    /// The types section's declarations.
-    fn types(&self) -> &[TypeDeclaration];
-    /// The index of the types section.
-    fn types_section(&self) -> Integer;
-    /// The enums the root implies, in section order.
+    /// Each section of type declarations, in section order: the types
+    /// section, and an Emission's emissions before it.
+    fn declaration_sections(&self) -> Vec<DeclarationSection<'_>>;
+    /// The enums the root implies from written variants, in section order.
     fn implied_enums(&self) -> Vec<Implied<'_>>;
 }
 
@@ -47,28 +55,53 @@ impl Sectioning for File {
             File::Signal(signal) => &signal.imports,
             File::Operation(operation) => &operation.imports,
             File::Memory(memory) => &memory.imports,
+            File::Emission(emission) => &emission.imports,
         }
     }
 
-    fn types(&self) -> &[TypeDeclaration] {
+    fn declaration_sections(&self) -> Vec<DeclarationSection<'_>> {
         match self {
-            File::Library(library) => &library.types,
-            File::Signal(signal) => &signal.types,
-            File::Operation(operation) => &operation.types,
-            File::Memory(memory) => &memory.types,
-        }
-    }
-
-    fn types_section(&self) -> Integer {
-        match self {
-            File::Library(_) | File::Memory(_) => 1,
-            File::Signal(_) | File::Operation(_) => 3,
+            File::Library(library) => vec![DeclarationSection {
+                section: 1,
+                declarations: &library.types,
+            }],
+            File::Memory(memory) => vec![DeclarationSection {
+                section: 1,
+                declarations: &memory.types,
+            }],
+            File::Signal(signal) => vec![DeclarationSection {
+                section: 3,
+                declarations: &signal.types,
+            }],
+            File::Operation(operation) => vec![DeclarationSection {
+                section: 3,
+                declarations: &operation.types,
+            }],
+            File::Emission(emission) => vec![
+                DeclarationSection {
+                    section: 1,
+                    declarations: &emission.emissions,
+                },
+                DeclarationSection {
+                    section: 3,
+                    declarations: &emission.types,
+                },
+            ],
         }
     }
 
     fn implied_enums(&self) -> Vec<Implied<'_>> {
         let (request, requests, reply, replies) = match self {
             File::Library(_) | File::Memory(_) => return vec![],
+            // The emissions are declarations, not variants: only `Outcome`
+            // is written as variants.
+            File::Emission(emission) => {
+                return vec![Implied {
+                    name: Name::try_from("Outcome").expect("static identifier"),
+                    variants: &emission.outcomes,
+                    section: 2,
+                }];
+            }
             File::Signal(signal) => ("Query", &signal.queries, "Response", &signal.responses),
             File::Operation(operation) => (
                 "Operation",
@@ -105,11 +138,12 @@ pub(crate) trait Hoisting {
 impl Hoisting for File {
     fn declarations(&self) -> Vec<Placed<'_>> {
         let mut placed = Vec::new();
-        let section = self.types_section();
-        let mut at = 0;
-        for declaration in self.types() {
-            declaration.hoist(vec![section, at], &mut placed);
-            at += declaration.span();
+        for section in self.declaration_sections() {
+            let mut at = 0;
+            for declaration in section.declarations {
+                declaration.hoist(vec![section.section, at], &mut placed);
+                at += declaration.span();
+            }
         }
         for implied in self.implied_enums() {
             implied

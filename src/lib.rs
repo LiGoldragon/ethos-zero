@@ -176,7 +176,7 @@ impl AsRef<str> for Source {
     }
 }
 
-/// The unit of declaration: one file, one Rust module; an enum of its four roots.
+/// The unit of declaration: one file, one Rust module; an enum of its five roots.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum File {
     /// Library: imports, types, traits and associations in that order.
@@ -187,6 +187,8 @@ pub enum File {
     Operation(Operation),
     /// Memory: imports, the record types stored.
     Memory(Memory),
+    /// Emission: imports, the emissions, the outcome variants, the types they carry.
+    Emission(Emission),
 }
 
 /// The head of a file: which variant of [`File`] it is.
@@ -200,6 +202,8 @@ pub enum Root {
     Operation,
     /// The memory root: what a Nexus remembers.
     Memory,
+    /// The emission root: what a Nexus sends into the world.
+    Emission,
 }
 
 /// A library's complete declaration surface.  Types and traits share one
@@ -250,6 +254,26 @@ pub struct Memory {
     /// Where imported names come from.
     pub imports: Vec<Import>,
     /// The record type declarations.
+    pub types: Vec<TypeDeclaration>,
+}
+
+/// The emission variant of a file: what a Nexus sends into the world, each
+/// emission one external call, and what the translator observed of it.
+///
+/// Each emission is a type of its own, declared in the emissions section and
+/// named as the emission; the root implies `Emission`, the enum of them all,
+/// each variant carrying its emission, and `Outcome`, the enum of the
+/// outcome variants. `Emission` bears `translator::Emittable`, handing each
+/// emission to its own body.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Emission {
+    /// Where imported names come from.
+    pub imports: Vec<Import>,
+    /// The emissions: each a type declaration, named as the emission.
+    pub emissions: Vec<TypeDeclaration>,
+    /// The variants of the outcome type `Outcome`.
+    pub outcomes: Vec<Variant>,
+    /// The types the emissions and outcomes carry.
     pub types: Vec<TypeDeclaration>,
 }
 
@@ -700,13 +724,20 @@ impl Named for Root {
             Root::Signal => "Signal",
             Root::Operation => "Operation",
             Root::Memory => "Memory",
+            Root::Emission => "Emission",
         }
     }
 }
 
 impl Identifiable for Root {
     fn identify(name: &str) -> Option<Self> {
-        for root in [Root::Library, Root::Signal, Root::Operation, Root::Memory] {
+        for root in [
+            Root::Library,
+            Root::Signal,
+            Root::Operation,
+            Root::Memory,
+            Root::Emission,
+        ] {
             if root.name() == name {
                 return Some(root);
             }
@@ -733,6 +764,7 @@ impl Rooted for File {
             File::Signal(_) => Root::Signal,
             File::Operation(_) => Root::Operation,
             File::Memory(_) => Root::Memory,
+            File::Emission(_) => Root::Emission,
         }
     }
 }
