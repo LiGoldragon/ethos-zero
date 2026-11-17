@@ -297,9 +297,9 @@ pub(crate) struct DeclarationSite {
     pub(crate) path: Path,
 }
 
-/// A chained import holds its names below it, at child one; a rooted one is
-/// its names, `:custom:Name`, or holds them in the bracket beside it,
-/// `:custom:[ Name ]`.
+/// A chained import holds its names below its segments, at child one of each,
+/// `custom:sub:Name`; a rooted one is its names, `:custom:Name`, or holds them
+/// in the bracket beside it, `:custom:[ Name ]`.
 trait Holding {
     fn held(&self) -> Path;
 }
@@ -308,7 +308,7 @@ impl Holding for Import {
         match self {
             Import::One(source, _) if source.rooted() => vec![],
             Import::Many(source, _) if source.rooted() => vec![BESIDE],
-            Import::One(_, _) | Import::Many(_, _) => vec![1],
+            Import::One(source, _) | Import::Many(source, _) => vec![1; source.segments().len()],
         }
     }
 }
@@ -752,14 +752,14 @@ impl<C: Checkable + Spanning> Checking for [C] {
 
 impl Checkable for Import {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        match self {
-            Import::One(source, imported) if source.rooted() => imported.check(scope),
-            Import::Many(source, imported) if source.rooted() => {
-                imported.check_children(scope).place(BESIDE)
-            }
-            Import::One(_, imported) => imported.check(scope).place(1),
-            Import::Many(_, imported) => imported.check_children(scope).place(1),
-        }
+        let checked = match self {
+            Import::One(_, imported) => imported.check(scope),
+            Import::Many(_, imported) => imported.check_children(scope),
+        };
+        self.held()
+            .into_iter()
+            .rev()
+            .fold(checked, |checked, index| checked.place(index))
     }
 }
 

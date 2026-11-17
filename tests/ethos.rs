@@ -505,18 +505,7 @@ fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
 }
 
 #[test]
-fn a_second_inline_source_is_refused_instead_of_overwriting_the_first() {
-    // A chained source is one segment; more segments are written rooted.
-    let source = "Library [] [ Holder.{ std:sync:Mutex<String> String } ] [] []";
-    match Potential::<File>::from(source).actualize() {
-        Err(Error::Conceptual(data)) => {
-            assert_eq!(data.problem, Problem::Expected(Form::Reference));
-            assert_eq!(data.integer_vector, vec![1, 1, 0, 1, 0, 1]);
-        }
-        Err(Error::Structural(_)) => panic!("{source} is a conceptual refusal"),
-        Ok(_) => panic!("{source} must be refused"),
-    }
-
+fn a_dotted_source_is_refused() {
     match Potential::<File>::from("Library [] [ MyType.std.custom:Mutex ] [] []").actualize() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Expected(Form::Reference));
@@ -571,6 +560,97 @@ fn rooted_imports_in_the_imports_section_take_every_namespace_segment() {
         memory.contains("pub flow_id: crate::message::FlowId"),
         "{memory}"
     );
+}
+
+#[test]
+fn a_chained_import_of_several_segments_generates_as_its_rooted_spelling() {
+    for (chained, rooted, spelled) in [
+        (
+            "Library [ signal_capsule:signal:[ Input Output ] ] [ Record.{ Input Vector<Output> } ] [] []",
+            "Library [ :signal_capsule:signal:[ Input Output ] ] [ Record.{ Input Vector<Output> } ] [] []",
+            "signal_capsule:signal:[",
+        ),
+        (
+            "Library [ flow_ethos:message:Type a:b:c:[ Deep Deeper.Deepest ] ] [ Record.{ Type Deep Deeper } ] [] []",
+            "Library [ :flow_ethos:message:Type :a:b:c:[ Deep Deeper.Deepest ] ] [ Record.{ Type Deep Deeper } ] [] []",
+            "a:b:c:[",
+        ),
+        (
+            "Library [] [ Holder.{ std:sync:Mutex<String> Topic.custom:sub:Name } ] [] []",
+            "Library [] [ Holder.{ :std:sync:Mutex<String> Topic:custom:sub:Name } ] [] []",
+            "std:sync:Mutex",
+        ),
+    ] {
+        let generated = generates(chained);
+        assert_eq!(generated, generates(rooted), "{chained}");
+        // The chained spelling reprints chained.
+        let print = read(chained).protosize().textualize();
+        assert!(print.contains(spelled), "{print}");
+        assert!(!print.contains(&format!(":{spelled}")), "{print}");
+    }
+    let generated = generates(
+        "Library [ signal_capsule:signal:[ Input Output ] ] [ Record.{ Input Vector<Output> } ] [] []",
+    );
+    assert!(
+        generated.contains(": signal_capsule::signal::Input"),
+        "{generated}"
+    );
+    assert!(
+        generated.contains("std::vec::Vec<signal_capsule::signal::Output>"),
+        "{generated}"
+    );
+}
+
+#[test]
+fn a_chained_import_of_one_segment_still_reads() {
+    let chained = generates(
+        "Library [ protos:[ Textualizable ] external:Handle ] [ Record.{ Handle } ] [] [ Record.[ Textualizable ] ]",
+    );
+    assert!(
+        chained.contains("pub handle: external::Handle"),
+        "{chained}"
+    );
+    assert_eq!(
+        chained,
+        generates(
+            "Library [ :protos:[ Textualizable ] :external:Handle ] [ Record.{ Handle } ] [] [ Record.[ Textualizable ] ]",
+        )
+    );
+}
+
+#[test]
+fn a_chained_import_refuses_a_capitalized_segment_and_places_its_names_below_every_segment() {
+    for (source, name, path) in [
+        (
+            "Library [ signal_capsule:Signal:[ Input Output ] ] [] [] []",
+            "Signal",
+            vec![1, 0, 0, 1, 0],
+        ),
+        ("Library [ a:B:c:Type ] [] [] []", "B", vec![1, 0, 0, 1, 0]),
+        (
+            "Library [] [ Holder.{ std:Sync:Mutex String } ] [] []",
+            "Sync",
+            vec![1, 1, 0, 1, 0, 1, 0],
+        ),
+    ] {
+        match Potential::<File>::from(source).actualize() {
+            Err(Error::Conceptual(data)) => {
+                assert_eq!(data.problem, Problem::Name(name.to_owned()), "{source}");
+                assert_eq!(data.integer_vector, path, "{source}");
+            }
+            Err(Error::Structural(_)) => panic!("{source} is a conceptual refusal"),
+            Ok(_) => panic!("{source} must be refused"),
+        }
+    }
+
+    // `a:b:[ X Y ]` holds its names below both segments.
+    match read("Library [ c:[ Y ] a:b:[ X Y ] ] [] [] []").generate() {
+        Err(Error::Conceptual(data)) => {
+            assert_eq!(data.problem, Problem::Duplicate("Y".to_owned()));
+            assert_eq!(data.integer_vector, vec![1, 0, 1, 1, 1, 1]);
+        }
+        other => panic!("a name imported twice is refused: {other:?}"),
+    }
 }
 
 #[test]

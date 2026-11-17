@@ -49,18 +49,19 @@ impl Structuring for str {
 ///
 /// A rooted source is one bare run with the name, `:flow_ethos:message:Type`,
 /// or the chain an inline alias's colon heads, `custom:sub:Name` in
-/// `Topic:custom:sub:Name`; a chained source heads the name, `protos:Error`.
+/// `Topic:custom:sub:Name`; a chained source heads the name, each segment
+/// heading the rest, `protos:Error` or `custom:sub:Error`.
 trait Qualifying {
     fn qualified(&self, name: &str) -> Protos;
     fn rooted_text(&self, tail: &str) -> String;
-    fn chain(&self, name: &str) -> Protos;
+    fn chain(&self, body: Protos) -> Protos;
 }
 impl Qualifying for Source {
     fn qualified(&self, name: &str) -> Protos {
         if self.rooted() {
             self.rooted_text(name).as_str().bare()
         } else {
-            self.as_ref().headed(None, Separator::Colon, name.bare())
+            self.chain(name.bare())
         }
     }
     fn rooted_text(&self, tail: &str) -> String {
@@ -73,8 +74,8 @@ impl Qualifying for Source {
         text.push_str(tail);
         text
     }
-    fn chain(&self, name: &str) -> Protos {
-        let mut node = name.bare();
+    fn chain(&self, body: Protos) -> Protos {
+        let mut node = body;
         for segment in self.segments().iter().rev() {
             node = segment.0.as_str().headed(None, Separator::Colon, node);
         }
@@ -90,9 +91,10 @@ trait AliasHeading {
 impl AliasHeading for Identity {
     fn alias(&self, reference: &Reference) -> Protos {
         match &reference.source {
-            Some(source) if source.rooted() => {
-                self.heading(Separator::Colon, source.chain(reference.name.as_ref()))
-            }
+            Some(source) if source.rooted() => self.heading(
+                Separator::Colon,
+                source.chain(reference.name.as_ref().bare()),
+            ),
             Some(source) => {
                 self.heading(Separator::Period, source.qualified(reference.name.as_ref()))
             }
@@ -262,7 +264,7 @@ impl Protosizing for Reference {
                     "".enclosed(Enclosure::Braced, vec![base, arguments])
                 }
             }
-            Some(source) => source.as_ref().headed(None, Separator::Colon, applied),
+            Some(source) => source.chain(applied),
             None => applied,
         }
     }
@@ -322,16 +324,10 @@ impl Protosizing for Import {
                 };
                 source.rooted_text(&tail).as_str().bare()
             }
-            Self::One(source, imported) => {
-                source
-                    .as_ref()
-                    .headed(None, Separator::Colon, imported.protos())
+            Self::One(source, imported) => source.chain(imported.protos()),
+            Self::Many(source, imported) => {
+                source.chain("".enclosed(Enclosure::Bracketed, imported.protos_list()))
             }
-            Self::Many(source, imported) => source.as_ref().headed(
-                None,
-                Separator::Colon,
-                "".enclosed(Enclosure::Bracketed, imported.protos_list()),
-            ),
         }
     }
 }

@@ -195,13 +195,13 @@ fn check_locates_an_undeclared_name_below_a_comment() {
 }
 
 #[test]
-fn check_refuses_a_second_inline_source_at_the_inner_reference() {
+fn check_refuses_a_capitalized_inner_segment_at_its_name() {
     let directory = "inline-source".scratch();
     let source = directory.write_source(
         "inline-source",
-        // `Topic:custom:Name` declares Topic in place; a second chained
-        // source, `std:sync:`, is the refusal, at the inner reference.
-        "Library\n[]\n[ Holder.{ std:sync:Mutex String } ]\n[]\n[]\n",
+        // A chained source reads every segment, `std:sync:Mutex`; a
+        // capitalized one, `Sync`, is the refusal, at that segment.
+        "Library\n[]\n[ Holder.{ std:Sync:Mutex String } ]\n[]\n[]\n",
     );
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
@@ -209,7 +209,7 @@ fn check_refuses_a_second_inline_source_at_the_inner_reference() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 3 16 }} Conceptual.{{ [ 1 1 0 1 0 1 ] Expected.Reference }} }}\n"
+            "Rejected.{{ {source} {{ 3 16 }} Conceptual.{{ [ 1 1 0 1 0 1 0 ] Name.Sync }} }}\n"
         )
     );
 }

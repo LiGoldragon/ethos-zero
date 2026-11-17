@@ -2,6 +2,12 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 30.0.1: a chained import reads every namespace segment
+
+Not breaking: every file 30.0.0 accepts reads, checks and generates the same. The chained form of an import now takes any number of uncapitalized segments and reads as its leading-colon spelling: `signal_capsule:signal:[ Input Output ]` in the imports section, which 30.0.0 refused as `Expected.Import`, generates as `:signal_capsule:signal:[ Input Output ]`, and `std:sync:Mutex<String>` in a field, which 30.0.0 refused as `Expected.Reference`, generates as `:std:sync:Mutex<String>`. A chained source reprints chained. `Source`'s `TryFrom<&str>` takes the chained text `a:b`, which 30.0.0 refused. A capitalized segment before the name is still refused as `Name.<segment>`.
+
+To deploy, repin ethos-zero to 30.0.1.
+
 ## 30.0.0: Stream is an intrinsic; Answerable names its Answer
 
 What breaks, in four parts.

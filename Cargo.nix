@@ -277,7 +277,7 @@ rec {
       };
       "ethos-zero" = rec {
         crateName = "ethos-zero";
-        version = "30.0.0";
+        version = "30.0.1";
         edition = "2024";
         crateBin = [
           {

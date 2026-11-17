@@ -190,8 +190,10 @@ segments, each followed by a colon, then the capitalized name:
 a group (the bare `:protos:` and the bracket beside it), and
 `:std:clone:Clonable.Clone` names it `Clonable` where the source calls it
 `Clone`. The generated Rust writes the name fully qualified,
-`flow_ethos::message::Type`. One segment may also head its name without
-the leading colon, `protos:String` or `protos:[ String ]`.
+`flow_ethos::message::Type`. The chained form, without the leading
+colon, reads the same: `protos:String`, `protos:[ String ]`, and
+`signal_capsule:signal:[ Input Output ]` as
+`:signal_capsule:signal:[ Input Output ]`.
 
 An import may stand where the type is used instead. In a declaration the
 colon replaces the period: `Topic:custom:sub:Name` declares `Topic` over

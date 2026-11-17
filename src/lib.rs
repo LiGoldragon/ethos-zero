@@ -62,9 +62,10 @@ pub struct Name(String);
 
 /// The source of an import: the namespace segments before the imported name.
 ///
-/// Ethos writes it rooted, `:flow_ethos:message` before `:Type`, or, for one
-/// segment, chained, `protos` before `:Type`. The generated Rust writes the
-/// segments as a path, `flow_ethos::message`.
+/// Ethos writes it rooted, `:flow_ethos:message` before `:Type`, or chained,
+/// `flow_ethos:message` before `:Type`, each segment heading the rest. Both
+/// spellings of the same segments mean the same source, and the generated
+/// Rust writes the segments as a path, `flow_ethos::message`.
 ///
 /// Construct it with [`TryFrom<&str>`] from either spelling; `AsRef<str>`
 /// reads the Rust path.
@@ -119,9 +120,6 @@ impl TryFrom<&str> for Source {
                 return Err(text.to_owned());
             }
             segments.push(protos::Symbol(segment.to_owned()));
-        }
-        if !rooted && segments.len() > 1 {
-            return Err(text.to_owned());
         }
         let path = written.replace(':', "::");
         let Ok(parsed) = syn::parse_str::<syn::Path>(&path) else {

@@ -7,7 +7,8 @@ use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported,
     Library, Memory, Name, Named, Operation, Placing, Position, Problem, Receiver, Reference, Root,
-    Signal, Signature, Source, Succeeding, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Signal, Signature, Source, Spelled, Succeeding, TraitBody, TraitDeclaration, TypeDeclaration,
+    Variant,
 };
 
 pub(crate) trait Conceiving<C> {
@@ -401,7 +402,9 @@ impl Conceiving<Memory> for Protos {
 /// A rooted import is a bare run: `:flow_ethos:message:Type` takes one name,
 /// and `:protos:` followed by the bracket beside it, `:protos:[ String Integer ]`,
 /// takes several. A chained import, `protos:String` or `protos:[ String ]`, is
-/// one headed structure.
+/// one headed structure, each further segment heading the rest:
+/// `signal_capsule:signal:[ Input Output ]` reads as
+/// `:signal_capsule:signal:[ Input Output ]`.
 trait Imports {
     fn imports(&self) -> Result<Vec<Import>, Error>;
 }
@@ -502,11 +505,46 @@ impl Conceiving<Import> for Protos {
         };
         let source = Source::try_from(head.0.as_str())
             .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?;
+        if let Protos::Headed {
+            constraints: None,
+            separator: Separator::Colon,
+            ..
+        } = body.as_ref()
+        {
+            // A further segment heads the rest: `signal_capsule:signal:[ Input ]`.
+            return match body.conceive().place(1)? {
+                Import::One(inner, imported) => {
+                    Ok(Import::One(inner.beneath(&source).place(1)?, imported))
+                }
+                Import::Many(inner, imported) => {
+                    Ok(Import::Many(inner.beneath(&source).place(1)?, imported))
+                }
+            };
+        }
         if let Some(children) = body.children(Enclosure::Bracketed) {
             Ok(Import::Many(source, Protos::list(children).place(1)?))
         } else {
             Ok(Import::One(source, body.conceive().place(1)?))
         }
+    }
+}
+/// The trait whose capability writes a chained source beneath the segment
+/// that heads it: `signal` beneath `signal_capsule` is
+/// `signal_capsule:signal`.
+trait Nesting {
+    fn beneath(&self, outer: &Source) -> Result<Source, Error>;
+}
+impl Nesting for Source {
+    fn beneath(&self, outer: &Source) -> Result<Source, Error> {
+        let mut text = String::new();
+        for segment in outer.segments().iter().chain(self.segments()) {
+            if !text.is_empty() {
+                text.push(':');
+            }
+            text.push_str(&segment.0);
+        }
+        Source::try_from(text.as_str())
+            .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))
     }
 }
 impl Conceiving<Reference> for Protos {
@@ -535,16 +573,19 @@ impl Conceiving<Reference> for Protos {
                 ..
             } => {
                 let mut r: Reference = body.conceive().place(1)?;
-                if r.source.is_some() {
+                if r.source.as_ref().is_some_and(Spelled::rooted) {
                     return Err(Error::conceptual(
                         vec![1],
                         Problem::Expected(Form::Reference),
                     ));
                 }
-                r.source = Some(
-                    Source::try_from(head.0.as_str())
-                        .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?,
-                );
+                let source = Source::try_from(head.0.as_str())
+                    .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?;
+                // A further segment heads the rest: `std:sync:Mutex`.
+                r.source = Some(match &r.source {
+                    Some(inner) => inner.beneath(&source).place(1)?,
+                    None => source,
+                });
                 Ok(r)
             }
             _ => Err(Error::conceptual(
