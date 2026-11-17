@@ -1268,7 +1268,7 @@ fn a_stream_takes_two_types() {
 }
 
 #[test]
-fn a_stream_is_refused_wherever_it_is_not_a_whole_output_or_a_capability_s_input_or_yield() {
+fn a_stream_is_refused_wherever_it_is_not_a_whole_output_or_a_capability_s_yield() {
     let placement = Problem::Placement("Stream".to_owned());
     for (source, path) in [
         // A field, of every root.
@@ -1342,6 +1342,11 @@ fn a_stream_is_refused_wherever_it_is_not_a_whole_output_or_a_capability_s_input
             "Signal [] [ Watch ] [ Watched.[ Open.Stream<String Integer> Shut ] ] []",
             vec![1, 2, 0, 1, 0, 1],
         ),
+        // A capability's input.
+        (
+            "Library [] [] [ Merging.{ [] [ State Change ] [] [ merge.{ [ Stream<State Change> ] [ Integer ] } ] } ] []",
+            vec![1, 2, 0, 1, 3, 0, 1, 0, 0],
+        ),
         // Inside a capability's yield.
         (
             "Library [] [] [ Publishing.{ [] [ State Change ] [] [ open.[ Option<Stream<State Change>> ] ] } ] []",
@@ -1353,15 +1358,10 @@ fn a_stream_is_refused_wherever_it_is_not_a_whole_output_or_a_capability_s_input
 }
 
 #[test]
-fn a_capability_takes_or_yields_a_stream_of_its_associated_types() {
+fn a_capability_yields_a_stream_of_its_associated_types() {
     let rust = include_str!("../fixtures/publishing-trait.ethos").compact();
     assert!(
         rust.contains("pubtraitPublishing{typeState;typeChange;fnopen(&self,input:Self::State)->signal::Stream<Self::State,Self::Change>;}"),
-        "{rust}"
-    );
-    let rust = "Library [] [] [ Merging.{ [] [ State Change ] [] [ merge.{ [ Stream<State Change> ] [ Integer ] } ] } ] []".compact();
-    assert!(
-        rust.contains("fnmerge(&self,input:signal::Stream<Self::State,Self::Change>)->i64;"),
         "{rust}"
     );
 }

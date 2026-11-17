@@ -283,7 +283,7 @@ A `Stream` stands in two places. One is the whole payload of a Signal's
 output: `Signal [] [ Subscribe ] [ Subscribed.Stream<Vector<Pane> Changed> ] [ … ]`.
 The `Output` holds one frame of it,
 `Subscribed(signal::Frame<std::vec::Vec<Pane>, Changed>)`, with the derives
-every `Output` bears, so each frame on the wire is one `Output`. The other is a trait capability's input or yield, where its
+every `Output` bears, so each frame on the wire is one `Output`. The other is a trait capability's yield, where its
 types may be the trait's associated types:
 `Publishing.{ [] [ State Change ] [] [ open.{ [ State ] [ Stream<State Change> ] } ] }`
 gives `fn open(&self, input: Self::State) -> signal::Stream<Self::State, Self::Change>`

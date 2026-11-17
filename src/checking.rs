@@ -1356,7 +1356,7 @@ pub(crate) trait Referring {
 
 /// The trait whose capability checks a reference standing where a `Stream`
 /// is admitted, the whole payload of a Signal's output or a capability's
-/// input or yield: the reference itself may be a `Stream`, and its
+/// yield: the reference itself may be a `Stream`, and its
 /// arguments are checked as every other reference is, so a `Stream` inside
 /// them is refused.
 pub(crate) trait Admitting {
@@ -2139,8 +2139,11 @@ impl Signing for Reference {
     fn sign(&self, scope: &Scope, place: Place) -> Result<(), Error> {
         match self.stance(scope, place) {
             Stance::Bounding | Stance::Bound(_) => self.refer(scope, Role::Trait),
-            // A capability's input or yield may be a `Stream` whole.
-            Stance::Concrete | Stance::Kept => self.admit(scope, Role::Type),
+            // A capability's yield may be a `Stream` whole; its input may not.
+            Stance::Concrete | Stance::Kept => match place {
+                Place::Yield => self.admit(scope, Role::Type),
+                Place::Input => self.refer(scope, Role::Type),
+            },
         }
     }
 }
