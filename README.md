@@ -72,9 +72,11 @@ reaction. An input left without an output is refused as
 borrowing what the input carries (taking nothing where it carries nothing)
 and yielding what its output carries (`()` where it carries nothing) or
 the refusal, any `Output`, and nothing else. The input is `Answerable`: the
-file generates `impl Answerable for Input`, whose one capability `answer`
-borrows the bearer of `Answering` and yields the `Output`, holding the
-dispatch. It lends each capability the payload it matched, bound as
+file generates `impl Answerable for Input`, whose associated type `Answer`
+is what an answer is, and whose one capability `answer` borrows the bearer
+of `Answering` and yields the `Answer`, holding the dispatch. A Signal with
+no stream output answers each input once, so its `Answer` is the `Output`.
+The dispatch lends each capability the payload it matched, bound as
 `carried`. A Nexus answers an input with `input.answer(&nexus)`:
 
 ```rust
@@ -83,9 +85,11 @@ pub trait Answering {
     fn report(&self, report: &Report_Data) -> std::result::Result<(), Output>;
 }
 pub trait Answerable {
-    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output;
+    type Answer;
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Self::Answer;
 }
 impl Answerable for Input {
+    type Answer = Output;
     fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output {
         match self {
             Input::Launch(carried) => nexus.launch(carried).map_or_else(|refusal| refusal, Output::Launched),
@@ -101,7 +105,7 @@ place (`report`); a keyword is written raw. An input may be named `Answer`:
 its capability is `answer`, on `Answering`, and the dispatch is the input's
 own (`fixtures/answer-input.ethos`). An input whose capability would be
 named as another input's is refused as `Duplicate.<capability>`, and
-`Answering` and `Answerable` are names a Signal may not declare. No
+`Answering`, `Answerable` and `Answer` are names a Signal may not declare. No
 standard library crate holds the root-implied traits yet, so `Answerable`
 is generated into every Signal's file. `Answering` carries
 `#[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]`:
@@ -262,6 +266,69 @@ declared inside a derived enum carries that enum's name as its stem
 `Duplicate` at the authored declaration.
 Generated generic parameters similarly move from `A`, `B`, and so on only
 when one would capture an authored type reference.
+
+## Stream
+
+`Stream` is an intrinsic, known without import as `Vector` is, and takes
+exactly two types: the state a stream opens with and the change it then
+carries, `Stream<Vector<Pane> Changed>`. It is answered as a stream: one
+subscription, then frames. The signal library holds its two Rust types,
+`signal::Frame<State, Change>`, an archived and datomizable enum
+`Opened(State) | Changed(Change) | Lagged(State) | Ended(Ending)`, and
+`signal::Stream<State, Change>`, the live stream of frames, never archived.
+A crate holding a Signal with a stream output depends on that library under
+the name `signal`.
+
+A `Stream` stands in two places. One is the whole payload of a Signal's
+output: `Signal [] [ Subscribe ] [ Subscribed.Stream<Vector<Pane> Changed> ] [ … ]`.
+The `Output` holds one frame of it,
+`Subscribed(signal::Frame<std::vec::Vec<Pane>, Changed>)`, with the derives
+every `Output` bears, so each frame on the wire is one `Output`. The other is a trait capability's input or yield, where its
+types may be the trait's associated types:
+`Publishing.{ [] [ State Change ] [] [ open.{ [ State ] [ Stream<State Change> ] } ] }`
+gives `fn open(&self, input: Self::State) -> signal::Stream<Self::State, Self::Change>`
+(`fixtures/publishing-trait.ethos`). A `Stream` anywhere else is refused as
+`Placement.Stream` at its path: in a field, an alias, a variant's payload in
+any root's types or in an Operation's or Emission's sections, a Signal's
+input, and inside another type's arguments, `Vector<Stream<…>>`,
+`Option<Stream<…>>` and a `Stream` among a `Stream`'s own arguments among
+them; an output's payload declared in place, `Watched.{ Stream<…> }`, holds
+it as a field and is refused too. `Stream<String>` is refused as
+`Arity.{ 2 1 }`. The retired block form `Name.Stream.( … )` is no type: it
+is refused as it is read, `Expected.Reference` at `Stream.( … )`.
+
+Where an output answering an input is a `Stream`, that input's capability
+yields the live stream or the refusal, and the file generates `Answer`, an
+enum deriving nothing: `Once(Output)` for every answer given once, a refusal
+among them, and one variant per stream output answering an input, named as
+that output and holding its stream (`fixtures/stream-signal.ethos`):
+
+```rust
+pub enum Answer {
+    Once(Output),
+    Subscribed(signal::Stream<std::vec::Vec<Pane>, Changed>),
+}
+pub trait Answering {
+    fn launch(&self, launch_request: &LaunchRequest) -> std::result::Result<FlowId, Output>;
+    fn subscribe(&self) -> std::result::Result<signal::Stream<std::vec::Vec<Pane>, Changed>, Output>;
+}
+impl Answerable for Input {
+    type Answer = Answer;
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Answer {
+        match self {
+            Input::Launch(carried) => Answer::Once(nexus.launch(carried).map_or_else(|refusal| refusal, Output::Launched)),
+            Input::Subscribe => nexus.subscribe().map_or_else(Answer::Once, Answer::Subscribed),
+        }
+    }
+}
+```
+
+`Answer` carries `#[allow(clippy::large_enum_variant)]`: an answer given
+once is the wire's `Output`, held whole. A stream output that answers an
+input and is named `Once` would meet `Answer::Once` and is refused as
+`Duplicate.Once` at its name; one named `Answer` gives `Answer::Answer`. A
+stream output past the last input is a reaction: its frame is an `Output`
+as any stream output's is, and no `Answer` variant holds it.
 
 ## Traits
 

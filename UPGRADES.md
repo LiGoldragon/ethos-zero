@@ -2,6 +2,19 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 30.0.0: Stream is an intrinsic; Answerable names its Answer
+
+What breaks, in four parts.
+
+1. `Answerable` gains the associated type `Answer`, and its `answer` yields `Self::Answer`: `pub trait Answerable { type Answer; fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Self::Answer; }`. A Signal with no stream output generates `type Answer = Output;` in `impl Answerable for Input`, and its `answer` still yields `Output`, so a consumer calling `input.answer(&nexus)` is unchanged; one naming `Answerable` as a bound and its yield as `Output` writes `Answerable<Answer = Output>`.
+2. `Stream` is an intrinsic. A type or trait declared `Stream` is refused as `Intrinsic.Stream`, as one declared `Vector` is; a reference to `Stream` that 29.x refused as `Undeclared.Stream` now names the intrinsic.
+3. `Answer` is reserved in a Signal, as `Answering` and `Answerable` are: `Signal [] [ Ask ] [ Told ] [ Answer.String ]` is refused as `Conceptual.{ [ 1 3 0 0 ] Duplicate.Answer }`.
+4. The `Error` contract's `Problem` gains `Placement.String`, after `TooFewVariants`. A consumer matching `Problem` exhaustively adds the arm.
+
+What is now accepted: `Stream<State Change>` as the whole payload of a Signal's output, and in a trait capability's input or yield. The `Output` holds one frame of it, `signal::Frame<State, Change>`; the input it answers has a capability yielding `std::result::Result<signal::Stream<State, Change>, Output>`; and the file generates `pub enum Answer { Once(Output), <Output>(signal::Stream<State, Change>), … }` with `type Answer = Answer;`, the dispatch answering an ordinary input `Answer::Once(…)`. A `Stream` anywhere else is refused as `Placement.Stream` at its path; a stream output answering an input and named `Once` is refused as `Duplicate.Once`. Every other type a 29.x file generated is generated the same, so the wire is unchanged.
+
+To deploy: rename a Signal type named `Answer`, and a declared `Stream`; add the `Placement` arm; then repin ethos-zero to 30.0.0. A crate whose Signal answers with a stream depends on the signal library under the name `signal`, for `signal::Frame` and `signal::Stream`.
+
 ## 29.0.0: an enum of fewer than two variants is refused; a bare emission carries a unit of its own
 
 What breaks, in three parts.

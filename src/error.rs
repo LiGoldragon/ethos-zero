@@ -62,6 +62,7 @@ pub enum Problem {
     DuplicateField(String),
     Unpaired(String),
     TooFewVariants(String),
+    Placement(String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

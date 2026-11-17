@@ -254,8 +254,8 @@ fn a_signal_generates_answering_with_one_capability_per_input_and_the_input_answ
         "pubtraitAnswering{fnlaunch(&self,launch_request:&LaunchRequest)->std::result::Result<FlowId,Output>;",
         "fnreport(&self,report:&Report_Data)->std::result::Result<(),Output>;",
         "fnping(&self)->std::result::Result<(),Output>;}",
-        "pubtraitAnswerable{fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Output;}",
-        "implAnswerableforInput{fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Output{matchself{",
+        "pubtraitAnswerable{typeAnswer;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Self::Answer;}",
+        "implAnswerableforInput{typeAnswer=Output;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Output{matchself{",
         "Input::Launch(carried)=>",
         "nexus.launch(carried).map_or_else(|refusal|refusal,Output::Launched)",
         "Input::Report(carried)=>",
@@ -317,7 +317,7 @@ fn an_input_whose_capability_name_is_taken_is_refused() {
         "Signal [] [ UrlFetch URLFetch ] [ Fetched Fetched2 ] []".refusal(),
         (vec![1, 1, 1], Problem::Duplicate("url_fetch".to_owned()))
     );
-    for name in ["Answering", "Answerable"] {
+    for name in ["Answering", "Answerable", "Answer"] {
         assert_eq!(
             format!("Signal [] [ Ask ] [ Told ] [ {name}.String ]").refusal(),
             (vec![1, 3, 0, 0], Problem::Duplicate(name.to_owned()))
@@ -1236,4 +1236,226 @@ fn a_concrete_type_in_an_input_is_written_as_that_type() {
         rust.contains("fnoutline(&self,input:std::vec::Vec<Outline>)->SelfwhereSelf:Sized;"),
         "{rust}"
     );
+}
+
+#[test]
+fn a_stream_takes_two_types() {
+    for (source, problem) in [
+        (
+            "Signal [] [ Watch ] [ Watched.Stream<String> ] []",
+            Problem::Arity(ethos_zero::Arity_Data {
+                first_integer: 2,
+                second_integer: 1,
+            }),
+        ),
+        (
+            "Signal [] [ Watch ] [ Watched.Stream<String Integer Boolean> ] []",
+            Problem::Arity(ethos_zero::Arity_Data {
+                first_integer: 2,
+                second_integer: 3,
+            }),
+        ),
+        (
+            "Signal [] [ Watch ] [ Watched.Stream ] []",
+            Problem::Arity(ethos_zero::Arity_Data {
+                first_integer: 2,
+                second_integer: 0,
+            }),
+        ),
+    ] {
+        assert_eq!(source.refusal(), (vec![1, 2, 0, 1], problem), "{source}");
+    }
+}
+
+#[test]
+fn a_stream_is_refused_wherever_it_is_not_a_whole_output_or_a_capability_s_input_or_yield() {
+    let placement = Problem::Placement("Stream".to_owned());
+    for (source, path) in [
+        // A field, of every root.
+        (
+            "Library [] [ Rec.{ Stream<String Integer> } ] [] []",
+            vec![1, 1, 0, 1, 0],
+        ),
+        (
+            "Memory [] [ Rec.{ String Stream<String Integer> } ]",
+            vec![1, 1, 0, 1, 1],
+        ),
+        // An alias.
+        (
+            "Library [] [ Feed.Stream<String Integer> ] [] []",
+            vec![1, 1, 0, 1],
+        ),
+        (
+            "Signal [] [ Ask ] [ Told ] [ Feed.Stream<String Integer> ]",
+            vec![1, 3, 0, 1],
+        ),
+        // A variant's payload in a declared enum.
+        (
+            "Library [] [ E.[ A.Stream<String Integer> B ] ] [] []",
+            vec![1, 1, 0, 1, 0, 1],
+        ),
+        (
+            "Signal [] [ Ask ] [ Told ] [ E.[ A.Stream<String Integer> B ] ]",
+            vec![1, 3, 0, 1, 0, 1],
+        ),
+        // An Operation's and an Emission's sections.
+        (
+            "Operation [] [ Go.Stream<String Integer> ] [ Gone ] []",
+            vec![1, 1, 0, 1],
+        ),
+        (
+            "Operation [] [ Go ] [ Gone.Stream<String Integer> ] []",
+            vec![1, 2, 0, 1],
+        ),
+        (
+            "Emission [] [ Go ] [ Gone.Stream<String Integer> ] []",
+            vec![1, 2, 0, 1],
+        ),
+        // A Signal's input.
+        (
+            "Signal [] [ Watch.Stream<String Integer> ] [ Watched ] []",
+            vec![1, 1, 0, 1],
+        ),
+        // Inside another type, in an output.
+        (
+            "Signal [] [ Watch ] [ Watched.Vector<Stream<String Integer>> ] []",
+            vec![1, 2, 1, 0],
+        ),
+        (
+            "Signal [] [ Watch ] [ Watched.Option<Stream<String Integer>> ] []",
+            vec![1, 2, 1, 0],
+        ),
+        (
+            "Signal [] [ Watch ] [ Watched.Stream<Stream<String Integer> Integer> ] []",
+            vec![1, 2, 1, 0],
+        ),
+        (
+            "Signal [] [ Watch ] [ Watched.Stream<String Stream<String Integer>> ] []",
+            vec![1, 2, 1, 1],
+        ),
+        // In an output, but not as its whole payload.
+        (
+            "Signal [] [ Watch ] [ Watched.{ Stream<String Integer> } ] []",
+            vec![1, 2, 0, 1, 0],
+        ),
+        (
+            "Signal [] [ Watch ] [ Watched.[ Open.Stream<String Integer> Shut ] ] []",
+            vec![1, 2, 0, 1, 0, 1],
+        ),
+        // Inside a capability's yield.
+        (
+            "Library [] [] [ Publishing.{ [] [ State Change ] [] [ open.[ Option<Stream<State Change>> ] ] } ] []",
+            vec![1, 2, 0, 1, 3, 0, 1, 1, 0],
+        ),
+    ] {
+        assert_eq!(source.refusal(), (path, placement.clone()), "{source}");
+    }
+}
+
+#[test]
+fn a_capability_takes_or_yields_a_stream_of_its_associated_types() {
+    let rust = include_str!("../fixtures/publishing-trait.ethos").compact();
+    assert!(
+        rust.contains("pubtraitPublishing{typeState;typeChange;fnopen(&self,input:Self::State)->signal::Stream<Self::State,Self::Change>;}"),
+        "{rust}"
+    );
+    let rust = "Library [] [] [ Merging.{ [] [ State Change ] [] [ merge.{ [ Stream<State Change> ] [ Integer ] } ] } ] []".compact();
+    assert!(
+        rust.contains("fnmerge(&self,input:signal::Stream<Self::State,Self::Change>)->i64;"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn a_stream_output_holds_one_frame_and_its_input_is_answered_with_the_stream() {
+    let rust = include_str!("../fixtures/stream-signal.ethos").compact();
+    // prettyplease ends a parameter list it wraps with a comma.
+    let rust = rust.replace(",)", ")");
+    for expected in [
+        "pubenumOutput{Launched(FlowId),Watched(signal::Frame<std::vec::Vec<Pane>,Changed>),Subscribed(signal::Frame<FlowId,Changed>),Refused(String),}",
+        "pubenumAnswer{Once(Output),Watched(signal::Stream<std::vec::Vec<Pane>,Changed>),Subscribed(signal::Stream<FlowId,Changed>),}",
+        "fnlaunch(&self,launch_request:&LaunchRequest)->std::result::Result<FlowId,Output>;",
+        "fnwatch(&self,selection:&Selection)->std::result::Result<signal::Stream<std::vec::Vec<Pane>,Changed>,Output>;",
+        "fnsubscribe(&self)->std::result::Result<signal::Stream<FlowId,Changed>,Output>;",
+        "pubtraitAnswerable{typeAnswer;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Self::Answer;}",
+        "implAnswerableforInput{typeAnswer=Answer;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Answer{matchself{",
+        "Answer::Once(nexus.launch(carried).map_or_else(|refusal|refusal,Output::Launched))",
+        "nexus.watch(carried).map_or_else(Answer::Once,Answer::Watched)",
+        "nexus.subscribe().map_or_else(Answer::Once,Answer::Subscribed)",
+    ] {
+        assert!(rust.contains(expected), "{expected} in {rust}");
+    }
+    // The answer holds a live stream: it is never archived and derives nothing.
+    let answer = rust
+        .split("pubenumAnswer")
+        .next()
+        .expect("text before the answer");
+    assert!(
+        answer.ends_with("#[allow(clippy::large_enum_variant)]"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn a_signal_with_no_stream_answers_with_its_output() {
+    let rust = "Signal [] [ Ask ] [ Told.String ] []".compact();
+    assert!(
+        rust.contains("implAnswerableforInput{typeAnswer=Output;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Output{"),
+        "{rust}"
+    );
+    assert!(!rust.contains("pubenumAnswer"), "{rust}");
+    // A stream output answering no input is a reaction: its frame is an
+    // Output, and no input is answered with it.
+    let rust = "Signal [] [ Ask ] [ Told Pushed.Stream<String Integer> ] []".compact();
+    assert!(rust.contains("Pushed(signal::Frame<String,i64>)"), "{rust}");
+    assert!(rust.contains("typeAnswer=Output;"), "{rust}");
+    assert!(!rust.contains("pubenumAnswer"), "{rust}");
+}
+
+#[test]
+fn a_stream_output_named_once_is_refused_and_one_named_answer_is_answered() {
+    assert_eq!(
+        "Signal [] [ Ask Watch ] [ Told Once.Stream<String Integer> ] []".refusal(),
+        (vec![1, 2, 1, 0], Problem::Duplicate("Once".to_owned()))
+    );
+    // An output answered once may be named Once, and a stream Answer.
+    let rust = "Signal [] [ Ask Watch ] [ Once Answer.Stream<String Integer> ] []".compact();
+    // prettyplease ends a parameter list it wraps with a comma.
+    let rust = rust.replace(",)", ")");
+    for expected in [
+        "pubenumAnswer{Once(Output),Answer(signal::Stream<String,i64>),}",
+        "Answer::Once(nexus.ask().map_or_else(|refusal|refusal,|()|Output::Once))",
+        "nexus.watch().map_or_else(Answer::Once,Answer::Answer)",
+    ] {
+        assert!(rust.contains(expected), "{expected} in {rust}");
+    }
+}
+
+#[test]
+fn the_retired_stream_block_is_refused() {
+    // `Name.Stream.( … )` is no type: its body is read where a reference
+    // stands, and refused there.
+    for (source, path) in [
+        (
+            "Signal [] [ Watch ] [ Watched.Stream.( Query Event ) ] []",
+            vec![1, 2, 0, 1],
+        ),
+        (
+            "Library [] [ Feed.Stream.( Query Event ) ] [] []",
+            vec![1, 1, 0, 1],
+        ),
+        (
+            "Signal [] [ Watch.Stream.( Query Event ) ] [ Watched ] []",
+            vec![1, 1, 0, 1],
+        ),
+    ] {
+        match Potential::<File>::from(source).actualize() {
+            Err(Error::Conceptual(data)) => assert_eq!(
+                (data.integer_vector, data.problem),
+                (path, Problem::Expected(Form::Reference)),
+                "{source}"
+            ),
+            _ => panic!("{source} must be refused as it is read"),
+        }
+    }
 }

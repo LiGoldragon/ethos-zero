@@ -22,7 +22,9 @@ use datom_codec::Integer;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::checking::{Carrying, Checkable, Declaring, Inlining, Spanning, Titled, Uniting};
+use crate::checking::{
+    Carrying, Checkable, Declaring, Inlining, Spanning, Streaming, Titled, Uniting,
+};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
@@ -73,8 +75,37 @@ impl Tokening for Intrinsic {
             Intrinsic::Vector => quote! { std::vec::Vec },
             Intrinsic::Option => quote! { std::option::Option },
             Intrinsic::Result => quote! { std::result::Result },
+            Intrinsic::Stream => quote! { signal::Stream },
             Intrinsic::Itself => quote! { Self },
             Intrinsic::Sized => quote! { Sized },
+        }
+    }
+}
+
+/// The trait whose capability yields the Rust type a position holds of an
+/// intrinsic: a stream's position, the whole payload of a Signal's output,
+/// holds one frame of it, `signal::Frame`, which archives as every position
+/// does, and each frame on the wire is one output; the live
+/// `signal::Stream` is never archived. Every other intrinsic is held as it
+/// is written.
+trait Holding {
+    fn held(&self) -> TokenStream;
+}
+
+impl Holding for Intrinsic {
+    fn held(&self) -> TokenStream {
+        match self {
+            Intrinsic::Stream => quote! { signal::Frame },
+            Intrinsic::String
+            | Intrinsic::Integer
+            | Intrinsic::Decimal
+            | Intrinsic::Boolean
+            | Intrinsic::Meaning
+            | Intrinsic::Vector
+            | Intrinsic::Option
+            | Intrinsic::Result
+            | Intrinsic::Itself
+            | Intrinsic::Sized => self.tokens(),
         }
     }
 }
@@ -496,10 +527,11 @@ impl Positioning for Reference {
         // while `Box<Option<Tree>>` hides it behind the container and causes
         // an infinitely recursive derive bound.
         if self.source.is_none()
-            && let Resolution::Intrinsic(intrinsic @ (Intrinsic::Option | Intrinsic::Result)) =
-                scope.file.resolve(&self.name)
+            && let Resolution::Intrinsic(
+                intrinsic @ (Intrinsic::Option | Intrinsic::Result | Intrinsic::Stream),
+            ) = scope.file.resolve(&self.name)
         {
-            let name = intrinsic.tokens();
+            let name = intrinsic.held();
             let mut arguments = Vec::with_capacity(self.arguments.len());
             for argument in &self.arguments {
                 let ty = if argument.boxed(scope, owner) {
@@ -1468,6 +1500,14 @@ impl TraitImplying for crate::Emission {
 /// as `carried`, a name no capability's parameter shadows the bearer with.
 /// No standard library holds the root-implied traits yet, so `Answerable` is
 /// generated into the file.
+///
+/// `Answerable` names what an answer is, its `Answer`. A Signal none of whose
+/// inputs is answered by a stream answers each input once, with an `Output`.
+/// Where an output answering an input is a `Stream`, its capability yields
+/// the live `signal::Stream` or the refusal, and the file generates `Answer`:
+/// `Once(Output)` for every answer given once, a refusal among them, and one
+/// variant per stream output, named as that output, holding its stream. The
+/// stream is live and never archived, so `Answer` derives nothing.
 impl TraitImplying for crate::Signal {
     fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream> {
         if self.inputs.is_empty() {
@@ -1475,44 +1515,82 @@ impl TraitImplying for crate::Signal {
         }
         let asked = Name::try_from("Input").expect("static identifier");
         let answered = Name::try_from("Output").expect("static identifier");
+        let streaming = self
+            .outputs
+            .iter()
+            .take(self.inputs.len())
+            .any(|output| output.stream(scope).is_some());
         let mut capabilities = Vec::with_capacity(self.inputs.len());
         let mut arms = Vec::with_capacity(self.inputs.len());
+        let mut streams = Vec::new();
         for (input, output) in self.inputs.iter().zip(&self.outputs) {
             let capability = input.title().0.snake_case().identifier();
             let variant = input.title().tokens();
             let answer = output.title().tokens();
-            let (yields, wrapping) = match output.borne(scope, &answered) {
-                Some(yields) => (yields, quote! { Output::#answer }),
-                None => (quote! { () }, quote! { |()| Output::#answer }),
+            let (yields, answering) = match output.stream(scope) {
+                Some(stream) => {
+                    let live = stream.owned(&answered).emit(scope);
+                    streams.push(quote! { #answer(#live) });
+                    (live, quote! { map_or_else(Answer::Once, Answer::#answer) })
+                }
+                None => {
+                    let (yields, wrapping) = match output.borne(scope, &answered) {
+                        Some(yields) => (yields, quote! { Output::#answer }),
+                        None => (quote! { () }, quote! { |()| Output::#answer }),
+                    };
+                    (yields, quote! { map_or_else(|refusal| refusal, #wrapping) })
+                }
             };
             let carried = input.borne(scope, &asked);
             let parameter = input.input_name(scope, &asked);
-            match (carried, parameter) {
+            let (signature, pattern, call) = match (carried, parameter) {
                 (Some(ty), Some(parameter)) => {
                     let parameter = parameter.identifier();
-                    capabilities.push(quote! {
-                        fn #capability(&self, #parameter: &#ty) -> std::result::Result<#yields, Output>;
-                    });
-                    arms.push(quote! {
-                        Input::#variant(carried) => nexus.#capability(carried).map_or_else(|refusal| refusal, #wrapping),
-                    });
+                    (
+                        quote! { (&self, #parameter: &#ty) },
+                        quote! { Input::#variant(carried) },
+                        quote! { nexus.#capability(carried).#answering },
+                    )
                 }
-                _ => {
-                    capabilities.push(quote! {
-                        fn #capability(&self) -> std::result::Result<#yields, Output>;
-                    });
-                    arms.push(quote! {
-                        Input::#variant => nexus.#capability().map_or_else(|refusal| refusal, #wrapping),
-                    });
-                }
-            }
+                _ => (
+                    quote! { (&self) },
+                    quote! { Input::#variant },
+                    quote! { nexus.#capability().#answering },
+                ),
+            };
+            capabilities.push(quote! {
+                fn #capability #signature -> std::result::Result<#yields, Output>;
+            });
+            let answered_once = streaming && output.stream(scope).is_none();
+            arms.push(if answered_once {
+                quote! { #pattern => Answer::Once(#call), }
+            } else {
+                quote! { #pattern => #call, }
+            });
         }
+        let answer = if streaming {
+            quote! { Answer }
+        } else {
+            quote! { Output }
+        };
         // A refusal is any `Output`, however large its largest variant:
         // the wire value is answered whole, so it is not boxed for the lint.
         // A capability borrows exactly the type its input carries, so the
         // dispatch lends the matched payload as it is: `&String`, `&Vec<_>`
         // and `&Box<_>` stand where the lints would ask for a narrower borrow.
-        vec![
+        let mut items = Vec::new();
+        if streaming {
+            // An answer given once is the wire's `Output`, held whole beside
+            // the streams, however much larger it is than they are.
+            items.push(quote! {
+                #[allow(clippy::large_enum_variant)]
+                pub enum Answer {
+                    Once(Output),
+                    #( #streams ),*
+                }
+            });
+        }
+        items.extend([
             quote! {
                 #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
                 pub trait Answering {
@@ -1521,17 +1599,20 @@ impl TraitImplying for crate::Signal {
             },
             quote! {
                 pub trait Answerable {
-                    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output;
+                    type Answer;
+                    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Self::Answer;
                 }
             },
             quote! {
                 impl Answerable for Input {
-                    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output {
+                    type Answer = #answer;
+                    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> #answer {
                         match self { #( #arms )* }
                     }
                 }
             },
-        ]
+        ]);
+        items
     }
 }
 

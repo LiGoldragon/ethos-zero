@@ -1,0 +1,10 @@
+; A capability that opens a stream: open yields a Stream of the trait's own
+; State and Change, which resolve as its associated types.
+Library
+[]
+[]
+[ Publishing.{ []
+               [ State Change ]
+               []
+               [ open.{ [ State ] [ Stream<State Change> ] } ] } ]
+[]

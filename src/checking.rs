@@ -269,7 +269,7 @@ impl Taking for Intrinsic {
     fn arity(&self) -> usize {
         match self {
             Intrinsic::Vector | Intrinsic::Option => 1,
-            Intrinsic::Result => 2,
+            Intrinsic::Result | Intrinsic::Stream => 2,
             Intrinsic::String
             | Intrinsic::Integer
             | Intrinsic::Decimal
@@ -1049,7 +1049,8 @@ impl Declared for crate::Library {
 
 impl Declared for Signal {
     fn declared(&self) -> Vec<DeclarationSite> {
-        // The two implied enums, and the two traits generated beside them.
+        // The two implied enums, the two traits generated beside them, and
+        // the answer a streaming Signal generates.
         let mut names = vec![
             DeclarationSite {
                 name: Name::try_from("Input").expect("static identifier"),
@@ -1065,6 +1066,10 @@ impl Declared for Signal {
             },
             DeclarationSite {
                 name: Name::try_from("Answerable").expect("static identifier"),
+                path: vec![1],
+            },
+            DeclarationSite {
+                name: Name::try_from("Answer").expect("static identifier"),
                 path: vec![1],
             },
         ];
@@ -1166,11 +1171,63 @@ impl Checkable for Signal {
         self.inputs.names_in(1).distinct()?;
         self.outputs.names_in(2).distinct()?;
         self.inputs.check_each(scope, 1)?;
-        self.outputs.check_each(scope, 2)?;
+        self.outputs.check_answers(scope).place(2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)?;
         self.inputs.paired(&self.outputs).place(1)?;
-        self.inputs.capabilities_distinct().place(1)
+        self.inputs.capabilities_distinct().place(1)?;
+        self.outputs
+            .streams_distinct(scope, self.inputs.len())
+            .place(2)
+    }
+}
+
+/// The trait whose capability checks a Signal's outputs: each as a variant
+/// is checked, save that an output's whole payload may be a `Stream`.
+trait Answered {
+    fn check_answers(&self, scope: &Scope) -> Result<(), Error>;
+}
+
+impl Answered for [Variant] {
+    fn check_answers(&self, scope: &Scope) -> Result<(), Error> {
+        let mut at = 0;
+        for output in self {
+            match output {
+                Variant::Typed(name, reference) => {
+                    name.define().place(0).beside(at)?;
+                    reference.admit(scope, Role::Type).lifted(1).beside(at)?
+                }
+                Variant::Bare(_) | Variant::Struct(_, _) | Variant::Enum(_, _) => {
+                    output.check(scope).beside(at)?
+                }
+            }
+            at += output.span();
+        }
+        Ok(())
+    }
+}
+
+/// The trait whose capability refuses a stream output that answers an input
+/// and is named `Once`: the generated `Answer` holds `Once(Output)` for every
+/// answer given once, and a variant named for each stream output beside it,
+/// so a stream output named `Once` is refused as `Duplicate.Once` at its name.
+trait StreamNaming {
+    fn streams_distinct(&self, scope: &Scope, answering: usize) -> Result<(), Error>;
+}
+
+impl StreamNaming for [Variant] {
+    fn streams_distinct(&self, scope: &Scope, answering: usize) -> Result<(), Error> {
+        let mut at = 0;
+        for output in self.iter().take(answering) {
+            if output.stream(scope).is_some() && output.title().0 == "Once" {
+                return Err(Error::conceptual(
+                    vec![at, 0],
+                    Problem::Duplicate(output.title().0.clone()),
+                ));
+            }
+            at += output.span();
+        }
+        Ok(())
     }
 }
 
@@ -1281,15 +1338,84 @@ impl Roled for Intrinsic {
             | Intrinsic::Vector
             | Intrinsic::Option
             | Intrinsic::Result
+            | Intrinsic::Stream
             | Intrinsic::Itself => Role::Type,
         }
     }
 }
 
 /// The trait whose capability checks a reference in the role its position gives it.
+///
+/// A `Stream` is refused wherever `refer` checks a reference, as
+/// `Placement.Stream` at its path: in a field, an alias, a variant's
+/// payload, and inside another type's arguments, its own among them.
 pub(crate) trait Referring {
     /// Check the reference as a type or as a trait.
     fn refer(&self, scope: &Scope, role: Role) -> Result<(), Error>;
+}
+
+/// The trait whose capability checks a reference standing where a `Stream`
+/// is admitted, the whole payload of a Signal's output or a capability's
+/// input or yield: the reference itself may be a `Stream`, and its
+/// arguments are checked as every other reference is, so a `Stream` inside
+/// them is refused.
+pub(crate) trait Admitting {
+    fn admit(&self, scope: &Scope, role: Role) -> Result<(), Error>;
+}
+
+/// The trait whose capabilities check a reference's two parts: the node,
+/// its role and its arity, and the arguments in the enclosure beside it.
+trait ReferringParts {
+    fn refer_node(&self, scope: &Scope, role: Role) -> Result<(), Error>;
+    fn refer_arguments(&self, scope: &Scope) -> Result<(), Error>;
+}
+
+/// The trait whose capability yields the stream a value is, if it is one: a
+/// reference naming the intrinsic `Stream`, or a variant whose whole payload
+/// is such a reference.
+pub(crate) trait Streaming {
+    fn stream(&self, scope: &Scope) -> Option<&Reference>;
+}
+
+impl Streaming for Reference {
+    fn stream(&self, scope: &Scope) -> Option<&Reference> {
+        if self.source.is_none()
+            && scope.resolve(&self.name) == Resolution::Intrinsic(Intrinsic::Stream)
+        {
+            Some(self)
+        } else {
+            None
+        }
+    }
+}
+
+impl Streaming for Variant {
+    fn stream(&self, scope: &Scope) -> Option<&Reference> {
+        match self {
+            Variant::Typed(_, reference) => reference.stream(scope),
+            Variant::Bare(_) | Variant::Struct(_, _) | Variant::Enum(_, _) => None,
+        }
+    }
+}
+
+impl Referring for Reference {
+    fn refer(&self, scope: &Scope, role: Role) -> Result<(), Error> {
+        self.refer_node(scope, role)?;
+        if self.stream(scope).is_some() {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Placement(self.name.0.clone()),
+            ));
+        }
+        self.refer_arguments(scope)
+    }
+}
+
+impl Admitting for Reference {
+    fn admit(&self, scope: &Scope, role: Role) -> Result<(), Error> {
+        self.refer_node(scope, role)?;
+        self.refer_arguments(scope)
+    }
 }
 
 /// The role and optional argument count a resolved reference requires.
@@ -1314,8 +1440,8 @@ impl ReferringEach for [Reference] {
     }
 }
 
-impl Referring for Reference {
-    fn refer(&self, scope: &Scope, role: Role) -> Result<(), Error> {
+impl ReferringParts for Reference {
+    fn refer_node(&self, scope: &Scope, role: Role) -> Result<(), Error> {
         if self.source.is_some() && self.name.0 == "Self" {
             return Err(Error::conceptual(
                 vec![],
@@ -1415,6 +1541,10 @@ impl Referring for Reference {
                 ));
             }
         }
+        Ok(())
+    }
+
+    fn refer_arguments(&self, scope: &Scope) -> Result<(), Error> {
         // The arguments stand in the angled enclosure beside this node.
         let mut at = 0;
         for argument in &self.arguments {
@@ -2009,7 +2139,8 @@ impl Signing for Reference {
     fn sign(&self, scope: &Scope, place: Place) -> Result<(), Error> {
         match self.stance(scope, place) {
             Stance::Bounding | Stance::Bound(_) => self.refer(scope, Role::Trait),
-            Stance::Concrete | Stance::Kept => self.refer(scope, Role::Type),
+            // A capability's input or yield may be a `Stream` whole.
+            Stance::Concrete | Stance::Kept => self.admit(scope, Role::Type),
         }
     }
 }

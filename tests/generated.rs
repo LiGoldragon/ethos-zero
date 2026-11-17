@@ -7,6 +7,48 @@ pub use flow_library::{Event, FlowId, Voice};
 
 pub struct Wrapper<T>(pub T);
 
+// The stand-in for the signal library, which is not yet released: a
+// generated Signal writes `signal::Frame` and `signal::Stream`, and here the
+// crate itself is `signal`, holding the two at its root.
+extern crate self as signal;
+
+/// The stand-in for the signal library's `Frame`: one frame of a stream,
+/// archived as every Output is, so each frame on the wire is one Output.
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(datom_codec::Datomizable, datom_codec::Composing)
+)]
+pub enum Frame<State, Change> {
+    Opened(State),
+    Changed(Change),
+    Lagged(State),
+    Ended(Ending),
+}
+
+/// The stand-in for how the signal library's stream ends.
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(datom_codec::Datomizable, datom_codec::Composing)
+)]
+pub enum Ending {
+    Closed,
+    Refused,
+}
+
+/// The stand-in for the signal library's live `Stream` of frames, never
+/// archived: here the frames it will yield, in order.
+pub struct Stream<State, Change>(pub std::vec::IntoIter<Frame<State, Change>>);
+
+impl<State, Change> Iterator for Stream<State, Change> {
+    type Item = Frame<State, Change>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
 /// What the trait fixtures import from `super`: the error a capability
 /// yields, and the traits a type is asserted to bear.
 pub enum SinkError {
@@ -68,6 +110,8 @@ mod orchestrate;
 mod placed_types;
 #[path = "generated/processable-traits.rs"]
 mod processable_traits;
+#[path = "generated/publishing-trait.rs"]
+mod publishing_trait;
 #[path = "generated/record-types.rs"]
 mod record_types;
 #[path = "generated/scalar-newtypes.rs"]
@@ -78,6 +122,8 @@ mod self_traits;
 mod signal_decimal;
 #[path = "generated/sink-associations.rs"]
 mod sink_associations;
+#[path = "generated/stream-signal.rs"]
+mod stream_signal;
 #[path = "generated/streamable-trait.rs"]
 mod streamable_trait;
 #[path = "generated/tree-types.rs"]
@@ -743,4 +789,138 @@ fn the_capability_matrix_adds_only_what_the_scalar_supports() {
     for name in ["Note", "Names", "Failure", "Record"] {
         supported(name, false, false);
     }
+}
+
+/// A Nexus that launches every request as flow 7, streams the panes it
+/// holds, and refuses to stream another's.
+struct Publisher;
+
+impl stream_signal::Answering for Publisher {
+    fn launch(
+        &self,
+        _launch_request: &stream_signal::LaunchRequest,
+    ) -> Result<stream_signal::FlowId, stream_signal::Output> {
+        Ok(stream_signal::FlowId(7))
+    }
+
+    fn watch(
+        &self,
+        selection: &stream_signal::Selection,
+    ) -> Result<Stream<Vec<stream_signal::Pane>, stream_signal::Changed>, stream_signal::Output>
+    {
+        use stream_signal::{Changed, Pane, Selection};
+        match selection {
+            Selection::All => {
+                let pane = Pane {
+                    string: "editor".to_owned(),
+                    integer: 1,
+                };
+                Ok(Stream(
+                    vec![
+                        Frame::Opened(vec![pane.clone()]),
+                        Frame::Changed(Changed::Opened(pane)),
+                        Frame::Changed(Changed::Closed(1)),
+                        Frame::Ended(Ending::Closed),
+                    ]
+                    .into_iter(),
+                ))
+            }
+            Selection::Mine => Err(stream_signal::Output::Refused("none held".to_owned())),
+        }
+    }
+
+    fn subscribe(
+        &self,
+    ) -> Result<Stream<stream_signal::FlowId, stream_signal::Changed>, stream_signal::Output> {
+        Ok(Stream(
+            vec![
+                Frame::Opened(stream_signal::FlowId(7)),
+                Frame::Lagged(stream_signal::FlowId(8)),
+            ]
+            .into_iter(),
+        ))
+    }
+}
+
+#[test]
+fn a_streaming_signal_answers_once_or_with_a_stream_whose_every_frame_is_one_output() {
+    use stream_signal::{Answer, Answerable, FlowId, Input, LaunchRequest, Output, Selection};
+    let launched = Input::Launch(LaunchRequest {
+        string: "work".to_owned(),
+    })
+    .answer(&Publisher);
+    assert!(matches!(
+        launched,
+        Answer::Once(Output::Launched(FlowId(7)))
+    ));
+    let refused = Input::Watch(Selection::Mine).answer(&Publisher);
+    assert!(matches!(refused, Answer::Once(Output::Refused(_))));
+    let Answer::Watched(stream) = Input::Watch(Selection::All).answer(&Publisher) else {
+        panic!("watching every pane is answered with a stream");
+    };
+    let mut frames = 0;
+    for frame in stream {
+        let output = Output::Watched(frame);
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&output).expect("archive a frame");
+        let restored =
+            rkyv::from_bytes::<Output, rkyv::rancor::Error>(&bytes).expect("restore a frame");
+        assert_eq!(restored, output);
+        frames += 1;
+    }
+    assert_eq!(frames, 4);
+    let Answer::Subscribed(stream) = Input::Subscribe.answer(&Publisher) else {
+        panic!("subscribing is answered with a stream");
+    };
+    let outputs: Vec<Output> = stream.map(Output::Subscribed).collect();
+    assert_eq!(
+        outputs,
+        vec![
+            Output::Subscribed(Frame::Opened(FlowId(7))),
+            Output::Subscribed(Frame::Lagged(FlowId(8))),
+        ]
+    );
+}
+
+#[test]
+fn a_frame_round_trips_as_datom_text() {
+    use datom_codec::{Actualizing, Budget, Datomizable, Potential};
+    use protos::{Protosizable, ReaderBudget, Textualizable};
+    let output = stream_signal::Output::Watched(Frame::Changed(stream_signal::Changed::Closed(3)));
+    let text = output.datomize(vec![]).protosize().textualize();
+    let mut pending = Potential::<stream_signal::Output>::from(text);
+    assert_eq!(
+        pending
+            .actualize(&mut Budget {
+                remaining: 1024,
+                reader: ReaderBudget::try_from(1024).unwrap(),
+                depth: 0,
+                maximum_depth: 1024,
+            })
+            .expect("restore a frame"),
+        output
+    );
+}
+
+/// A publisher of a count, bearing the capability that opens a stream of
+/// the trait's own state and change.
+struct Count(i64);
+
+impl publishing_trait::Publishing for Count {
+    type State = i64;
+    type Change = i64;
+
+    fn open(&self, input: i64) -> Stream<i64, i64> {
+        Stream(vec![Frame::Opened(input), Frame::Changed(self.0)].into_iter())
+    }
+}
+
+#[test]
+fn a_capability_yields_a_stream_of_its_associated_types() {
+    use publishing_trait::Publishing;
+    let frames: Vec<Frame<i64, i64>> = Count(2).open(1).collect();
+    assert_eq!(frames, vec![Frame::Opened(1), Frame::Changed(2)]);
+    assert_ne!(
+        Frame::<i64, i64>::Ended(Ending::Refused),
+        Frame::Ended(Ending::Closed)
+    );
 }

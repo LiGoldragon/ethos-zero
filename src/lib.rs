@@ -496,6 +496,8 @@ pub enum Intrinsic {
     Option,
     /// `Result`.
     Result,
+    /// `signal::Stream`: the state a stream opens with, then each change.
+    Stream,
     /// `Self`.
     Itself,
     /// `Sized`, the bound every corporate type bears.
@@ -782,6 +784,7 @@ impl Named for Intrinsic {
             Intrinsic::Vector => "Vector",
             Intrinsic::Option => "Option",
             Intrinsic::Result => "Result",
+            Intrinsic::Stream => "Stream",
             Intrinsic::Itself => "Self",
             Intrinsic::Sized => "Sized",
         }
@@ -799,6 +802,7 @@ impl Identifiable for Intrinsic {
             Intrinsic::Vector,
             Intrinsic::Option,
             Intrinsic::Result,
+            Intrinsic::Stream,
             Intrinsic::Itself,
             Intrinsic::Sized,
         ] {

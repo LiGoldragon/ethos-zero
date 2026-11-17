@@ -1,0 +1,17 @@
+; A Signal answering one input once and two as streams. A Stream takes the
+; state it opens with and the change it then carries; the Output holds one
+; frame of it, and each frame on the wire is one Output.
+Signal
+[]
+[ Launch.LaunchRequest
+  Watch.Selection
+  Subscribe ]
+[ Launched.FlowId
+  Watched.Stream<Vector<Pane> Changed>
+  Subscribed.Stream<FlowId Changed>
+  Refused.String ]
+[ LaunchRequest.{ String }
+  FlowId.Integer
+  Selection.[ All Mine ]
+  Pane.{ String Integer }
+  Changed.[ Opened.Pane Closed.Integer ] ]

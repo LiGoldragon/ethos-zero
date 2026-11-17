@@ -208,10 +208,12 @@ pub trait Answering {
 }
 #[rustfmt::skip]
 pub trait Answerable {
-    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output;
+    type Answer;
+    fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Self::Answer;
 }
 #[rustfmt::skip]
 impl Answerable for Input {
+    type Answer = Output;
     fn answer<Nexus: Answering>(&self, nexus: &Nexus) -> Output {
         match self {
             Input::Plant(carried) => {

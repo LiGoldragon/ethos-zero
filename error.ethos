@@ -24,7 +24,8 @@ Library
             Wrapping.{ String String }
             DuplicateField.String
             Unpaired.String
-            TooFewVariants.String ]
+            TooFewVariants.String
+            Placement.String ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association ]
   Location.{ Line Column }
   Line.Integer
