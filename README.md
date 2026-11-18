@@ -338,7 +338,9 @@ A trait is the bearer of capabilities: `Name.[ capabilities ]`, or
 `Name.{ [ supertraits ] [ associated types ] [ CONSTANTS ] [ capabilities ] }`.
 A capability's separator says who is called: `.` takes `&self`, `!` takes
 `&mut self`, `:` takes no self. `name.[ Yield ]` yields alone;
-`name.{ [ inputs ] [ Yield ] }` takes inputs.
+`name.{ [ inputs ] [ Yield ] }` takes inputs; an empty yield bracket, `name.[]`
+or `name.{ [ inputs ] [] }`, yields nothing, and the method returns unit
+(`after!{ [ Event ] [] }` gives `fn after(&mut self, input: Event);`).
 
 A capability speaks in `Self`, its trait's parameters, other traits and, for
 now, concrete types.

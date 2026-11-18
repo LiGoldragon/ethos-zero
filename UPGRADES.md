@@ -2,6 +2,14 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 30.1.0: an empty yield bracket returns nothing
+
+Not breaking for an Ethos file: every file 30.0.1 accepts reads, checks and generates the same. A trait capability whose yield bracket is empty, which 30.0.1 refused as `Conceptual.{ [ … ] Yield }`, is accepted and generates a method with no return type, for each receiver: `after!{ [ Event ] [] }` gives `fn after(&mut self, input: Event);`, `touch.[]` gives `fn touch(&self);`, `start:[]` gives `fn start();`. A yield bracket of two types or more is still refused as `Yield`, and a `Stream` is still admitted only as a Signal output's whole payload or a capability's yield.
+
+For a consumer of the library's syntax tree, `Signature`'s yield is now `Option<Reference>`, `None` for the empty bracket: `Signature::Yielding(Option<Reference>)` and `Signature::Taking(Vec<Reference>, Option<Reference>)`. A consumer matching it binds an option; none is known.
+
+To deploy, repin ethos-zero to 30.1.0.
+
 ## 30.0.1: a chained import reads every namespace segment
 
 Not breaking: every file 30.0.0 accepts reads, checks and generates the same. The chained form of an import now takes any number of uncapitalized segments and reads as its leading-colon spelling: `signal_capsule:signal:[ Input Output ]` in the imports section, which 30.0.0 refused as `Expected.Import`, generates as `:signal_capsule:signal:[ Input Output ]`, and `std:sync:Mutex<String>` in a field, which 30.0.0 refused as `Expected.Reference`, generates as `:std:sync:Mutex<String>`. A chained source reprints chained. `Source`'s `TryFrom<&str>` takes the chained text `a:b`, which 30.0.0 refused. A capitalized segment before the name is still refused as `Name.<segment>`.

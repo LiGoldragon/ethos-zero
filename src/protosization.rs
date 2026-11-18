@@ -385,18 +385,14 @@ impl Protosizing for Capability {
             Receiver::Static => Separator::Colon,
         };
         let body = match &self.signature {
-            Signature::Yielding(yielding) => "".enclosed(
-                Enclosure::Bracketed,
-                std::slice::from_ref(yielding).reference_nodes(),
-            ),
+            Signature::Yielding(yielding) => {
+                "".enclosed(Enclosure::Bracketed, yielding.as_slice().reference_nodes())
+            }
             Signature::Taking(inputs, yielding) => "".enclosed(
                 Enclosure::Braced,
                 vec![
                     "".enclosed(Enclosure::Bracketed, inputs.reference_nodes()),
-                    "".enclosed(
-                        Enclosure::Bracketed,
-                        std::slice::from_ref(yielding).reference_nodes(),
-                    ),
+                    "".enclosed(Enclosure::Bracketed, yielding.as_slice().reference_nodes()),
                 ],
             ),
         };

@@ -1257,6 +1257,82 @@ impl Compact for str {
 }
 
 #[test]
+fn an_empty_yield_returns_nothing_for_every_receiver() {
+    let source = "Library [] [ Event.{ String } ] [ Acting.[ after!{ [ Event ] [] } reset![] look.{ [ Event ] [] } touch.[] make:{ [ Event ] [] } start:[] ] ] []";
+    let rust = source.compact();
+    for expected in [
+        "fnafter(&mutself,input:Event);",
+        "fnreset(&mutself);",
+        "fnlook(&self,input:Event);",
+        "fntouch(&self);",
+        "fnmake(input:Event);",
+        "fnstart();",
+    ] {
+        assert!(rust.contains(expected), "{expected} in {rust}");
+    }
+    let acting = rust
+        .split("pubtraitActing")
+        .nth(1)
+        .expect("the trait is generated");
+    assert!(!acting.contains("->"), "{rust}");
+    // The empty yield prints back and reads as it was written.
+    let file = read(source);
+    match file.generate() {
+        Ok(generated) => {
+            syn::parse_file(&generated).expect("generated Rust parses");
+        }
+        Err(error) => panic!("{source} must generate: {error:?}"),
+    }
+    let printed = file.protosize().textualize();
+    let compact: String = printed
+        .chars()
+        .filter(|glyph| !glyph.is_whitespace())
+        .collect();
+    assert!(compact.contains("after!{[Event][]}"), "{printed}");
+    assert!(compact.contains("reset![]"), "{printed}");
+    assert_eq!(read(&printed), file);
+}
+
+#[test]
+fn an_empty_yield_takes_a_trait_input_as_a_parameter() {
+    let rust =
+        "Library [ harness:Event ] [] [ Transitionable.[ after!{ [ Event ] [] } ] ] []".compact();
+    assert!(
+        rust.contains("pubtraitTransitionable{fnafter<N:harness::Event>(&mutself,input:N);}"),
+        "{rust}"
+    );
+    // An input of Self still asks a sized receiver.
+    let rust = "Library [] [] [ Absorbing.[ absorb!{ [ Self ] [] } ] ] []".compact();
+    assert!(
+        rust.contains("fnabsorb(&mutself,input:Self)whereSelf:Sized;"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn a_yield_bracket_of_two_types_is_refused() {
+    for (source, path) in [
+        (
+            "Library [] [] [ Acting.[ act.[ String Integer ] ] ] []",
+            vec![1, 2, 0, 1, 0, 1],
+        ),
+        (
+            "Library [] [] [ Acting.[ act!{ [ String ] [ String Integer ] } ] ] []",
+            vec![1, 2, 0, 1, 0, 1, 1],
+        ),
+    ] {
+        match Potential::<File>::from(source).actualize() {
+            Err(Error::Conceptual(data)) => assert_eq!(
+                (data.integer_vector, data.problem),
+                (path, Problem::Yield),
+                "{source}"
+            ),
+            _ => panic!("{source} must be refused as it is read"),
+        }
+    }
+}
+
+#[test]
 fn a_trait_in_an_input_becomes_a_parameter_bounded_by_it() {
     let rust = "Library [] [] [ Textualizable.[ textualize.[ String ] ] Resolvable.[ resolve.{ [ Textualizable ] [ Self ] } ] ] []".compact();
     assert!(
@@ -1425,6 +1501,11 @@ fn a_stream_is_refused_wherever_it_is_not_a_whole_output_or_a_capability_s_yield
         // A capability's input.
         (
             "Library [] [] [ Merging.{ [] [ State Change ] [] [ merge.{ [ Stream<State Change> ] [ Integer ] } ] } ] []",
+            vec![1, 2, 0, 1, 3, 0, 1, 0, 0],
+        ),
+        // A capability's input, where the capability yields nothing.
+        (
+            "Library [] [] [ Merging.{ [] [ State Change ] [] [ merge!{ [ Stream<State Change> ] [] } ] } ] []",
             vec![1, 2, 0, 1, 3, 0, 1, 0, 0],
         ),
         // Inside a capability's yield.

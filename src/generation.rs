@@ -1136,7 +1136,11 @@ impl Emitting for Capability {
                 yields
             }
         };
-        let yields = yields.sign(scope, Place::Yield, &mut method);
+        // An empty yield returns nothing: the method is written without `->`.
+        let yields = yields.as_ref().map(|yields| {
+            let yields = yields.sign(scope, Place::Yield, &mut method);
+            quote! { -> #yields }
+        });
         let generics = if method.declared.is_empty() {
             TokenStream::new()
         } else {
@@ -1148,7 +1152,7 @@ impl Emitting for Capability {
         } else {
             TokenStream::new()
         };
-        quote! { fn #name #generics ( #( #parameters ),* ) -> #yields #sized; }
+        quote! { fn #name #generics ( #( #parameters ),* ) #yields #sized; }
     }
 }
 
@@ -1168,10 +1172,11 @@ impl SelfContaining for Reference {
 impl SelfContaining for Capability {
     fn contains_self(&self) -> bool {
         match &self.signature {
-            Signature::Yielding(yielded) => yielded.contains_self(),
-            Signature::Taking(inputs, yielded) => {
-                inputs.iter().any(SelfContaining::contains_self) || yielded.contains_self()
-            }
+            Signature::Yielding(yielded) => yielded.iter().any(SelfContaining::contains_self),
+            Signature::Taking(inputs, yielded) => inputs
+                .iter()
+                .chain(yielded)
+                .any(SelfContaining::contains_self),
         }
     }
 }

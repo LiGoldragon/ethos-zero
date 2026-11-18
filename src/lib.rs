@@ -415,12 +415,15 @@ pub struct Capability {
 }
 
 /// A capability's signature: a yield bracket alone, or a brace of inputs and yield.
+///
+/// The yield bracket holds one type or none; an empty one, `name.[]` or
+/// `name.{ [ inputs ] [] }`, yields nothing, and the method returns unit.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Signature {
-    /// `name.[ Yield ]`.
-    Yielding(Reference),
-    /// `name.{ [ inputs ] [ Yield ] }`.
-    Taking(Vec<Reference>, Reference),
+    /// `name.[ Yield ]`, or `name.[]`.
+    Yielding(Option<Reference>),
+    /// `name.{ [ inputs ] [ Yield ] }`, or `name.{ [ inputs ] [] }`.
+    Taking(Vec<Reference>, Option<Reference>),
 }
 
 /// Who a capability is called on, said by its separator.

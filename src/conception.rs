@@ -784,13 +784,13 @@ impl Conceiving<Capability> for Protos {
         let receiver = separator.conceive()?;
         if let Some(y) = body.children(Enclosure::Bracketed) {
             let yields = y.references().place(1)?;
-            if yields.len() != 1 {
+            if yields.len() > 1 {
                 return Err(Error::conceptual(vec![1], Problem::Yield));
             };
             return Ok(Capability {
                 name,
                 receiver,
-                signature: Signature::Yielding(yields.into_iter().next().expect("one yield")),
+                signature: Signature::Yielding(yields.into_iter().next()),
             });
         };
         let sections = body.sections(2).place(1)?;
@@ -808,13 +808,13 @@ impl Conceiving<Capability> for Protos {
             ));
         };
         let yields = y.references().place(1).place(1)?;
-        if yields.len() != 1 {
+        if yields.len() > 1 {
             return Err(Error::conceptual(vec![1, 1], Problem::Yield));
         };
         Ok(Capability {
             name,
             receiver,
-            signature: Signature::Taking(inputs, yields.into_iter().next().expect("one yield")),
+            signature: Signature::Taking(inputs, yields.into_iter().next()),
         })
     }
 }

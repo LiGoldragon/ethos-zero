@@ -2152,7 +2152,9 @@ impl Checkable for Capability {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.name.define().place(0)?;
         match &self.signature {
-            Signature::Yielding(yields) => yields.sign(scope, Place::Yield).beside(0).place(1),
+            Signature::Yielding(yields) => yields
+                .iter()
+                .try_for_each(|yields| yields.sign(scope, Place::Yield).beside(0).place(1)),
             Signature::Taking(inputs, yields) => {
                 let mut at = 0;
                 for input in inputs {
@@ -2163,7 +2165,9 @@ impl Checkable for Capability {
                         .place(1)?;
                     at += input.span();
                 }
-                yields.sign(scope, Place::Yield).beside(0).place(1).place(1)
+                yields.iter().try_for_each(|yields| {
+                    yields.sign(scope, Place::Yield).beside(0).place(1).place(1)
+                })
             }
         }
     }
