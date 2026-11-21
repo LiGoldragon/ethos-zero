@@ -212,6 +212,89 @@ fn self_in_an_emission_or_outcome_is_bound_as_the_enum_it_stands_for() {
 }
 
 #[test]
+fn a_process_root_reads_its_processes_round_trips_and_generates_its_outcome_types() {
+    let source = "Process [ claude_harness:signal:[ Report Reported ] claude_harness:memory:[ Watch RowCount ] claude_harness:emission:[ Follow ] ] [ Report.{ [] [ Reported Watch ] Reporting } Watch.{ [ RowCount ] [ Follow ] Watching } ] [ Reporting.[ Observed Unremembered ] Watching.[ Forgotten Unfollowed ] ]";
+    let file = read(source);
+    let File::Process(process) = &file else {
+        panic!("a file headed Process is a Process");
+    };
+    assert_eq!(process.processes.len(), 2);
+    assert_eq!(process.processes[0].gifts.len(), 2);
+    assert!(process.processes[1].outcome.is_some());
+    assert_eq!(file, read(&file.protosize().textualize()));
+    let rust = source.compact();
+    for expected in [
+        "pubenumReporting{Observed,Unremembered,}",
+        "pubenumWatching{Forgotten,Unfollowed,}",
+    ] {
+        assert!(rust.contains(expected), "{expected} in {rust}");
+    }
+}
+
+#[test]
+fn a_process_that_ends_one_way_declares_no_outcome() {
+    let file = read(
+        "Process [ :signal:Subscribe :signal:Subscribed ] [ Subscribe.{ [] [ Subscribed ] } ] []",
+    );
+    let File::Process(process) = &file else {
+        panic!("a file headed Process is a Process");
+    };
+    assert_eq!(process.processes[0].outcome, None);
+    assert_eq!(file, read(&file.protosize().textualize()));
+}
+
+#[test]
+fn a_process_born_of_a_name_neither_imported_nor_declared_is_refused() {
+    assert_eq!(
+        "Process [ :signal:Reported ] [ Report.{ [] [ Reported ] } ] []".refusal(),
+        (vec![1, 1, 0, 0], Problem::Undeclared("Report".to_owned()))
+    );
+    assert_eq!(
+        "Process [ :signal:Report ] [ Report.{ [] [ Reported ] } ] []".refusal(),
+        (
+            vec![1, 1, 0, 1, 1, 0],
+            Problem::Undeclared("Reported".to_owned())
+        )
+    );
+}
+
+#[test]
+fn two_processes_of_one_name_and_a_type_named_as_a_generated_enum_are_refused() {
+    assert_eq!(
+        "Process [ :signal:Report ] [ Report.{ [] [] } Report.{ [] [] } ] []".refusal(),
+        (vec![1, 1, 1, 0], Problem::Duplicate("Report".to_owned()))
+    );
+    assert_eq!(
+        "Process [ :signal:Report ] [ Report.{ [] [] } ] [ Gift.[ One Two ] ]".refusal(),
+        (vec![1, 2, 0, 0], Problem::Duplicate("Gift".to_owned()))
+    );
+}
+
+#[test]
+fn a_process_of_one_bracket_or_of_two_outcomes_is_refused() {
+    match Potential::<File>::from("Process [ :signal:Report ] [ Report.{ [] } ] []").actualize() {
+        Err(Error::Conceptual(data)) => assert!(
+            matches!(data.problem, Problem::Arity(_)),
+            "{:?}",
+            data.problem
+        ),
+        other => panic!("one bracket is refused: {other:?}"),
+    }
+    match Potential::<File>::from(
+        "Process [ :signal:Report ] [ Report.{ [] [] One Two } ] [ One.[ A B ] Two.[ C D ] ]",
+    )
+    .actualize()
+    {
+        Err(Error::Conceptual(data)) => assert!(
+            matches!(data.problem, Problem::Arity(_)),
+            "{:?}",
+            data.problem
+        ),
+        other => panic!("two outcomes are refused: {other:?}"),
+    }
+}
+
+#[test]
 fn an_emission_left_without_an_outcome_is_refused_at_its_path() {
     assert_eq!(
         "Emission [] [ Go.Vector<String> Stop ] [ Gone ] []".refusal(),

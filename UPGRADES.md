@@ -2,14 +2,16 @@
 
 How to deploy each breaking change of ethos-zero.
 
-## 31.0.0: core and alloc paths; a bare emission's variant is written bare
+## 31.0.0: core and alloc paths; a bare emission's variant is written bare; the Process root
 
-What breaks, in two parts.
+What breaks, in three parts.
 
 1. Every standard name the generated Rust writes is its core or alloc path: `String` is `alloc::string::String`, `std::vec::Vec` is `alloc::vec::Vec`, `std::boxed::Box` is `alloc::boxed::Box`, and `std::option::Option`, `std::result::Result`, `std::clone::Clone` and `std::marker::Send` are under `core`. Each generated module opens with `extern crate alloc;` (its header allows `unused_extern_crates`), so it builds in a `no_std` crate with `alloc` and in a std crate alike, and the types are the same types as before: only the text of the module changes. A crate that `include!`s a generated module at its root beside its own `extern crate alloc;` drops its own.
 2. A bare emission that is a unit of its own keeps its unit struct, which bears `Emitted`, but its variant in `Emission` carries nothing: `Emission::Ping` where 30.x wrote `Emission::Ping(Ping)`, so the datom of it is `Ping` where it was `Ping.{}`. A translator matching `Emission::Ping(ping)` matches `Emission::Ping` and emits `Ping {}`.
 
-To deploy: regenerate every module with 31.0.0, adjust a match on a bare emission's variant, then repin ethos-zero to 31.0.0.
+3. A sixth root, Process: `File::Process`, `Root::Process`, and the error contract's `Form` gains `Process`, after `Association`. A consumer matching `File`, `Root` or `Form` exhaustively adds the arm. A file headed Process, which 30.x refused as `Conceptual.{ [ 0 ] Root }`, reads, checks and generates the types its outcomes carry.
+
+To deploy: regenerate every module with 31.0.0, adjust a match on a bare emission's variant, add the Process arms, then repin ethos-zero to 31.0.0.
 
 ## 30.1.0: an empty yield bracket returns nothing
 

@@ -15,8 +15,9 @@ use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name,
-    Operation, Placing, Position, Problem, Reference, Resolution, Resolving, Role, Scope, Signal,
-    Signature, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant, Wrapping_Data,
+    Operation, Placing, Position, Problem, Process, ProcessDeclaration, Reference, Resolution,
+    Resolving, Role, Scope, Signal, Signature, Spelled, TraitBody, TraitDeclaration,
+    TypeDeclaration, Variant, Wrapping_Data,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -94,6 +95,22 @@ impl Resolving for TraitDeclaration {
         } else {
             Resolution::Undeclared
         }
+    }
+}
+
+impl Declared for Process {
+    fn declared(&self) -> Vec<DeclarationSite> {
+        // The enums a Process generates over its processes, held for them.
+        let mut names = Vec::new();
+        for implied in ["Process", "Gift", "Taken", "Outcome"] {
+            names.push(DeclarationSite {
+                name: Name::try_from(implied).expect("static identifier"),
+                path: vec![1],
+            });
+        }
+        names.extend(self.imports.names_in(0));
+        names.extend(self.types.names_in(2));
+        names
     }
 }
 
@@ -358,6 +375,15 @@ impl Naming for TraitDeclaration {
     }
 }
 
+impl Naming for ProcessDeclaration {
+    fn names(&self) -> Vec<DeclarationSite> {
+        vec![DeclarationSite {
+            name: self.name.clone(),
+            path: vec![0],
+        }]
+    }
+}
+
 impl Naming for Variant {
     fn names(&self) -> Vec<DeclarationSite> {
         match self {
@@ -472,6 +498,7 @@ impl Spanning for crate::Imported {}
 impl Spanning for TraitDeclaration {}
 impl Spanning for AssociatedConstant {}
 impl Spanning for Capability {}
+impl Spanning for ProcessDeclaration {}
 impl Spanning for Association {}
 
 /// The trait whose capabilities place an element's error in its list, and
@@ -779,6 +806,7 @@ impl Checkable for File {
             File::Operation(operation) => operation.check(scope),
             File::Memory(memory) => memory.check(scope),
             File::Emission(emission) => emission.check(scope),
+            File::Process(process) => process.check(scope),
         };
         checked.place(1)?;
         // The derived names come first, so an authored name that would
@@ -1134,6 +1162,7 @@ impl Declared for File {
             File::Operation(operation) => operation.declared(),
             File::Memory(memory) => memory.declared(),
             File::Emission(emission) => emission.declared(),
+            File::Process(process) => process.declared(),
         };
         // A type declared in place is a declaration of the file, named at its head.
         for placed in self.inlined() {
@@ -1261,6 +1290,37 @@ impl Checkable for Emission {
         }
         self.emissions.paired(&self.outcomes).place(1)?;
         self.emissions.bound_once(scope).place(1)
+    }
+}
+
+/// A Process: its processes named once each, each born of a name the file
+/// imports or declares, and every reference in it resolved.
+impl Checkable for Process {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
+        self.declared().distinct()?;
+        self.imports.check_each(scope, 0)?;
+        self.processes.names_in(1).distinct()?;
+        self.processes.check_each(scope, 1)?;
+        self.types.check_each(scope, 2)?;
+        self.types.refuse_wrapping(scope).place(2)
+    }
+}
+
+impl Checkable for ProcessDeclaration {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
+        Reference {
+            source: None,
+            name: self.name.clone(),
+            arguments: vec![],
+        }
+        .check(scope)
+        .place(0)?;
+        self.configured.check_children(scope).place(0).place(1)?;
+        self.gifts.check_children(scope).place(1).place(1)?;
+        if let Some(outcome) = &self.outcome {
+            outcome.check(scope).place(2).place(1)?;
+        }
+        Ok(())
     }
 }
 

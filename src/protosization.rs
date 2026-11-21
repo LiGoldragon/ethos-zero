@@ -6,8 +6,9 @@ use protos::{
 
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, Emission, File,
-    Identity, Import, Imported, Library, Memory, Operation, Position, Receiver, Reference, Signal,
-    Signature, Source, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Identity, Import, Imported, Library, Memory, Operation, Position, Process, ProcessDeclaration,
+    Receiver, Reference, Signal, Signature, Source, Spelled, TraitBody, TraitDeclaration,
+    TypeDeclaration, Variant,
 };
 
 pub(crate) trait Protosizing {
@@ -483,6 +484,32 @@ impl Protosizing for Emission {
         )
     }
 }
+impl Protosizing for ProcessDeclaration {
+    fn protos(&self) -> Protos {
+        let mut parts = vec![
+            "".enclosed(Enclosure::Bracketed, self.configured.reference_nodes()),
+            "".enclosed(Enclosure::Bracketed, self.gifts.reference_nodes()),
+        ];
+        parts.extend(self.outcome.as_slice().reference_nodes());
+        self.name.as_ref().headed(
+            None,
+            Separator::Period,
+            "".enclosed(Enclosure::Braced, parts),
+        )
+    }
+}
+impl Protosizing for Process {
+    fn protos(&self) -> Protos {
+        "".enclosed(
+            Enclosure::Braced,
+            vec![
+                "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.processes.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
+            ],
+        )
+    }
+}
 impl Protosizing for Memory {
     fn protos(&self) -> Protos {
         "".enclosed(
@@ -506,6 +533,7 @@ impl Protosizing for File {
             Self::Emission(emission) => {
                 "Emission".headed(None, Separator::Period, emission.protos())
             }
+            Self::Process(process) => "Process".headed(None, Separator::Period, process.protos()),
         };
         // Shared Protos canonicalization assigns exact UTF-8 byte spans
         // without routing a valid conceptual ascent through a finite reader.

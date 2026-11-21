@@ -26,7 +26,7 @@ Library
             Unpaired.String
             TooFewVariants.String
             Placement.String ]
-  Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association ]
+  Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association Process ]
   Location.{ Line Column }
   Line.Integer
   Column.Integer ]

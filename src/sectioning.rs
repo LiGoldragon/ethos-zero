@@ -4,8 +4,8 @@
 //! Signal, Operation and Emission share one shape: imports, the variants of a
 //! request enum, the variants of a reply enum, the types they carry. Signal
 //! implies `Input` and `Output`; Operation implies `Operation` and
-//! `Outcome`; Emission implies `Emission` and `Outcome`. Library and Memory
-//! imply nothing.
+//! `Outcome`; Emission implies `Emission` and `Outcome`. Library, Memory and
+//! Process imply nothing yet: a Process's enums need the Nexus's other roots.
 //!
 //! A struct position may declare its type in place, `Brief.String`; that
 //! type is a declaration of the file like any other, named by its own name,
@@ -49,6 +49,7 @@ impl Sectioning for File {
             File::Operation(operation) => &operation.imports,
             File::Memory(memory) => &memory.imports,
             File::Emission(emission) => &emission.imports,
+            File::Process(process) => &process.imports,
         }
     }
 
@@ -59,19 +60,21 @@ impl Sectioning for File {
             File::Operation(operation) => &operation.types,
             File::Memory(memory) => &memory.types,
             File::Emission(emission) => &emission.types,
+            File::Process(process) => &process.types,
         }
     }
 
     fn types_section(&self) -> Integer {
         match self {
             File::Library(_) | File::Memory(_) => 1,
+            File::Process(_) => 2,
             File::Signal(_) | File::Operation(_) | File::Emission(_) => 3,
         }
     }
 
     fn implied_enums(&self) -> Vec<Implied<'_>> {
         let (request, requests, reply, replies) = match self {
-            File::Library(_) | File::Memory(_) => return vec![],
+            File::Library(_) | File::Memory(_) | File::Process(_) => return vec![],
             File::Signal(signal) => ("Input", &signal.inputs, "Output", &signal.outputs),
             File::Operation(operation) => (
                 "Operation",

@@ -174,7 +174,7 @@ impl AsRef<str> for Source {
     }
 }
 
-/// The unit of declaration: one file, one Rust module; an enum of its five roots.
+/// The unit of declaration: one file, one Rust module; an enum of its six roots.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum File {
     /// Library: imports, types, traits and associations in that order.
@@ -187,6 +187,8 @@ pub enum File {
     Memory(Memory),
     /// Emission: imports, the emission variants, the outcome variants, the types they carry.
     Emission(Emission),
+    /// Process: imports, the processes, the types their outcomes carry.
+    Process(Process),
 }
 
 /// The head of a file: which variant of [`File`] it is.
@@ -202,6 +204,9 @@ pub enum Root {
     Memory,
     /// The emission root: what a Nexus sends into the world.
     Emission,
+    /// The process root: what a Nexus is doing, each thing being done one
+    /// object from its birth to its end.
+    Process,
 }
 
 /// A library's complete declaration surface.  Types and traits share one
@@ -275,6 +280,35 @@ pub struct Emission {
     pub outcomes: Vec<Variant>,
     /// The types the emissions and outcomes carry.
     pub types: Vec<TypeDeclaration>,
+}
+
+/// The process variant of a file: each process a Nexus holds, and the types
+/// its outcomes carry.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Process {
+    /// Where imported names come from.
+    pub imports: Vec<Import>,
+    /// The processes, each named for what it is born of.
+    pub processes: Vec<ProcessDeclaration>,
+    /// The types the outcomes carry.
+    pub types: Vec<TypeDeclaration>,
+}
+
+/// One process: what it is born of, a call or a record or a process given,
+/// whose name it bears; the configured values moved into it at its birth;
+/// what it gives; and what it ends in. A process that ends one way declares
+/// no outcome: `Report.{ [] [ Reported Watch ] Reporting }`,
+/// `Subscribe.{ [] [ Recall Subscribed ] }`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProcessDeclaration {
+    /// What the process is born of.
+    pub name: Name,
+    /// The configured values moved into it at its birth.
+    pub configured: Vec<Reference>,
+    /// What it gives.
+    pub gifts: Vec<Reference>,
+    /// What it ends in, when it ends more than one way.
+    pub outcome: Option<Reference>,
 }
 
 /// An import: a source and the names taken from it.
@@ -730,6 +764,7 @@ impl Named for Root {
             Root::Operation => "Operation",
             Root::Memory => "Memory",
             Root::Emission => "Emission",
+            Root::Process => "Process",
         }
     }
 }
@@ -742,6 +777,7 @@ impl Identifiable for Root {
             Root::Operation,
             Root::Memory,
             Root::Emission,
+            Root::Process,
         ] {
             if root.name() == name {
                 return Some(root);
@@ -770,6 +806,7 @@ impl Rooted for File {
             File::Operation(_) => Root::Operation,
             File::Memory(_) => Root::Memory,
             File::Emission(_) => Root::Emission,
+            File::Process(_) => Root::Process,
         }
     }
 }

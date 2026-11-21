@@ -1,0 +1,21 @@
+; Process.4's example: a hook's report and a transcript's watch. Each process
+; is named for what it is born of, a Report call and a Watch record; then the
+; configured values moved into it at its birth, what it gives, and what it ends
+; in. Until ethos-zero reads a Nexus's roots together, a Process generates the
+; types its outcomes carry, and its Process, Gift, Taken and Outcome are
+; written by hand.
+Process
+[ claude_harness:signal:[ Report Reported Changed ]
+  claude_harness:memory:[ Watch Observe RowCount ]
+  claude_harness:emission:[ Follow ] ]
+[ Report.{ []
+           [ Reported Watch Observe Changed ]
+           Reporting }
+  Watch.{ [ RowCount ]
+          [ Follow Observe Changed ]
+          Watching }
+  Subscribe.{ []
+              [ Changed ] } ]
+[ Subscribe.{}
+  Reporting.[ Observed Unremembered ]
+  Watching.[ Forgotten Unfollowed ] ]

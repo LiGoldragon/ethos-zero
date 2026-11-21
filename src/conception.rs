@@ -6,9 +6,9 @@ use protos::{Enclosure, Protos, Separator, Symbol};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported,
-    Library, Memory, Name, Named, Operation, Placing, Position, Problem, Receiver, Reference, Root,
-    Signal, Signature, Source, Spelled, Succeeding, TraitBody, TraitDeclaration, TypeDeclaration,
-    Variant,
+    Library, Memory, Name, Named, Operation, Placing, Position, Problem, Process,
+    ProcessDeclaration, Receiver, Reference, Root, Signal, Signature, Source, Spelled, Succeeding,
+    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Conceiving<C> {
@@ -88,6 +88,7 @@ impl Conceiving<File> for Protos {
             Some(Root::Operation) => Ok(File::Operation(body.conceive().place(1)?)),
             Some(Root::Memory) => Ok(File::Memory(body.conceive().place(1)?)),
             Some(Root::Emission) => Ok(File::Emission(body.conceive().place(1)?)),
+            Some(Root::Process) => Ok(File::Process(body.conceive().place(1)?)),
             None => match Root::successor(&head.0) {
                 Some(successor) => Err(Error::conceptual(
                     vec![0],
@@ -382,6 +383,73 @@ impl Conceiving<Emission> for Protos {
             emissions: emissions.variants().place(1)?,
             outcomes: outcomes.variants().place(2)?,
             types: declarations.declarations().place(3)?,
+        })
+    }
+}
+impl Conceiving<Process> for Protos {
+    fn conceive(&self) -> Result<Process, Error> {
+        let s = self.sections(3)?;
+        let Some(processes) = s[1].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
+        };
+        let Some(declarations) = s[2].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![2], Problem::Expected(Form::Section)));
+        };
+        Ok(Process {
+            imports: s[0].imports().place(0)?,
+            processes: Protos::list(processes).place(1)?,
+            types: declarations.declarations().place(2)?,
+        })
+    }
+}
+/// A process is its name, a period and a brace of two brackets, the
+/// configured values and the gifts, and the outcome when there is one.
+impl Conceiving<ProcessDeclaration> for Protos {
+    fn conceive(&self) -> Result<ProcessDeclaration, Error> {
+        let Protos::Headed {
+            head,
+            constraints: None,
+            separator: Separator::Period,
+            body,
+            ..
+        } = self
+        else {
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::Process)));
+        };
+        let name = head.name().place(0)?;
+        let Some(parts) = body.children(Enclosure::Braced) else {
+            return Err(Error::conceptual(vec![1], Problem::Expected(Form::Process)));
+        };
+        if parts.len() < 2 {
+            return Err(Error::conceptual(
+                vec![1],
+                Problem::arity(3, parts.len() as Integer),
+            ));
+        }
+        let Some(configured) = parts[0].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(
+                vec![1, 0],
+                Problem::Expected(Form::Section),
+            ));
+        };
+        let Some(gifts) = parts[1].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(
+                vec![1, 1],
+                Problem::Expected(Form::Section),
+            ));
+        };
+        let outcome = parts[2..].references().place(1)?;
+        if outcome.len() > 1 {
+            return Err(Error::conceptual(
+                vec![1],
+                Problem::arity(3, parts.len() as Integer),
+            ));
+        }
+        Ok(ProcessDeclaration {
+            name,
+            configured: configured.references().place(0).place(1)?,
+            gifts: gifts.references().place(1).place(1)?,
+            outcome: outcome.into_iter().next(),
         })
     }
 }

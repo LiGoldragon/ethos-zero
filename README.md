@@ -38,11 +38,12 @@ regenerates both and every fixture under `tests/generated/`.
 
 ## File variants
 
-Five roots: Library, Signal, Operation, Memory, Emission. Signal declares
-what a Nexus says; Operation what it does, one operation for every effect;
-Memory what it remembers; Emission what it sends into the world, each
+Six roots: Library, Signal, Operation, Memory, Emission, Process. Signal
+declares what a Nexus says; Operation what it does, one operation for every
+effect; Memory what it remembers; Emission what it sends into the world, each
 emission one external call and its outcome what the translator observed;
-Library what they share.
+Process what it is doing, each thing being done one object from its birth to
+its end (Process.4); Library what they share.
 
 ```
 Library    [ imports ] [ types ] [ traits ] [ associations ]
@@ -50,6 +51,7 @@ Signal     [ imports ] [ inputs ] [ outputs ] [ types ]       ; Input and Output
 Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; Operation and Outcome implied
 Memory     [ imports ] [ record types ]
 Emission   [ imports ] [ emissions ] [ outcomes ] [ types ]    ; Emission and Outcome implied
+Process    [ imports ] [ processes ] [ types ]                 ; Process, Gift, Taken and Outcome held
 ```
 
 Operation's sections are proposed, not yet the living's word.
@@ -161,6 +163,37 @@ name is refused as `Duplicate.<name>`, and one named as an intrinsic,
 Emission may not declare, as `Emission` and `Outcome` are not.
 `fixtures/command-emission.ethos` is the vision's example, its import
 written rooted.
+
+A Process declares each process as what it is born of, a call, a record or
+a process given, whose name it bears and which the file imports or
+declares; then a brace of the configured values moved into it at its birth,
+what it gives, and what it ends in. A process that ends one way declares no
+outcome (`fixtures/process-root.ethos`, Process.4's example):
+
+```
+Process
+[ claude_harness:signal:[ Report Reported Changed ]
+  claude_harness:memory:[ Watch Observe RowCount ]
+  claude_harness:emission:[ Follow ] ]
+[ Report.{ []
+           [ Reported Watch Observe Changed ]
+           Reporting }
+  Watch.{ [ RowCount ]
+          [ Follow Observe Changed ]
+          Watching } ]
+[ Reporting.[ Observed Unremembered ]
+  Watching.[ Forgotten Unfollowed ] ]
+```
+
+ethos-zero reads, checks and prints it: every name resolves, two processes
+of one name are refused as `Duplicate`, and a brace of fewer than two
+brackets or more than one outcome as `Arity`. It generates the types the
+outcomes carry. `Process`, `Gift`, `Taken` and `Outcome` are held for the
+enums over the processes, so a Process may not declare them; those enums,
+and each process's positions, are read from the Nexus's other roots, the
+input or record a process is born of and what returns for each thing it
+gives, which one file does not hold, so they are written by hand until
+ethos-zero reads a Nexus's roots together.
 
 Every root's types archive (rkyv) and gate their datom derives behind the
 `datom` feature, a Library's, an Operation's and a Memory's as a Signal's:

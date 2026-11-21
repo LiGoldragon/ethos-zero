@@ -1294,7 +1294,11 @@ impl Emitting for File {
                     items.push(quote! { #[rustfmt::skip] #item });
                 }
             }
-            File::Signal(_) | File::Operation(_) | File::Memory(_) | File::Emission(_) => {
+            File::Signal(_)
+            | File::Operation(_)
+            | File::Memory(_)
+            | File::Emission(_)
+            | File::Process(_) => {
                 for declaration in self.types() {
                     items.push(declaration.emit(scope));
                 }
@@ -1330,7 +1334,9 @@ impl Emitting for File {
                 let implied = match self {
                     File::Signal(signal) => signal.implied_traits(scope),
                     File::Emission(emission) => emission.implied_traits(scope),
-                    File::Library(_) | File::Operation(_) | File::Memory(_) => vec![],
+                    File::Library(_) | File::Operation(_) | File::Memory(_) | File::Process(_) => {
+                        vec![]
+                    }
                 };
                 for item in implied {
                     items.push(quote! { #[rustfmt::skip] #item });
