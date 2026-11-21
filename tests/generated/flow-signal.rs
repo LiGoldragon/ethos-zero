@@ -2,12 +2,15 @@
     dead_code,
     non_camel_case_types,
     non_snake_case,
+    unused_extern_crates,
     clippy::type_complexity
 )]
 #[rustfmt::skip]
+extern crate alloc;
+#[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct Brief(pub String);
+pub struct Brief(pub alloc::string::String);
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
@@ -47,8 +50,8 @@ pub enum Output {
 #[rustfmt::skip]
 #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
-    fn launch(&self, launch: &Launch_Data) -> std::result::Result<flow::FlowId, Output>;
-    fn report(&self, report: &Report_Data) -> std::result::Result<(), Output>;
+    fn launch(&self, launch: &Launch_Data) -> core::result::Result<flow::FlowId, Output>;
+    fn report(&self, report: &Report_Data) -> core::result::Result<(), Output>;
 }
 #[rustfmt::skip]
 pub trait Answerable {

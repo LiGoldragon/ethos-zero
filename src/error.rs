@@ -2,8 +2,11 @@
     dead_code,
     non_camel_case_types,
     non_snake_case,
+    unused_extern_crates,
     clippy::type_complexity
 )]
+#[rustfmt::skip]
+extern crate alloc;
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
@@ -15,7 +18,7 @@ pub struct Structural_Error {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Conceptual_Data {
-    pub integer_vector: std::vec::Vec<i64>,
+    pub integer_vector: alloc::vec::Vec<i64>,
     pub problem: Problem,
 }
 #[rustfmt::skip]
@@ -36,8 +39,8 @@ pub struct Arity_Data {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Wrapping_Data {
-    pub first_string: String,
-    pub second_string: String,
+    pub first_string: alloc::string::String,
+    pub second_string: alloc::string::String,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -47,22 +50,22 @@ pub enum Problem {
     Arity(Arity_Data),
     Expected(Form),
     Separator(protos::Separator),
-    Name(String),
-    Duplicate(String),
-    Undeclared(String),
-    Cycle(String),
+    Name(alloc::string::String),
+    Duplicate(alloc::string::String),
+    Undeclared(alloc::string::String),
+    Cycle(alloc::string::String),
     Yield,
     Empty,
     Depth,
-    Role(String),
-    Intrinsic(String),
-    Case(String),
-    Renamed(String),
+    Role(alloc::string::String),
+    Intrinsic(alloc::string::String),
+    Case(alloc::string::String),
+    Renamed(alloc::string::String),
     Wrapping(Wrapping_Data),
-    DuplicateField(String),
-    Unpaired(String),
-    TooFewVariants(String),
-    Placement(String),
+    DuplicateField(alloc::string::String),
+    Unpaired(alloc::string::String),
+    TooFewVariants(alloc::string::String),
+    Placement(alloc::string::String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

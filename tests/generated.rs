@@ -572,9 +572,9 @@ fn a_bare_emission_carries_its_unit_and_yields_the_outcome_its_position_binds() 
     let outcome: <Probe as Emitted>::Outcome = Probe {}.emit(&Prober(Probed_Data::Observed(7)));
     assert_eq!(outcome, Probed_Data::Observed(7));
     let (): <Ping as Emitted>::Outcome = Ping {}.emit(&Prober(Probed_Data::Down));
-    let emissions = [Emission::Probe(Probe {}), Emission::Ping(Ping {})];
-    assert!(matches!(emissions[0], Emission::Probe(Probe {})));
-    assert!(matches!(emissions[1], Emission::Ping(Ping {})));
+    let emissions = [Emission::Probe, Emission::Ping];
+    assert!(matches!(emissions[0], Emission::Probe));
+    assert!(matches!(emissions[1], Emission::Ping));
 }
 
 /// A Flow Nexus that launches every voice but one, as flow 7, and takes

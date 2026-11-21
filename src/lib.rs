@@ -856,7 +856,7 @@ mod behavior {
         assert!(derives.contains(
             "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]"
         ));
-        assert!(rust.contains("pub string: String"));
+        assert!(rust.contains("pub string: alloc::string::String"));
         assert!(rust.contains("pub integer: i64"));
     }
 
@@ -910,8 +910,8 @@ mod behavior {
             Ok(rust) => rust,
             Err(_) => panic!("approved payload examples generate"),
         };
-        assert!(rust.contains("pub first_string: String"));
-        assert!(rust.contains("pub second_string: String"));
+        assert!(rust.contains("pub first_string: alloc::string::String"));
+        assert!(rust.contains("pub second_string: alloc::string::String"));
         assert!(rust.contains("SyntaxError(SyntaxError)"));
         assert!(rust.contains("PathOverlap(PathOverlap_Data)"));
         assert!(rust.contains("pub first_lock: Lock"));

@@ -2,6 +2,15 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 31.0.0: core and alloc paths; a bare emission's variant is written bare
+
+What breaks, in two parts.
+
+1. Every standard name the generated Rust writes is its core or alloc path: `String` is `alloc::string::String`, `std::vec::Vec` is `alloc::vec::Vec`, `std::boxed::Box` is `alloc::boxed::Box`, and `std::option::Option`, `std::result::Result`, `std::clone::Clone` and `std::marker::Send` are under `core`. Each generated module opens with `extern crate alloc;` (its header allows `unused_extern_crates`), so it builds in a `no_std` crate with `alloc` and in a std crate alike, and the types are the same types as before: only the text of the module changes. A crate that `include!`s a generated module at its root beside its own `extern crate alloc;` drops its own.
+2. A bare emission that is a unit of its own keeps its unit struct, which bears `Emitted`, but its variant in `Emission` carries nothing: `Emission::Ping` where 30.x wrote `Emission::Ping(Ping)`, so the datom of it is `Ping` where it was `Ping.{}`. A translator matching `Emission::Ping(ping)` matches `Emission::Ping` and emits `Ping {}`.
+
+To deploy: regenerate every module with 31.0.0, adjust a match on a bare emission's variant, then repin ethos-zero to 31.0.0.
+
 ## 30.1.0: an empty yield bracket returns nothing
 
 Not breaking for an Ethos file: every file 30.0.1 accepts reads, checks and generates the same. A trait capability whose yield bracket is empty, which 30.0.1 refused as `Conceptual.{ [ … ] Yield }`, is accepted and generates a method with no return type, for each receiver: `after!{ [ Event ] [] }` gives `fn after(&mut self, input: Event);`, `touch.[]` gives `fn touch(&self);`, `start:[]` gives `fn start();`. A yield bracket of two types or more is still refused as `Yield`, and a `Stream` is still admitted only as a Signal output's whole payload or a capability's yield.

@@ -24,8 +24,8 @@ fn full_library_round_trips_and_generates_named_types_and_traits() {
         Err(_) => panic!("checked Library generates"),
     };
     assert!(rust.contains("pub struct Sink"));
-    assert!(rust.contains("pub string: String"));
-    assert!(rust.contains("std::result::Result<i64, SinkError>"));
+    assert!(rust.contains("pub string: alloc::string::String"));
+    assert!(rust.contains("core::result::Result<i64, SinkError>"));
     assert!(rust.contains("pub trait Streamable"));
     assert!(rust.contains("pub trait Processable"));
 }
@@ -108,7 +108,7 @@ fn emission_generates_its_enums_and_binds_each_emission_to_its_outcome() {
     assert_eq!(file, read(&file.protosize().textualize()));
     let rust = source.compact();
     for expected in [
-        "pubstructCommand_Data{pubverb:Verb,pubargument_vector:std::vec::Vec<Argument>,}",
+        "pubstructCommand_Data{pubverb:Verb,pubargument_vector:alloc::vec::Vec<Argument>,}",
         "pubenumEmission{Command(Command_Data),}",
         "pubenumOutcome_Data{Done,Refused(i64),}",
         "pubenumOutcome{Outcome(Outcome_Data),}",
@@ -127,7 +127,7 @@ fn emission_generates_its_enums_and_binds_each_emission_to_its_outcome() {
 fn an_outcome_past_the_last_emission_pairs_with_none_and_a_bare_outcome_binds_unit() {
     let rust = "Emission [] [ Go.Vector<String> Stop Ask.Question ] [ Gone Stopped.Integer Answer Extra.String ] [ Question.String Answer.Integer ]".compact();
     assert!(
-        rust.contains("implEmittedforstd::vec::Vec<String>{typeOutcome=();}"),
+        rust.contains("implEmittedforalloc::vec::Vec<alloc::string::String>{typeOutcome=();}"),
         "{rust}"
     );
     assert!(
@@ -144,7 +144,7 @@ fn an_outcome_past_the_last_emission_pairs_with_none_and_a_bare_outcome_binds_un
 }
 
 #[test]
-fn a_bare_emission_carries_a_unit_of_its_own_and_binds_its_outcome() {
+fn a_bare_emission_is_a_unit_of_its_own_its_variant_bare_and_binds_its_outcome() {
     let source =
         "Emission [] [ Go Stop.{ String } Ask ] [ Gone.[ Fast Slow ] Stopped Told ] [ Ask.String ]";
     let file = read(source);
@@ -152,7 +152,7 @@ fn a_bare_emission_carries_a_unit_of_its_own_and_binds_its_outcome() {
     let rust = source.compact();
     for expected in [
         "pubstructGo{}",
-        "pubenumEmission{Go(Go),Stop(Stop_Data),Ask(Ask),}",
+        "pubenumEmission{Go,Stop(Stop_Data),Ask(Ask),}",
         "implEmittedforGo{typeOutcome=Gone_Data;}",
         "implEmittedforStop_Data{typeOutcome=();}",
         "implEmittedforAsk{typeOutcome=();}",
@@ -167,7 +167,7 @@ fn a_bare_emission_carries_a_unit_of_its_own_and_binds_its_outcome() {
     for expected in [
         "pubstructGo{}",
         "pubstructHalt{}",
-        "pubenumEmission{Go(Go),Halt(Halt),}",
+        "pubenumEmission{Go,Halt,}",
         "pubenumOutcome{Go,Halted,}",
         "implEmittedforGo{typeOutcome=();}",
         "implEmittedforHalt{typeOutcome=();}",
@@ -206,7 +206,7 @@ fn a_bare_emission_whose_unit_a_type_may_not_take_is_refused() {
 fn self_in_an_emission_or_outcome_is_bound_as_the_enum_it_stands_for() {
     let rust = "Emission [] [ Go.Vector<Self> ] [ Gone.Option<Self> ] []".compact();
     assert!(
-        rust.contains("implEmittedforstd::vec::Vec<Emission>{typeOutcome=std::option::Option<std::boxed::Box<Outcome>>;}"),
+        rust.contains("implEmittedforalloc::vec::Vec<Emission>{typeOutcome=core::option::Option<alloc::boxed::Box<Outcome>>;}"),
         "{rust}"
     );
 }
@@ -251,9 +251,9 @@ fn a_signal_generates_answering_with_one_capability_per_input_and_the_input_answ
     // prettyplease ends a parameter list it wraps with a comma.
     let rust = rust.replace(",)", ")");
     for expected in [
-        "pubtraitAnswering{fnlaunch(&self,launch_request:&LaunchRequest)->std::result::Result<FlowId,Output>;",
-        "fnreport(&self,report:&Report_Data)->std::result::Result<(),Output>;",
-        "fnping(&self)->std::result::Result<(),Output>;}",
+        "pubtraitAnswering{fnlaunch(&self,launch_request:&LaunchRequest)->core::result::Result<FlowId,Output>;",
+        "fnreport(&self,report:&Report_Data)->core::result::Result<(),Output>;",
+        "fnping(&self)->core::result::Result<(),Output>;}",
         "pubtraitAnswerable{typeAnswer;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Self::Answer;}",
         "implAnswerableforInput{typeAnswer=Output;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Output{matchself{",
         "Input::Launch(carried)=>",
@@ -277,8 +277,8 @@ fn an_input_s_capability_borrows_self_as_the_input_and_a_keyword_raw() {
     // prettyplease ends a parameter list it wraps with a comma.
     let rust = rust.replace(",)", ")");
     for expected in [
-        "fnagain(&self,input_vector:&std::vec::Vec<Input>)->std::result::Result<std::option::Option<std::boxed::Box<Output>>,Output>;",
-        "fnr#match(&self,r#type:&Type)->std::result::Result<(),Output>;",
+        "fnagain(&self,input_vector:&alloc::vec::Vec<Input>)->core::result::Result<core::option::Option<alloc::boxed::Box<Output>>,Output>;",
+        "fnr#match(&self,r#type:&Type)->core::result::Result<(),Output>;",
     ] {
         assert!(rust.contains(expected), "{expected} in {rust}");
     }
@@ -295,7 +295,7 @@ fn a_signal_without_inputs_generates_no_answering() {
 fn an_input_named_answer_has_the_capability_answer() {
     let rust = "Signal [] [ Answer ] [ Answered ] []".compact();
     for expected in [
-        "pubtraitAnswering{fnanswer(&self)->std::result::Result<(),Output>;}",
+        "pubtraitAnswering{fnanswer(&self)->core::result::Result<(),Output>;}",
         "Input::Answer=>",
         "nexus.answer().map_or_else(|refusal|refusal,|()|Output::Answered)",
     ] {
@@ -335,11 +335,14 @@ fn a_named_position_declares_its_type_in_place() {
         Ok(rust) => rust,
         Err(_) => panic!("a struct with named positions generates"),
     };
-    assert!(rust.contains("pub struct Brief(pub String);"), "{rust}");
+    assert!(
+        rust.contains("pub struct Brief(pub alloc::string::String);"),
+        "{rust}"
+    );
     assert!(rust.contains("pub enum State {"), "{rust}");
     assert!(rust.contains("pub struct Capsule {"), "{rust}");
     assert!(
-        rust.contains("pub struct Login(pub std::vec::Vec<String>);"),
+        rust.contains("pub struct Login(pub alloc::vec::Vec<alloc::string::String>);"),
         "{rust}"
     );
     assert!(rust.contains("pub home: Home"), "{rust}");
@@ -370,7 +373,10 @@ fn a_variant_payload_declares_named_positions_in_place() {
             Ok(rust) => rust,
             Err(_) => panic!("a payload with a named position generates"),
         };
-    assert!(rust.contains("pub struct Brief(pub String);"), "{rust}");
+    assert!(
+        rust.contains("pub struct Brief(pub alloc::string::String);"),
+        "{rust}"
+    );
     assert!(rust.contains("pub brief: Brief"), "{rust}");
 }
 
@@ -436,7 +442,7 @@ fn memory_generates_a_record_type_named_record() {
         Err(_) => panic!("a Memory record named Record generates"),
     };
     assert!(generated.contains("pub struct Record"));
-    assert!(generated.contains("pub string: String"));
+    assert!(generated.contains("pub string: alloc::string::String"));
     assert!(generated.contains("pub integer: i64"));
 }
 
@@ -448,7 +454,7 @@ fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
             Err(_) => panic!("a two-record Memory generates"),
         };
     assert!(generated.contains("pub struct Entry"));
-    assert!(generated.contains("pub entry_vector: std::vec::Vec<Entry>"));
+    assert!(generated.contains("pub entry_vector: alloc::vec::Vec<Entry>"));
     assert!(
         read("Memory [] [ Entry.{ String } Entry.{ Integer } ]")
             .generate()
@@ -464,7 +470,7 @@ fn self_in_a_data_position_is_named_for_the_enclosing_type() {
         Ok(generated) => generated,
         Err(_) => panic!("Self in a data position generates"),
     };
-    assert!(generated.contains("pub node_option: std::option::Option<std::boxed::Box<Self>>"));
+    assert!(generated.contains("pub node_option: core::option::Option<alloc::boxed::Box<Self>>"));
 }
 
 #[test]
@@ -477,7 +483,7 @@ fn a_sourced_generic_in_a_data_position_reads_and_reprints() {
         Ok(generated) => generated,
         Err(_) => panic!("a sourced generic position generates"),
     };
-    assert!(generated.contains("pub string_vector: external::Vector<String>"));
+    assert!(generated.contains("pub string_vector: external::Vector<alloc::string::String>"));
 }
 
 #[test]
@@ -545,7 +551,7 @@ fn rooted_imports_in_the_imports_section_take_every_namespace_segment() {
         "{generated}"
     );
     assert!(
-        generated.contains("std::vec::Vec<flow_ethos::signal::Output>"),
+        generated.contains("alloc::vec::Vec<flow_ethos::signal::Output>"),
         "{generated}"
     );
 
@@ -596,7 +602,7 @@ fn a_chained_import_of_several_segments_generates_as_its_rooted_spelling() {
         "{generated}"
     );
     assert!(
-        generated.contains("std::vec::Vec<signal_capsule::signal::Output>"),
+        generated.contains("alloc::vec::Vec<signal_capsule::signal::Output>"),
         "{generated}"
     );
 }
@@ -667,7 +673,7 @@ fn a_rooted_import_inline_in_an_alias_puts_the_colon_where_the_period_was() {
         "{generated}"
     );
     assert!(
-        generated.contains("pub struct Listed(pub external::sub::Vector<String>);"),
+        generated.contains("pub struct Listed(pub external::sub::Vector<alloc::string::String>);"),
         "{generated}"
     );
 
@@ -694,7 +700,7 @@ fn a_rooted_import_inline_in_a_field_takes_its_leading_colon() {
         "{generated}"
     );
     assert!(
-        generated.contains("external::sub::Vector<String>"),
+        generated.contains("external::sub::Vector<alloc::string::String>"),
         "{generated}"
     );
 
@@ -823,11 +829,11 @@ fn a_variant_named_as_a_defined_type_declaring_a_payload_carries_that_payload() 
     for (source, carried) in [
         (
             "Library [] [ Code.String TextPart.[ Plain.String Code.String ] ] [] []",
-            "pubenumTextPart{Plain(String),Code(String),}",
+            "pubenumTextPart{Plain(alloc::string::String),Code(alloc::string::String),}",
         ),
         (
             "Library [] [ Code.String TextPart.[ Plain.String Code.Code ] ] [] []",
-            "pubenumTextPart{Plain(String),Code(Code),}",
+            "pubenumTextPart{Plain(alloc::string::String),Code(Code),}",
         ),
         (
             "Library [] [ Code.String TextPart.[ Plain Code.{ String Integer } ] ] [] []",
@@ -845,7 +851,7 @@ fn a_variant_named_as_a_defined_type_declaring_a_payload_carries_that_payload() 
         let rust = source.compact();
         assert!(rust.contains(carried), "{source}: {rust}");
         assert!(
-            rust.contains("pubstructCode(pubString);"),
+            rust.contains("pubstructCode(puballoc::string::String);"),
             "{source}: {rust}"
         );
     }
@@ -892,7 +898,9 @@ fn the_vision_lock_signal_takes_lock_beside_a_declared_lock() {
         "{rust}"
     );
     assert!(
-        rust.contains("fnlock(&self,lock_request:&LockRequest)->std::result::Result<Lock,Output>;"),
+        rust.contains(
+            "fnlock(&self,lock_request:&LockRequest)->core::result::Result<Lock,Output>;"
+        ),
         "{rust}"
     );
 }
@@ -920,7 +928,7 @@ fn a_field_is_named_for_its_type_alone_never_its_namespace() {
         "{rust}"
     );
     assert!(
-        rust.contains("pubstructSourced{pubr#type:flow_ethos::message::Type,pubstring_vector:external::Vector<String>,}"),
+        rust.contains("pubstructSourced{pubr#type:flow_ethos::message::Type,pubstring_vector:external::Vector<alloc::string::String>,}"),
         "{rust}"
     );
 }
@@ -1065,11 +1073,11 @@ fn an_enum_of_two_variants_is_accepted_declared_and_inline() {
 fn a_repeated_type_is_told_apart_as_first_and_second() {
     let rust = "Library [] [ Pair.{ String String } StringVector.String Both.{ Vector<String> StringVector } ] [] []".compact();
     assert!(
-        rust.contains("pubstructPair{pubfirst_string:String,pubsecond_string:String,}"),
+        rust.contains("pubstructPair{pubfirst_string:alloc::string::String,pubsecond_string:alloc::string::String,}"),
         "{rust}"
     );
     assert!(
-        rust.contains("pubstructBoth{pubfirst_string_vector:std::vec::Vec<String>,pubsecond_string_vector:StringVector,}"),
+        rust.contains("pubstructBoth{pubfirst_string_vector:alloc::vec::Vec<alloc::string::String>,pubsecond_string_vector:StringVector,}"),
         "{rust}"
     );
 }
@@ -1084,7 +1092,7 @@ fn a_variant_named_as_an_implied_type_carries_nothing_and_takes_a_payload() {
 fn a_variant_named_as_a_defined_type_and_written_bare_carries_it() {
     let rust = "Library [] [ Code.String TextPart.[ Plain.String Code ] ] [] []".compact();
     assert!(
-        rust.contains("pubenumTextPart{Plain(String),Code(Code),}"),
+        rust.contains("pubenumTextPart{Plain(alloc::string::String),Code(Code),}"),
         "{rust}"
     );
     let rust = "Signal [] [ Acquire.Request ] [ Lock ] [ Request.String Lock.String ]".compact();
@@ -1189,9 +1197,13 @@ fn outer_option_and_result_are_written_fully_qualified() {
         Ok(generated) => generated,
         Err(_) => panic!("outer containers generate"),
     };
-    assert!(generated.contains("pub integer_option: std::option::Option<i64>"));
-    assert!(generated.contains("pub string_integer_result: std::result::Result<String, i64>"));
-    assert!(generated.contains("std::option::Option<std::boxed::Box<Chain>>"));
+    assert!(generated.contains("pub integer_option: core::option::Option<i64>"));
+    assert!(
+        generated.contains(
+            "pub string_integer_result: core::result::Result<alloc::string::String, i64>"
+        )
+    );
+    assert!(generated.contains("core::option::Option<alloc::boxed::Box<Chain>>"));
     assert!(!generated.contains(" Option<"));
     assert!(!generated.contains(" Result<"));
 }
@@ -1210,7 +1222,7 @@ fn every_generated_item_carries_rustfmt_skip() {
         let text = std::fs::read_to_string(&path).expect("generated module reads");
         assert!(
             text.starts_with(
-                "#![allow(\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    clippy::type_complexity\n)]\n"
+                "#![allow(\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    unused_extern_crates,\n    clippy::type_complexity\n)]\n"
             ),
             "{path} opens with the generated-file header"
         );
@@ -1223,6 +1235,7 @@ fn every_generated_item_carries_rustfmt_skip() {
                 syn::Item::Trait(item) => &item.attrs,
                 syn::Item::Const(item) => &item.attrs,
                 syn::Item::Impl(item) => &item.attrs,
+                syn::Item::ExternCrate(item) => &item.attrs,
                 _ => panic!("{path} holds an item generation does not emit"),
             };
             assert!(
@@ -1384,12 +1397,12 @@ fn a_concrete_type_in_an_input_is_written_as_that_type() {
     );
     let rust = "Library [] [] [ Resolvable.[ resolve.{ [ String ] [ Self ] } ] ] []".compact();
     assert!(
-        rust.contains("fnresolve(&self,input:String)->SelfwhereSelf:Sized;"),
+        rust.contains("fnresolve(&self,input:alloc::string::String)->SelfwhereSelf:Sized;"),
         "{rust}"
     );
     let rust = "Library [] [ Outline.String ] [ Outlined.[ outline.{ [ Vector<Outline> ] [ Self ] } ] ] []".compact();
     assert!(
-        rust.contains("fnoutline(&self,input:std::vec::Vec<Outline>)->SelfwhereSelf:Sized;"),
+        rust.contains("fnoutline(&self,input:alloc::vec::Vec<Outline>)->SelfwhereSelf:Sized;"),
         "{rust}"
     );
 }
@@ -1533,11 +1546,11 @@ fn a_stream_output_holds_one_frame_and_its_input_is_answered_with_the_stream() {
     // prettyplease ends a parameter list it wraps with a comma.
     let rust = rust.replace(",)", ")");
     for expected in [
-        "pubenumOutput{Launched(FlowId),Watched(signal::Frame<std::vec::Vec<Pane>,Changed>),Subscribed(signal::Frame<FlowId,Changed>),Refused(String),}",
-        "pubenumAnswer{Once(Output),Watched(signal::Stream<std::vec::Vec<Pane>,Changed>),Subscribed(signal::Stream<FlowId,Changed>),}",
-        "fnlaunch(&self,launch_request:&LaunchRequest)->std::result::Result<FlowId,Output>;",
-        "fnwatch(&self,selection:&Selection)->std::result::Result<signal::Stream<std::vec::Vec<Pane>,Changed>,Output>;",
-        "fnsubscribe(&self)->std::result::Result<signal::Stream<FlowId,Changed>,Output>;",
+        "pubenumOutput{Launched(FlowId),Watched(signal::Frame<alloc::vec::Vec<Pane>,Changed>),Subscribed(signal::Frame<FlowId,Changed>),Refused(alloc::string::String),}",
+        "pubenumAnswer{Once(Output),Watched(signal::Stream<alloc::vec::Vec<Pane>,Changed>),Subscribed(signal::Stream<FlowId,Changed>),}",
+        "fnlaunch(&self,launch_request:&LaunchRequest)->core::result::Result<FlowId,Output>;",
+        "fnwatch(&self,selection:&Selection)->core::result::Result<signal::Stream<alloc::vec::Vec<Pane>,Changed>,Output>;",
+        "fnsubscribe(&self)->core::result::Result<signal::Stream<FlowId,Changed>,Output>;",
         "pubtraitAnswerable{typeAnswer;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Self::Answer;}",
         "implAnswerableforInput{typeAnswer=Answer;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Answer{matchself{",
         "Answer::Once(nexus.launch(carried).map_or_else(|refusal|refusal,Output::Launched))",
@@ -1568,7 +1581,10 @@ fn a_signal_with_no_stream_answers_with_its_output() {
     // A stream output answering no input is a reaction: its frame is an
     // Output, and no input is answered with it.
     let rust = "Signal [] [ Ask ] [ Told Pushed.Stream<String Integer> ] []".compact();
-    assert!(rust.contains("Pushed(signal::Frame<String,i64>)"), "{rust}");
+    assert!(
+        rust.contains("Pushed(signal::Frame<alloc::string::String,i64>)"),
+        "{rust}"
+    );
     assert!(rust.contains("typeAnswer=Output;"), "{rust}");
     assert!(!rust.contains("pubenumAnswer"), "{rust}");
 }
@@ -1584,7 +1600,7 @@ fn a_stream_output_named_once_is_refused_and_one_named_answer_is_answered() {
     // prettyplease ends a parameter list it wraps with a comma.
     let rust = rust.replace(",)", ")");
     for expected in [
-        "pubenumAnswer{Once(Output),Answer(signal::Stream<String,i64>),}",
+        "pubenumAnswer{Once(Output),Answer(signal::Stream<alloc::string::String,i64>),}",
         "Answer::Once(nexus.ask().map_or_else(|refusal|refusal,|()|Output::Once))",
         "nexus.watch().map_or_else(Answer::Once,Answer::Answer)",
     ] {

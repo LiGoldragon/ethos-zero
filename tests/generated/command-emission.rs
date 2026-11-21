@@ -2,8 +2,11 @@
     dead_code,
     non_camel_case_types,
     non_snake_case,
+    unused_extern_crates,
     clippy::type_complexity
 )]
+#[rustfmt::skip]
+extern crate alloc;
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
@@ -15,7 +18,7 @@ pub enum Verb {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Argument {
-    Name(String),
+    Name(alloc::string::String),
     Quiet,
 }
 #[rustfmt::skip]
@@ -23,7 +26,7 @@ pub enum Argument {
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Command_Data {
     pub verb: Verb,
-    pub argument_vector: std::vec::Vec<Argument>,
+    pub argument_vector: alloc::vec::Vec<Argument>,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

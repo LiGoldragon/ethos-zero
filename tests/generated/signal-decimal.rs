@@ -2,8 +2,11 @@
     dead_code,
     non_camel_case_types,
     non_snake_case,
+    unused_extern_crates,
     clippy::type_complexity
 )]
+#[rustfmt::skip]
+extern crate alloc;
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
@@ -28,7 +31,7 @@ pub trait Answering {
     fn measure(
         &self,
         measurement: &Measurement,
-    ) -> std::result::Result<Measurement, Output>;
+    ) -> core::result::Result<Measurement, Output>;
 }
 #[rustfmt::skip]
 pub trait Answerable {

@@ -11,7 +11,7 @@
 //! cycle, that is where it names, through aliases, `Option` and `Result` but
 //! not through `Vector`, a type declared no later than its owner that reaches
 //! the owner by value. The box sits immediately around the recursive
-//! argument (`std::option::Option<std::boxed::Box<Tree>>`).
+//! argument (`core::option::Option<alloc::boxed::Box<Tree>>`).
 //!
 //! One rule decides archive bounds: a position that reaches its owner by any
 //! path, `Vector` included, omits its rkyv bounds, and its type
@@ -60,7 +60,7 @@ impl Tokening for Source {
 impl Tokening for Intrinsic {
     fn tokens(&self) -> TokenStream {
         match self {
-            Intrinsic::String => quote! { String },
+            Intrinsic::String => quote! { alloc::string::String },
             // Generated contracts must compile without their optional `datom`
             // feature.  The wire-level integer is therefore the ordinary
             // Rust scalar; Datom derives know how to compose it when enabled.
@@ -72,9 +72,9 @@ impl Tokening for Intrinsic {
             Intrinsic::Decimal => quote! { datom_codec::Decimal },
             Intrinsic::Boolean => quote! { bool },
             Intrinsic::Meaning => quote! { datom_codec::Meaning },
-            Intrinsic::Vector => quote! { std::vec::Vec },
-            Intrinsic::Option => quote! { std::option::Option },
-            Intrinsic::Result => quote! { std::result::Result },
+            Intrinsic::Vector => quote! { alloc::vec::Vec },
+            Intrinsic::Option => quote! { core::option::Option },
+            Intrinsic::Result => quote! { core::result::Result },
             Intrinsic::Stream => quote! { signal::Stream },
             Intrinsic::Itself => quote! { Self },
             Intrinsic::Sized => quote! { Sized },
@@ -183,10 +183,10 @@ impl Emitting for Reference {
             Resolution::Imported(source, emitted) => {
                 if source.as_ref() == "std" {
                     if emitted.0 == "Clone" {
-                        return quote! { std::clone::Clone #applied };
+                        return quote! { core::clone::Clone #applied };
                     }
                     if emitted.0 == "Send" {
-                        return quote! { std::marker::Send #applied };
+                        return quote! { core::marker::Send #applied };
                     }
                 }
                 let source = source.tokens();
@@ -536,7 +536,7 @@ impl Positioning for Reference {
             for argument in &self.arguments {
                 let ty = if argument.boxed(scope, owner) {
                     let inner = argument.emit(scope);
-                    quote! { std::boxed::Box<#inner> }
+                    quote! { alloc::boxed::Box<#inner> }
                 } else {
                     argument.emit(scope)
                 };
@@ -547,7 +547,7 @@ impl Positioning for Reference {
 
         let ty = self.emit(scope);
         if self.boxed(scope, owner) {
-            quote! { std::boxed::Box<#ty> }
+            quote! { alloc::boxed::Box<#ty> }
         } else {
             ty
         }
@@ -1298,7 +1298,9 @@ impl Emitting for File {
                 for declaration in self.types() {
                     items.push(declaration.emit(scope));
                 }
-                // The unit each bare emission carries, a struct of no fields.
+                // The unit each bare emission is, a struct of no fields: it
+                // bears Emitted, and its variant in the enum carries nothing,
+                // so its datom is written bare.
                 for unit in self.units() {
                     let unit = TypeDeclaration::Struct(
                         Identity {
@@ -1321,7 +1323,7 @@ impl Emitting for File {
                             name: implied.name,
                             constraints: vec![],
                         },
-                        implied.variants.united(scope, implied.section),
+                        implied.variants.to_vec(),
                     );
                     items.push(enumeration.emit(scope));
                 }
@@ -1336,7 +1338,10 @@ impl Emitting for File {
             }
         }
         quote! {
-            #![allow(dead_code, non_camel_case_types, non_snake_case, clippy::type_complexity)]
+            #![allow(dead_code, non_camel_case_types, non_snake_case, unused_extern_crates, clippy::type_complexity)]
+            // Every path names core or alloc, so the module builds with and without std.
+            #[rustfmt::skip]
+            extern crate alloc;
             #( #items )*
         }
     }
@@ -1346,10 +1351,11 @@ impl Emitting for File {
 // Root-implied traits: the pairing of requests and replies by position
 // ---------------------------------------------------------------------------
 
-/// The trait whose capability yields a section's variants as its implied
-/// enum is generated: a bare emission that carries a unit of its own
-/// ([`Uniting`]) holds the unit by name, as a variant naming a type holds it,
-/// and every other variant is as written.
+/// The trait whose capability yields a section's variants as the types they
+/// bind: a bare emission that is a unit of its own ([`Uniting`]) binds the
+/// unit by name, as a variant naming a type binds it, and every other variant
+/// is as written. The implied enum itself holds the variants as written, so a
+/// unit's variant carries nothing.
 trait United {
     fn united(&self, scope: &Scope, section: Integer) -> Vec<Variant>;
 }
@@ -1564,7 +1570,7 @@ impl TraitImplying for crate::Signal {
                 ),
             };
             capabilities.push(quote! {
-                fn #capability #signature -> std::result::Result<#yields, Output>;
+                fn #capability #signature -> core::result::Result<#yields, Output>;
             });
             let answered_once = streaming && output.stream(scope).is_none();
             arms.push(if answered_once {
@@ -1667,8 +1673,8 @@ impl DeriveCollapsing for String {
 impl AllowFormatting for String {
     fn format_allow(&self) -> String {
         self.replacen(
-            "#![allow(dead_code, non_camel_case_types, non_snake_case, clippy::type_complexity)]\n",
-            "#![allow(\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    clippy::type_complexity\n)]\n",
+            "#![allow(dead_code, non_camel_case_types, non_snake_case, unused_extern_crates, clippy::type_complexity)]\n",
+            "#![allow(\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    unused_extern_crates,\n    clippy::type_complexity\n)]\n",
             1,
         )
     }

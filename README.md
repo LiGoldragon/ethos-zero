@@ -81,8 +81,8 @@ The dispatch lends each capability the payload it matched, bound as
 
 ```rust
 pub trait Answering {
-    fn launch(&self, launch_request: &LaunchRequest) -> std::result::Result<FlowId, Output>;
-    fn report(&self, report: &Report_Data) -> std::result::Result<(), Output>;
+    fn launch(&self, launch_request: &LaunchRequest) -> core::result::Result<FlowId, Output>;
+    fn report(&self, report: &Report_Data) -> core::result::Result<(), Output>;
 }
 pub trait Answerable {
     type Answer;
@@ -138,14 +138,15 @@ carrying the same type would bind it twice and are refused as
 `Duplicate.<type>` at the second.
 
 An emission may carry nothing, as an input may. A bare emission whose
-name the file neither declares nor imports carries a unit of its own, a
+name the file neither declares nor imports is a unit of its own, a
 struct of no fields named as the emission is and generated beside the
 file's types, so it bears `Emittable` like any other and binds the n-th
-outcome (`fixtures/bare-emission.ethos`):
+outcome; its variant in `Emission` carries nothing, so its datom is
+written bare, `Ping`, as a bare output's is (`fixtures/bare-emission.ethos`):
 
 ```rust
 pub struct Probe {}                                          // from the bare emission Probe
-pub enum Emission { Probe(Probe), Consume(Consume_Data), Ping(Ping) }
+pub enum Emission { Probe, Consume(Consume_Data), Ping }
 impl Emitted for Probe { type Outcome = Probed_Data; }        // Probed.[ … ], the first outcome
 impl Emitted for Ping { type Outcome = (); }                  // Pong, carrying nothing
 ```
@@ -209,9 +210,11 @@ only `Grow` is boxed. Every position that reaches its owner by
 any path, `Vector` included, carries `#[rkyv(omit_bounds)]`, and its type
 states the serializer, deserializer and validator bounds once, so a
 recursive contract archives and restores. The generated Rust writes
-standard containers as `std::vec::Vec`, `std::option::Option`,
-`std::result::Result`, and `std::boxed::Box`, so a declaration cannot
-capture those names. A variant `Name.{ T1 T2 }` carries a generated
+every standard name by its core or alloc path, `alloc::string::String`,
+`alloc::vec::Vec`, `core::option::Option`, `core::result::Result` and
+`alloc::boxed::Box`, so a declaration cannot capture those names and the
+module builds with no operating system under it as well as with std: each
+generated module opens with `extern crate alloc;`. A variant `Name.{ T1 T2 }` carries a generated
 struct `Name_Data` with one field per position.
 
 A field is named for its type alone, in snake case, and never for the
@@ -284,7 +287,7 @@ the name `signal`.
 A `Stream` stands in two places. One is the whole payload of a Signal's
 output: `Signal [] [ Subscribe ] [ Subscribed.Stream<Vector<Pane> Changed> ] [ … ]`.
 The `Output` holds one frame of it,
-`Subscribed(signal::Frame<std::vec::Vec<Pane>, Changed>)`, with the derives
+`Subscribed(signal::Frame<alloc::vec::Vec<Pane>, Changed>)`, with the derives
 every `Output` bears, so each frame on the wire is one `Output`. The other is a trait capability's yield, where its
 types may be the trait's associated types:
 `Publishing.{ [] [ State Change ] [] [ open.{ [ State ] [ Stream<State Change> ] } ] }`
@@ -308,11 +311,11 @@ that output and holding its stream (`fixtures/stream-signal.ethos`):
 ```rust
 pub enum Answer {
     Once(Output),
-    Subscribed(signal::Stream<std::vec::Vec<Pane>, Changed>),
+    Subscribed(signal::Stream<alloc::vec::Vec<Pane>, Changed>),
 }
 pub trait Answering {
-    fn launch(&self, launch_request: &LaunchRequest) -> std::result::Result<FlowId, Output>;
-    fn subscribe(&self) -> std::result::Result<signal::Stream<std::vec::Vec<Pane>, Changed>, Output>;
+    fn launch(&self, launch_request: &LaunchRequest) -> core::result::Result<FlowId, Output>;
+    fn subscribe(&self) -> core::result::Result<signal::Stream<alloc::vec::Vec<Pane>, Changed>, Output>;
 }
 impl Answerable for Input {
     type Answer = Answer;
