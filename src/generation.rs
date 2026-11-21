@@ -790,6 +790,17 @@ trait Structuring {
     fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
 }
 
+/// The trait whose capability emits a struct with field names taken from its authored positions.
+pub(crate) trait StructFielding {
+    fn structure_with_fields(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        identity: &Identity,
+        fields: &[Ident],
+    ) -> TokenStream;
+}
+
 /// The trait whose capability emits an enum of these variants with its datomic machinery.
 trait Enumerating {
     fn enumeration(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream;
@@ -908,8 +919,6 @@ impl Scalaring for Reference {
 /// position then holds it by name.
 impl Structuring for [Position] {
     fn structure(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
-        let name = identity.name.tokens();
-        let parameters = identity.parameters(scope);
         let outer = Scope {
             file: scope.file,
             identity: None,
@@ -922,15 +931,30 @@ impl Structuring for [Position] {
             }
         }
         let references = self.references();
+        let fields = references.field_names(owner);
+        let structure = references.structure_with_fields(scope, owner, identity, &fields);
+        quote! { #( #declared )* #structure }
+    }
+}
+
+impl StructFielding for [Reference] {
+    fn structure_with_fields(
+        &self,
+        scope: &Scope,
+        owner: &Name,
+        identity: &Identity,
+        fields: &[Ident],
+    ) -> TokenStream {
+        let name = identity.name.tokens();
+        let parameters = identity.parameters(scope);
         let mut types = Vec::with_capacity(self.len());
         let mut archivals = Vec::with_capacity(self.len());
         let mut recursive = false;
-        for position in &references {
+        for position in self {
             types.push(position.position(scope, owner));
             archivals.push(position.archival(scope, owner));
             recursive |= position.recursive(scope, owner);
         }
-        let fields = references.field_names(owner);
         let derive = identity.datom_derives();
         let bounds = if recursive {
             identity.recursion_bounds()
@@ -938,7 +962,6 @@ impl Structuring for [Position] {
             TokenStream::new()
         };
         quote! {
-            #( #declared )*
             #derive
             #bounds
             pub struct #name #parameters { #( #archivals pub #fields: #types ),* }

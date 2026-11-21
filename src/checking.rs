@@ -988,7 +988,7 @@ impl Rooting for File {
 }
 
 /// The trait whose capability names a payload declared in place, if the variant declares one.
-trait Payloading {
+pub(crate) trait Payloading {
     fn payload(&self) -> Option<&Name>;
 }
 

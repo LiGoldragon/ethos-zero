@@ -315,3 +315,48 @@ fn the_committed_modules_are_what_the_nexus_generates() {
         }
     }
 }
+
+/// A Nexus whose Signal gives a record and an enum declared in place, and an output
+/// named for a declared type. Its Memory and Process use them as types.
+fn imported_payloads() -> Nexus {
+    nexus(&[
+        (
+            "signal",
+            "Signal [] [ Ask ] [ Changed.{ Integer Integer } Marked.[ Seen Unseen ] Plain ] [ Plain.{ Integer } ]",
+        ),
+        (
+            "memory",
+            "Memory [ app:signal:[ Changed Noted.Marked Plain ] ] [ Held.{ Changed Vector<Changed> Option<Changed> Noted Plain } Latest.Changed ] [] [] []",
+        ),
+        (
+            "process",
+            "Process [ app:signal:[ Ask Changed ] app:memory:[ Held ] ] [ Ask.{ [ Changed ] [ Changed ] } Held.{ [] [ Changed ] } ] []",
+        ),
+    ])
+}
+
+#[test]
+fn an_imported_name_that_declares_its_payload_in_place_is_written_as_the_payload_everywhere() {
+    let rust = squeezed(&generated(&imported_payloads(), "memory"));
+    // A field, a vector and an option each write the payload's derived name.
+    assert!(rust.contains(
+        "pubstructHeld{pubchanged:app::signal::Changed_Data,pubchanged_vector:alloc::vec::Vec<app::signal::Changed_Data>,pubchanged_option:core::option::Option<app::signal::Changed_Data>,"
+    ));
+    // A newtype too.
+    assert!(rust.contains("pubstructLatest(pubapp::signal::Changed_Data);"));
+    // An aliased enum keeps the authored field name, and a declared type keeps its Rust name.
+    assert!(rust.contains("pubnoted:app::signal::Marked_Data,pubplain:app::signal::Plain,"));
+    assert!(!rust.contains("app::signal::Changed,"));
+    assert!(!rust.contains("app::signal::Changed>"));
+}
+
+#[test]
+fn a_record_held_from_the_process_root_writes_the_payload_its_name_resolved_to() {
+    let rust = squeezed(&generated(&imported_payloads(), "process"));
+    assert!(rust.contains("pubstructHeldProcess{pubchanged:app::signal::Changed_Data,"));
+    assert!(rust.contains(
+        "pubstructAskProcess{pubcaller:process::Caller,pubchanged:app::signal::Changed_Data,"
+    ));
+    assert!(rust.contains("Changed(app::signal::Changed_Data)"));
+    assert!(!rust.contains("app::signal::Changed,"));
+}

@@ -26,15 +26,17 @@ use datom_codec::Integer;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::checking::{Carrying, Declaring, Identified, Inlining, Spanning, Titled, Uniting};
+use crate::checking::{
+    Carrying, Declaring, Identified, Inlining, Payloading, Spanning, Titled, Uniting,
+};
 use crate::generation::{
-    DatomDeriving, Emitting, Identifying, Itemizing, Rendering, SnakeCasing, Tokening,
+    DatomDeriving, Emitting, FieldNaming, Identifying, Itemizing, Rendering, SnakeCasing,
+    StructFielding, Tokening,
 };
 use crate::sectioning::{ReferencingEach, Sectioning};
 use crate::{
-    ConceptualErroring, Entry, Error, File, Generating, Identity, Import, Imported, Name, Position,
-    Problem, Reference, Resolution, Resolving, Scope, Source, Spelled, TypeDeclaration, Validating,
-    Variant,
+    ConceptualErroring, Entry, Error, File, Generating, Identity, Import, Imported, Name, Problem,
+    Reference, Resolution, Resolving, Scope, Source, Spelled, TypeDeclaration, Validating, Variant,
 };
 
 /// One root file of a Nexus and the name its module bears: the file's stem.
@@ -169,6 +171,29 @@ impl Entered for Entry {
     }
 }
 
+/// The trait whose capability names the type a root writes for a name it provides:
+/// the name of the payload a variant declares in place, the name itself for every
+/// other name, a variant that carries a defined type or a declared type among them.
+trait Writing {
+    fn written(&self, name: &Name) -> Name;
+}
+
+impl Writing for File {
+    fn written(&self, name: &Name) -> Name {
+        if self.declaration(name).is_some() {
+            return name.clone();
+        }
+        for implied in self.implied_enums() {
+            for variant in implied.variants {
+                if variant.title() == name && variant.payload().is_some() {
+                    return self.inline_name(&implied.name, &implied.name, name);
+                }
+            }
+        }
+        name.clone()
+    }
+}
+
 /// What a name a root declares is, to a process that is born of it or gives it.
 enum Kind<'a> {
     Input(&'a Variant),
@@ -238,6 +263,7 @@ trait Finding {
     fn lands(&self, namespace: &str) -> bool;
     fn landed(&self, process: usize, namespace: Option<&str>, name: &Name)
     -> Option<(usize, Name)>;
+    fn resolved(&self, module: usize, namespace: Option<&str>) -> File;
 }
 
 impl Finding for Nexus {
@@ -348,6 +374,37 @@ impl Finding for Nexus {
         };
         let module = self.module(&source, namespace?)?;
         Some((module, emitted))
+    }
+
+    /// The root of a module as it is written: each name it imports from
+    /// another root of the Nexus names the type that root resolves it to, so
+    /// that every position of the module writes the type the import resolved.
+    fn resolved(&self, module: usize, namespace: Option<&str>) -> File {
+        let mut file = self.modules[module].file.clone();
+        let Some(namespace) = namespace else {
+            return file;
+        };
+        let imports = match &mut file {
+            File::Library(library) => &mut library.imports,
+            File::Signal(signal) => &mut signal.imports,
+            File::Operation(operation) => &mut operation.imports,
+            File::Memory(memory) => &mut memory.imports,
+            File::Emission(emission) => &mut emission.imports,
+            File::Process(process) => &mut process.imports,
+        };
+        for import in imports.iter_mut() {
+            let (source, imported) = match import {
+                Import::One(source, imported) => (&*source, std::slice::from_mut(imported)),
+                Import::Many(source, imported) => (&*source, imported.as_mut_slice()),
+            };
+            let Some(target) = self.module(source, namespace) else {
+                continue;
+            };
+            for imported in imported {
+                imported.emitted = self.modules[target].file.written(&imported.emitted);
+            }
+        }
+        file
     }
 }
 
@@ -487,11 +544,40 @@ struct Given {
     path: Vec<Integer>,
 }
 
+/// A process position's name and its resolved type, both viewed from the Process root.
+struct HeldPosition {
+    named: Reference,
+    written: Reference,
+}
+
+impl From<Reference> for HeldPosition {
+    fn from(reference: Reference) -> Self {
+        Self {
+            written: reference.clone(),
+            named: reference,
+        }
+    }
+}
+
+/// The trait whose capability keeps the authored position while relocating its type.
+trait HoldingFrom {
+    fn held_from(self, origin: &File, resolved: &File, home: &Source) -> HeldPosition;
+}
+
+impl HoldingFrom for Reference {
+    fn held_from(self, origin: &File, resolved: &File, home: &Source) -> HeldPosition {
+        HeldPosition {
+            named: self.relocated(origin, home),
+            written: self.relocated(resolved, home),
+        }
+    }
+}
+
 /// A process, read from the Process root and the roots it names.
 struct Described {
     name: Name,
     waiting: Waiting,
-    positions: Vec<Reference>,
+    positions: Vec<HeldPosition>,
     outcome: Option<TokenStream>,
     gifts: Vec<Given>,
 }
@@ -505,7 +591,7 @@ trait Describing {
         name: &Name,
     ) -> Result<Birth<'_>, Problem>;
     fn gift(&self, process: usize, namespace: Option<&str>, name: &Name) -> Result<Given, Problem>;
-    fn output(&self, module: usize, namespace: &str, variant: &Variant, scope: &Scope) -> Given;
+    fn output(&self, file: &File, home: &Source, variant: &Variant, scope: &Scope) -> Given;
     fn describe(&self, process: usize, namespace: Option<&str>) -> Result<Vec<Described>, Refusal>;
 }
 
@@ -537,8 +623,9 @@ impl Describing for Nexus {
         let File::Process(file) = &self.modules[process].file else {
             return Err(Problem::Ungivable(name.0.clone()));
         };
+        let written = self.resolved(process, namespace);
         let scope = Scope {
-            file: &self.modules[process].file,
+            file: &written,
             identity: None,
             associated: &[],
         };
@@ -567,14 +654,15 @@ impl Describing for Nexus {
         };
         let namespace = namespace.expect("a name landed in a namespace");
         let origin = &self.modules[module].file;
+        let spoken = self.resolved(module, Some(namespace));
         let home = self.home(module, namespace);
         match origin.kind(&emitted) {
-            Some(Kind::Output(variant)) => Ok(self.output(module, namespace, variant, &scope)),
+            Some(Kind::Output(variant)) => Ok(self.output(&spoken, &home, variant, &scope)),
             Some(Kind::Record(entry)) => {
                 let given = entry
                     .entered()
                     .referring()
-                    .relocated(origin, &home)
+                    .relocated(&spoken, &home)
                     .emit(&scope);
                 Ok(Given {
                     name: name.clone(),
@@ -598,12 +686,12 @@ impl Describing for Nexus {
                 let given = entry
                     .entered()
                     .referring()
-                    .relocated(origin, &home)
+                    .relocated(&spoken, &home)
                     .emit(&scope);
                 let answered = answer
                     .entered()
                     .referring()
-                    .relocated(origin, &home)
+                    .relocated(&spoken, &home)
                     .emit(&scope);
                 Ok(Given {
                     name: name.clone(),
@@ -624,10 +712,10 @@ impl Describing for Nexus {
                 let Some(outcome) = emission.outcomes.get(index) else {
                     return Err(Problem::Unpaired(name.0.clone()));
                 };
-                let Some(carried) = variant.carried(origin, &home, "Emission", true) else {
+                let Some(carried) = variant.carried(&spoken, &home, "Emission", true) else {
                     return Err(Problem::Ungivable(name.0.clone()));
                 };
-                let observed = match outcome.carried(origin, &home, "Outcome", false) {
+                let observed = match outcome.carried(&spoken, &home, "Outcome", false) {
                     Some(observed) => observed.emit(&scope),
                     None => quote! { () },
                 };
@@ -650,9 +738,7 @@ impl Describing for Nexus {
     /// An output given: a type of this module's own, a newtype over what the
     /// output carries, or a unit where it carries nothing; the payload an
     /// output declares in place is its own type already, and is given as it is.
-    fn output(&self, module: usize, namespace: &str, variant: &Variant, scope: &Scope) -> Given {
-        let origin = &self.modules[module].file;
-        let home = self.home(module, namespace);
+    fn output(&self, file: &File, home: &Source, variant: &Variant, scope: &Scope) -> Given {
         let name = variant.title().clone();
         let own = name.tokens();
         let identity = Identity {
@@ -662,7 +748,7 @@ impl Describing for Nexus {
         match variant {
             Variant::Struct(_, _) | Variant::Enum(_, _) => {
                 let carried = variant
-                    .carried(origin, &home, "Output", false)
+                    .carried(file, home, "Output", false)
                     .expect("a payload declared in place is a type");
                 Given {
                     name,
@@ -674,7 +760,7 @@ impl Describing for Nexus {
                 }
             }
             Variant::Bare(_) | Variant::Typed(_, _) => {
-                match variant.carried(origin, &home, "Output", false) {
+                match variant.carried(file, home, "Output", false) {
                     Some(carried) => Given {
                         name,
                         given: own,
@@ -700,8 +786,9 @@ impl Describing for Nexus {
         let File::Process(file) = &self.modules[process].file else {
             return Ok(vec![]);
         };
+        let written = self.resolved(process, namespace);
         let scope = Scope {
-            file: &self.modules[process].file,
+            file: &written,
             identity: None,
             associated: &[],
         };
@@ -719,7 +806,7 @@ impl Describing for Nexus {
             };
             let mut positions = birth.holds(self, namespace);
             for configured in &declaration.configured {
-                positions.push(configured.clone());
+                positions.push(configured.clone().into());
             }
             let waiting = match birth {
                 Birth::Record(_, _) => Waiting::Memory,
@@ -795,29 +882,35 @@ impl Joining for Vec<Integer> {
 
 /// The trait whose capability lists the positions a process born of this holds.
 trait Holding {
-    fn holds(&self, nexus: &Nexus, namespace: Option<&str>) -> Vec<Reference>;
+    fn holds(&self, nexus: &Nexus, namespace: Option<&str>) -> Vec<HeldPosition>;
 }
 
 impl Holding for Birth<'_> {
-    fn holds(&self, nexus: &Nexus, namespace: Option<&str>) -> Vec<Reference> {
+    fn holds(&self, nexus: &Nexus, namespace: Option<&str>) -> Vec<HeldPosition> {
         match self {
             Birth::Call(module, variant) => {
                 let origin = &nexus.modules[*module].file;
+                let spoken = nexus.resolved(*module, namespace);
                 let home = nexus.home(*module, namespace.expect("a call landed in a namespace"));
-                let mut positions = vec![Reference {
-                    source: Some(Source::try_from("process").expect("a source")),
-                    name: Name::try_from("Caller").expect("a standard name"),
-                    arguments: vec![],
-                }];
+                let mut positions = vec![
+                    Reference {
+                        source: Some(Source::try_from("process").expect("a source")),
+                        name: Name::try_from("Caller").expect("a standard name"),
+                        arguments: vec![],
+                    }
+                    .into(),
+                ];
                 match variant {
                     Variant::Struct(_, held) => {
                         for position in held.references() {
-                            positions.push(position.relocated(origin, &home));
+                            positions.push(position.held_from(origin, &spoken, &home));
                         }
                     }
                     other => {
-                        if let Some(carried) = other.carried(origin, &home, "Input", false) {
-                            positions.push(carried);
+                        let named = other.carried(origin, &home, "Input", false);
+                        let written = other.carried(&spoken, &home, "Input", false);
+                        if let (Some(named), Some(written)) = (named, written) {
+                            positions.push(HeldPosition { named, written });
                         }
                     }
                 }
@@ -825,21 +918,29 @@ impl Holding for Birth<'_> {
             }
             Birth::Record(module, entry) => {
                 let origin = &nexus.modules[*module].file;
+                let spoken = nexus.resolved(*module, namespace);
                 let home = nexus.home(*module, namespace.expect("a record landed in a namespace"));
                 match entry {
                     Entry::Declared(TypeDeclaration::Struct(_, held)) => {
                         let mut positions = Vec::new();
                         for position in held.references() {
-                            positions.push(position.relocated(origin, &home));
+                            positions.push(position.held_from(origin, &spoken, &home));
                         }
                         positions
                     }
-                    other => vec![other.entered().referring().relocated(origin, &home)],
+                    other => vec![
+                        other
+                            .entered()
+                            .referring()
+                            .held_from(origin, &spoken, &home),
+                    ],
                 }
             }
             Birth::Given(declaration) => match declaration {
-                TypeDeclaration::Struct(_, held) => held.references(),
-                other => vec![other.identity().name.referring()],
+                TypeDeclaration::Struct(_, held) => {
+                    held.references().into_iter().map(Into::into).collect()
+                }
+                other => vec![other.identity().name.referring().into()],
             },
         }
     }
@@ -1078,15 +1179,18 @@ impl Producing for [Described] {
         }
         // Each process: its positions, and what it takes.
         for process in self {
-            let mut positions = Vec::with_capacity(process.positions.len());
+            let mut named = Vec::with_capacity(process.positions.len());
+            let mut written = Vec::with_capacity(process.positions.len());
             for position in &process.positions {
-                positions.push(Position::Referenced(position.clone()));
+                named.push(position.named.clone());
+                written.push(position.written.clone());
             }
             let structure = Identity {
                 name: process.structure(),
                 constraints: vec![],
             };
-            items.push(TypeDeclaration::Struct(structure, positions).emit(scope));
+            let fields = named.field_names(&structure.name);
+            items.push(written.structure_with_fields(scope, &structure.name, &structure, &fields));
             items.push(process.takings().taking(&process.taken()));
         }
         // The enums over the Nexus's processes.
@@ -1207,7 +1311,7 @@ trait Stripping {
 
 impl Stripping for Nexus {
     fn stripped(&self, process: usize, namespace: Option<&str>) -> File {
-        let File::Process(file) = &self.modules[process].file else {
+        let File::Process(file) = self.resolved(process, namespace) else {
             return self.modules[process].file.clone();
         };
         let mut imports = Vec::with_capacity(file.imports.len());
@@ -1235,8 +1339,8 @@ impl Stripping for Nexus {
         }
         File::Process(crate::Process {
             imports,
-            processes: file.processes.clone(),
-            types: file.types.clone(),
+            processes: file.processes,
+            types: file.types,
         })
     }
 }
@@ -1304,7 +1408,11 @@ impl Assembling for Nexus {
                     };
                     let mut items = stripped.items(&scope);
                     if !described.is_empty() {
-                        items.extend(described.produce(&scope));
+                        let written = self.resolved(index, namespace.as_deref());
+                        items.extend(described.produce(&Scope {
+                            file: &written,
+                            ..scope
+                        }));
                     }
                     items.render()
                 }
@@ -1312,15 +1420,17 @@ impl Assembling for Nexus {
                 | File::Signal(_)
                 | File::Operation(_)
                 | File::Memory(_)
-                | File::Emission(_) => match module.file.generate() {
-                    Ok(rust) => rust,
-                    Err(error) => {
-                        return Err(Refusal {
-                            module: index,
-                            error,
-                        });
+                | File::Emission(_) => {
+                    match self.resolved(index, namespace.as_deref()).generate() {
+                        Ok(rust) => rust,
+                        Err(error) => {
+                            return Err(Refusal {
+                                module: index,
+                                error,
+                            });
+                        }
                     }
-                },
+                }
             };
             assembled.push(Assembled {
                 stem: module.stem.clone(),

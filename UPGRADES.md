@@ -2,6 +2,54 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 31.1.1: imports of inline Nexus payloads name the generated type
+
+When the roots of a Nexus are generated together, an import of a variant's
+inline struct or enum payload now uses the payload's generated Rust name.
+For example, the Claude Harness Memory's `Observation.Vector<Changed>` now
+names `claude_harness::subscription::Changed_Data`. Existing field names,
+variant tags, and imports of separately declared types stay the same.
+Repin to 31.1.1 and regenerate the roots together; follow the 31.1.0 steps
+below if upgrading from an earlier release.
+
+### Older consumer pins at the 31.1.1 gate
+
+These are full revisions read from direct generator inputs and Cargo locks
+in the checked-out consumer revisions. A repository appears more than once when its
+observed revisions or locks retain two pins. This records the pins, not the
+consumer gates.
+
+| Lock | ethos-zero revision | Consumer |
+| --- | --- | --- |
+| flake | `06d73e07ec7a133348e9e46511011a50f641b776` | datom, datom-codec |
+| flake | `1976e45fe1edfd5676cb33919dba1ec20c785a02` | datomic |
+| flake | `249bea84f4b5e72e4afbdd56eafee8a44c61f81e` | protos |
+| flake | `2999292dc67c8608e54d32c333c550b29153cbff` | capsule-nexus, makeshift-tools, nexus, translator main |
+| flake | `3ba71350c6827dfa79d200e20057ba0f8cdbb750` | meta-signal-capsule-nexus |
+| flake | `415c3703621c528dd1b587725ab8cec1747cf126` | codex-harness-nexus, harness-nexus-library, meta-signal-codex-harness-nexus, signal-claude-prepare, signal-codex-harness-nexus, signal-harness |
+| flake | `4bf73cae8d4f5a2072c76a11cd2f00aa3fe9f8e3` | clavifaber |
+| flake | `6e6799526d9b9860834dc51ff77fe7a02af09fb9` | translator release candidate |
+| flake | `b8052c2404374265dfcddbde83fef76977f78acd` | belief-nexus, herdr-nexus, meta-signal-belief-nexus, meta-signal-herdr-nexus, signal-belief-nexus |
+| flake | `ccacc214ba00b8448218d0b7559f037014694e41` | meta-signal-flow-nexus |
+| Cargo 0.7.1 | `b922afba278d5e1430f0a52ce49898c3263e87bc` | horizon-rs |
+| Cargo 5.0.0 | `bcf728bbe4521e663f4773d3c1fd4ebb643df32e` | chronos |
+| Cargo 8.0.1 | `de3d9928b156f2e1a92d060b7817af201abfdbef` | meta-signal-lojix, signal-lojix |
+| Cargo 9.0.0 | `b232d35e03011161fe7ec9129ad99a9914413348` | claude-answers, meta-signal-aggregator, meta-signal-criome, meta-signal-harness, meta-signal-mirror, meta-signal-repository-ledger, meta-signal-router, meta-signal-spirit, signal-aggregator, signal-criome, signal-harness, signal-introspect, signal-mind, signal-repository-ledger, signal-router, signal-spirit, signal-spirit-judge |
+| Cargo 10.0.0 | `4bf73cae8d4f5a2072c76a11cd2f00aa3fe9f8e3` | meta-signal-lojix, meta-signal-orchestrate, signal-domain, signal-lojix, signal-mirror, signal-orchestrate, signal-persona, signal-standard, signal-terminal |
+| Cargo 13.0.0 | `cf7dd128bcaead69e03ce1c2e6ac20c0c19a6823` | meta-signal-orchestrate, signal-orchestrate |
+| Cargo 16.0.0 | `c2653dd82adbdb1f1f2f654405c6620e0d06fd58` | chroma, flow, horizon-rs-gitserver, lojix, message, meta-signal-ethos-zero, meta-signal-flow, meta-signal-message, orchestrate, signal, signal-ethos-zero, signal-flow, signal-lojix-gitserver, signal-message |
+| Cargo 17.0.0 | `07714b0171802787bea1eefe4caa2d826d9c4030` | flow, message, meta-signal-flow, meta-signal-message, signal-flow |
+| Cargo 19.2.0 | `5a5daca315ab24460ccbcd5038130c453e853e6e` | energy-nexus, signal-energy-nexus |
+| Cargo 22.0.0 | `1976e45fe1edfd5676cb33919dba1ec20c785a02` | energy-nexus, experiment-operation, flow-claude-harness-subscriber, listener-library, meta-signal-energy-nexus, nexus, signal-energy-nexus |
+| Cargo 27.0.0 | `8c95310c4c372cfe115cdebc3e85021b98cf2974` | flow-claude-harness-subscriber |
+| Cargo 28.0.0 | `970459d100ddee5f62a76c05642ecfabefba6329` | Curriculum, flow-claude-harness-subscriber, meta-signal-energy-nexus |
+| Cargo 29.0.0 | `f23eacf338a90ce4a6dea011554724fa6488fcc9` | flow-claude-harness-subscriber |
+| Cargo 30.0.0 | `b97d9526909a1ecebf61339f5723eaca53de5dca` | listener-library, nexus |
+| Cargo 30.0.1 | `2999292dc67c8608e54d32c333c550b29153cbff` | listener-library |
+
+The process-library Tally fixture and claude-harness-nexus commit generated
+roots from 31.1.0; their own locks do not pin that generator revision.
+
 ## 31.1.0: a Nexus is generated from all its roots at once; Memory has five sections
 
 31.0.0 was already pinned (translator's flake input, 48f155d), so what breaks on top of it is numbered 31.1.0; a consumer of 31.0.0 that moves to 31.1.0 follows the parts below. What breaks, in four parts.
