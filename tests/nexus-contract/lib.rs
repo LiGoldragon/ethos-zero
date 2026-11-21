@@ -8,6 +8,8 @@
 extern crate self as process;
 extern crate self as tally;
 
+use core::marker::PhantomData;
+
 macro_rules! standard {
     ($($item:item)*) => { $(
         #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -18,23 +20,68 @@ macro_rules! standard {
 
 // The stand-in for the process library: its traits, and the standard types
 // a Nexus's processes name.
-pub trait Processable {
+pub trait Processable: Sized {
     type Taken;
     type Gift;
     type Outcome;
-    fn begin<N: Giving<Self::Gift>>(&mut self, giving: N) -> Option<Self::Outcome>;
-    fn take<N: Giving<Self::Gift>>(
-        &mut self,
-        taken: Self::Taken,
-        giving: N,
-    ) -> Option<Self::Outcome>;
+    fn begin<N: Giving<Self>>(&mut self, giving: N) -> Option<Self::Outcome>;
+    fn take<N: Giving<Self>>(&mut self, taken: Self::Taken, giving: N) -> Option<Self::Outcome>;
 }
-pub trait Giving<Gift> {
-    fn give<N: Givable + Into<Gift>>(&mut self, gift: N);
+
+/// What a process is handed to give with. To give is to move.
+pub trait Giving<A: Processable> {
+    fn give<N: Givable<A> + Into<A::Gift>>(&mut self, gift: N);
 }
-pub trait Givable {
+
+/// A thing declared to leave a particular process; Returned is what comes back for it.
+pub trait Givable<A: Processable> {
     type Returned;
 }
+
+/// The dispatch boundary of the aggregate Process the manager holds.
+/// Its implementation supplies each concrete Processable body with its typed giver.
+pub trait Dispatchable: Sized {
+    type Taken;
+    type Gift;
+    type Outcome;
+
+    fn dispatch_begin(&mut self, receive: impl FnMut(Self::Gift)) -> Option<Self::Outcome>;
+    fn dispatch_take(
+        &mut self,
+        taken: Self::Taken,
+        receive: impl FnMut(Self::Gift),
+    ) -> Option<Self::Outcome>;
+}
+
+/// Turns the manager's gift receiver into the giving capability of one concrete process.
+pub struct Giver<A, Receive> {
+    receive: Receive,
+    process: PhantomData<fn() -> A>,
+}
+
+impl<A, Receive> From<Receive> for Giver<A, Receive>
+where
+    A: Processable,
+    Receive: FnMut(A::Gift),
+{
+    fn from(receive: Receive) -> Self {
+        Self {
+            receive,
+            process: PhantomData,
+        }
+    }
+}
+
+impl<A, Receive> Giving<A> for Giver<A, Receive>
+where
+    A: Processable,
+    Receive: FnMut(A::Gift),
+{
+    fn give<N: Givable<A> + Into<A::Gift>>(&mut self, gift: N) {
+        (self.receive)(gift.into());
+    }
+}
+
 pub trait Unwindable {
     fn unwound() -> Self;
 }
@@ -68,7 +115,8 @@ mod bodies {
     use super::processes::*;
     use super::signal::Total;
     use super::{
-        Caller, Givable, Giving, Ownable, Owner, ProcessId, Processable, Unremembered, UserId,
+        Caller, Dispatchable, Givable, Giving, Ownable, Owner, ProcessId, Processable,
+        Unremembered, UserId,
     };
 
     impl Processable for SumProcess {
@@ -76,14 +124,14 @@ mod bodies {
         type Gift = Gift;
         type Outcome = Summing;
 
-        fn begin<N: Giving<Gift>>(&mut self, mut giving: N) -> Option<Summing> {
+        fn begin<N: Giving<Self>>(&mut self, mut giving: N) -> Option<Summing> {
             for addend in &self.integer_vector {
                 giving.give(Addend(*addend));
             }
             None
         }
 
-        fn take<N: Giving<Gift>>(&mut self, taken: Adding, mut giving: N) -> Option<Summing> {
+        fn take<N: Giving<Self>>(&mut self, taken: Adding, mut giving: N) -> Option<Summing> {
             match taken {
                 Adding::Added(total) => {
                     giving.give(Summed(total));
@@ -102,26 +150,17 @@ mod bodies {
         type Gift = Gift;
         type Outcome = Adding;
 
-        fn begin<N: Giving<Gift>>(&mut self, mut giving: N) -> Option<Adding> {
+        fn begin<N: Giving<Self>>(&mut self, mut giving: N) -> Option<Adding> {
             giving.give(crate::memory::Add(self.addend.0));
             None
         }
 
-        fn take<N: Giving<Gift>>(&mut self, taken: AddendTaken, _giving: N) -> Option<Adding> {
+        fn take<N: Giving<Self>>(&mut self, taken: AddendTaken, _giving: N) -> Option<Adding> {
             Some(match taken {
                 Ok(Addition::Added(total)) => Adding::Added(total),
                 Ok(Addition::Overflowed) => Adding::Refused,
                 Err(Unremembered) => Adding::Unremembered,
             })
-        }
-    }
-
-    /// What a body is handed to give with: it keeps what was given.
-    struct Kept(Vec<Gift>);
-
-    impl Giving<Gift> for &mut Kept {
-        fn give<N: Givable + Into<Gift>>(&mut self, gift: N) {
-            self.0.push(gift.into());
         }
     }
 
@@ -137,31 +176,33 @@ mod bodies {
 
     #[test]
     fn each_begin_goes_to_the_body_of_its_process() {
-        let mut kept = Kept(Vec::new());
-        let ended = Processable::begin(&mut sum(), &mut kept);
+        let mut kept = Vec::new();
+        let ended = sum().dispatch_begin(|gift| kept.push(gift));
         assert_eq!(ended, None);
-        assert_eq!(kept.0, [Gift::Addend(Addend(1)), Gift::Addend(Addend(2))]);
+        assert_eq!(kept, [Gift::Addend(Addend(1)), Gift::Addend(Addend(2))]);
 
-        let mut kept = Kept(Vec::new());
+        let mut kept = Vec::new();
         let mut addend = Process::Addend(AddendProcess { addend: Addend(5) });
-        assert_eq!(Processable::begin(&mut addend, &mut kept), None);
-        assert_eq!(kept.0, [Gift::Add(crate::memory::Add(5))]);
+        assert_eq!(addend.dispatch_begin(|gift| kept.push(gift)), None);
+        assert_eq!(kept, [Gift::Add(crate::memory::Add(5))]);
     }
 
     #[test]
     fn each_take_goes_to_the_process_it_is_for_as_that_process_takes_it() {
-        let mut kept = Kept(Vec::new());
+        let mut kept = Vec::new();
         let mut addend = Process::Addend(AddendProcess { addend: Addend(5) });
         let taken: Taken = Taken::Addition(Ok(Addition::Added(Total(5))));
-        let ended = Processable::take(&mut addend, taken, &mut kept);
+        let ended = addend.dispatch_take(taken, |gift| kept.push(gift));
         assert_eq!(ended, Some(Outcome::Addend(Adding::Added(Total(5)))));
 
         let mut sum = sum();
-        let ended = Processable::take(&mut sum, Taken::Adding(Adding::Added(Total(3))), &mut kept);
+        let ended = sum.dispatch_take(Taken::Adding(Adding::Added(Total(3))), |gift| {
+            kept.push(gift)
+        });
         assert_eq!(ended, Some(Outcome::Sum(Summing::Answered)));
-        assert_eq!(kept.0, [Gift::Summed(Summed(Total(3)))]);
+        assert_eq!(kept, [Gift::Summed(Summed(Total(3)))]);
         // What no process takes is let go.
-        let ended = Processable::take(&mut sum, Taken::Addition(Err(Unremembered)), &mut kept);
+        let ended = sum.dispatch_take(Taken::Addition(Err(Unremembered)), |gift| kept.push(gift));
         assert_eq!(ended, None);
     }
 
@@ -172,12 +213,12 @@ mod bodies {
 
     #[test]
     fn what_is_given_says_what_returns_for_it() {
-        fn returned<G: Givable>() -> &'static str {
+        fn returned<A: Processable, G: Givable<A>>() -> &'static str {
             std::any::type_name::<G::Returned>()
         }
-        assert_eq!(returned::<Summed>(), "()");
-        assert_eq!(returned::<Overflowed>(), "()");
-        assert!(returned::<Addend>().ends_with("Adding"));
-        assert!(returned::<crate::memory::Add>().contains("Unremembered"));
+        assert_eq!(returned::<SumProcess, Summed>(), "()");
+        assert_eq!(returned::<SumProcess, Overflowed>(), "()");
+        assert!(returned::<SumProcess, Addend>().ends_with("Adding"));
+        assert!(returned::<AddendProcess, crate::memory::Add>().contains("Unremembered"));
     }
 }

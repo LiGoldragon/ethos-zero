@@ -86,8 +86,20 @@ pub enum Taken {
     Addition(core::result::Result<tally::memory::Addition, process::Unremembered>),
 }
 #[rustfmt::skip]
-impl process::Givable for Addend {
+impl process::Givable<SumProcess> for Addend {
     type Returned = Adding;
+}
+#[rustfmt::skip]
+impl process::Givable<SumProcess> for Summed {
+    type Returned = ();
+}
+#[rustfmt::skip]
+impl process::Givable<SumProcess> for Overflowed {
+    type Returned = ();
+}
+#[rustfmt::skip]
+impl process::Givable<AddendProcess> for tally::memory::Add {
+    type Returned = core::result::Result<tally::memory::Addition, process::Unremembered>;
 }
 #[rustfmt::skip]
 impl core::convert::From<Addend> for Gift {
@@ -96,28 +108,16 @@ impl core::convert::From<Addend> for Gift {
     }
 }
 #[rustfmt::skip]
-impl process::Givable for Summed {
-    type Returned = ();
-}
-#[rustfmt::skip]
 impl core::convert::From<Summed> for Gift {
     fn from(gift: Summed) -> Gift {
         Gift::Summed(gift)
     }
 }
 #[rustfmt::skip]
-impl process::Givable for Overflowed {
-    type Returned = ();
-}
-#[rustfmt::skip]
 impl core::convert::From<Overflowed> for Gift {
     fn from(_: Overflowed) -> Gift {
         Gift::Overflowed
     }
-}
-#[rustfmt::skip]
-impl process::Givable for tally::memory::Add {
-    type Returned = core::result::Result<tally::memory::Addition, process::Unremembered>;
 }
 #[rustfmt::skip]
 impl core::convert::From<tally::memory::Add> for Gift {
@@ -140,34 +140,52 @@ impl process::Ownable for Process {
     }
 }
 #[rustfmt::skip]
-impl process::Processable for Process {
+impl process::Dispatchable for Process {
     type Taken = Taken;
     type Gift = Gift;
     type Outcome = Outcome;
-    fn begin<N: process::Giving<Gift>>(
+    fn dispatch_begin(
         &mut self,
-        giving: N,
+        receive: impl FnMut(Gift),
     ) -> core::option::Option<Outcome> {
         match self {
             Process::Sum(sum) => {
-                process::Processable::begin(sum, giving).map(Outcome::Sum)
+                process::Processable::begin(
+                        sum,
+                        process::Giver::<SumProcess, _>::from(receive),
+                    )
+                    .map(Outcome::Sum)
             }
             Process::Addend(addend) => {
-                process::Processable::begin(addend, giving).map(Outcome::Addend)
+                process::Processable::begin(
+                        addend,
+                        process::Giver::<AddendProcess, _>::from(receive),
+                    )
+                    .map(Outcome::Addend)
             }
         }
     }
-    fn take<N: process::Giving<Gift>>(
+    fn dispatch_take(
         &mut self,
         taken: Taken,
-        giving: N,
+        receive: impl FnMut(Gift),
     ) -> core::option::Option<Outcome> {
         match (self, taken) {
             (Process::Sum(sum), Taken::Adding(carried)) => {
-                process::Processable::take(sum, carried, giving).map(Outcome::Sum)
+                process::Processable::take(
+                        sum,
+                        carried,
+                        process::Giver::<SumProcess, _>::from(receive),
+                    )
+                    .map(Outcome::Sum)
             }
             (Process::Addend(addend), Taken::Addition(carried)) => {
-                process::Processable::take(addend, carried, giving).map(Outcome::Addend)
+                process::Processable::take(
+                        addend,
+                        carried,
+                        process::Giver::<AddendProcess, _>::from(receive),
+                    )
+                    .map(Outcome::Addend)
             }
             _ => core::option::Option::None,
         }

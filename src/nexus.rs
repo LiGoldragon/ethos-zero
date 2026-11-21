@@ -1117,16 +1117,17 @@ trait Handing {
 impl Handing for [Described] {
     fn takes(&self, kinds: &[Taking]) -> TokenStream {
         let head = quote! {
-            fn take<N: process::Giving<Gift>>(&mut self, taken: Taken, giving: N) -> core::option::Option<Outcome>
+            fn dispatch_take(&mut self, taken: Taken, receive: impl FnMut(Gift)) -> core::option::Option<Outcome>
         };
         if kinds.is_empty() {
-            return quote! { #head { let _ = (self, giving); match taken {} } };
+            return quote! { #head { let _ = (self, receive); match taken {} } };
         }
         let mut arms = Vec::new();
         let mut covered = true;
         for process in self {
             let variant = process.name.ident();
             let bound = process.bound();
+            let structure = process.structure().ident();
             let own = process.takings();
             let taken = process.taken().ident();
             let mapping = match &process.outcome {
@@ -1149,7 +1150,9 @@ impl Handing for [Described] {
                     )
                 };
                 arms.push(quote! {
-                    (Process::#variant(#bound), #pattern) => process::Processable::take(#bound, #handed, giving).map(#mapping),
+                    (Process::#variant(#bound), #pattern) => process::Processable::take(
+                        #bound, #handed, process::Giver::<#structure, _>::from(receive),
+                    ).map(#mapping),
                 });
             }
         }
@@ -1217,23 +1220,36 @@ impl Producing for [Described] {
         items.push(given.enumeration(&name("Gift")));
         let kinds = self.kinds();
         items.push(kinds.taking(&name("Taken")));
-        // What each thing given is, and what comes back for it.
+        // Giving is a relation between one concrete process and its declared gift.
+        for process in self {
+            let structure = process.structure().ident();
+            for (index, gift) in process.gifts.iter().enumerate() {
+                if process.gifts[..index]
+                    .iter()
+                    .any(|prior| prior.name == gift.name)
+                {
+                    continue;
+                }
+                let type_given = &gift.given;
+                let returned = match &gift.taking {
+                    Some(taking) => taking.ty.clone(),
+                    None => quote! { () },
+                };
+                items.push(quote! {
+                    #[rustfmt::skip]
+                    impl process::Givable<#structure> for #type_given { type Returned = #returned; }
+                });
+            }
+        }
+        // The envelope conversion is shared by all processes that give this type.
         for gift in &gifts {
             let type_given = &gift.given;
             let variant = gift.name.ident();
-            let returned = match &gift.taking {
-                Some(taking) => taking.ty.clone(),
-                None => quote! { () },
-            };
             let from = if gift.carries {
                 quote! { fn from(gift: #type_given) -> Gift { Gift::#variant(gift) } }
             } else {
                 quote! { fn from(_: #type_given) -> Gift { Gift::#variant } }
             };
-            items.push(quote! {
-                #[rustfmt::skip]
-                impl process::Givable for #type_given { type Returned = #returned; }
-            });
             items.push(quote! {
                 #[rustfmt::skip]
                 impl core::convert::From<#type_given> for Gift { #from }
@@ -1274,22 +1290,25 @@ impl Producing for [Described] {
         for process in self {
             let variant = process.name.ident();
             let bound = process.bound();
+            let structure = process.structure().ident();
             let mapping = match &process.outcome {
                 Some(_) => quote! { Outcome::#variant },
                 None => quote! { |()| Outcome::#variant },
             };
             begins.push(quote! {
-                Process::#variant(#bound) => process::Processable::begin(#bound, giving).map(#mapping),
+                Process::#variant(#bound) => process::Processable::begin(
+                    #bound, process::Giver::<#structure, _>::from(receive),
+                ).map(#mapping),
             });
         }
         let take = self.takes(&kinds);
         items.push(quote! {
             #[rustfmt::skip]
-            impl process::Processable for Process {
+            impl process::Dispatchable for Process {
                 type Taken = Taken;
                 type Gift = Gift;
                 type Outcome = Outcome;
-                fn begin<N: process::Giving<Gift>>(&mut self, giving: N) -> core::option::Option<Outcome> {
+                fn dispatch_begin(&mut self, receive: impl FnMut(Gift)) -> core::option::Option<Outcome> {
                     match self { #( #begins )* }
                 }
                 #take

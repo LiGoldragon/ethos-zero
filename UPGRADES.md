@@ -2,6 +2,17 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 32.0.0: each process can give only the gifts it declares
+
+Regenerate the Process module with ethos-zero 32.0.0 and build it with
+process-library 0.3.0. Change the hand-written `begin` and `take` bodies to
+take `N: Giving<Self>`; the concrete process's declaration grants the
+`Givable<Self>` bound only to its gifts. The common `Gift` envelope and
+`From` conversions stay shared. The aggregate generated `Process` implements
+`Dispatchable` for the manager; a direct caller passes a gift receiver to
+`dispatch_begin` or `dispatch_take`. For a gift's return type, name both types
+as `<GiftType as Givable<ProcessType>>::Returned`.
+
 ## 31.1.1: imports of inline Nexus payloads name the generated type
 
 When the roots of a Nexus are generated together, an import of a variant's

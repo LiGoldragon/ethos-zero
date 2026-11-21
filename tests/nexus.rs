@@ -128,11 +128,11 @@ fn the_process_root_of_the_tally_nexus_generates_its_positions_and_its_enums() {
         "pubenumGift{Addend(Addend),Summed(Summed),Overflowed,Add(tally::memory::Add),}"
     ));
     // Each thing given says what returns for it.
-    assert!(rust.contains("implprocess::GivableforAddend{typeReturned=Adding;}"));
+    assert!(rust.contains("implprocess::Givable<SumProcess>forAddend{typeReturned=Adding;}"));
     assert!(rust.contains(
-        "implprocess::Givablefortally::memory::Add{typeReturned=core::result::Result<tally::memory::Addition,process::Unremembered>;}"
+        "implprocess::Givable<AddendProcess>fortally::memory::Add{typeReturned=core::result::Result<tally::memory::Addition,process::Unremembered>;}"
     ));
-    assert!(rust.contains("implprocess::GivableforOverflowed{typeReturned=();}"));
+    assert!(rust.contains("implprocess::Givable<SumProcess>forOverflowed{typeReturned=();}"));
     assert!(rust.contains(
         "implcore::convert::From<Overflowed>forGift{fnfrom(_:Overflowed)->Gift{Gift::Overflowed}}"
     ));
@@ -154,14 +154,14 @@ fn a_record_of_an_imported_type_is_a_record_and_a_change_returns_its_answer_or_u
     let rust = squeezed(&generated(&fixture("claude-harness"), "process"));
     // A record kept returns the standard Answer.
     assert!(rust.contains(
-        "implprocess::Givableforclaude_harness::memory::Watch{typeReturned=process::Answer;}"
+        "implprocess::Givable<ReportProcess>forclaude_harness::memory::Watch{typeReturned=process::Answer;}"
     ));
     // A change returns the Result of its answer or Unremembered, as an emission returns the Result of its outcome or Unobserved.
     assert!(rust.contains(
-        "implprocess::Givableforclaude_harness::memory::Observe{typeReturned=core::result::Result<claude_harness::memory::Observation,process::Unremembered>;}"
+        "implprocess::Givable<ReportProcess>forclaude_harness::memory::Observe{typeReturned=core::result::Result<claude_harness::memory::Observation,process::Unremembered>;}"
     ));
     assert!(rust.contains(
-        "implprocess::Givableforclaude_harness::emission::Follow_Data{typeReturned=core::result::Result<claude_harness::emission::Following_Data,process::Unobserved>;}"
+        "implprocess::Givable<WatchProcess>forclaude_harness::emission::Follow_Data{typeReturned=core::result::Result<claude_harness::emission::Following_Data,process::Unobserved>;}"
     ));
     // Where two kinds return to a process, its Taken is an enum of them, named for what each returns.
     assert!(rust.contains(
@@ -182,18 +182,38 @@ fn a_record_of_an_imported_type_is_a_record_and_a_change_returns_its_answer_or_u
 }
 
 #[test]
+fn gift_permissions_are_per_process_but_conversion_is_shared() {
+    let tally = squeezed(&generated(&fixture("tally"), "process"));
+    assert!(tally.contains("implprocess::Givable<AddendProcess>fortally::memory::Add"));
+    assert!(!tally.contains("implprocess::Givable<SumProcess>fortally::memory::Add"));
+    assert!(!tally.contains("implprocess::Givable<Process>"));
+    let harness = squeezed(&generated(&fixture("claude-harness"), "process"));
+    for process in ["ReportProcess", "WatchProcess"] {
+        assert!(harness.contains(&format!(
+            "implprocess::Givable<{process}>forclaude_harness::memory::Observe"
+        )));
+    }
+    assert_eq!(
+        harness
+            .matches("implcore::convert::From<claude_harness::memory::Observe>forGift")
+            .count(),
+        1
+    );
+}
+
+#[test]
 fn the_process_enum_dispatches_each_begin_and_take_to_the_body_of_its_process() {
     let rust = squeezed(&generated(&fixture("claude-harness"), "process"));
     assert!(rust.contains(
-        "Process::Report(report)=>{process::Processable::begin(report,giving).map(Outcome::Report)}"
+        "Process::Report(report)=>{process::Processable::begin(report,process::Giver::<ReportProcess,_>::from(receive)).map(Outcome::Report)}"
     ));
     assert!(
-        rust.contains("process::Processable::begin(subscribe,giving).map(|()|Outcome::Subscribe)")
+        rust.contains("process::Processable::begin(subscribe,process::Giver::<SubscribeProcess,_>::from(receive)).map(|()|Outcome::Subscribe)")
     );
     // Where a process takes two kinds, the thing taken is handed over as the process's own Taken.
-    assert!(rust.contains("(Process::Watch(watch),Taken::Following(carried))=>{process::Processable::take(watch,WatchTaken::Following(carried),giving).map(Outcome::Watch)}"));
+    assert!(rust.contains("(Process::Watch(watch),Taken::Following(carried))=>{process::Processable::take(watch,WatchTaken::Following(carried),process::Giver::<WatchProcess,_>::from(receive)).map(Outcome::Watch)}"));
     // Where it takes one kind, as that kind, bare.
-    assert!(rust.contains("(Process::Configure(configure),Taken::Answer(carried))=>{process::Processable::take(configure,carried,giving).map(Outcome::Configure)}"));
+    assert!(rust.contains("(Process::Configure(configure),Taken::Answer(carried))=>{process::Processable::take(configure,carried,process::Giver::<ConfigureProcess,_>::from(receive)).map(Outcome::Configure)}"));
     // A thing taken that no process takes is let go.
     assert!(rust.contains("_=>core::option::Option::None,"));
 }

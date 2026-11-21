@@ -251,8 +251,8 @@ A name the file declares in its types and also names a process is born of a
 process, and nothing else declares it. Anything else is `Unborn.<name>`.
 
 A thing a process gives is an output, a record, a change, an emission or a
-process; any other is `Ungivable.<name>`. Each is `Givable`, and what returns
-for it is its `Returned`:
+process; any other is `Ungivable.<name>`. Each declared pair implements
+`Givable<ThatProcess>`, and what returns for the gift is its `Returned`:
 
 | given | its type | returns |
 |---|---|---|
@@ -285,9 +285,10 @@ processes, and two different types returning under one name are `Duplicate`. An
 output that carries nothing is a bare variant of `Gift`. `Outcome` has a variant
 for each process, named for it, carrying its outcome where it declares one, and
 `Unwound`, the end of a process with its owner. The module also generates
-`Givable` and `From<_> for Gift` for each thing given, `Unwindable` for `Outcome`,
-`Ownable` for `Process`, and `Processable` for `Process`, which hands each begin and
-take to the `Processable` of its own process, written by hand with
+`Givable<ThatProcess>` for each declared pair, one `From<_> for Gift` per gift,
+`Unwindable` for `Outcome`, and `Ownable` and `Dispatchable` for `Process`.
+Dispatch supplies a `Giver<ThatProcess, _>` to each concrete hand-written
+`Processable` body, which takes `Giving<Self>` and declares
 `type Taken = SumTaken`, `type Gift = Gift` and its own outcome (`()` where it
 declares none). The Process root's imports that name an input or an output are read
 as no type, so an outcome's bare variant named for one, `Configuring.[ Configured
@@ -299,9 +300,10 @@ beside the dependency named `process`, so the crate includes it under another na
 
 The standard names the module writes are `process::Caller`, `process::Answer`,
 `process::Unremembered`, `process::Unobserved`, and the traits `process::Processable`,
-`process::Giving`, `process::Givable`, `process::Unwindable` and `process::Ownable`
-with `process::Owner`: the process library holds them (no_std and alloc), and a
-Nexus's processes crate depends on it under the name `process`.
+`process::Dispatchable`, `process::Giving`, `process::Givable`,
+`process::Unwindable` and `process::Ownable`, with `process::Giver` and
+`process::Owner`. A Nexus's processes crate depends on the process library
+under the name `process`.
 
 Every root's types archive (rkyv) and gate their datom derives behind the
 `datom` feature, a Library's, an Operation's and a Memory's as a Signal's:
