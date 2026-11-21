@@ -1,0 +1,15 @@
+; The Tally Nexus's processes. A Sum is born of a call and gives one Addend for
+; each number; an Addend is born of the Sum that gives it, its positions written
+; here, and gives one Add to the memory; it ends with what the Add came to.
+Process
+[ tally:signal:[ Sum Summed Overflowed Total ]
+  tally:memory:[ Add ] ]
+[ Sum.{ []
+        [ Addend Summed Overflowed ]
+        Summing }
+  Addend.{ []
+           [ Add ]
+           Adding } ]
+[ Addend.Integer
+  Summing.[ Answered Refused ]
+  Adding.[ Added.Total Refused Unremembered ] ]

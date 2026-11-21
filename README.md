@@ -16,6 +16,7 @@ types. Each pass is a module named for it.
 | checking | `Resolving`, `Checkable` | `File` | names resolved, duplicates and undeclared names refused |
 | generation | `Generating` | `File` | Rust text, or a whole-file error |
 | datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Composing` derives |
+| nexus | `Verifying`, `Assembling` | the `File`s of one namespace, each named for its file | each module's Rust, a Process root's with the enums over its processes, or a refusal naming the file |
 | ascent | `Protosizable`, `Textualizable` | `File` | canonical text on one line (cannot err) |
 | printing | `Printable` | `File` or `protos::Protos` | the sweet form, each section in protos' vertical print (cannot err) |
 | actualization | `Actualizing<File>` on `Potential<File>` | text | `File`, or an `Error` |
@@ -49,12 +50,14 @@ its end (Process.4); Library what they share.
 Library    [ imports ] [ types ] [ traits ] [ associations ]
 Signal     [ imports ] [ inputs ] [ outputs ] [ types ]       ; Input and Output implied
 Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; Operation and Outcome implied
-Memory     [ imports ] [ record types ]
+Memory     [ imports ] [ records ] [ changes ] [ answers ] [ types ]
 Emission   [ imports ] [ emissions ] [ outcomes ] [ types ]    ; Emission and Outcome implied
 Process    [ imports ] [ processes ] [ types ]                 ; Process, Gift, Taken and Outcome held
 ```
 
 Operation's sections are proposed, not yet the living's word.
+
+The roots of one Nexus are generated together: see Nexus below.
 
 A Signal generates `pub enum Input` and `pub enum Output` from its
 first two sections, so those two names are the ones a Signal may not
@@ -62,7 +65,7 @@ also declare (`Query` and `Response` are ordinary names); an Operation
 likewise generates `pub enum Operation` and
 `pub enum Outcome`, and an Emission `pub enum Emission` and
 `pub enum Outcome`, each variant carrying its declared payload. A Memory
-generates nothing but its declared record types and reserves no name; a
+generates nothing but its declared types and reserves no name; a
 Memory record may be named `Record`. A file headed `Sema`, Memory's head
 before 15.0.0, is refused as `Conceptual.{ [ 0 ] Renamed.Memory }`.
 
@@ -164,16 +167,47 @@ Emission may not declare, as `Emission` and `Outcome` are not.
 `fixtures/command-emission.ethos` is the vision's example, its import
 written rooted.
 
-A Process declares each process as what it is born of, a call, a record or
-a process given, whose name it bears and which the file imports or
-declares; then a brace of the configured values moved into it at its birth,
-what it gives, and what it ends in. A process that ends one way declares no
-outcome (`fixtures/process-root.ethos`, Process.4's example):
+## Memory
+
+A Memory has five sections: its imports, the records it keeps, the changes it
+makes, the answers to them in the order of the changes, and the types they
+carry. Each entry of the records, the changes and the answers declares a type
+in place, `Watch.{ FlowId FilePath }`, or names one the file imports or
+declares in its types, a bare `Observed`: a record may be of an imported type,
+and a change may be answered by one, such as the standard `process:[ Answer ]`.
+A change left without an answer is refused as `Unpaired.<change>`, as an
+emission is without its outcome.
+
+```
+Memory
+[ harness:[ Event Observed ]
+  flow:[ FlowId ] ]
+[ Watch.{ FlowId FilePath }
+  Observed ]
+[ Observe.{ FlowId Vector<Event> }
+  Recall.{} ]
+[ Observation.Vector<Changed>
+  Recollection.Vector<Observed> ]
+[]
+```
+
+What returns for a record kept is the standard `Answer`; what returns for a
+change is the `Result` of its answer or `Unremembered`, as what returns for an
+emission is the `Result` of its outcome or `Unobserved`. The old two-section
+Memory is gone: a file of two sections is `Arity.{ 5 2 }`.
+
+## Process
+
+A Process declares each process as what it is born of, a call, a record or a
+process given, whose name it bears and which the file imports or declares; then a
+brace of the configured values moved into it at its birth, what it gives, and
+what it ends in. A process that ends one way declares no outcome:
 
 ```
 Process
 [ claude_harness:signal:[ Report Reported Changed ]
-  claude_harness:memory:[ Watch Observe RowCount ]
+  claude_harness:memory:[ Watch Observe ]
+  claude_harness:[ RowCount ]
   claude_harness:emission:[ Follow ] ]
 [ Report.{ []
            [ Reported Watch Observe Changed ]
@@ -185,15 +219,89 @@ Process
   Watching.[ Forgotten Unfollowed ] ]
 ```
 
-ethos-zero reads, checks and prints it: every name resolves, two processes
-of one name are refused as `Duplicate`, and a brace of fewer than two
-brackets or more than one outcome as `Arity`. It generates the types the
-outcomes carry. `Process`, `Gift`, `Taken` and `Outcome` are held for the
-enums over the processes, so a Process may not declare them; those enums,
-and each process's positions, are read from the Nexus's other roots, the
-input or record a process is born of and what returns for each thing it
-gives, which one file does not hold, so they are written by hand until
-ethos-zero reads a Nexus's roots together.
+A file alone checks every name it resolves, two processes of one name as
+`Duplicate`, and a brace of fewer than two brackets or more than one outcome as
+`Arity`; its module is the types its outcomes carry. `Process`, `Gift`, `Taken` and
+`Outcome` are held for the enums over the processes: they, and each process's
+positions, are generated when the roots of the Nexus are read together.
+
+## Nexus
+
+`ethos-zero` generates a Nexus from all its root files at once: signal, meta,
+memory, emission, library and process, each a module named for its file, the roots
+naming each other by the Nexus's namespace, the crate that holds them:
+`tally:signal:[ Total ]` is a name of the module `signal`, `tally:[ Add ]` a name
+of the Library, at the crate's root. The namespace is written nowhere: it is the
+one first segment of an import whose imports, those that name a module of the set, all land on one
+that declares what it takes (a type, a trait, a variant of an input, an output, an
+emission or an outcome, or a record named). Two that land are `Namespace.<second>`;
+none, and a Process root that names something is `Foreign.<name>` for it. What is
+imported from outside the Nexus, a contract it serves beside its own, is
+declared in a root of the Nexus until imports resolve across crates.
+
+A process is born of a **call**, a **record** or a **process that gives it**:
+
+| born of | named for | holds | owned by |
+|---|---|---|---|
+| a call | an input of a Signal, the Nexus's or its meta | `caller: process::Caller`, the input's payload (a struct variant's positions spread), the configured values | the signal process |
+| a record | a record of the Memory | the record's positions spread, or the record as it is where it is not a struct, then the configured values | the memory process |
+| a process | a type the Process root declares in its types | that type's positions spread, or the type, then the configured values | the signal process, below its giver |
+
+A name the file declares in its types and also names a process is born of a
+process, and nothing else declares it. Anything else is `Unborn.<name>`.
+
+A thing a process gives is an output, a record, a change, an emission or a
+process; any other is `Ungivable.<name>`. Each is `Givable`, and what returns
+for it is its `Returned`:
+
+| given | its type | returns |
+|---|---|---|
+| an output | a type the Process module makes: a newtype over what it carries, `pub struct Summed(pub Total)`, or a struct of no fields where it carries nothing; the payload an output declares in place is its own | nothing |
+| a record | the record's type | `process::Answer` |
+| a change | the change's type | `Result<its answer, process::Unremembered>` |
+| an emission | the type it carries (`Follow_Data`, a unit of its own, a carried type) | `Result<its outcome, process::Unobserved>` |
+| a process | the type its root declares | its outcome at its end, nothing where it declares none |
+
+The Process root's module then holds, beyond the types it declares: the struct of
+each process's positions, `SumProcess`; what each takes, `SumTaken`; and the enums
+over the Nexus's processes:
+
+```rust
+pub struct SumProcess { pub caller: process::Caller, pub integer_vector: alloc::vec::Vec<i64> }
+pub type SumTaken = Adding;
+pub struct AddendProcess { pub addend: Addend }
+pub type AddendTaken = core::result::Result<tally::memory::Addition, process::Unremembered>;
+pub enum Process { Sum(SumProcess), Addend(AddendProcess) }
+pub enum Outcome { Sum(Summing), Addend(Adding), Unwound }
+pub enum Gift { Addend(Addend), Summed(Summed), Overflowed, Add(tally::memory::Add) }
+pub enum Taken { Adding(Adding), Addition(core::result::Result<tally::memory::Addition, process::Unremembered>) }
+```
+
+Where one kind of thing returns to a process, what it takes is that type, bare
+(`SumTaken`): an enum of one variant is refused, and a wrapper of one type is that
+type. Where more than one returns, it is an enum, each variant named for what
+returns, the answer or the outcome. The Nexus's `Taken` is the same of all its
+processes, and two different types returning under one name are `Duplicate`. An
+output that carries nothing is a bare variant of `Gift`. `Outcome` has a variant
+for each process, named for it, carrying its outcome where it declares one, and
+`Unwound`, the end of a process with its owner. The module also generates
+`Givable` and `From<_> for Gift` for each thing given, `Unwindable` for `Outcome`,
+`Ownable` for `Process`, and `Processable` for `Process`, which hands each begin and
+take to the `Processable` of its own process, written by hand with
+`type Taken = SumTaken`, `type Gift = Gift` and its own outcome (`()` where it
+declares none). The Process root's imports that name an input or an output are read
+as no type, so an outcome's bare variant named for one, `Configuring.[ Configured
+Unremembered ]` beside the output `Configured`, carries nothing.
+
+A Process root generated as a module named `process` cannot stand at a crate's root
+beside the dependency named `process`, so the crate includes it under another name:
+`#[path = "generated/process.rs"] pub mod processes;`.
+
+The standard names the module writes are `process::Caller`, `process::Answer`,
+`process::Unremembered`, `process::Unobserved`, and the traits `process::Processable`,
+`process::Giving`, `process::Givable`, `process::Unwindable` and `process::Ownable`
+with `process::Owner`: the process library holds them (no_std and alloc), and a
+Nexus's processes crate depends on it under the name `process`.
 
 Every root's types archive (rkyv) and gate their datom derives behind the
 `datom` feature, a Library's, an Operation's and a Memory's as a Signal's:
@@ -424,6 +532,9 @@ Memory
          Voice
          State.[ Running Ended ]
          Vector<Event> } ]
+[]
+[]
+[]
 ```
 
 The layout is protos' canonical print (`protos::Textualizable`); this crate
@@ -440,16 +551,18 @@ structure; it does not textualize and parse the result again.
 ## CLI
 
 ```
-ethos-zero 'Generate.{ /abs/file.ethos /abs/out-dir }'
-# -> Generated.[ /abs/out-dir/file.rs ]
-ethos-zero 'Check./abs/file.ethos'
-# -> Checked./abs/file.ethos
+ethos-zero 'Generate.{ [ /abs/signal.ethos /abs/memory.ethos /abs/process.ethos ] /abs/out-dir }'
+# -> Generated.[ /abs/out-dir/signal.rs /abs/out-dir/memory.rs /abs/out-dir/process.rs ]
+ethos-zero 'Check.[ /abs/file.ethos ]'
+# -> Checked.[ /abs/file.ethos ]
 # -> Rejected.{ /abs/file.ethos { { 4 } { 19 } } Conceptual.{ [ 1 1 0 1 1 ] Undeclared.Bogus } }
 ```
 
-`Check` validates the whole file and writes nothing. A rejection, from
-either query, names the file, the line and column of the error (counted
-from one), and the error; a rejected `Generate` creates no directory.
+Both take the root files of one namespace together, a single file being a set of one.
+Each module is written as the stem of its file, `.rs`, in the order the files were
+given. `Check` validates the whole set and writes nothing. A rejection, from either
+query, names the file it lies in, the line and column of the error (counted from
+one), and the error; a rejected `Generate` creates no directory.
 
 One inline datom value, no flags; every reply is a value of the
 contract's `Response`, written on one line. With no argument, `ethos-zero` prints its own

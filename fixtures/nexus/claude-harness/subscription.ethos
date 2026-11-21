@@ -1,0 +1,8 @@
+; The contract the Nexus serves beside its own, as its processes hold it (signal-harness).
+Signal
+[ harness:[ Observed Event State ]
+  flow:[ FlowId ] ]
+[ Subscribe ]
+[ Subscribed.Vector<Observed>
+  Changed.{ FlowId Event State } ]
+[]

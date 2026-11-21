@@ -76,7 +76,8 @@
           generatedCrate =
             {
               name,
-              declarations,
+              declarations ? [ ],
+              nexus ? "",
               libPath ? "src/lib.rs",
               root ? "",
               features ? [ ],
@@ -88,7 +89,7 @@
               version = "0.1.0";
               edition = manifest.package.edition;
               src = pkgs.runCommand "${name}-source" {
-                inherit package fixtures root declarations;
+                inherit package fixtures root declarations nexus;
               } (builtins.readFile ./checks/generated-source.sh);
               inherit
                 libPath
@@ -146,8 +147,25 @@
               inherit features dependencies;
               buildTests = true;
             };
+          # The Tally Nexus's roots generated together, under a feature set.
+          nexusContract =
+            features: dependencies:
+            generatedCrate {
+              name = "nexus-contract";
+              nexus = "nexus/tally";
+              root = ./tests/nexus-contract/lib.rs;
+              inherit features dependencies;
+              buildTests = true;
+            };
         in
         {
+          nexus-contract = runTests "nexus-contract" (nexusContract [ ] [ rkyv ]);
+          nexus-contract-datom = runTests "nexus-contract-datom" (
+            nexusContract [ "datom" ] [
+              rkyv
+              datomCodec
+            ]
+          );
           signal-without-datom = withoutDatom "signal-without-datom" "orchestrate.ethos";
           operation-free-signal-without-datom = withoutDatom "operation-free-signal-without-datom" "empty-signal.ethos";
           flow-contract = runTests "flow-contract" (flowContract [ ] [ rkyv ]);

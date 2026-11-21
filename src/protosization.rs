@@ -5,7 +5,7 @@ use protos::{
 };
 
 use crate::{
-    AssociatedConstant, AssociatedType, Association, Capability, Constraint, Emission, File,
+    AssociatedConstant, AssociatedType, Association, Capability, Constraint, Emission, Entry, File,
     Identity, Import, Imported, Library, Memory, Operation, Position, Process, ProcessDeclaration,
     Receiver, Reference, Signal, Signature, Source, Spelled, TraitBody, TraitDeclaration,
     TypeDeclaration, Variant,
@@ -516,9 +516,31 @@ impl Protosizing for Memory {
             Enclosure::Braced,
             vec![
                 "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.records.entry_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.changes.entry_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.answers.entry_nodes()),
                 "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
             ],
         )
+    }
+}
+/// The trait whose capability writes the entries of a Memory section: a name
+/// bare, a declaration as a declaration is written.
+trait EntriesProtosizing {
+    fn entry_nodes(&self) -> Vec<Protos>;
+}
+impl EntriesProtosizing for [Entry] {
+    fn entry_nodes(&self) -> Vec<Protos> {
+        let mut nodes = Vec::new();
+        for entry in self {
+            match entry {
+                Entry::Named(name) => nodes.push(name.as_ref().bare()),
+                Entry::Declared(declaration) => {
+                    nodes.extend(std::slice::from_ref(declaration).declaration_nodes())
+                }
+            }
+        }
+        nodes
     }
 }
 impl Protosizing for File {

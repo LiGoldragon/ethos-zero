@@ -14,9 +14,9 @@ use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
-    Constraint, Emission, Error, File, Identifiable, Identity, Import, Intrinsic, Memory, Name,
-    Operation, Placing, Position, Problem, Process, ProcessDeclaration, Reference, Resolution,
-    Resolving, Role, Scope, Signal, Signature, Spelled, TraitBody, TraitDeclaration,
+    Constraint, Emission, Entry, Error, File, Identifiable, Identity, Import, Intrinsic, Memory,
+    Name, Operation, Placing, Position, Problem, Process, ProcessDeclaration, Reference,
+    Resolution, Resolving, Role, Scope, Signal, Signature, Spelled, TraitBody, TraitDeclaration,
     TypeDeclaration, Variant, Wrapping_Data,
 };
 
@@ -366,6 +366,15 @@ impl Naming for TypeDeclaration {
     }
 }
 
+impl Naming for Entry {
+    fn names(&self) -> Vec<DeclarationSite> {
+        match self {
+            Entry::Declared(declaration) => declaration.names(),
+            Entry::Named(_) => vec![],
+        }
+    }
+}
+
 impl Naming for TraitDeclaration {
     fn names(&self) -> Vec<DeclarationSite> {
         vec![DeclarationSite {
@@ -458,6 +467,15 @@ impl Spanning for TypeDeclaration {
         match self {
             TypeDeclaration::Alias(_, aliased) => aliased.span(),
             TypeDeclaration::Struct(_, _) | TypeDeclaration::Enum(_, _) => 1,
+        }
+    }
+}
+
+impl Spanning for Entry {
+    fn span(&self) -> Integer {
+        match self {
+            Entry::Declared(declaration) => declaration.span(),
+            Entry::Named(_) => 1,
         }
     }
 }
@@ -1149,7 +1167,10 @@ impl Declared for Emission {
 impl Declared for Memory {
     fn declared(&self) -> Vec<DeclarationSite> {
         let mut names = self.imports.names_in(0);
-        names.extend(self.types.names_in(1));
+        names.extend(self.records.names_in(1));
+        names.extend(self.changes.names_in(2));
+        names.extend(self.answers.names_in(3));
+        names.extend(self.types.names_in(4));
         names
     }
 }
@@ -1324,12 +1345,60 @@ impl Checkable for ProcessDeclaration {
     }
 }
 
+/// A Memory: its records, its changes and their answers, and its types. A
+/// change is answered by the answer of its place, so a change left without
+/// one is `Unpaired`; an answer past the last change pairs with none.
 impl Checkable for Memory {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.declared().distinct()?;
         self.imports.check_each(scope, 0)?;
-        self.types.check_each(scope, 1)?;
-        self.types.refuse_wrapping(scope).place(1)
+        self.records.check_each(scope, 1)?;
+        self.changes.check_each(scope, 2)?;
+        self.answers.check_each(scope, 3)?;
+        self.types.check_each(scope, 4)?;
+        self.records.refuse_wrapping(scope).place(1)?;
+        self.changes.refuse_wrapping(scope).place(2)?;
+        self.answers.refuse_wrapping(scope).place(3)?;
+        self.types.refuse_wrapping(scope).place(4)?;
+        self.changes.paired_with(&self.answers).place(2)
+    }
+}
+
+impl Checkable for Entry {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
+        match self {
+            Entry::Declared(declaration) => declaration.check(scope),
+            Entry::Named(name) => Reference {
+                source: None,
+                name: name.clone(),
+                arguments: vec![],
+            }
+            .check(scope),
+        }
+    }
+}
+
+/// The trait whose capability refuses a change left without an answer: the
+/// n-th answer is the n-th change's, as an Emission's n-th outcome is its
+/// n-th emission's.
+trait EntryPairing {
+    fn paired_with(&self, answers: &[Entry]) -> Result<(), Error>;
+}
+
+impl EntryPairing for [Entry] {
+    fn paired_with(&self, answers: &[Entry]) -> Result<(), Error> {
+        let mut at = 0;
+        for (index, change) in self.iter().enumerate() {
+            if index >= answers.len() {
+                let title = match change {
+                    Entry::Declared(declaration) => declaration.identity().name.0.clone(),
+                    Entry::Named(name) => name.0.clone(),
+                };
+                return Err(Error::conceptual(vec![at], Problem::Unpaired(title)));
+            }
+            at += change.span();
+        }
+        Ok(())
     }
 }
 
@@ -1653,6 +1722,19 @@ impl Wrapping for TypeDeclaration {
                     second_string: wrapped.name.0.clone(),
                 }),
             ));
+        }
+        Ok(())
+    }
+}
+
+impl Wrapping for [Entry] {
+    fn refuse_wrapping(&self, scope: &Scope) -> Result<(), Error> {
+        let mut at = 0;
+        for entry in self {
+            if let Entry::Declared(declaration) = entry {
+                declaration.refuse_wrapping(scope).beside(at)?;
+            }
+            at += entry.span();
         }
         Ok(())
     }

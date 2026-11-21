@@ -14,13 +14,20 @@
 use datom_codec::{Integer, Path};
 
 use crate::checking::Spanning;
-use crate::{File, Import, Name, Position, Reference, TypeDeclaration, Variant};
+use crate::{Entry, File, Import, Name, Position, Reference, TypeDeclaration, Variant};
 
 /// An enum a root implies: its name, its variants and the section holding them.
 pub(crate) struct Implied<'a> {
     pub(crate) name: Name,
     pub(crate) variants: &'a [Variant],
     pub(crate) section: Integer,
+}
+
+/// A section of the file that lists type declarations: its index, and each
+/// declaration with the Protos index of its node in the section.
+pub(crate) struct Listed<'a> {
+    pub(crate) section: Integer,
+    pub(crate) declarations: Vec<(Integer, &'a TypeDeclaration)>,
 }
 
 /// A type declaration and the path of its node from the file's body.
@@ -37,6 +44,12 @@ pub(crate) trait Sectioning {
     fn types(&self) -> &[TypeDeclaration];
     /// The index of the types section.
     fn types_section(&self) -> Integer;
+    /// Every section that lists type declarations, in section order: the
+    /// types section, and for a Memory its records, changes and answers
+    /// before it, where an entry that names a type declares none.
+    fn listed(&self) -> Vec<Listed<'_>>;
+    /// The declarations the sections list at their top, in section order.
+    fn listed_declarations(&self) -> Vec<&TypeDeclaration>;
     /// The enums the root implies, in section order.
     fn implied_enums(&self) -> Vec<Implied<'_>>;
 }
@@ -66,10 +79,59 @@ impl Sectioning for File {
 
     fn types_section(&self) -> Integer {
         match self {
-            File::Library(_) | File::Memory(_) => 1,
+            File::Library(_) => 1,
             File::Process(_) => 2,
+            File::Memory(_) => 4,
             File::Signal(_) | File::Operation(_) | File::Emission(_) => 3,
         }
+    }
+
+    fn listed(&self) -> Vec<Listed<'_>> {
+        let mut sections = Vec::new();
+        if let File::Memory(memory) = self {
+            for (section, entries) in [
+                (1, &memory.records),
+                (2, &memory.changes),
+                (3, &memory.answers),
+            ] {
+                let mut declarations = Vec::new();
+                let mut at = 0;
+                for entry in entries {
+                    match entry {
+                        Entry::Declared(declaration) => {
+                            declarations.push((at, declaration));
+                            at += declaration.span();
+                        }
+                        Entry::Named(_) => at += 1,
+                    }
+                }
+                sections.push(Listed {
+                    section,
+                    declarations,
+                });
+            }
+        }
+        let mut declarations = Vec::new();
+        let mut at = 0;
+        for declaration in self.types() {
+            declarations.push((at, declaration));
+            at += declaration.span();
+        }
+        sections.push(Listed {
+            section: self.types_section(),
+            declarations,
+        });
+        sections
+    }
+
+    fn listed_declarations(&self) -> Vec<&TypeDeclaration> {
+        let mut declarations = Vec::new();
+        for listed in self.listed() {
+            for (_, declaration) in listed.declarations {
+                declarations.push(declaration);
+            }
+        }
+        declarations
     }
 
     fn implied_enums(&self) -> Vec<Implied<'_>> {
@@ -117,11 +179,10 @@ pub(crate) trait Hoisting {
 impl Hoisting for File {
     fn declarations(&self) -> Vec<Placed<'_>> {
         let mut placed = Vec::new();
-        let section = self.types_section();
-        let mut at = 0;
-        for declaration in self.types() {
-            declaration.hoist(vec![section, at], &mut placed);
-            at += declaration.span();
+        for listed in self.listed() {
+            for (at, declaration) in listed.declarations {
+                declaration.hoist(vec![listed.section, at], &mut placed);
+            }
         }
         for implied in self.implied_enums() {
             implied

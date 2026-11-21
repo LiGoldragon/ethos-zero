@@ -796,7 +796,7 @@ trait Enumerating {
 }
 
 /// The trait whose capability yields what a declared type derives.
-trait DatomDeriving {
+pub(crate) trait DatomDeriving {
     fn datom_derives(&self) -> TokenStream;
     fn scalar_datom_derives(&self, scalar: Scalar) -> TokenStream;
 }
@@ -851,7 +851,7 @@ impl DatomDeriving for Identity {
 /// What the scalar under a newtype supports beyond the derives every
 /// declared type bears.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Scalar {
+pub(crate) enum Scalar {
     /// A scalar of fixed size and total order: `Integer`, `Boolean`, `Decimal`.
     Copyable,
     /// A scalar of total order and no fixed size: `String`.
@@ -1270,8 +1270,21 @@ impl Emitting for Association {
 // The file: its sections walked
 // ---------------------------------------------------------------------------
 
-impl Emitting for File {
-    fn emit(&self, scope: &Scope) -> TokenStream {
+/// The trait whose capability yields the items a file emits, before the
+/// header they are framed in: a Nexus adds the items it reads from its other
+/// roots to a Process file's own.
+pub(crate) trait Itemizing {
+    fn items(&self, scope: &Scope) -> Vec<TokenStream>;
+}
+
+/// The trait whose capability writes a file's items under its header, and
+/// formats them.
+pub(crate) trait Rendering {
+    fn render(&self) -> String;
+}
+
+impl Itemizing for File {
+    fn items(&self, scope: &Scope) -> Vec<TokenStream> {
         // prettyplease owns each generated item's canonical text. rustfmt makes
         // different width decisions for aliases and ordinary items, so each
         // generated item is excluded individually while every authored Rust
@@ -1299,7 +1312,7 @@ impl Emitting for File {
             | File::Memory(_)
             | File::Emission(_)
             | File::Process(_) => {
-                for declaration in self.types() {
+                for declaration in self.listed_declarations() {
                     items.push(declaration.emit(scope));
                 }
                 // The unit each bare emission is, a struct of no fields: it
@@ -1343,13 +1356,24 @@ impl Emitting for File {
                 }
             }
         }
-        quote! {
+        items
+    }
+}
+
+impl Rendering for [TokenStream] {
+    fn render(&self) -> String {
+        let items = self;
+        let tokens = quote! {
             #![allow(dead_code, non_camel_case_types, non_snake_case, unused_extern_crates, clippy::type_complexity)]
             // Every path names core or alloc, so the module builds with and without std.
             #[rustfmt::skip]
             extern crate alloc;
             #( #items )*
-        }
+        };
+        let file: syn::File = syn::parse2(tokens).expect("generated tokens are a Rust file");
+        prettyplease::unparse(&file)
+            .collapse_derives()
+            .format_allow()
     }
 }
 
@@ -1694,10 +1718,6 @@ impl Generating for File {
             associated: &[],
         };
         self.check(&scope)?;
-        let tokens = self.emit(&scope);
-        let file: syn::File = syn::parse2(tokens).expect("generated tokens are a Rust file");
-        Ok(prettyplease::unparse(&file)
-            .collapse_derives()
-            .format_allow())
+        Ok(self.items(&scope).render())
     }
 }

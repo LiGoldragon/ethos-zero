@@ -25,7 +25,11 @@ Library
             DuplicateField.String
             Unpaired.String
             TooFewVariants.String
-            Placement.String ]
+            Placement.String
+            Foreign.String
+            Unborn.String
+            Ungivable.String
+            Namespace.String ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association Process ]
   Location.{ Line Column }
   Line.Integer

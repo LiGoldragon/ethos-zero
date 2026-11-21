@@ -1,0 +1,9 @@
+; What the roots of the Claude Harness Nexus share.
+Library
+[]
+[ Offset.Integer
+  ReadFrom.[ FileEnd
+             Offset ]
+  RowCount.Integer ]
+[]
+[]

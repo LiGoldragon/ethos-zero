@@ -1,0 +1,6 @@
+; The contract the Nexus serves beside its own, as its processes hold it (signal-claude-prepare).
+Signal
+[ harness:[ FilePath ] ]
+[ Prepare ]
+[ Prepared.Option<FilePath> ]
+[]

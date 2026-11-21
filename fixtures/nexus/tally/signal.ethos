@@ -1,0 +1,7 @@
+; The Tally Nexus's own contract: a sum of numbers is answered by its total, or refused as overflowed.
+Signal
+[]
+[ Sum.Vector<Integer> ]
+[ Summed.Total
+  Overflowed ]
+[ Total.Integer ]

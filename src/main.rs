@@ -5,8 +5,8 @@ use std::process::ExitCode;
 
 use datom_codec::{Actualizing as _, Budget, Datomizable as _, Path, Potential};
 use ethos_zero::{
-    Actualizing as _, File, Generating, Locating as _, Potential as EthosPotential, Printable as _,
-    Validating as _,
+    Actualizing as _, Assembling as _, File, Locating as _, Module, Nexus,
+    Potential as EthosPotential, Printable as _, Refusal, Verifying as _,
 };
 use protos::{Compactable, Protosizable};
 
@@ -36,13 +36,23 @@ trait Texting {
 trait Erroring<T> {
     fn error(self) -> T;
 }
+/// An ethos source file read for structure: its text, kept to situate an error in it.
+type Read = (EthosPotential<File>, File);
 /// The trait whose capability reads an ethos source file into its checked-for-structure File.
 trait Sourcing {
-    fn source(&self) -> Result<(EthosPotential<File>, File), Response>;
+    fn source(&self) -> Result<Read, Response>;
+}
+/// The trait whose capability reads the root files of a Nexus, together.
+trait Gathering {
+    fn gather(&self) -> Result<(Nexus, Vec<EthosPotential<File>>), Response>;
 }
 /// The trait whose capability turns an error in a read source into a located rejection.
 trait Rejecting {
     fn reject(&self, source: &EthosPotential<File>, error: ethos_zero::Error) -> Response;
+}
+/// The trait whose capability turns a Nexus's refusal into a rejection of the file it lies in.
+trait Refusing {
+    fn refuse(&self, sources: &[String], texts: &[EthosPotential<File>]) -> Response;
 }
 
 impl Texting for Response {
@@ -88,6 +98,30 @@ impl Sourcing for String {
     }
 }
 
+impl Gathering for [String] {
+    fn gather(&self) -> Result<(Nexus, Vec<EthosPotential<File>>), Response> {
+        let mut modules = Vec::with_capacity(self.len());
+        let mut texts = Vec::with_capacity(self.len());
+        for source in self {
+            let (potential, file) = source.source()?;
+            let stem = FilePath::new(source)
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            modules.push(Module { stem, file });
+            texts.push(potential);
+        }
+        Ok((Nexus { modules }, texts))
+    }
+}
+
+impl Refusing for Refusal {
+    fn refuse(&self, sources: &[String], texts: &[EthosPotential<File>]) -> Response {
+        sources[self.module].reject(&texts[self.module], self.error.clone())
+    }
+}
+
 impl Rejecting for String {
     fn reject(&self, source: &EthosPotential<File>, error: ethos_zero::Error) -> Response {
         Response::Rejected(Rejected_Data {
@@ -100,20 +134,15 @@ impl Rejecting for String {
 
 impl Serving for Generation {
     fn serve(&mut self) -> Response {
-        let source = &self.first_string;
-        let directory = &self.second_string;
-        let (potential, file) = match source.source() {
+        let sources = &self.string_vector;
+        let directory = &self.string;
+        let (nexus, texts) = match sources.gather() {
             Ok(read) => read,
             Err(response) => return response,
         };
-        let stem = FilePath::new(source)
-            .file_stem()
-            .unwrap_or_default()
-            .to_string_lossy();
-        let target = FilePath::new(directory).join(format!("{stem}.rs"));
-        let generated = match file.generate() {
-            Ok(generated) => generated,
-            Err(error) => return source.reject(&potential, error),
+        let assembled = match nexus.assemble() {
+            Ok(assembled) => assembled,
+            Err(refusal) => return refusal.refuse(sources, &texts),
         };
         if let Err(error) = std::fs::create_dir_all(directory) {
             return Response::Unwritable(Unwritable_Data {
@@ -121,25 +150,30 @@ impl Serving for Generation {
                 second_string: error.to_string(),
             });
         }
-        match std::fs::write(&target, generated) {
-            Ok(()) => Response::Generated(vec![target.to_string_lossy().into_owned()]),
-            Err(error) => Response::Unwritable(Unwritable_Data {
-                first_string: target.to_string_lossy().into_owned(),
-                second_string: error.to_string(),
-            }),
+        let mut written = Vec::with_capacity(assembled.len());
+        for module in assembled {
+            let target = FilePath::new(directory).join(format!("{}.rs", module.stem));
+            if let Err(error) = std::fs::write(&target, module.rust) {
+                return Response::Unwritable(Unwritable_Data {
+                    first_string: target.to_string_lossy().into_owned(),
+                    second_string: error.to_string(),
+                });
+            }
+            written.push(target.to_string_lossy().into_owned());
         }
+        Response::Generated(written)
     }
 }
 
-impl Serving for String {
+impl Serving for Vec<String> {
     fn serve(&mut self) -> Response {
-        let (potential, file) = match self.source() {
+        let (nexus, texts) = match self.gather() {
             Ok(read) => read,
             Err(response) => return response,
         };
-        match file.validate() {
+        match nexus.verify() {
             Ok(()) => Response::Checked(self.clone()),
-            Err(error) => self.reject(&potential, error),
+            Err(refusal) => refusal.refuse(self, &texts),
         }
     }
 }
@@ -148,7 +182,7 @@ impl Serving for Query {
     fn serve(&mut self) -> Response {
         match self {
             Self::Generate(generation) => generation.serve(),
-            Self::Check(source) => source.serve(),
+            Self::Check(sources) => sources.serve(),
         }
     }
 }

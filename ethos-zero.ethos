@@ -1,12 +1,13 @@
 ; The local Datom command contract, not a wire Signal.
-; Generate reads an ethos file and writes its Rust module into a directory;
-; Check reads and validates it whole, writing nothing. A rejection names the
+; Generate reads the root files of one Nexus together and writes a Rust module
+; for each into a directory, named for its file; Check reads and validates them
+; whole, writing nothing. A single file is a set of one. A rejection names the
 ; file, the line and column of the error in it, and the error.
 ; The files read are of six roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
 ;   Signal     [ imports ] [ inputs ] [ outputs ] [ types ]
 ;   Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; proposed, pending the living's word
-;   Memory     [ imports ] [ record types ]
+;   Memory     [ imports ] [ records ] [ changes ] [ answers ] [ types ]
 ;   Emission   [ imports ] [ emissions ] [ outcomes ] [ types ]
 ;   Process    [ imports ] [ processes ] [ types ]
 ; A file headed Sema is refused as Renamed.Memory.
@@ -14,15 +15,15 @@ Library
 [ datom_codec:[ Error ]
   ethos_zero:[ Problem Location ] ]
 [ Query.[ Generate.Generation
-          Check.String ]
+          Check.Vector<String> ]
   Response.[ Generated.Vector<String>
-             Checked.String
+             Checked.Vector<String>
              Arguments.Integer
              Malformed.Error
              Unreadable.{ String String }
              Rejected.{ String Location Generation_Error }
              Unwritable.{ String String } ]
-  Generation.{ String String }
+  Generation.{ Vector<String> String }
   Generation_Error.[ Structural.protos:Error
                      Conceptual.{ Vector<Integer>
                                   ethos_zero:Problem } ] ]

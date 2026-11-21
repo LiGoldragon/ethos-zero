@@ -108,8 +108,6 @@ mod nested_collision;
 mod orchestrate;
 #[path = "generated/placed-types.rs"]
 mod placed_types;
-#[path = "generated/process-root.rs"]
-mod process_root;
 #[path = "generated/processable-traits.rs"]
 mod processable_traits;
 #[path = "generated/publishing-trait.rs"]

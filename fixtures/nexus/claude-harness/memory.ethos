@@ -1,0 +1,16 @@
+; What the Claude Harness Nexus remembers: its watches, each session's state and
+; its settings; its changes, each answered by the answer of its place.
+Memory
+[ harness:[ Event FilePath Observed ]
+  flow:[ FlowId ]
+  claude_harness:[ Offset ReadFrom ]
+  claude_harness:subscription:[ Changed ]
+  claude_harness:meta:[ Set ] ]
+[ Watch.{ FlowId FilePath ReadFrom }
+  Observed
+  Keep.Set ]
+[ Observe.{ FlowId Vector<Event> Option<Offset> }
+  Recall.{} ]
+[ Observation.Vector<Changed>
+  Recollection.Vector<Observed> ]
+[]

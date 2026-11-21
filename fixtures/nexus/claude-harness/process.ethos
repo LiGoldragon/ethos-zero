@@ -1,0 +1,27 @@
+; The Claude Harness Nexus's processes.
+Process
+[ claude_harness:signal:[ Report Reported ]
+  claude_harness:subscription:[ Subscribe Subscribed Changed ]
+  claude_harness:prepare:[ Prepare Prepared ]
+  claude_harness:meta:[ Configure Configured Hooks HookClient ]
+  claude_harness:memory:[ Watch Observe Recall Keep ]
+  claude_harness:[ RowCount ]
+  claude_harness:emission:[ Follow Install ] ]
+[ Report.{ []
+           [ Reported Watch Observe Changed ]
+           Reporting }
+  Watch.{ [ RowCount ]
+          [ Follow Observe Changed ]
+          Watching }
+  Subscribe.{ []
+              [ Recall Subscribed ] }
+  Configure.{ []
+              [ Keep Configured ]
+              Configuring }
+  Prepare.{ [ Option<HookClient> Hooks ]
+            [ Install Prepared ]
+            Preparing } ]
+[ Reporting.[ Observed Unremembered ]
+  Watching.[ Forgotten Unfollowed ]
+  Configuring.[ Configured Unremembered ]
+  Preparing.[ Installed Uninstalled Unobserved Unconfigured ] ]

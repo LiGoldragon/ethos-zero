@@ -1,0 +1,14 @@
+; What the Claude Harness Nexus sends where it has no Signal contract.
+Emission
+[ harness:[ FilePath Tokens ]
+  claude_harness:[ Offset ReadFrom RowCount ]
+  claude_harness:meta:[ Hooks HookClient ] ]
+[ Follow.{ FilePath ReadFrom RowCount }
+  Install.{ HookClient Hooks } ]
+[ Following.{ Vector<Row> Offset }
+  Installation.[ Installed.FilePath
+                 Uninstalled.Integer ] ]
+[ Row.[ Assistant.Tokens
+        TurnStarted
+        TurnEnded
+        Other ] ]

@@ -2,6 +2,19 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 31.1.0: a Nexus is generated from all its roots at once; Memory has five sections
+
+31.0.0 was already pinned (translator's flake input, 48f155d), so what breaks on top of it is numbered 31.1.0; a consumer of 31.0.0 that moves to 31.1.0 follows the parts below. What breaks, in four parts.
+
+1. The command takes the root files of one namespace together. `Generate.{ «/abs/file.ethos» «/abs/out» }` is now `Generate.{ [ «/abs/signal.ethos» «/abs/memory.ethos» ] «/abs/out» }`, and `Check.«/abs/file.ethos»` is `Check.[ «/abs/file.ethos» ]`, and `Checked` answers the vector of files. A single file is a set of one, and a single file that is not a Process root generates as it did. The contract's `Query` and `Response` change: `Generate.Generation` holds `Vector<String>` and a `String`, `Check` and `Checked` hold `Vector<String>`. Each module is written as `<stem>.rs`, the stem being its file's. A script that called the command with one file adds the brackets.
+2. The Memory root has five sections, `[ imports ] [ records ] [ changes ] [ answers ] [ types ]`, and the two-section form is gone: `Memory [ imports ] [ types ]` is `Conceptual.{ [ 1 ] Arity.{ 5 2 } }`. A record that was a type of the second section stays there, and the file gains `[] [] []`; a type that only a record or a change carries moves to the fifth. The changes and their answers a Nexus kept in its Library (`Observe`, `Observation`) move into the Memory's third and fourth sections, answered by place: a change without an answer is `Unpaired.<change>`. An entry of the records, the changes or the answers may name a type, `Observed`, where it declares none: a record of an imported type is a record. `File::Memory`'s `Memory` struct holds `records`, `changes` and `answers` of `Entry`, and `types`.
+3. A Process root read with the roots of its Nexus generates its module whole: the struct of each process's positions (`SumProcess`), what it takes (`SumTaken`), `Process`, `Gift`, `Taken` and `Outcome`, and `Givable`, `From<_> for Gift`, `Unwindable`, `Ownable` and `Processable` for them, naming the process library under the crate name `process`: `process::Caller`, `process::Answer`, `process::Unremembered`, `process::Unobserved`, and the traits. A Nexus's own namespace is the first segment of its roots' imports that every one of them lands in, and a Process root that names what the roots do not declare is `Foreign.<name>`. A hand-written `Process`, `Gift`, `Taken` or `Outcome` of the Nexus is removed, and its processes' bodies take `type Taken = <Name>Taken`, `type Gift = Gift`. A process born of a process is declared in the Process root's types, its positions written there.
+4. The `Error` contract's `Problem` gains `Foreign.String`, `Unborn.String`, `Ungivable.String` and `Namespace.String`, after `Placement`. A consumer matching `Problem` exhaustively adds the arms.
+
+Also new, not breaking: the Nexus API, `Nexus`, `Module`, `Assembling` and `Verifying`, and a generated Process module's public type aliases.
+
+To deploy: pass the roots of a Nexus to the command together, move the changes and answers into the Memory, delete the hand-written enums over the processes, add the Process arms and the `Problem` arms, then repin ethos-zero to 31.1.0.
+
 ## 31.0.0: core and alloc paths; a bare emission's variant is written bare; the Process root
 
 What breaks, in three parts.

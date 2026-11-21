@@ -66,6 +66,10 @@ pub enum Problem {
     Unpaired(alloc::string::String),
     TooFewVariants(alloc::string::String),
     Placement(alloc::string::String),
+    Foreign(alloc::string::String),
+    Unborn(alloc::string::String),
+    Ungivable(alloc::string::String),
+    Namespace(alloc::string::String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

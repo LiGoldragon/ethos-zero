@@ -5,8 +5,8 @@ use protos::{Enclosure, Protos, Separator, Symbol};
 
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
-    Constraint, Emission, Error, Ethosizable, File, Form, Identifiable, Identity, Import, Imported,
-    Library, Memory, Name, Named, Operation, Placing, Position, Problem, Process,
+    Constraint, Emission, Entry, Error, Ethosizable, File, Form, Identifiable, Identity, Import,
+    Imported, Library, Memory, Name, Named, Operation, Placing, Position, Problem, Process,
     ProcessDeclaration, Receiver, Reference, Root, Signal, Signature, Source, Spelled, Succeeding,
     TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
@@ -455,14 +455,45 @@ impl Conceiving<ProcessDeclaration> for Protos {
 }
 impl Conceiving<Memory> for Protos {
     fn conceive(&self) -> Result<Memory, Error> {
-        let s = self.sections(2)?;
-        let Some(types) = s[1].children(Enclosure::Bracketed) else {
+        let s = self.sections(5)?;
+        let Some(records) = s[1].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
+        };
+        let Some(changes) = s[2].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![2], Problem::Expected(Form::Section)));
+        };
+        let Some(answers) = s[3].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![3], Problem::Expected(Form::Section)));
+        };
+        let Some(types) = s[4].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![4], Problem::Expected(Form::Section)));
         };
         Ok(Memory {
             imports: s[0].imports().place(0)?,
-            types: types.declarations().place(1)?,
+            records: records.entries().place(1)?,
+            changes: changes.entries().place(2)?,
+            answers: answers.entries().place(3)?,
+            types: types.declarations().place(4)?,
         })
+    }
+}
+/// The trait whose capability reads the entries of a Memory section: a bare
+/// name is a type named, anything else a type declared where it is listed.
+trait Entries {
+    fn entries(&self) -> Result<Vec<Entry>, Error>;
+}
+impl Entries for [Protos] {
+    fn entries(&self) -> Result<Vec<Entry>, Error> {
+        let mut values = Vec::new();
+        for (node, arguments, index) in self.constrained() {
+            match (node, arguments) {
+                (Protos::Bare { text, .. }, None) => {
+                    values.push(Entry::Named(text.as_str().name().place(index as Integer)?));
+                }
+                _ => values.push(Entry::Declared(node.declared(arguments, index)?)),
+            }
+        }
+        Ok(values)
     }
 }
 /// The trait whose capability reads an imports section.

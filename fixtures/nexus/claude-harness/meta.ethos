@@ -1,0 +1,11 @@
+Signal
+[ claude_harness:[ RowCount ] ]
+[ Configure.Set ]
+[ Configured.Set ]
+[ HookName.String
+  Hooks.Vector<HookName>
+  HookClient.String
+  Set.[ Hooks
+        RemoveHook.HookName
+        HookClient
+        RowCount ] ]

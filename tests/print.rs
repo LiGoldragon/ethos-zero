@@ -68,9 +68,9 @@ fn a_one_line_layout_expands_to_the_canonical_print() {
 #[test]
 fn leaves_stay_on_one_line_and_angles_stay_tight() {
     assert_eq!(
-        "Memory [ crate:[ Handle ] ] [ Pair.{ Vector<Option<String>> Result<String Integer> } ]"
+        "Memory [ crate:[ Handle ] ] [ Pair.{ Vector<Option<String>> Result<String Integer> } ] [] [] []"
             .reprint(),
-        "Memory\n[ crate:[ Handle ] ]\n[ Pair.{ Vector<Option<String>> Result<String Integer> } ]\n"
+        "Memory\n[ crate:[ Handle ] ]\n[ Pair.{ Vector<Option<String>> Result<String Integer> } ]\n[]\n[]\n[]\n"
     );
 }
 
@@ -104,7 +104,14 @@ fn every_fixture_prints_to_a_text_that_reads_back_to_it_and_prints_the_same() {
             sources.push(path.display().to_string());
         }
     }
-    assert_eq!(sources.len(), 29);
+    // The roots of each fixture Nexus print too.
+    for nexus in std::fs::read_dir(format!("{root}/fixtures/nexus")).expect("fixture Nexuses") {
+        let directory = nexus.expect("Nexus entry").path();
+        for entry in std::fs::read_dir(directory).expect("the roots of a Nexus") {
+            sources.push(entry.expect("root entry").path().display().to_string());
+        }
+    }
+    assert_eq!(sources.len(), 39);
     for path in sources {
         let source = std::fs::read_to_string(&path).expect("fixture reads");
         let file = match Potential::<File>::from(source).actualize() {

@@ -41,7 +41,11 @@ fn opaque(text: &str) -> String {
 }
 
 fn generate(source: &str, directory: &str) -> String {
-    format!("Generate.{{ {} {} }}", opaque(source), opaque(directory))
+    format!(
+        "Generate.{{ [ {} ] {} }}",
+        opaque(source),
+        opaque(directory)
+    )
 }
 
 #[test]
@@ -59,7 +63,7 @@ fn no_argument_prints_the_crates_own_ethos_ending_with_a_newline() {
     assert_eq!(output, uncommented);
     assert!(output.ends_with('\n'));
     assert!(output.contains("Generate.Generation"));
-    assert!(output.contains("Check.String"));
+    assert!(output.contains("Check.Vector<String>"));
 }
 
 #[test]
@@ -119,6 +123,58 @@ fn more_than_one_argument_is_refused_with_the_count() {
 }
 
 #[test]
+fn the_roots_of_a_nexus_are_generated_together_each_into_a_module_of_its_files_name() {
+    let directory = "nexus".scratch();
+    let root = format!("{}/fixtures/nexus/tally", env!("CARGO_MANIFEST_DIR"));
+    let argument = format!(
+        "Generate.{{ [ {} {} {} ] {} }}",
+        opaque(&format!("{root}/signal.ethos")),
+        opaque(&format!("{root}/memory.ethos")),
+        opaque(&format!("{root}/process.ethos")),
+        opaque(&directory)
+    );
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(success, "{output}");
+    assert_eq!(
+        output,
+        format!(
+            "Generated.[ {directory}/signal.rs {directory}/memory.rs {directory}/process.rs ]\n"
+        )
+    );
+    let process = std::fs::read_to_string(format!("{directory}/process.rs")).unwrap();
+    assert!(process.contains("pub enum Process"));
+    assert!(process.contains("pub struct SumProcess"));
+    let checked = format!(
+        "Check.[ {} {} ]",
+        opaque(&format!("{root}/signal.ethos")),
+        opaque(&format!("{root}/process.ethos"))
+    );
+    let (success, output) = [checked.as_str()].invoke();
+    // Without its memory the Process root names what the set does not declare.
+    assert!(!success, "{output}");
+    assert!(output.contains("Foreign.Add"), "{output}");
+}
+
+#[test]
+fn a_refusal_of_a_nexus_names_the_file_it_lies_in() {
+    let directory = "refusal".scratch();
+    let signal = directory.write_source("signal", "Signal\n[]\n[ Ask ]\n[ Told ]\n[]\n");
+    let process = directory.write_source(
+        "process",
+        "Process\n[ x:signal:[ Ask Told ] other:signal:[ Seen ] ]\n[ Ask.{ [] [ Told Seen ] } ]\n[]\n",
+    );
+    let argument = check_all(&[&signal, &process]);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert_eq!(
+        output,
+        format!(
+            "Rejected.{{ {process} {{ 3 19 }} Conceptual.{{ [ 1 1 0 1 1 1 ] Foreign.Seen }} }}\n"
+        )
+    );
+}
+
+#[test]
 fn a_missing_file_is_unreadable() {
     let argument = generate("/nowhere/missing.ethos", "/nowhere");
     let (success, output) = [argument.as_str()].invoke();
@@ -143,8 +199,16 @@ impl Writing for str {
     }
 }
 
+fn check_all(sources: &[&str]) -> String {
+    let mut written = Vec::new();
+    for source in sources {
+        written.push(opaque(source));
+    }
+    format!("Check.[ {} ]", written.join(" "))
+}
+
 fn check(source: &str) -> String {
-    format!("Check.{}", opaque(source))
+    format!("Check.[ {} ]", opaque(source))
 }
 
 #[test]
@@ -173,7 +237,7 @@ fn check_validates_a_good_file_without_writing() {
     let argument = check(source);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(output, format!("Checked.{source}\n"));
+    assert_eq!(output, format!("Checked.[ {source} ]\n"));
 }
 
 #[test]
@@ -283,7 +347,7 @@ fn check_takes_a_variant_named_as_a_defined_type_declaring_a_payload() {
     let argument = check(&taken);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(output, format!("Checked.{taken}\n"));
+    assert_eq!(output, format!("Checked.[ {taken} ]\n"));
 }
 
 #[test]
@@ -332,7 +396,7 @@ fn check_takes_a_trait_and_a_concrete_type_in_an_input() {
     let argument = check(&taken);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(output, format!("Checked.{taken}\n"));
+    assert_eq!(output, format!("Checked.[ {taken} ]\n"));
 
     let typed = directory.write_source(
         "typed",
@@ -341,7 +405,7 @@ fn check_takes_a_trait_and_a_concrete_type_in_an_input() {
     let argument = check(&typed);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(output, format!("Checked.{typed}\n"));
+    assert_eq!(output, format!("Checked.[ {typed} ]\n"));
 }
 
 #[test]
@@ -369,6 +433,6 @@ fn the_four_flow_nexus_files_check() {
         let argument = check(&source);
         let (success, output) = [argument.as_str()].invoke();
         assert!(success, "{output}");
-        assert_eq!(output, format!("Checked.{source}\n"));
+        assert_eq!(output, format!("Checked.[ {source} ]\n"));
     }
 }

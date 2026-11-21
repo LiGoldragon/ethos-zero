@@ -45,11 +45,16 @@ fn signal_generates_input_output_and_optional_datom_derives() {
 }
 
 #[test]
-fn memory_has_only_imports_and_record_type_sections() {
-    let file = read("Memory [ crate:[ Handle ] ] [ Record.{ Handle String } ]");
+fn memory_has_five_sections_imports_records_changes_answers_and_types() {
+    let file = read("Memory [ crate:[ Handle ] ] [ Record.{ Handle String } ] [] [] []");
     assert_eq!(file, read(&file.protosize().textualize()));
     assert!(
         Potential::<File>::from("Memory [] [] []")
+            .actualize()
+            .is_err()
+    );
+    assert!(
+        Potential::<File>::from("Memory [] [ Record.{ String } ]")
             .actualize()
             .is_err()
     );
@@ -411,7 +416,7 @@ fn an_input_whose_capability_name_is_taken_is_refused() {
 #[test]
 fn a_named_position_declares_its_type_in_place() {
     let file = read(
-        "Memory [] [ Flow.{ Integer Brief.String State.[ Running Ended ] Capsule.{ Home.String Login.Vector<String> } } ]",
+        "Memory [] [ Flow.{ Integer Brief.String State.[ Running Ended ] Capsule.{ Home.String Login.Vector<String> } } ] [] [] []",
     );
     assert_eq!(file, read(&file.protosize().textualize()));
     let rust = match file.generate() {
@@ -438,7 +443,7 @@ fn a_named_position_declares_its_type_in_place() {
 #[test]
 fn a_named_position_shares_the_file_namespace() {
     assert!(
-        read("Memory [] [ A.{ Brief.String } B.{ Brief.Integer } ]")
+        read("Memory [] [ A.{ Brief.String } B.{ Brief.Integer } ] [] [] []")
             .generate()
             .is_err()
     );
@@ -520,7 +525,7 @@ fn a_signal_declaring_the_output_type_is_refused() {
 fn memory_generates_a_record_type_named_record() {
     // Memory's second section is its record types and reserves no name;
     // Memory generates no implied type of its own.
-    let generated = match read("Memory [] [ Record.{ String Integer } ]").generate() {
+    let generated = match read("Memory [] [ Record.{ String Integer } ] [] [] []").generate() {
         Ok(generated) => generated,
         Err(_) => panic!("a Memory record named Record generates"),
     };
@@ -532,14 +537,16 @@ fn memory_generates_a_record_type_named_record() {
 #[test]
 fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
     let generated =
-        match read("Memory [] [ Entry.{ String } Record.{ Entry Vector<Entry> } ]").generate() {
+        match read("Memory [] [ Entry.{ String } Record.{ Entry Vector<Entry> } ] [] [] []")
+            .generate()
+        {
             Ok(generated) => generated,
             Err(_) => panic!("a two-record Memory generates"),
         };
     assert!(generated.contains("pub struct Entry"));
     assert!(generated.contains("pub entry_vector: alloc::vec::Vec<Entry>"));
     assert!(
-        read("Memory [] [ Entry.{ String } Entry.{ Integer } ]")
+        read("Memory [] [ Entry.{ String } Entry.{ Integer } ] [] [] []")
             .generate()
             .is_err()
     );
@@ -585,7 +592,7 @@ fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
     };
     assert!(generated.contains("custom::Name"));
 
-    let memory_record = read("Memory [] [ Holder.{ Topic.custom:Name String } ]");
+    let memory_record = read("Memory [] [ Holder.{ Topic.custom:Name String } ] [] [] []");
     let generated = match memory_record.generate() {
         Ok(generated) => generated,
         Err(_) => panic!("a lowercase inline source in a record field generates"),
@@ -644,7 +651,7 @@ fn rooted_imports_in_the_imports_section_take_every_namespace_segment() {
     assert!(print.contains(":flow_ethos:signal:"), "{print}");
     assert!(print.contains("[ Input Output ]"), "{print}");
 
-    let memory = generates("Memory [ :crate:message:[ FlowId ] ] [ Flow.{ FlowId } ]");
+    let memory = generates("Memory [ :crate:message:[ FlowId ] ] [ Flow.{ FlowId } ] [] [] []");
     assert!(
         memory.contains("pub flow_id: crate::message::FlowId"),
         "{memory}"
@@ -787,7 +794,7 @@ fn a_rooted_import_inline_in_a_field_takes_its_leading_colon() {
         "{generated}"
     );
 
-    let record = generates("Memory [] [ Holder.{ :flow_ethos:message:Type String } ]");
+    let record = generates("Memory [] [ Holder.{ :flow_ethos:message:Type String } ] [] [] []");
     assert!(record.contains("flow_ethos::message::Type"), "{record}");
 }
 
@@ -1036,7 +1043,7 @@ fn positions_whose_fields_would_meet_are_refused_at_the_later_position() {
             vec![1, 1, 0, 1, 2],
         ),
         (
-            "Memory [] [ Record.{ String FirstString String } FirstString.String ]",
+            "Memory [] [ Record.{ String FirstString String } FirstString.String ] [] [] []",
             vec![1, 1, 0, 1, 1],
         ),
     ] {
@@ -1058,7 +1065,11 @@ fn an_enum_of_one_variant_is_refused_naming_the_enum() {
             vec![1, 1, 0, 1],
             "Reply",
         ),
-        ("Memory [] [ Mode.[ Strict ] ]", vec![1, 1, 0, 1], "Mode"),
+        (
+            "Memory [] [ Mode.[ Strict ] ] [] [] []",
+            vec![1, 1, 0, 1],
+            "Mode",
+        ),
         (
             "Signal [] [ Ask ] [ Told ] [ Mode.[ Strict ] ]",
             vec![1, 3, 0, 1],
@@ -1117,7 +1128,7 @@ fn an_enum_of_no_variants_is_refused_naming_the_enum() {
             "Refused",
         ),
         (
-            "Memory [] [ Holder.{ State.[] } ]",
+            "Memory [] [ Holder.{ State.[] } ] [] [] []",
             vec![1, 1, 0, 1, 0, 1],
             "State",
         ),
@@ -1240,7 +1251,7 @@ fn a_lowercase_type_or_trait_name_is_refused() {
         (vec![1, 2, 0, 0], Problem::Case("runnable".to_owned()))
     );
     assert_eq!(
-        "Memory [] [ record.{ String } ]".refusal(),
+        "Memory [] [ record.{ String } ] [] [] []".refusal(),
         (vec![1, 1, 0, 0], Problem::Case("record".to_owned()))
     );
 }
@@ -1298,8 +1309,16 @@ fn every_generated_item_carries_rustfmt_skip() {
         format!("{root}/src/error.rs"),
         format!("{root}/src/ethos-zero.rs"),
     ];
-    for entry in std::fs::read_dir(format!("{root}/tests/generated")).expect("generated fixtures") {
-        generated.push(entry.expect("fixture entry").path().display().to_string());
+    let mut directories = vec![format!("{root}/tests/generated")];
+    while let Some(directory) = directories.pop() {
+        for entry in std::fs::read_dir(directory).expect("generated fixtures") {
+            let path = entry.expect("fixture entry").path();
+            if path.is_dir() {
+                directories.push(path.display().to_string());
+            } else {
+                generated.push(path.display().to_string());
+            }
+        }
     }
     for path in generated {
         let text = std::fs::read_to_string(&path).expect("generated module reads");
@@ -1314,7 +1333,8 @@ fn every_generated_item_carries_rustfmt_skip() {
             let attributes = match item {
                 syn::Item::Struct(item) => &item.attrs,
                 syn::Item::Enum(item) => &item.attrs,
-                syn::Item::Type(_) => panic!("{path} holds a public type alias"),
+                // What a process takes where one kind of thing returns to it is that type, bare.
+                syn::Item::Type(item) => &item.attrs,
                 syn::Item::Trait(item) => &item.attrs,
                 syn::Item::Const(item) => &item.attrs,
                 syn::Item::Impl(item) => &item.attrs,
@@ -1529,7 +1549,7 @@ fn a_stream_is_refused_wherever_it_is_not_a_whole_output_or_a_capability_s_yield
             vec![1, 1, 0, 1, 0],
         ),
         (
-            "Memory [] [ Rec.{ String Stream<String Integer> } ]",
+            "Memory [] [ Rec.{ String Stream<String Integer> } ] [] [] []",
             vec![1, 1, 0, 1, 1],
         ),
         // An alias.

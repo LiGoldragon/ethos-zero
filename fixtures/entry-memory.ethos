@@ -1,5 +1,7 @@
-; A memory file: the record's positions in braces, then the types it stores
+; A memory file: the records kept, the changes with their answers, and the types they carry
 Memory
 []
-[ Record.{ String Vector<Entry> }
-  Entry.{ String Integer } ]
+[ Record.{ String Vector<Entry> } ]
+[]
+[]
+[ Entry.{ String Integer } ]

@@ -1,6 +1,6 @@
 [package]
 name         = "ethos-zero"
-version      = "31.0.0"
+version      = "31.1.0"
 edition      = "2024"
 rust-version = "1.89"
 license      = "MIT OR Apache-2.0"
@@ -46,6 +46,10 @@ path = "tests/generated.rs"
 [[test]]
 name = "freshness"
 path = "tests/freshness.rs"
+
+[[test]]
+name = "nexus"
+path = "tests/nexus.rs"
 
 [[test]]
 name = "print"

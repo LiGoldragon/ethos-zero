@@ -1,0 +1,9 @@
+; What the Tally Nexus remembers: its tally; and its one change, an addition, answered by what it came to.
+Memory
+[ tally:signal:[ Total ] ]
+[ Tally.{ Total
+          Count.Integer } ]
+[ Add.Integer ]
+[ Addition.[ Added.Total
+             Overflowed ] ]
+[]

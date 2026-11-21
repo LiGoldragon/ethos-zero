@@ -256,13 +256,36 @@ pub struct Operation {
     pub types: Vec<TypeDeclaration>,
 }
 
-/// The memory variant of a file: imports and record-type declarations.
+/// The memory variant of a file: what a Nexus remembers, in five sections.
+///
+/// The records it keeps; the changes it makes, each answered by the n-th
+/// answer, as an Emission's n-th outcome is its n-th emission's; and the
+/// types they carry. What returns for a record kept is the standard
+/// `Answer`; what returns for a change is the `Result` of its answer or
+/// `Unremembered`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Memory {
     /// Where imported names come from.
     pub imports: Vec<Import>,
-    /// The record type declarations.
+    /// The records kept.
+    pub records: Vec<Entry>,
+    /// The changes made, each a type of its own.
+    pub changes: Vec<Entry>,
+    /// The answers, in the order of the changes.
+    pub answers: Vec<Entry>,
+    /// The types the records, changes and answers carry.
     pub types: Vec<TypeDeclaration>,
+}
+
+/// An entry of a Memory section that holds types by name: a type declared in
+/// place, or a name the file imports or declares elsewhere, such as a record
+/// of an imported type, or the standard `Answer` for a change.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Entry {
+    /// A type declared where it is listed: `Watch.{ FlowId FilePath }`.
+    Declared(TypeDeclaration),
+    /// A name the file imports or declares in its types: `Observed`.
+    Named(Name),
 }
 
 /// The emission variant of a file: what a Nexus sends into the world, each
@@ -852,6 +875,8 @@ impl Identifiable for Intrinsic {
     }
 }
 
+pub use nexus::{Assembled, Assembling, Module, Nexus, Refusal, Verifying};
+
 // ---------------------------------------------------------------------------
 // Passes: implementation below, each module named for its pass
 // ---------------------------------------------------------------------------
@@ -862,6 +887,7 @@ mod checking;
 mod conception;
 mod generation;
 mod location;
+mod nexus;
 mod printing;
 mod protosization;
 mod sectioning;
@@ -907,7 +933,7 @@ mod behavior {
             "Library [] [ Record.{ String Integer } ] [] []",
             "Signal [] [ Ask.{ String Integer } ] [ Told ] []",
             "Operation [] [ Do.{ String Integer } ] [ Done ] []",
-            "Memory [] [ Record.{ String Integer } ]",
+            "Memory [] [ Record.{ String Integer } ] [] [] []",
             "Emission [] [ Do.{ String Integer } ] [ Done ] []",
         ] {
             let file = match Potential::<File>::from(source).actualize() {
@@ -1062,8 +1088,8 @@ mod behavior {
     }
 
     #[test]
-    fn memory_has_imports_and_record_type_declarations_only() {
-        let source = "Memory [ crate:[ Handle ] ] [ Record.{ Handle String } ]";
+    fn memory_has_imports_records_changes_answers_and_types() {
+        let source = "Memory [ crate:[ Handle ] ] [ Record.{ Handle String } ] [] [] []";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("approved Memory reads"),
@@ -1246,7 +1272,7 @@ mod behavior {
     fn signal_memory_import_and_attached_generic_errors_keep_root_paths() {
         let cases = [
             ("Signal [ 1 ] [] [] []", vec![1, 0, 0]),
-            ("Memory [] [ 1 ]", vec![1, 1, 0]),
+            ("Memory [] [ 1 ] [] [] []", vec![1, 1, 0]),
             ("Operation [ 1 ] [] [] []", vec![1, 0, 0]),
             ("Emission [ 1 ] [] [] []", vec![1, 0, 0]),
             ("Library [] [ Alias.Vector<1> ] [] []", vec![1, 1, 1, 0]),
@@ -1287,7 +1313,7 @@ mod behavior {
         let cases = [
             "Library.{ [] [ 1 ] [] [] }",
             "Signal [ 1 ] [] [] []",
-            "Memory [] [ 1 ]",
+            "Memory [] [ 1 ] [] [] []",
             "Operation [] [ Go.Vector<Bogus> ] [] []",
             "Emission [] [ Go.Vector<Bogus> ] [ Gone ] []",
             "Library [] [ Alias.Vector<1> ] [] []",
