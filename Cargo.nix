@@ -212,8 +212,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/LiGoldragon/datom-codec";
-          rev = "09a0526949b043f921b6d3ce115b7f455291f2e2";
-          sha256 = "18cplyk9f5nrqs35fgqpimfi507l38qvkmkx3z2qm2vwi1rlii2d";
+          rev = "3413a3d7387ea0c5257f9b9812d92ffd8a2cb417";
+          sha256 = "1ig5c4n3x0xy0vh5vvs43kp4vs72k2pqrv1izx1d8wi57ajpzpag";
         };
         libName = "datom_codec";
         dependencies = [
@@ -246,8 +246,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/LiGoldragon/datom-codec";
-          rev = "09a0526949b043f921b6d3ce115b7f455291f2e2";
-          sha256 = "18cplyk9f5nrqs35fgqpimfi507l38qvkmkx3z2qm2vwi1rlii2d";
+          rev = "3413a3d7387ea0c5257f9b9812d92ffd8a2cb417";
+          sha256 = "1ig5c4n3x0xy0vh5vvs43kp4vs72k2pqrv1izx1d8wi57ajpzpag";
         };
         procMacro = true;
         libName = "datom_codec_derive";
@@ -635,8 +635,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/LiGoldragon/protos";
-          rev = "c93b598025984f8a73e70aa18b8e8a6fdfdfdfd8";
-          sha256 = "00rwpzkxqmwhmxr2dkv9ay9wfvjxbprvvv23lfxmqamm2264r2gb";
+          rev = "2c7ace4a475be566d2e45e9d127d9642ebba3593";
+          sha256 = "142xpbmc7dg9ryy4zqg6lhpm9mz0hvz0cvmvlxm1a9hhkk9c01yr";
         };
         dependencies = [
           {

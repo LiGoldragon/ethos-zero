@@ -352,9 +352,51 @@ pub struct Imported {
     pub emitted: Name,
 }
 
-/// A reference to a type or a trait by name: an optional inline source, the name, and its arguments.
+/// A named type or trait, or a vector written with its own enclosure.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Reference {
+pub enum Reference {
+    /// A reference with an optional source and angled arguments.
+    Named(NamedReference),
+    /// A vector, with exactly one element type.
+    Vector(Box<Reference>),
+}
+
+/// The capabilities for inspecting a type or trait reference.
+pub trait ReferenceAccess {
+    /// The named reference, when the type is written with a name.
+    fn named(&self) -> Option<&NamedReference>;
+    /// The types supplied to this reference, including a vector's element type.
+    fn arguments(&self) -> &[Reference];
+    /// The reference name, or the name of the vector constructor.
+    fn title(&self) -> &str;
+}
+
+impl ReferenceAccess for Reference {
+    fn named(&self) -> Option<&NamedReference> {
+        match self {
+            Self::Named(reference) => Some(reference),
+            Self::Vector(_) => None,
+        }
+    }
+
+    fn arguments(&self) -> &[Reference] {
+        match self {
+            Self::Named(reference) => &reference.arguments,
+            Self::Vector(element) => std::slice::from_ref(element.as_ref()),
+        }
+    }
+
+    fn title(&self) -> &str {
+        match self {
+            Self::Named(reference) => reference.name.as_ref(),
+            Self::Vector(_) => Intrinsic::Vector.name(),
+        }
+    }
+}
+
+/// A type or trait written by name.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NamedReference {
     /// An inline source qualifying the name: `:protos:Error`, or `protos:Error`.
     pub source: Option<Source>,
     /// The name referred to.
@@ -1161,18 +1203,18 @@ mod behavior {
 
     #[test]
     fn manually_constructed_constrained_data_is_rejected_before_generation() {
-        use crate::{Constraint, Reference, Scope, checking::Checkable};
+        use crate::{Constraint, NamedReference, Reference, Scope, checking::Checkable};
 
         let file = File::Library(Library {
             imports: vec![],
             types: vec![TypeDeclaration::Struct(
                 Identity {
                     name: Name("Box".into()),
-                    constraints: vec![Constraint::One(Reference {
+                    constraints: vec![Constraint::One(Reference::Named(NamedReference {
                         source: None,
                         name: Name("Sized".into()),
                         arguments: vec![],
-                    })],
+                    }))],
                 },
                 vec![],
             )],

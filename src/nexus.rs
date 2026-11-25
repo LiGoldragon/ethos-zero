@@ -35,8 +35,9 @@ use crate::generation::{
 };
 use crate::sectioning::{ReferencingEach, Sectioning};
 use crate::{
-    ConceptualErroring, Entry, Error, File, Generating, Identity, Import, Imported, Name, Problem,
-    Reference, Resolution, Resolving, Scope, Source, Spelled, TypeDeclaration, Validating, Variant,
+    ConceptualErroring, Entry, Error, File, Generating, Identity, Import, Imported, Name,
+    NamedReference, Problem, Reference, ReferenceAccess, Resolution, Resolving, Scope, Source,
+    Spelled, TypeDeclaration, Validating, Variant,
 };
 
 /// One root file of a Nexus and the name its module bears: the file's stem.
@@ -421,33 +422,37 @@ trait Relocating {
 
 impl Relocating for Reference {
     fn relocated(&self, file: &File, home: &Source) -> Reference {
-        let mut arguments = Vec::with_capacity(self.arguments.len());
-        for argument in &self.arguments {
+        let reference = match self {
+            Self::Vector(element) => return Self::Vector(Box::new(element.relocated(file, home))),
+            Self::Named(reference) => reference,
+        };
+        let mut arguments = Vec::with_capacity(reference.arguments.len());
+        for argument in &reference.arguments {
             arguments.push(argument.relocated(file, home));
         }
-        if self.source.is_some() {
-            return Reference {
-                source: self.source.clone(),
-                name: self.name.clone(),
+        if reference.source.is_some() {
+            return Reference::Named(NamedReference {
+                source: reference.source.clone(),
+                name: reference.name.clone(),
                 arguments,
-            };
+            });
         }
-        match file.resolve(&self.name) {
-            Resolution::Imported(source, emitted) => Reference {
+        match file.resolve(&reference.name) {
+            Resolution::Imported(source, emitted) => Reference::Named(NamedReference {
                 source: Some(source),
                 name: emitted,
                 arguments,
-            },
-            Resolution::Type(_) => Reference {
+            }),
+            Resolution::Type(_) => Reference::Named(NamedReference {
                 source: Some(home.clone()),
-                name: self.name.clone(),
+                name: reference.name.clone(),
                 arguments,
-            },
-            _ => Reference {
+            }),
+            _ => Reference::Named(NamedReference {
                 source: None,
-                name: self.name.clone(),
+                name: reference.name.clone(),
                 arguments,
-            },
+            }),
         }
     }
 }
@@ -459,11 +464,11 @@ trait Referring {
 
 impl Referring for Name {
     fn referring(&self) -> Reference {
-        Reference {
+        Reference::Named(NamedReference {
             source: None,
             name: self.clone(),
             arguments: vec![],
-        }
+        })
     }
 }
 
@@ -487,18 +492,20 @@ impl Carriage for Variant {
             Variant::Bare(name) if scope.carries(name) => {
                 Some(name.referring().relocated(file, home))
             }
-            Variant::Bare(name) if unit => Some(Reference {
+            Variant::Bare(name) if unit => Some(Reference::Named(NamedReference {
                 source: Some(home.clone()),
                 name: name.clone(),
                 arguments: vec![],
-            }),
+            })),
             Variant::Bare(_) => None,
             Variant::Typed(_, reference) => Some(reference.relocated(file, home)),
-            Variant::Struct(name, _) | Variant::Enum(name, _) => Some(Reference {
-                source: Some(home.clone()),
-                name: file.inline_name(&owner, &owner, name),
-                arguments: vec![],
-            }),
+            Variant::Struct(name, _) | Variant::Enum(name, _) => {
+                Some(Reference::Named(NamedReference {
+                    source: Some(home.clone()),
+                    name: file.inline_name(&owner, &owner, name),
+                    arguments: vec![],
+                }))
+            }
         }
     }
 }
@@ -634,7 +641,7 @@ impl Describing for Nexus {
             for declared in &file.processes {
                 if declared.name == *name {
                     let taking = declared.outcome.as_ref().map(|outcome| Taking {
-                        name: outcome.name.clone(),
+                        name: Name(outcome.title().to_owned()),
                         ty: outcome.emit(&scope),
                     });
                     return Ok(Given {
@@ -817,6 +824,12 @@ impl Describing for Nexus {
             for gift in &declaration.gifts {
                 let path = place.joined(&[1, 1, index]);
                 index += gift.span();
+                let Some(gift) = gift.named() else {
+                    return Err(Refusal {
+                        module: process,
+                        error: Error::conceptual(path, Problem::Expected(crate::Form::Name)),
+                    });
+                };
                 match self.gift(process, namespace, &gift.name) {
                     Ok(mut given) => {
                         given.path = path;
@@ -893,11 +906,11 @@ impl Holding for Birth<'_> {
                 let spoken = nexus.resolved(*module, namespace);
                 let home = nexus.home(*module, namespace.expect("a call landed in a namespace"));
                 let mut positions = vec![
-                    Reference {
+                    Reference::Named(NamedReference {
                         source: Some(Source::try_from("process").expect("a source")),
                         name: Name::try_from("Caller").expect("a standard name"),
                         arguments: vec![],
-                    }
+                    })
                     .into(),
                 ];
                 match variant {

@@ -10,7 +10,9 @@
 //! An imported name says nothing of its role: in an input it is taken as a
 //! trait, in a yield as a type.
 
-use crate::{Identifiable, Intrinsic, Name, Reference, Resolution, Resolving, Scope};
+use crate::{
+    Identifiable, Intrinsic, Name, Reference, ReferenceAccess, Resolution, Resolving, Scope,
+};
 
 /// Where a reference in a capability's signature stands.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -56,10 +58,20 @@ trait Binding {
 
 impl Binding for Reference {
     fn binding(&self, scope: &Scope) -> Stance {
+        let Some(reference) = self.named() else {
+            return Stance::Concrete;
+        };
         for associated in scope.associated {
-            if associated.bounds.iter().any(|bound| {
-                bound.arguments.is_empty() && bound.source == self.source && bound.name == self.name
-            }) {
+            if associated
+                .bounds
+                .iter()
+                .filter_map(Reference::named)
+                .any(|bound| {
+                    bound.arguments.is_empty()
+                        && bound.source == reference.source
+                        && bound.name == reference.name
+                })
+            {
                 return Stance::Bound(associated.name.clone());
             }
         }
@@ -69,8 +81,11 @@ impl Binding for Reference {
 
 impl Standing for Reference {
     fn stance(&self, scope: &Scope, place: Place) -> Stance {
-        if let Some(source) = &self.source {
-            return match Intrinsic::identify(&self.name.0) {
+        let Some(reference) = self.named() else {
+            return Stance::Concrete;
+        };
+        if let Some(source) = &reference.source {
+            return match Intrinsic::identify(&reference.name.0) {
                 Some(intrinsic) if source.as_ref() == "protos" && intrinsic.concrete() => {
                     Stance::Concrete
                 }
@@ -78,7 +93,7 @@ impl Standing for Reference {
                 _ => Stance::Kept,
             };
         }
-        match scope.resolve(&self.name) {
+        match scope.resolve(&reference.name) {
             Resolution::Intrinsic(intrinsic) if intrinsic.concrete() => Stance::Concrete,
             Resolution::Intrinsic(Intrinsic::Sized) => self.binding(scope),
             Resolution::Type(_) => Stance::Concrete,

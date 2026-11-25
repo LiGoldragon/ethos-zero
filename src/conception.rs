@@ -6,9 +6,9 @@ use protos::{Enclosure, Protos, Separator, Symbol};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Entry, Error, Ethosizable, File, Form, Identifiable, Identity, Import,
-    Imported, Library, Memory, Name, Named, Operation, Placing, Position, Problem, Process,
-    ProcessDeclaration, Receiver, Reference, Root, Signal, Signature, Source, Spelled, Succeeding,
-    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Imported, Library, Memory, Name, Named, NamedReference, Operation, Placing, Position, Problem,
+    Process, ProcessDeclaration, Receiver, Reference, Root, Signal, Signature, Source, Spelled,
+    Succeeding, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Conceiving<C> {
@@ -173,6 +173,24 @@ impl Constraining for [Protos] {
         pairs
     }
 }
+/// The trait whose capability attaches the angled arguments of a named reference.
+trait Applying {
+    fn apply(&mut self, children: &[Protos]) -> Result<(), Error>;
+}
+
+impl Applying for Reference {
+    fn apply(&mut self, children: &[Protos]) -> Result<(), Error> {
+        let Self::Named(reference) = self else {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Expected(Form::Reference),
+            ));
+        };
+        reference.arguments = children.references()?;
+        Ok(())
+    }
+}
+
 trait References {
     fn references(&self) -> Result<Vec<Reference>, Error>;
 }
@@ -182,7 +200,7 @@ impl References for [Protos] {
         for (node, arguments, index) in self.constrained() {
             let mut reference: Reference = node.conceive().place(index as Integer)?;
             if let Some(children) = arguments {
-                reference.arguments = children.references().place((index + 1) as Integer)?;
+                reference.apply(children).place((index + 1) as Integer)?;
             }
             values.push(reference);
         }
@@ -218,7 +236,7 @@ impl Positions for [Protos] {
             }
             let mut reference: Reference = node.conceive().place(index as Integer)?;
             if let Some(children) = arguments {
-                reference.arguments = children.references().place((index + 1) as Integer)?;
+                reference.apply(children).place((index + 1) as Integer)?;
             }
             values.push(Position::Referenced(reference));
         }
@@ -260,7 +278,7 @@ impl Declaring for Protos {
                     Problem::Expected(Form::Declaration),
                 ));
             };
-            reference.arguments = children.references().place((index + 1) as Integer)?;
+            reference.apply(children).place((index + 1) as Integer)?;
         }
         Ok(declaration)
     }
@@ -280,7 +298,7 @@ impl Variants for [Protos] {
                         Problem::Expected(Form::Variant),
                     ));
                 };
-                reference.arguments = children.references().place((index + 1) as Integer)?;
+                reference.apply(children).place((index + 1) as Integer)?;
             }
             values.push(variant);
         }
@@ -651,27 +669,48 @@ impl Conceiving<Reference> for Protos {
         match self {
             Protos::Bare { text, .. } => match text.rsplit_once(':') {
                 // A rooted reference, `:protos:Error`, names its source in place.
-                Some((source, name)) if text.starts_with(':') => Ok(Reference {
-                    source: Some(
-                        Source::try_from(source)
-                            .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))?,
-                    ),
-                    name: name.name()?,
-                    arguments: vec![],
-                }),
-                _ => Ok(Reference {
+                Some((source, name)) if text.starts_with(':') => {
+                    Ok(Reference::Named(NamedReference {
+                        source: Some(
+                            Source::try_from(source)
+                                .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))?,
+                        ),
+                        name: name.name()?,
+                        arguments: vec![],
+                    }))
+                }
+                _ => Ok(Reference::Named(NamedReference {
                     source: None,
                     name: text.as_str().name()?,
                     arguments: vec![],
-                }),
+                })),
             },
+            Protos::Enclosed {
+                enclosure: Enclosure::WhiteBracketed,
+                children,
+                ..
+            } => {
+                let mut elements = children.references()?;
+                if elements.len() != 1 {
+                    return Err(Error::conceptual(
+                        vec![],
+                        Problem::arity(1, elements.len() as Integer),
+                    ));
+                }
+                Ok(Reference::Vector(Box::new(elements.remove(0))))
+            }
             Protos::Headed {
                 head,
                 separator: Separator::Colon,
                 body,
                 ..
             } => {
-                let mut r: Reference = body.conceive().place(1)?;
+                let Reference::Named(mut r) = body.conceive().place(1)? else {
+                    return Err(Error::conceptual(
+                        vec![1],
+                        Problem::Expected(Form::Reference),
+                    ));
+                };
                 if r.source.as_ref().is_some_and(Spelled::rooted) {
                     return Err(Error::conceptual(
                         vec![1],
@@ -685,7 +724,7 @@ impl Conceiving<Reference> for Protos {
                     Some(inner) => inner.beneath(&source).place(1)?,
                     None => source,
                 });
-                Ok(r)
+                Ok(Reference::Named(r))
             }
             _ => Err(Error::conceptual(
                 vec![],
@@ -731,11 +770,11 @@ impl Rooting for Protos {
             .map_err(|text| Error::conceptual(depth, Problem::Name(text)))?;
         let source = Source::try_from(source.as_str())
             .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?;
-        Ok(Reference {
+        Ok(Reference::Named(NamedReference {
             source: Some(source),
             name,
             arguments: vec![],
-        })
+        }))
     }
 }
 impl Conceiving<TypeDeclaration> for Protos {

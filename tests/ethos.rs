@@ -1739,3 +1739,85 @@ fn the_retired_stream_block_is_refused() {
         }
     }
 }
+
+#[test]
+fn white_vectors_generate_the_same_rust_as_legacy_vectors() {
+    let legacy = "Library [] [ FilePath.String SyntaxError.Vector<FilePath> Table.{ Vector<Vector<Option<String>>> } Tree.{ Vector<Self> } Reply.[ Many.Vector<FilePath> Empty ] ] [ Listing.[ list![ Vector<FilePath> ] ] ] []";
+    let white = "Library [] [ FilePath.String SyntaxError.⟦ FilePath ⟧ Table.{ ⟦ ⟦ Option<String> ⟧ ⟧ } Tree.{ ⟦ Self ⟧ } Reply.[ Many.⟦ FilePath ⟧ Empty ] ] [ Listing.[ list![ ⟦ FilePath ⟧ ] ] ] []";
+    assert_eq!(white.compact(), legacy.compact());
+
+    let mixed = "Library [] [ Mixed.{ Vector<⟦ String ⟧> ⟦ Vector<Integer> ⟧ } ] [] []";
+    assert_eq!(
+        mixed.compact(),
+        "Library [] [ Mixed.{ Vector<Vector<String>> Vector<Vector<Integer>> } ] [] []".compact(),
+    );
+}
+
+#[test]
+fn white_vectors_keep_their_meaning_when_the_legacy_name_is_imported() {
+    let rust = "Library [ external:Vector ] [ External.Vector<String> BuiltIn.⟦ String ⟧ ] [] []"
+        .compact();
+    assert!(
+        rust.contains("pubstructExternal(pubexternal::Vector<alloc::string::String>)"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("pubstructBuiltIn(puballoc::vec::Vec<alloc::string::String>)"),
+        "{rust}"
+    );
+}
+
+#[test]
+fn a_white_enclosure_holds_exactly_one_type() {
+    for (contents, count) in [
+        ("", 0),
+        ("String Integer", 2),
+        ("Option<String> Integer", 2),
+    ] {
+        let source = format!("Library [] [ Alias.⟦ {contents} ⟧ ] [] []");
+        let Err(Error::Conceptual(error)) = Potential::<File>::from(source.as_str()).actualize()
+        else {
+            panic!("invalid vector arity must be refused: {source}");
+        };
+        assert_eq!(error.integer_vector, vec![1, 1, 0, 1], "{source}");
+        assert_eq!(
+            error.problem,
+            Problem::Arity(ethos_zero::Arity_Data {
+                first_integer: 1,
+                second_integer: count,
+            }),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn white_vector_errors_point_to_the_authored_element() {
+    let (path, problem) =
+        "Library [] [ Record.{ First.⟦ Option<⟦ Missing ⟧> ⟧ String } ] [] []".refusal();
+    assert_eq!(problem, Problem::Undeclared("Missing".to_owned()));
+    assert_eq!(path, vec![1, 1, 0, 1, 0, 1, 1, 0, 0]);
+
+    for source in [
+        "Library ⟦ String ⟧ [] [] []",
+        "Library [] [ Reply.[ ⟦ String ⟧ Empty ] ] [] []",
+        "Library [] [ Alias.⟦ String ⟧<Integer> ] [] []",
+        "Library [] [ Alias.⟦ { String } ⟧ ] [] []",
+        "Library [] [] [ Bad<⟦ String ⟧>.[] ] []",
+    ] {
+        assert!(
+            Potential::<File>::from(source)
+                .actualize()
+                .and_then(|file| file.generate())
+                .is_err(),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn legacy_and_white_spelling_cannot_bind_two_outcomes_to_one_emission_type() {
+    let (_, problem) =
+        "Emission [] [ First.Vector<String> Second.⟦ String ⟧ ] [ Done Gone ] []".refusal();
+    assert_eq!(problem, Problem::Duplicate("Vector".to_owned()));
+}

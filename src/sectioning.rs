@@ -14,7 +14,9 @@
 use datom_codec::{Integer, Path};
 
 use crate::checking::Spanning;
-use crate::{Entry, File, Import, Name, Position, Reference, TypeDeclaration, Variant};
+use crate::{
+    Entry, File, Import, Name, NamedReference, Position, Reference, TypeDeclaration, Variant,
+};
 
 /// An enum a root implies: its name, its variants and the section holding them.
 pub(crate) struct Implied<'a> {
@@ -276,13 +278,13 @@ impl Referencing for Position {
     fn reference(&self) -> Reference {
         match self {
             Position::Referenced(reference) => reference.clone(),
-            Position::Declared(declaration) => Reference {
+            Position::Declared(declaration) => Reference::Named(NamedReference {
                 source: None,
                 name: crate::checking::Identified::identity(declaration)
                     .name
                     .clone(),
                 arguments: vec![],
-            },
+            }),
         }
     }
 }

@@ -155,3 +155,24 @@ fn the_crates_own_ethos_is_written_in_the_canonical_print() {
         assert_eq!(file.print(), uncommented, "{name}");
     }
 }
+
+#[test]
+fn white_vectors_round_trip_in_mixed_type_positions() {
+    let source = "Library [] [ Item.String Items.⟦ Item ⟧ Reply.[ Items.⟦ Option<⟦ Item ⟧> ⟧ Empty ] Mixed.{ ⟦ Vector<Item> ⟧ Vector<⟦ Item ⟧> } ] [ Listing.[ list![ ⟦ Item ⟧ ] ] ] []";
+    let file = Potential::<File>::from(source).actualize().unwrap();
+    let printed = file.print();
+    for spelling in [
+        "Items.⟦ Item ⟧",
+        "Items.⟦ Option<⟦ Item ⟧> ⟧",
+        "⟦ Vector<Item> ⟧",
+        "Vector<⟦ Item ⟧>",
+    ] {
+        assert!(printed.contains(spelling), "{printed}");
+    }
+    assert_eq!(
+        Potential::<File>::from(printed.as_str())
+            .actualize()
+            .unwrap(),
+        file
+    );
+}

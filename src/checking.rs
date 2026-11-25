@@ -15,9 +15,9 @@ use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Entry, Error, File, Identifiable, Identity, Import, Intrinsic, Memory,
-    Name, Operation, Placing, Position, Problem, Process, ProcessDeclaration, Reference,
-    Resolution, Resolving, Role, Scope, Signal, Signature, Spelled, TraitBody, TraitDeclaration,
-    TypeDeclaration, Variant, Wrapping_Data,
+    Name, NamedReference, Operation, Placing, Position, Problem, Process, ProcessDeclaration,
+    Reference, ReferenceAccess, Resolution, Resolving, Role, Scope, Signal, Signature, Spelled,
+    TraitBody, TraitDeclaration, TypeDeclaration, Variant, Wrapping_Data,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -231,11 +231,15 @@ impl Resolving for Identity {
                 Constraint::One(reference) => std::slice::from_ref(reference),
                 Constraint::Many(references) => references,
             };
-            if references.iter().any(|reference| {
-                reference.source.is_none()
-                    && reference.arguments.is_empty()
-                    && &reference.name == name
-            }) {
+            if references
+                .iter()
+                .filter_map(Reference::named)
+                .any(|reference| {
+                    reference.source.is_none()
+                        && reference.arguments.is_empty()
+                        && &reference.name == name
+                })
+            {
                 if parameter.is_some() {
                     return Resolution::Ambiguous(name.clone());
                 }
@@ -458,7 +462,10 @@ pub(crate) trait Spanning {
 
 impl Spanning for Reference {
     fn span(&self) -> Integer {
-        if self.arguments.is_empty() { 1 } else { 2 }
+        match self.named() {
+            Some(reference) if !reference.arguments.is_empty() => 2,
+            _ => 1,
+        }
     }
 }
 
@@ -657,14 +664,17 @@ trait Inhabiting {
 
 impl Inhabiting for Reference {
     fn inhabited(&self, file: &File, owner: &Name, known: &Inhabitation) -> bool {
-        if self.source.is_some() {
+        let Some(reference) = self.named() else {
+            return true;
+        };
+        if reference.source.is_some() {
             return true;
         }
-        match file.resolve(&self.name) {
+        match file.resolve(&reference.name) {
             Resolution::Intrinsic(Intrinsic::Itself) => known.inhabited.contains(owner),
             Resolution::Intrinsic(Intrinsic::Result) => {
-                self.arguments.is_empty()
-                    || self
+                reference.arguments.is_empty()
+                    || reference
                         .arguments
                         .iter()
                         .any(|argument| argument.inhabited(file, owner, known))
@@ -1329,11 +1339,11 @@ impl Checkable for Process {
 
 impl Checkable for ProcessDeclaration {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
-        Reference {
+        Reference::Named(NamedReference {
             source: None,
             name: self.name.clone(),
             arguments: vec![],
-        }
+        })
         .check(scope)
         .place(0)?;
         self.configured.check_children(scope).place(0).place(1)?;
@@ -1368,11 +1378,11 @@ impl Checkable for Entry {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
             Entry::Declared(declaration) => declaration.check(scope),
-            Entry::Named(name) => Reference {
+            Entry::Named(name) => Reference::Named(NamedReference {
                 source: None,
                 name: name.clone(),
                 arguments: vec![],
-            }
+            })
             .check(scope),
         }
     }
@@ -1413,7 +1423,7 @@ impl Checkable for Identity {
         }
         let mut parameters: Vec<&Name> = Vec::new();
         for (index, constraint) in self.constraints.iter().enumerate() {
-            if let Constraint::One(reference) = constraint
+            if let Constraint::One(Reference::Named(reference)) = constraint
                 && reference.source.is_none()
                 && reference.arguments.is_empty()
             {
@@ -1508,8 +1518,9 @@ pub(crate) trait Streaming {
 
 impl Streaming for Reference {
     fn stream(&self, scope: &Scope) -> Option<&Reference> {
-        if self.source.is_none()
-            && scope.resolve(&self.name) == Resolution::Intrinsic(Intrinsic::Stream)
+        let reference = self.named()?;
+        if reference.source.is_none()
+            && scope.resolve(&reference.name) == Resolution::Intrinsic(Intrinsic::Stream)
         {
             Some(self)
         } else {
@@ -1533,7 +1544,7 @@ impl Referring for Reference {
         if self.stream(scope).is_some() {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Placement(self.name.0.clone()),
+                Problem::Placement(self.title().to_owned()),
             ));
         }
         self.refer_arguments(scope)
@@ -1571,48 +1582,57 @@ impl ReferringEach for [Reference] {
 
 impl ReferringParts for Reference {
     fn refer_node(&self, scope: &Scope, role: Role) -> Result<(), Error> {
-        if self.source.is_some() && self.name.0 == "Self" {
+        let Some(reference) = self.named() else {
+            return match role {
+                Role::Type => Ok(()),
+                Role::Trait => Err(Error::conceptual(
+                    vec![],
+                    Problem::Role(self.title().to_owned()),
+                )),
+            };
+        };
+        if reference.source.is_some() && reference.name.0 == "Self" {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Name(self.name.0.clone()),
+                Problem::Name(reference.name.0.clone()),
             ));
         }
         // A direct Protos intrinsic has the same contract whether it arrives
         // through an import or an explicit qualification. Other sources own
         // their declaration metadata.
-        if self
+        if reference
             .source
             .as_ref()
             .is_some_and(|source| source.as_ref() == "protos")
-            && let Some(intrinsic) = Intrinsic::identify(&self.name.0)
+            && let Some(intrinsic) = Intrinsic::identify(&reference.name.0)
         {
             if intrinsic.role() != role {
                 return Err(Error::conceptual(
                     vec![],
-                    Problem::Role(self.name.0.clone()),
+                    Problem::Role(reference.name.0.clone()),
                 ));
             }
-            if intrinsic.arity() != self.arguments.len() {
+            if intrinsic.arity() != reference.arguments.len() {
                 return Err(Error::conceptual(
                     vec![],
                     Problem::arity(
                         intrinsic.arity() as Integer,
-                        self.arguments.len() as Integer,
+                        reference.arguments.len() as Integer,
                     ),
                 ));
             }
         }
         // A sourced reference carries the foreign name in the headed body's
         // structural child at index one.
-        if self.source.is_none() {
-            let requirement = match scope.resolve(&self.name) {
+        if reference.source.is_none() {
+            let requirement = match scope.resolve(&reference.name) {
                 Resolution::Ambiguous(name) => {
                     return Err(Error::conceptual(vec![], Problem::Duplicate(name.0)));
                 }
                 Resolution::Undeclared => {
                     return Err(Error::conceptual(
                         vec![],
-                        Problem::Undeclared(self.name.0.clone()),
+                        Problem::Undeclared(reference.name.0.clone()),
                     ));
                 }
                 Resolution::Intrinsic(intrinsic) => ReferenceRequirement {
@@ -1643,9 +1663,9 @@ impl ReferringParts for Reference {
                     arity: None,
                 },
                 Resolution::Imported(source, emitted)
-                    if source.as_ref() == "protos" && emitted == self.name =>
+                    if source.as_ref() == "protos" && emitted == reference.name =>
                 {
-                    match Intrinsic::identify(&self.name.0) {
+                    match Intrinsic::identify(&reference.name.0) {
                         Some(intrinsic) => ReferenceRequirement {
                             role: intrinsic.role(),
                             arity: Some(intrinsic.arity()),
@@ -1658,15 +1678,15 @@ impl ReferringParts for Reference {
             if requirement.role != role {
                 return Err(Error::conceptual(
                     vec![],
-                    Problem::Role(self.name.0.clone()),
+                    Problem::Role(reference.name.0.clone()),
                 ));
             }
             if let Some(expected) = requirement.arity
-                && expected != self.arguments.len()
+                && expected != reference.arguments.len()
             {
                 return Err(Error::conceptual(
                     vec![],
-                    Problem::arity(expected as Integer, self.arguments.len() as Integer),
+                    Problem::arity(expected as Integer, reference.arguments.len() as Integer),
                 ));
             }
         }
@@ -1674,9 +1694,14 @@ impl ReferringParts for Reference {
     }
 
     fn refer_arguments(&self, scope: &Scope) -> Result<(), Error> {
-        // The arguments stand in the angled enclosure beside this node.
+        // A vector's element is inside the enclosure itself. Named arguments
+        // stand in an angled enclosure beside their reference.
+        let reference = match self {
+            Self::Vector(element) => return element.refer(scope, Role::Type).beside(0),
+            Self::Named(reference) => reference,
+        };
         let mut at = 0;
-        for argument in &self.arguments {
+        for argument in &reference.arguments {
             argument.refer(scope, Role::Type).beside(at).place(BESIDE)?;
             at += argument.span();
         }
@@ -1692,7 +1717,7 @@ trait Wrapping {
 
 impl Wrapping for TypeDeclaration {
     fn refuse_wrapping(&self, scope: &Scope) -> Result<(), Error> {
-        let TypeDeclaration::Alias(identity, wrapped) = self else {
+        let TypeDeclaration::Alias(identity, Reference::Named(wrapped)) = self else {
             return Ok(());
         };
         if wrapped.source.is_some() || !wrapped.arguments.is_empty() {
@@ -1794,16 +1819,20 @@ struct AliasApplication<'a> {
 
 impl Cycling for Reference {
     fn cycles(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
-        if self.source.is_some() {
-            return self
+        let reference = match self {
+            Self::Vector(element) => return element.cycles(target, file, visited),
+            Self::Named(reference) => reference,
+        };
+        if reference.source.is_some() {
+            return reference
                 .arguments
                 .iter()
                 .any(|argument| argument.cycles(target, file, visited));
         }
-        if &self.name == target {
+        if &reference.name == target {
             return true;
         }
-        match file.resolve(&self.name) {
+        match file.resolve(&reference.name) {
             Resolution::Type(name) => {
                 if visited.contains(&name) {
                     return false;
@@ -1816,14 +1845,14 @@ impl Cycling for Reference {
                         visited,
                         AliasApplication {
                             identity,
-                            arguments: &self.arguments,
+                            arguments: &reference.arguments,
                         },
                     ),
                     _ => false,
                 }
             }
             Resolution::Intrinsic(_) | Resolution::Imported(_, _) => {
-                for argument in &self.arguments {
+                for argument in &reference.arguments {
                     if argument.cycles(target, file, visited) {
                         return true;
                     }
@@ -1845,22 +1874,28 @@ impl Cycling for Reference {
         visited: &mut Vec<Name>,
         application: AliasApplication<'_>,
     ) -> bool {
-        if self.source.is_none()
-            && self.arguments.is_empty()
-            && let Resolution::Parameter(index) = application.identity.resolve(&self.name)
+        let reference = match self {
+            Self::Vector(element) => {
+                return element.cycles_substituting(target, file, visited, application);
+            }
+            Self::Named(reference) => reference,
+        };
+        if reference.source.is_none()
+            && reference.arguments.is_empty()
+            && let Resolution::Parameter(index) = application.identity.resolve(&reference.name)
         {
             return application.arguments[index as usize].cycles(target, file, visited);
         }
-        if self.source.is_some() {
-            return self
+        if reference.source.is_some() {
+            return reference
                 .arguments
                 .iter()
                 .any(|argument| argument.cycles_substituting(target, file, visited, application));
         }
-        if &self.name == target {
+        if &reference.name == target {
             return true;
         }
-        match file.resolve(&self.name) {
+        match file.resolve(&reference.name) {
             Resolution::Type(name) => {
                 if visited.contains(&name) {
                     return false;
@@ -1873,13 +1908,13 @@ impl Cycling for Reference {
                         visited,
                         AliasApplication {
                             identity,
-                            arguments: &self.arguments,
+                            arguments: &reference.arguments,
                         },
                     ),
                     _ => false,
                 }
             }
-            Resolution::Intrinsic(_) | Resolution::Imported(_, _) => self
+            Resolution::Intrinsic(_) | Resolution::Imported(_, _) => reference
                 .arguments
                 .iter()
                 .any(|argument| argument.cycles_substituting(target, file, visited, application)),
@@ -1933,22 +1968,25 @@ trait Supercycling {
 
 impl Supercycling for Reference {
     fn reaches_supertrait(&self, target: &Name, file: &File, visited: &mut Vec<Name>) -> bool {
-        if self.source.is_some() {
+        let Some(reference) = self.named() else {
+            return false;
+        };
+        if reference.source.is_some() {
             return false;
         }
-        if &self.name == target {
+        if &reference.name == target {
             return true;
         }
-        if visited.contains(&self.name) {
+        if visited.contains(&reference.name) {
             return false;
         }
-        let Some(declaration) = file.trait_declaration(&self.name) else {
+        let Some(declaration) = file.trait_declaration(&reference.name) else {
             return false;
         };
         let TraitBody::Complex { supertraits, .. } = &declaration.body else {
             return false;
         };
-        visited.push(self.name.clone());
+        visited.push(reference.name.clone());
         for supertrait in supertraits {
             if supertrait.reaches_supertrait(target, file, visited) {
                 return true;
@@ -2102,14 +2140,43 @@ trait NamingCarried {
 impl NamingCarried for Variant {
     fn named_carried(&self, scope: &Scope) -> Option<Reference> {
         match self {
-            Variant::Bare(name) if scope.carries(name) => Some(Reference {
+            Variant::Bare(name) if scope.carries(name) => Some(Reference::Named(NamedReference {
                 source: None,
                 name: name.clone(),
                 arguments: vec![],
-            }),
+            })),
             Variant::Typed(_, reference) => Some(reference.clone()),
             Variant::Bare(_) | Variant::Struct(_, _) | Variant::Enum(_, _) => None,
         }
+    }
+}
+
+/// The trait whose capability compares carried types while the legacy vector
+/// spelling is still read. A name that shadows the intrinsic keeps its meaning.
+trait MatchingType {
+    fn same_type(&self, other: &Self, scope: &Scope) -> bool;
+}
+
+impl MatchingType for Reference {
+    fn same_type(&self, other: &Self, scope: &Scope) -> bool {
+        let same_head = match (self, other) {
+            (Self::Vector(_), Self::Vector(_)) => true,
+            (Self::Named(left), Self::Named(right)) => {
+                left.name == right.name && left.source == right.source
+            }
+            (Self::Named(named), Self::Vector(_)) | (Self::Vector(_), Self::Named(named)) => {
+                named.source.is_none()
+                    && scope.resolve(&named.name) == Resolution::Intrinsic(Intrinsic::Vector)
+            }
+        };
+        let left = self.arguments();
+        let right = other.arguments();
+        same_head
+            && left.len() == right.len()
+            && left
+                .iter()
+                .zip(right)
+                .all(|(left, right)| left.same_type(right, scope))
     }
 }
 
@@ -2126,10 +2193,13 @@ impl Binding for [Variant] {
         let mut at = 0;
         for emission in self {
             if let Some(reference) = emission.named_carried(scope) {
-                if carried.contains(&reference) {
+                if carried
+                    .iter()
+                    .any(|prior| prior.same_type(&reference, scope))
+                {
                     return Err(Error::conceptual(
                         vec![at],
-                        Problem::Duplicate(reference.name.0.clone()),
+                        Problem::Duplicate(reference.title().to_owned()),
                     ));
                 }
                 carried.push(reference);

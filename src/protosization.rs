@@ -7,8 +7,8 @@ use protos::{
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, Emission, Entry, File,
     Identity, Import, Imported, Library, Memory, Operation, Position, Process, ProcessDeclaration,
-    Receiver, Reference, Signal, Signature, Source, Spelled, TraitBody, TraitDeclaration,
-    TypeDeclaration, Variant,
+    Receiver, Reference, ReferenceAccess, Signal, Signature, Source, Spelled, TraitBody,
+    TraitDeclaration, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Protosizing {
@@ -91,6 +91,9 @@ trait AliasHeading {
 }
 impl AliasHeading for Identity {
     fn alias(&self, reference: &Reference) -> Protos {
+        let Some(reference) = reference.named() else {
+            return self.heading(Separator::Period, reference.protos());
+        };
         match &reference.source {
             Some(source) if source.rooted() => self.heading(
                 Separator::Colon,
@@ -141,15 +144,17 @@ impl ReferencesProtosizing for [Reference] {
     fn reference_nodes(&self) -> Vec<Protos> {
         let mut nodes = Vec::new();
         for reference in self {
-            if reference.arguments.is_empty() {
-                nodes.push(reference.protos());
-            } else {
+            if let Reference::Named(reference) = reference
+                && !reference.arguments.is_empty()
+            {
                 let base = match &reference.source {
                     Some(source) => source.qualified(reference.name.as_ref()),
                     None => reference.name.as_ref().bare(),
                 };
                 nodes.push(base);
                 nodes.push("".enclosed(Enclosure::Angled, reference.arguments.reference_nodes()));
+            } else {
+                nodes.push(reference.protos());
             }
         }
         nodes
@@ -190,7 +195,9 @@ impl VariantsProtosizing for [Variant] {
         let mut nodes = Vec::new();
         for variant in self {
             match variant {
-                Variant::Typed(name, reference) if !reference.arguments.is_empty() => {
+                Variant::Typed(name, Reference::Named(reference))
+                    if !reference.arguments.is_empty() =>
+                {
                     let body = match &reference.source {
                         Some(source) => source.qualified(reference.name.as_ref()),
                         None => reference.name.as_ref().bare(),
@@ -211,11 +218,11 @@ impl DeclarationsProtosizing for [TypeDeclaration] {
         let mut nodes = Vec::new();
         for declaration in self {
             match declaration {
-                TypeDeclaration::Alias(identity, reference) if !reference.arguments.is_empty() => {
+                TypeDeclaration::Alias(identity, reference @ Reference::Named(named))
+                    if !named.arguments.is_empty() =>
+                {
                     nodes.push(identity.alias(reference));
-                    nodes.push(
-                        "".enclosed(Enclosure::Angled, reference.arguments.reference_nodes()),
-                    );
+                    nodes.push("".enclosed(Enclosure::Angled, named.arguments.reference_nodes()));
                 }
                 _ => nodes.push(declaration.protos()),
             }
@@ -248,20 +255,28 @@ impl PositionsProtosizing for [Position] {
 
 impl Protosizing for Reference {
     fn protos(&self) -> Protos {
-        let base = self.name.as_ref().bare();
-        let applied = if self.arguments.is_empty() {
+        let reference = match self {
+            Self::Vector(element) => {
+                let children = std::slice::from_ref(element.as_ref()).reference_nodes();
+                return "".enclosed(Enclosure::WhiteBracketed, children);
+            }
+            Self::Named(reference) => reference,
+        };
+        let base = reference.name.as_ref().bare();
+        let applied = if reference.arguments.is_empty() {
             base
         } else {
-            let arguments = "".enclosed(Enclosure::Angled, self.arguments.protos_list());
+            let arguments = "".enclosed(Enclosure::Angled, reference.arguments.protos_list());
             "".enclosed(Enclosure::Braced, vec![base, arguments])
         };
-        match &self.source {
+        match &reference.source {
             Some(source) if source.rooted() => {
-                let base = source.qualified(self.name.as_ref());
-                if self.arguments.is_empty() {
+                let base = source.qualified(reference.name.as_ref());
+                if reference.arguments.is_empty() {
                     base
                 } else {
-                    let arguments = "".enclosed(Enclosure::Angled, self.arguments.protos_list());
+                    let arguments =
+                        "".enclosed(Enclosure::Angled, reference.arguments.protos_list());
                     "".enclosed(Enclosure::Braced, vec![base, arguments])
                 }
             }
@@ -343,8 +358,10 @@ impl Protosizing for TypeDeclaration {
                 Separator::Period,
                 "".enclosed(Enclosure::Bracketed, variants.variant_nodes()),
             ),
-            Self::Alias(identity, reference) => match &reference.source {
-                Some(source) if source.rooted() => identity.alias(reference),
+            Self::Alias(identity, reference) => match reference.named() {
+                Some(named) if named.source.as_ref().is_some_and(Spelled::rooted) => {
+                    identity.alias(reference)
+                }
                 _ => identity.heading(Separator::Period, reference.protos()),
             },
         }

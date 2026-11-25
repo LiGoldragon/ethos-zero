@@ -29,8 +29,9 @@ use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
-    Identity, Intrinsic, Name, Position, Receiver, Reference, Resolution, Resolving, Scope,
-    Signature, Source, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Identity, Intrinsic, Name, NamedReference, Position, Receiver, Reference, ReferenceAccess,
+    Resolution, Resolving, Scope, Signature, Source, TraitBody, TraitDeclaration, TypeDeclaration,
+    Variant,
 };
 
 // ---------------------------------------------------------------------------
@@ -141,8 +142,8 @@ trait Lowering {
 
 impl Lowering for Reference {
     fn lowered(&self) -> String {
-        let mut lowered = self.name.0.to_lowercase();
-        for argument in &self.arguments {
+        let mut lowered = self.title().to_lowercase();
+        for argument in self.arguments() {
             lowered.push('_');
             lowered.push_str(&argument.lowered());
         }
@@ -161,8 +162,16 @@ pub(crate) trait Emitting {
 
 impl Emitting for Reference {
     fn emit(&self, scope: &Scope) -> TokenStream {
-        let mut arguments = Vec::with_capacity(self.arguments.len());
-        for argument in &self.arguments {
+        let reference = match self {
+            Self::Vector(element) => {
+                let vector = Intrinsic::Vector.tokens();
+                let element = element.emit(scope);
+                return quote! { #vector <#element> };
+            }
+            Self::Named(reference) => reference,
+        };
+        let mut arguments = Vec::with_capacity(reference.arguments.len());
+        for argument in &reference.arguments {
             arguments.push(argument.emit(scope));
         }
         let applied = if arguments.is_empty() {
@@ -170,12 +179,12 @@ impl Emitting for Reference {
         } else {
             quote! { < #( #arguments ),* > }
         };
-        let name = self.name.tokens();
-        if let Some(source) = &self.source {
+        let name = reference.name.tokens();
+        if let Some(source) = &reference.source {
             let source = source.tokens();
             return quote! { #source :: #name #applied };
         }
-        match scope.resolve(&self.name) {
+        match scope.resolve(&reference.name) {
             Resolution::Intrinsic(intrinsic) => {
                 let intrinsic = intrinsic.tokens();
                 quote! { #intrinsic #applied }
@@ -307,11 +316,17 @@ impl Reaching for Reference {
         file: &File,
         visited: &mut Vec<Name>,
     ) -> bool {
-        if self.source.is_none() {
-            if &self.name == target || self.name.0 == "Self" {
+        let reference = match self {
+            Self::Vector(element) => {
+                return passage == Passage::Any && element.reaches(target, passage, file, visited);
+            }
+            Self::Named(reference) => reference,
+        };
+        if reference.source.is_none() {
+            if &reference.name == target || reference.name.0 == "Self" {
                 return true;
             }
-            match file.resolve(&self.name) {
+            match file.resolve(&reference.name) {
                 Resolution::Intrinsic(Intrinsic::Vector) if passage == Passage::ByValue => {
                     return false;
                 }
@@ -326,7 +341,7 @@ impl Reaching for Reference {
                 _ => {}
             }
         }
-        for argument in &self.arguments {
+        for argument in &reference.arguments {
             if argument.reaches(target, passage, file, visited) {
                 return true;
             }
@@ -431,11 +446,11 @@ trait Carried {
 
 impl Carried for Name {
     fn carried(&self) -> Reference {
-        Reference {
+        Reference::Named(NamedReference {
             source: None,
             name: self.clone(),
             arguments: vec![],
-        }
+        })
     }
 }
 
@@ -465,13 +480,16 @@ trait Closing {
 
 impl Closing for Reference {
     fn closes(&self, owner: &Name, file: &File) -> bool {
-        if self.source.is_some() {
+        let Some(reference) = self.named() else {
+            return false;
+        };
+        if reference.source.is_some() {
             return false;
         }
-        if &self.name == owner || self.name.0 == "Self" {
+        if &reference.name == owner || reference.name.0 == "Self" {
             return true;
         }
-        match file.resolve(&self.name) {
+        match file.resolve(&reference.name) {
             Resolution::Intrinsic(Intrinsic::Vector) => return false,
             Resolution::Type(name) => match file.declaration(&name) {
                 Some(TypeDeclaration::Alias(_, aliased)) => {
@@ -494,7 +512,7 @@ impl Closing for Reference {
             },
             _ => {}
         }
-        for argument in &self.arguments {
+        for argument in &reference.arguments {
             if argument.closes(owner, file) {
                 return true;
             }
@@ -526,14 +544,15 @@ impl Positioning for Reference {
         // `Option<Box<Tree>>` lets the Datom derive see the recursive edge,
         // while `Box<Option<Tree>>` hides it behind the container and causes
         // an infinitely recursive derive bound.
-        if self.source.is_none()
+        if let Some(reference) = self.named()
+            && reference.source.is_none()
             && let Resolution::Intrinsic(
                 intrinsic @ (Intrinsic::Option | Intrinsic::Result | Intrinsic::Stream),
-            ) = scope.file.resolve(&self.name)
+            ) = scope.file.resolve(&reference.name)
         {
             let name = intrinsic.held();
-            let mut arguments = Vec::with_capacity(self.arguments.len());
-            for argument in &self.arguments {
+            let mut arguments = Vec::with_capacity(reference.arguments.len());
+            for argument in &reference.arguments {
                 let ty = if argument.boxed(scope, owner) {
                     let inner = argument.emit(scope);
                     quote! { alloc::boxed::Box<#inner> }
@@ -617,18 +636,16 @@ impl SnakeCasing for str {
 impl Fielding for Reference {
     fn field_base(&self, owner: &Name) -> String {
         let mut parts: Vec<String> = self
-            .arguments
+            .arguments()
             .iter()
             .map(|argument| argument.field_base(owner))
             .collect();
-        // `Self` in a position is the enclosing type, and `self` is not a name a
-        // field may bear; the field takes the enclosing type's name instead.
-        let named = if self.source.is_none() && self.name.0 == "Self" {
-            owner
-        } else {
-            &self.name
+        let name = match self.named() {
+            // The field takes the name of the type that encloses Self.
+            Some(named) if named.source.is_none() && named.name.0 == "Self" => owner.as_ref(),
+            _ => self.title(),
         };
-        parts.push(named.0.as_str().snake_case());
+        parts.push(name.snake_case());
         parts.join("_")
     }
 }
@@ -885,7 +902,7 @@ trait Scalaring {
 
 impl Scalaring for Reference {
     fn scalar(&self, scope: &Scope) -> Option<Scalar> {
-        let mut reference = self;
+        let mut reference = self.named()?;
         let mut resolution = scope.resolve(&reference.name);
         // The chain of newtypes ends at the file's declarations, so it is
         // bounded by their count.
@@ -902,7 +919,7 @@ impl Scalaring for Reference {
                     Some(TypeDeclaration::Alias(identity, aliased))
                         if identity.constraints.is_empty() =>
                     {
-                        reference = aliased;
+                        reference = aliased.named()?;
                         resolution = scope.file.resolve(&reference.name);
                     }
                     _ => return None,
@@ -1187,8 +1204,9 @@ trait SelfContaining {
 
 impl SelfContaining for Reference {
     fn contains_self(&self) -> bool {
-        (self.source.is_none() && self.name.0 == "Self")
-            || self.arguments.iter().any(SelfContaining::contains_self)
+        self.named()
+            .is_some_and(|reference| reference.source.is_none() && reference.name.0 == "Self")
+            || self.arguments().iter().any(SelfContaining::contains_self)
     }
 }
 
@@ -1252,11 +1270,11 @@ impl Emitting for Association {
             identity: Some(&self.identity),
             associated: scope.associated,
         };
-        let subject = Reference {
+        let subject = Reference::Named(NamedReference {
             source: None,
             name: self.identity.name.clone(),
             arguments: vec![],
-        };
+        });
         let ty = subject.emit(scope);
         let arguments = self.identity.arguments(&inner);
         let parameters = self.identity.parameters(&inner);
@@ -1423,11 +1441,11 @@ impl United for [Variant] {
             variants.push(match variant {
                 Variant::Bare(name) if unit => Variant::Typed(
                     name.clone(),
-                    Reference {
+                    Reference::Named(NamedReference {
                         source: None,
                         name: name.clone(),
                         arguments: vec![],
-                    },
+                    }),
                 ),
                 Variant::Bare(_)
                 | Variant::Typed(_, _)
@@ -1490,20 +1508,24 @@ trait Owning {
 
 impl Owning for Reference {
     fn owned(&self, owner: &Name) -> Reference {
-        let mut arguments = Vec::with_capacity(self.arguments.len());
-        for argument in &self.arguments {
+        let reference = match self {
+            Self::Vector(element) => return Self::Vector(Box::new(element.owned(owner))),
+            Self::Named(reference) => reference,
+        };
+        let mut arguments = Vec::with_capacity(reference.arguments.len());
+        for argument in &reference.arguments {
             arguments.push(argument.owned(owner));
         }
-        let name = if self.source.is_none() && self.name.0 == "Self" {
+        let name = if reference.source.is_none() && reference.name.0 == "Self" {
             owner.clone()
         } else {
-            self.name.clone()
+            reference.name.clone()
         };
-        Reference {
-            source: self.source.clone(),
+        Reference::Named(NamedReference {
+            source: reference.source.clone(),
             name,
             arguments,
-        }
+        })
     }
 }
 
