@@ -486,6 +486,7 @@ impl Carriage for Variant {
             file,
             identity: None,
             associated: &[],
+            word_fields: crate::WordFields::Public,
         };
         let owner = Name::try_from(owner).expect("a root's implied enum is named");
         match self {
@@ -635,6 +636,7 @@ impl Describing for Nexus {
             file: &written,
             identity: None,
             associated: &[],
+            word_fields: crate::WordFields::Public,
         };
         // A process this root declares, born of the process that gives it.
         if scope.file.declaration(name).is_some() {
@@ -798,6 +800,7 @@ impl Describing for Nexus {
             file: &written,
             identity: None,
             associated: &[],
+            word_fields: crate::WordFields::Public,
         };
         let mut described: Vec<Described> = Vec::new();
         for (at, declaration) in file.processes.iter().enumerate() {
@@ -1418,6 +1421,7 @@ impl Assembling for Nexus {
                         file: &stripped,
                         identity: None,
                         associated: &[],
+                        word_fields: crate::WordFields::Public,
                     };
                     let mut items = stripped.items(&scope);
                     if !described.is_empty() {

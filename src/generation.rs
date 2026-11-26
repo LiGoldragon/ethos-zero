@@ -31,7 +31,7 @@ use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
     Identity, Intrinsic, Name, NamedReference, Position, Receiver, Reference, ReferenceAccess,
     Resolution, Resolving, Scope, Signature, Source, TraitBody, TraitDeclaration, TypeDeclaration,
-    Variant,
+    Variant, WordFields,
 };
 
 // ---------------------------------------------------------------------------
@@ -261,6 +261,7 @@ impl Parametrizing for Identity {
             file: scope.file,
             identity: None,
             associated: scope.associated,
+            word_fields: scope.word_fields,
         };
         let mut parameters = Vec::with_capacity(self.constraints.len());
         for (index, constraint) in self.constraints.iter().enumerate() {
@@ -940,6 +941,7 @@ impl Structuring for [Position] {
             file: scope.file,
             identity: None,
             associated: &[],
+            word_fields: scope.word_fields,
         };
         let mut declared = Vec::new();
         for position in self {
@@ -1021,6 +1023,7 @@ impl Emitting for TypeDeclaration {
                     file: scope.file,
                     identity: Some(identity),
                     associated: scope.associated,
+                    word_fields: scope.word_fields,
                 };
                 positions.structure(&inner, &identity.name, identity)
             }
@@ -1029,6 +1032,7 @@ impl Emitting for TypeDeclaration {
                     file: scope.file,
                     identity: Some(identity),
                     associated: scope.associated,
+                    word_fields: scope.word_fields,
                 };
                 variants.enumeration(&inner, &identity.name, identity)
             }
@@ -1037,9 +1041,41 @@ impl Emitting for TypeDeclaration {
                     file: scope.file,
                     identity: Some(identity),
                     associated: scope.associated,
+                    word_fields: scope.word_fields,
                 };
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
+                if inner.word_fields == WordFields::Closed
+                    && aliased.named().is_some_and(|reference| {
+                        reference.source.is_none()
+                            && reference.arguments.is_empty()
+                            && matches!(
+                                inner.resolve(&reference.name),
+                                Resolution::Intrinsic(Intrinsic::String)
+                            )
+                    })
+                {
+                    let arguments = identity.arguments(&inner);
+                    return quote! {
+                        #[rustfmt::skip]
+                        #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+                        #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+                        pub struct #name #parameters (alloc::string::String);
+
+                        #[rustfmt::skip]
+                        impl #parameters ::worded::Worded for #name #arguments {
+                            fn words(&self) -> alloc::string::String { self.0.clone() }
+                            fn word(words: alloc::string::String) -> Self { Self(words) }
+                        }
+
+                        #[rustfmt::skip]
+                        impl #parameters core::fmt::Debug for #name #arguments {
+                            fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                                formatter.write_str(concat!(stringify!(#name), "(<redacted>)"))
+                            }
+                        }
+                    };
+                }
                 let aliased_reference = aliased;
                 let aliased = aliased.emit(&inner);
                 let derive = match aliased_reference.scalar(&inner) {
@@ -1234,6 +1270,7 @@ impl Emitting for TraitDeclaration {
             file: scope.file,
             identity: Some(&self.identity),
             associated: types,
+            word_fields: scope.word_fields,
         };
         let name = self.identity.name.tokens();
         let parameters = self.identity.parameters(&inner);
@@ -1269,6 +1306,7 @@ impl Emitting for Association {
             file: scope.file,
             identity: Some(&self.identity),
             associated: scope.associated,
+            word_fields: scope.word_fields,
         };
         let subject = Reference::Named(NamedReference {
             source: None,
@@ -1757,10 +1795,19 @@ impl AllowFormatting for String {
 
 impl Generating for File {
     fn generate(&self) -> Result<String, crate::Error> {
+        self.generate_with_words(WordFields::Public)
+    }
+}
+
+impl File {
+    /// Check and generate this module with the cohort's String newtype policy.
+    /// Closed modules depend on the separate `worded` trait crate.
+    pub fn generate_with_words(&self, word_fields: WordFields) -> Result<String, crate::Error> {
         let scope = Scope {
             file: self,
             identity: None,
             associated: &[],
+            word_fields,
         };
         self.check(&scope)?;
         Ok(self.items(&scope).render())

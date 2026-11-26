@@ -1792,6 +1792,7 @@ impl Checkable for Position {
                 file: scope.file,
                 identity: None,
                 associated: &[],
+                word_fields: scope.word_fields,
             }),
         }
     }
@@ -2015,6 +2016,7 @@ impl Checkable for TypeDeclaration {
             file: scope.file,
             identity: Some(identity),
             associated: scope.associated,
+            word_fields: scope.word_fields,
         };
         match self {
             TypeDeclaration::Struct(_, positions) => positions.check_children(&inner).place(1),
@@ -2271,6 +2273,7 @@ impl Checkable for TraitDeclaration {
                 TraitBody::Simple(_) => &[],
                 TraitBody::Complex { types, .. } => types,
             },
+            word_fields: scope.word_fields,
         };
         match &self.body {
             TraitBody::Simple(capabilities) => {
@@ -2405,6 +2408,7 @@ impl crate::Validating for File {
             file: self,
             identity: None,
             associated: &[],
+            word_fields: crate::WordFields::Public,
         })
     }
 }

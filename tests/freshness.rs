@@ -69,3 +69,31 @@ fn the_flow_nexus_modules_are_fresh() {
         format!("fixtures/print/{stem}.ethos").fresh(&format!("tests/generated/{stem}.rs"));
     }
 }
+
+#[test]
+fn closed_words_are_selected_for_the_whole_generation() {
+    use ethos_zero::WordFields;
+
+    let file = Potential::<File>::from(
+        "Library\n[]\n[ Label.String Count.Integer Wrapped.Label Pair.{ Part.String Label } ]\n[]\n[]",
+    )
+    .actualize()
+    .expect("test schema");
+    let legacy = file.generate().expect("legacy generation");
+    let closed = file
+        .generate_with_words(WordFields::Closed)
+        .expect("closed generation");
+
+    for name in ["Label", "Part"] {
+        assert!(legacy.contains(&format!("pub struct {name}(pub alloc::string::String);")));
+        assert!(closed.contains(&format!("pub struct {name}(alloc::string::String);")));
+        assert!(closed.contains(&format!("impl ::worded::Worded for {name}")));
+        assert!(closed.contains(&format!("impl core::fmt::Debug for {name}")));
+    }
+    assert!(!legacy.contains("::worded::"));
+    assert_eq!(closed.matches("impl ::worded::Worded for ").count(), 2);
+    for snapshot in [legacy, closed] {
+        assert!(snapshot.contains("pub struct Count(pub i64);"));
+        assert!(snapshot.contains("pub struct Wrapped(pub Label);"));
+    }
+}

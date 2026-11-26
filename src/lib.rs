@@ -637,6 +637,15 @@ pub enum Role {
     Trait,
 }
 
+/// The Rust field policy selected for a generation cohort.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WordFields {
+    /// Keep the legacy public tuple field for String newtypes.
+    Public,
+    /// Close String newtypes and emit their separate Worded capability.
+    Closed,
+}
+
 /// The scope a reference resolves in: the file, and the identity and associated types of the enclosing declaration.
 #[derive(Clone, Copy, Debug)]
 pub struct Scope<'a> {
@@ -646,6 +655,8 @@ pub struct Scope<'a> {
     pub identity: Option<&'a Identity>,
     /// The enclosing trait's associated types.
     pub associated: &'a [AssociatedType],
+    /// The Rust field policy of the generation in this scope.
+    pub word_fields: WordFields,
 }
 
 // ---------------------------------------------------------------------------
@@ -1225,6 +1236,7 @@ mod behavior {
             file: &file,
             identity: None,
             associated: &[],
+            word_fields: crate::WordFields::Public,
         };
         assert!(matches!(file.check(&scope), Err(Error::Conceptual(_))));
     }
