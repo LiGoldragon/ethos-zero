@@ -1754,6 +1754,20 @@ fn white_vectors_generate_the_same_rust_as_legacy_vectors() {
 }
 
 #[test]
+fn the_protos_vector_spellings_generate_the_builtin_vec() {
+    for source in [
+        "Library [] [ Alias.protos:Vector<String> ] [] []",
+        "Library [ protos:Vector ] [ Alias.Vector<String> ] [] []",
+    ] {
+        assert_eq!(
+            source.compact(),
+            "Library [] [ Alias.⟦ String ⟧ ] [] []".compact(),
+            "{source}",
+        );
+    }
+}
+
+#[test]
 fn white_vectors_keep_their_meaning_when_the_legacy_name_is_imported() {
     let rust = "Library [ external:Vector ] [ External.Vector<String> BuiltIn.⟦ String ⟧ ] [] []"
         .compact();
@@ -1765,6 +1779,35 @@ fn white_vectors_keep_their_meaning_when_the_legacy_name_is_imported() {
         rust.contains("pubstructBuiltIn(puballoc::vec::Vec<alloc::string::String>)"),
         "{rust}"
     );
+}
+
+#[test]
+fn differently_written_nested_vectors_carry_the_same_emission_type() {
+    let (path, problem) = "Emission [] [ First.Vector<Vector<String>> Second.⟦ ⟦ String ⟧ ⟧ ] [ FirstResult SecondResult ] []".refusal();
+    assert_eq!(&path[..2], &[1, 1]);
+    assert_eq!(problem, Problem::Duplicate("Vector".to_owned()));
+}
+
+#[test]
+fn a_builtin_vector_refuses_two_arguments_in_either_spelling() {
+    for source in [
+        "Library [] [ Alias.Vector<String Integer> ] [] []",
+        "Library [] [ Alias.⟦ String Integer ⟧ ] [] []",
+    ] {
+        let potential = Potential::<File>::from(source);
+        let at = potential.actualize().and_then(|file| file.generate());
+        let Err(Error::Conceptual(error)) = at else {
+            panic!("invalid vector arity must be refused: {source}");
+        };
+        assert_eq!(error.integer_vector, vec![1, 1, 0, 1]);
+        assert_eq!(
+            error.problem,
+            Problem::Arity(ethos_zero::Arity_Data {
+                first_integer: 1,
+                second_integer: 2,
+            })
+        );
+    }
 }
 
 #[test]

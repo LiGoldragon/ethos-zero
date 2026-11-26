@@ -26,6 +26,8 @@ use datom_codec::Integer;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
+use crate::vector_normalization::NormalizedFile;
+
 use crate::checking::{
     Carrying, Declaring, Identified, Inlining, Payloading, Spanning, Titled, Uniting,
 };
@@ -1408,12 +1410,22 @@ impl Assembling for Nexus {
     fn assemble(&self) -> Result<Vec<Assembled>, Refusal> {
         self.verify()?;
         let namespace = self.namespace()?;
+        let mut process_modules = Vec::with_capacity(self.modules.len());
+        for module in &self.modules {
+            process_modules.push(Module {
+                stem: module.stem.clone(),
+                file: module.file.normalized(),
+            });
+        }
+        let processes = Nexus {
+            modules: process_modules,
+        };
         let mut assembled = Vec::with_capacity(self.modules.len());
         for (index, module) in self.modules.iter().enumerate() {
             let rust = match &module.file {
                 File::Process(_) => {
-                    let described = self.describe(index, namespace.as_deref())?;
-                    let stripped = self.stripped(index, namespace.as_deref());
+                    let described = processes.describe(index, namespace.as_deref())?;
+                    let stripped = processes.stripped(index, namespace.as_deref());
                     let scope = Scope {
                         file: &stripped,
                         identity: None,
@@ -1421,7 +1433,7 @@ impl Assembling for Nexus {
                     };
                     let mut items = stripped.items(&scope);
                     if !described.is_empty() {
-                        let written = self.resolved(index, namespace.as_deref());
+                        let written = processes.resolved(index, namespace.as_deref());
                         items.extend(described.produce(&Scope {
                             file: &written,
                             ..scope

@@ -12,12 +12,13 @@ use datom_codec::{Integer, Path};
 use crate::generation::{FieldNaming, Identifying, SnakeCasing};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
+use crate::vector_normalization::{NormalizedFile, NormalizingVectors};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Entry, Error, File, Identifiable, Identity, Import, Intrinsic, Memory,
     Name, NamedReference, Operation, Placing, Position, Problem, Process, ProcessDeclaration,
     Reference, ReferenceAccess, Resolution, Resolving, Role, Scope, Signal, Signature, Spelled,
-    TraitBody, TraitDeclaration, TypeDeclaration, Variant, Wrapping_Data,
+    TraitBody, TraitDeclaration, TypeDeclaration, Validating, Variant, Wrapping_Data,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -770,6 +771,23 @@ impl Identified for TypeDeclaration {
             | TypeDeclaration::Enum(identity, _)
             | TypeDeclaration::Alias(identity, _) => identity,
         }
+    }
+}
+
+/// The capability for checking the arity supplied to a type.
+pub(crate) trait CheckingArity {
+    fn check_arity(self, actual: usize) -> Result<(), Error>;
+}
+
+impl CheckingArity for usize {
+    fn check_arity(self, actual: usize) -> Result<(), Error> {
+        if self != actual {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::arity(self as Integer, actual as Integer),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -1558,10 +1576,48 @@ impl Admitting for Reference {
     }
 }
 
+/// Resolution for a reference, including names Protos explicitly supplies.
+pub(crate) trait ResolvingReference {
+    fn resolve_reference(&self, scope: &Scope) -> Resolution;
+}
+
+impl ResolvingReference for NamedReference {
+    fn resolve_reference(&self, scope: &Scope) -> Resolution {
+        if let Some(source) = &self.source {
+            if source.as_ref() == "protos"
+                && let Some(intrinsic) = Intrinsic::identify(self.name.as_ref())
+            {
+                return Resolution::Intrinsic(intrinsic);
+            }
+            return Resolution::Imported(source.clone(), self.name.clone());
+        }
+        match scope.resolve(&self.name) {
+            Resolution::Imported(source, emitted)
+                if source.as_ref() == "protos" && emitted == self.name =>
+            {
+                match Intrinsic::identify(self.name.as_ref()) {
+                    Some(intrinsic) => Resolution::Intrinsic(intrinsic),
+                    None => Resolution::Imported(source, emitted),
+                }
+            }
+            resolution => resolution,
+        }
+    }
+}
+
 /// The role and optional argument count a resolved reference requires.
 struct ReferenceRequirement {
     role: Role,
     arity: Option<usize>,
+}
+
+impl From<Intrinsic> for ReferenceRequirement {
+    fn from(intrinsic: Intrinsic) -> Self {
+        Self {
+            role: intrinsic.role(),
+            arity: Some(intrinsic.arity()),
+        }
+    }
 }
 
 /// The trait whose capability checks every reference of a section in one role.
@@ -1597,98 +1653,49 @@ impl ReferringParts for Reference {
                 Problem::Name(reference.name.0.clone()),
             ));
         }
-        // A direct Protos intrinsic has the same contract whether it arrives
-        // through an import or an explicit qualification. Other sources own
-        // their declaration metadata.
-        if reference
-            .source
-            .as_ref()
-            .is_some_and(|source| source.as_ref() == "protos")
-            && let Some(intrinsic) = Intrinsic::identify(&reference.name.0)
-        {
-            if intrinsic.role() != role {
+        let requirement = match reference.resolve_reference(scope) {
+            Resolution::Ambiguous(name) => {
+                return Err(Error::conceptual(vec![], Problem::Duplicate(name.0)));
+            }
+            Resolution::Undeclared => {
                 return Err(Error::conceptual(
                     vec![],
-                    Problem::Role(reference.name.0.clone()),
+                    Problem::Undeclared(reference.name.0.clone()),
                 ));
             }
-            if intrinsic.arity() != reference.arguments.len() {
-                return Err(Error::conceptual(
-                    vec![],
-                    Problem::arity(
-                        intrinsic.arity() as Integer,
-                        reference.arguments.len() as Integer,
-                    ),
-                ));
-            }
-        }
-        // A sourced reference carries the foreign name in the headed body's
-        // structural child at index one.
-        if reference.source.is_none() {
-            let requirement = match scope.resolve(&reference.name) {
-                Resolution::Ambiguous(name) => {
-                    return Err(Error::conceptual(vec![], Problem::Duplicate(name.0)));
-                }
-                Resolution::Undeclared => {
-                    return Err(Error::conceptual(
-                        vec![],
-                        Problem::Undeclared(reference.name.0.clone()),
-                    ));
-                }
-                Resolution::Intrinsic(intrinsic) => ReferenceRequirement {
-                    role: intrinsic.role(),
-                    arity: Some(intrinsic.arity()),
-                },
-                Resolution::Parameter(_) | Resolution::Associated(_) => ReferenceRequirement {
+            Resolution::Intrinsic(intrinsic) => intrinsic.into(),
+            Resolution::Parameter(_) | Resolution::Associated(_) => ReferenceRequirement {
+                role: Role::Type,
+                arity: Some(0),
+            },
+            Resolution::Type(name) => {
+                let arity = scope
+                    .file
+                    .declaration(&name)
+                    .map(|declaration| match declaration {
+                        TypeDeclaration::Struct(identity, _)
+                        | TypeDeclaration::Enum(identity, _)
+                        | TypeDeclaration::Alias(identity, _) => identity.constraints.len(),
+                    });
+                ReferenceRequirement {
                     role: Role::Type,
-                    arity: Some(0),
-                },
-                Resolution::Type(name) => {
-                    let arity =
-                        scope
-                            .file
-                            .declaration(&name)
-                            .map(|declaration| match declaration {
-                                TypeDeclaration::Struct(identity, _)
-                                | TypeDeclaration::Enum(identity, _)
-                                | TypeDeclaration::Alias(identity, _) => identity.constraints.len(),
-                            });
-                    ReferenceRequirement {
-                        role: Role::Type,
-                        arity,
-                    }
+                    arity,
                 }
-                Resolution::Trait(_) => ReferenceRequirement {
-                    role: Role::Trait,
-                    arity: None,
-                },
-                Resolution::Imported(source, emitted)
-                    if source.as_ref() == "protos" && emitted == reference.name =>
-                {
-                    match Intrinsic::identify(&reference.name.0) {
-                        Some(intrinsic) => ReferenceRequirement {
-                            role: intrinsic.role(),
-                            arity: Some(intrinsic.arity()),
-                        },
-                        None => ReferenceRequirement { role, arity: None },
-                    }
-                }
-                Resolution::Imported(_, _) => ReferenceRequirement { role, arity: None },
-            };
-            if requirement.role != role {
-                return Err(Error::conceptual(
-                    vec![],
-                    Problem::Role(reference.name.0.clone()),
-                ));
             }
-            if let Some(expected) = requirement.arity
-                && expected != reference.arguments.len()
-            {
-                return Err(Error::conceptual(
-                    vec![],
-                    Problem::arity(expected as Integer, reference.arguments.len() as Integer),
-                ));
-            }
+            Resolution::Trait(_) => ReferenceRequirement {
+                role: Role::Trait,
+                arity: None,
+            },
+            Resolution::Imported(_, _) => ReferenceRequirement { role, arity: None },
+        };
+        if requirement.role != role {
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Role(reference.name.0.clone()),
+            ));
+        }
+        if let Some(expected) = requirement.arity {
+            expected.check_arity(reference.arguments.len())?;
         }
         Ok(())
     }
@@ -2151,35 +2158,6 @@ impl NamingCarried for Variant {
     }
 }
 
-/// The trait whose capability compares carried types while the legacy vector
-/// spelling is still read. A name that shadows the intrinsic keeps its meaning.
-trait MatchingType {
-    fn same_type(&self, other: &Self, scope: &Scope) -> bool;
-}
-
-impl MatchingType for Reference {
-    fn same_type(&self, other: &Self, scope: &Scope) -> bool {
-        let same_head = match (self, other) {
-            (Self::Vector(_), Self::Vector(_)) => true,
-            (Self::Named(left), Self::Named(right)) => {
-                left.name == right.name && left.source == right.source
-            }
-            (Self::Named(named), Self::Vector(_)) | (Self::Vector(_), Self::Named(named)) => {
-                named.source.is_none()
-                    && scope.resolve(&named.name) == Resolution::Intrinsic(Intrinsic::Vector)
-            }
-        };
-        let left = self.arguments();
-        let right = other.arguments();
-        same_head
-            && left.len() == right.len()
-            && left
-                .iter()
-                .zip(right)
-                .all(|(left, right)| left.same_type(right, scope))
-    }
-}
-
 /// The trait whose capability refuses two emissions that carry the same
 /// type: each carried type is bound to the one outcome its emission pairs
 /// with, so the second is a `Duplicate` of the type, at its path.
@@ -2192,11 +2170,9 @@ impl Binding for [Variant] {
         let mut carried: Vec<Reference> = Vec::new();
         let mut at = 0;
         for emission in self {
-            if let Some(reference) = emission.named_carried(scope) {
-                if carried
-                    .iter()
-                    .any(|prior| prior.same_type(&reference, scope))
-                {
+            if let Some(mut reference) = emission.named_carried(scope) {
+                reference.normalize_vectors(scope);
+                if carried.contains(&reference) {
                     return Err(Error::conceptual(
                         vec![at],
                         Problem::Duplicate(reference.title().to_owned()),
@@ -2399,7 +2375,19 @@ impl Checkable for Association {
     }
 }
 
-impl crate::Validating for File {
+/// The capability for yielding the semantic value of a valid authored file.
+pub(crate) trait CheckingFile {
+    fn checked(&self) -> Result<File, Error>;
+}
+
+impl CheckingFile for File {
+    fn checked(&self) -> Result<File, Error> {
+        self.validate()?;
+        Ok(self.normalized())
+    }
+}
+
+impl Validating for File {
     fn validate(&self) -> Result<(), Error> {
         self.check(&Scope {
             file: self,

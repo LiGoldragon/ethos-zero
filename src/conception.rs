@@ -3,12 +3,14 @@
 use datom_codec::Integer;
 use protos::{Enclosure, Protos, Separator, Symbol};
 
+use crate::checking::{CheckingArity, Taking};
+
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Entry, Error, Ethosizable, File, Form, Identifiable, Identity, Import,
-    Imported, Library, Memory, Name, Named, NamedReference, Operation, Placing, Position, Problem,
-    Process, ProcessDeclaration, Receiver, Reference, Root, Signal, Signature, Source, Spelled,
-    Succeeding, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Imported, Intrinsic, Library, Memory, Name, Named, NamedReference, Operation, Placing,
+    Position, Problem, Process, ProcessDeclaration, Receiver, Reference, Root, Signal, Signature,
+    Source, Spelled, Succeeding, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Conceiving<C> {
@@ -691,12 +693,7 @@ impl Conceiving<Reference> for Protos {
                 ..
             } => {
                 let mut elements = children.references()?;
-                if elements.len() != 1 {
-                    return Err(Error::conceptual(
-                        vec![],
-                        Problem::arity(1, elements.len() as Integer),
-                    ));
-                }
+                Intrinsic::Vector.arity().check_arity(elements.len())?;
                 Ok(Reference::Vector(Box::new(elements.remove(0))))
             }
             Protos::Headed {

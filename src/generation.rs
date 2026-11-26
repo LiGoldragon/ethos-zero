@@ -23,7 +23,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::checking::{
-    Carrying, Checkable, Declaring, Inlining, Spanning, Streaming, Titled, Uniting,
+    Carrying, CheckingFile, Declaring, Inlining, Spanning, Streaming, Titled, Uniting,
 };
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
@@ -1757,12 +1757,12 @@ impl AllowFormatting for String {
 
 impl Generating for File {
     fn generate(&self) -> Result<String, crate::Error> {
+        let checked = self.checked()?;
         let scope = Scope {
-            file: self,
+            file: &checked,
             identity: None,
             associated: &[],
         };
-        self.check(&scope)?;
-        Ok(self.items(&scope).render())
+        Ok(checked.items(&scope).render())
     }
 }

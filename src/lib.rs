@@ -934,12 +934,13 @@ mod printing;
 mod protosization;
 mod sectioning;
 mod signature;
+mod vector_normalization;
 
 #[cfg(test)]
 mod behavior {
     use super::{
         Actualizing, Canonicalizable, Error, File, Generating, Identity, Library, Name, Potential,
-        Problem, TypeDeclaration,
+        Problem, Reference, TypeDeclaration,
     };
     use protos::{Extent, ExtentAccess, PositionAccess, Protosizable, Textualizable};
 
@@ -1198,6 +1199,60 @@ mod behavior {
         assert!(matches!(
             Potential::<File>::from(source).actualize(),
             Err(Error::Conceptual(_))
+        ));
+    }
+
+    #[test]
+    fn checked_vectors_are_typed_once_without_capturing_a_shadowing_name() {
+        use crate::checking::CheckingFile;
+
+        let File::Library(white) =
+            Potential::<File>::from("Library [] [ Alias.⟦ ⟦ String ⟧ ⟧ ] [] []")
+                .actualize()
+                .unwrap()
+                .checked()
+                .unwrap()
+        else {
+            panic!("library expected");
+        };
+        for source in [
+            "Library [] [ Alias.Vector<Vector<String>> ] [] []",
+            "Library [] [ Alias.protos:Vector<protos:Vector<String>> ] [] []",
+            "Library [ protos:Vector ] [ Alias.Vector<Vector<String>> ] [] []",
+        ] {
+            let File::Library(checked) = Potential::<File>::from(source)
+                .actualize()
+                .unwrap()
+                .checked()
+                .unwrap()
+            else {
+                panic!("library expected");
+            };
+            assert!(
+                matches!(
+                    &checked.types[0],
+                    TypeDeclaration::Alias(_, Reference::Vector(element))
+                        if matches!(element.as_ref(), Reference::Vector(_))
+                ),
+                "{source}"
+            );
+            assert_eq!(checked.types, white.types, "{source}");
+        }
+
+        let File::Library(shadowed) = Potential::<File>::from(
+            "Library [ external:Vector ] [ Alias.Vector<⟦ String ⟧> ] [] []",
+        )
+        .actualize()
+        .unwrap()
+        .checked()
+        .unwrap() else {
+            panic!("library expected");
+        };
+        assert!(matches!(
+            &shadowed.types[0],
+            TypeDeclaration::Alias(_, Reference::Named(reference))
+                if reference.name.as_ref() == "Vector"
+                && matches!(reference.arguments.as_slice(), [Reference::Vector(_)])
         ));
     }
 

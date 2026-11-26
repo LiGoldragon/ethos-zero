@@ -207,13 +207,13 @@ rec {
       };
       "datom-codec" = rec {
         crateName = "datom-codec";
-        version = "0.33.1";
+        version = "0.33.2";
         edition = "2024";
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/LiGoldragon/datom-codec";
-          rev = "3413a3d7387ea0c5257f9b9812d92ffd8a2cb417";
-          sha256 = "1ig5c4n3x0xy0vh5vvs43kp4vs72k2pqrv1izx1d8wi57ajpzpag";
+          rev = "59776b4bc8532d9f86480f911b312cfb2fc56631";
+          sha256 = "1ll4rdirrij4ajyg8afbp8lk0qpkkf2sp731b0c0qd7h36xpjyrd";
         };
         libName = "datom_codec";
         dependencies = [
@@ -246,8 +246,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/LiGoldragon/datom-codec";
-          rev = "3413a3d7387ea0c5257f9b9812d92ffd8a2cb417";
-          sha256 = "1ig5c4n3x0xy0vh5vvs43kp4vs72k2pqrv1izx1d8wi57ajpzpag";
+          rev = "59776b4bc8532d9f86480f911b312cfb2fc56631";
+          sha256 = "1ll4rdirrij4ajyg8afbp8lk0qpkkf2sp731b0c0qd7h36xpjyrd";
         };
         procMacro = true;
         libName = "datom_codec_derive";
@@ -277,7 +277,7 @@ rec {
       };
       "ethos-zero" = rec {
         crateName = "ethos-zero";
-        version = "31.1.1";
+        version = "31.1.2";
         edition = "2024";
         crateBin = [
           {
@@ -630,13 +630,13 @@ rec {
       };
       "protos" = rec {
         crateName = "protos";
-        version = "0.33.0";
+        version = "0.34.0";
         edition = "2024";
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/LiGoldragon/protos";
-          rev = "2c7ace4a475be566d2e45e9d127d9642ebba3593";
-          sha256 = "142xpbmc7dg9ryy4zqg6lhpm9mz0hvz0cvmvlxm1a9hhkk9c01yr";
+          rev = "981051d2190e04de4ead0b5d97e47548114e2dd6";
+          sha256 = "1qp2gm2a7qnf5dink6kyqvsh606r8i0ram10v8mxfl7r8vdcfhvj";
         };
         dependencies = [
           {
