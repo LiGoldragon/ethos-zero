@@ -1,4 +1,4 @@
-//! Checked references no longer retain the legacy spelling of the built-in
+//! Resolved vectors no longer retain the legacy spelling of the built-in
 //! Vector. The original tree remains the source of scope and error paths.
 
 use crate::checking::ResolvingReference;
@@ -8,13 +8,13 @@ use crate::{
     TypeDeclaration, Variant,
 };
 
-/// The capability for normalizing vector references after their authored shape,
-/// role and arity have been checked.
+/// The capability for normalizing a resolved vector with one element.
+/// Unchecked printing retains malformed applications for the checker.
 pub(crate) trait NormalizingVectors {
     fn normalize_vectors(&mut self, scope: &Scope);
 }
 
-/// The capability for producing the semantic file from a validated authored file.
+/// The capability for producing a file with canonical vector references.
 pub(crate) trait NormalizedFile {
     fn normalized(&self) -> File;
 }
@@ -53,14 +53,12 @@ impl NormalizingVectors for Reference {
             Reference::Vector(element) => element.normalize_vectors(scope),
             Reference::Named(named) => {
                 named.arguments.normalize_vectors(scope);
-                if named.name.as_ref() == Intrinsic::Vector.name()
+                if matches!(named.arguments.as_slice(), [_])
+                    && named.name.as_ref() == Intrinsic::Vector.name()
                     && named.resolve_reference(scope) == Resolution::Intrinsic(Intrinsic::Vector)
                 {
                     *self = Reference::Vector(Box::new(
-                        named
-                            .arguments
-                            .pop()
-                            .expect("checked vector has one element"),
+                        named.arguments.pop().expect("one vector element"),
                     ));
                 }
             }

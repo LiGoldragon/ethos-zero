@@ -22,11 +22,11 @@
     "datom-codec": {
       "flake": false,
       "locked": {
-        "lastModified": 1795733521,
-        "narHash": "sha256-LXt5uxnwNAwYWGGcq4Wb82IwKbrLKfS8VETGnGPLhNI=",
+        "lastModified": 1795737598,
+        "narHash": "sha256-09APVXcKIcyAcLnLv74Hd0Cm146gG7awr9TjyGRN5jk=",
         "owner": "LiGoldragon",
         "repo": "datom-codec",
-        "rev": "59776b4bc8532d9f86480f911b312cfb2fc56631",
+        "rev": "490d49ff6a6b07476da515da95ce70358d144621",
         "type": "github"
       },
       "original": {
@@ -75,11 +75,11 @@
     "protos": {
       "flake": false,
       "locked": {
-        "lastModified": 1795733379,
-        "narHash": "sha256-ckPH2kb5UNcr2iBUlUFE2QAD9cZ+mmljK87io0R94uI=",
+        "lastModified": 1795737427,
+        "narHash": "sha256-IpxnRxjTMrz/ZSsNlN2zyQQES+ABFgeNvaGWmiw9N9k=",
         "owner": "LiGoldragon",
         "repo": "protos",
-        "rev": "981051d2190e04de4ead0b5d97e47548114e2dd6",
+        "rev": "b3c5489a8d6d2d7a6b79cc6b21cc7c74d8119884",
         "type": "github"
       },
       "original": {

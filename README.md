@@ -515,15 +515,19 @@ bounds and are not counted against it.
 
 ## Print
 
-The canonical print expands vertically. A structure with more than one
-element, one of which has a next layer (a headed form or a brace or
-bracket), opens on its line and its elements hang beneath the first,
-aligned; the closing delimiter ends the last element's line. Elements that
-are all leaves sit on one line, one space apart. A space stands inside
-every non-empty bracket and brace; an empty one is `[]` or `{}`. An angled
-enclosure stays tight against the name it qualifies, `Vector<Event>`. A
-file prints in the sweet form, its root's head on the first line and each
-section on its own line; comments are not printed.
+The printer writes a resolved built-in vector as `⟦ T ⟧`, including a
+legacy `Vector<T>` that resolves to the built-in. Another type of the same
+name keeps its name and angled arguments. Other angled arguments stay
+tight against the name they qualify, as in `Option<Event>`. The reader
+still accepts the legacy spelling.
+
+Braces and ordinary or white square brackets expand vertically when they
+have multiple elements and at least one element is headed or is itself a
+non-empty enclosure of those three shapes. The elements align under the
+first; the closer ends the last element's line. Leaves stay on one line,
+one space apart. Empty enclosures are tight. A file prints in the sweet
+form, its root's head on the first line and each section on its own line.
+Comments are not printed.
 
 ```
 Memory
@@ -531,19 +535,18 @@ Memory
 [ Flow.{ FlowId
          Voice
          State.[ Running Ended ]
-         Vector<Event> } ]
+         ⟦ Event ⟧ } ]
 []
 []
 []
 ```
 
-The layout is protos' canonical print (`protos::Textualizable`); this crate
-adds only the sweet form of a file. `Printable::print` writes it for a
-`File` and for any `protos::Protos` read from ethos text; the reader accepts
-it and every other layout. An empty `[]` or `{}` is a leaf. The
-Flow Nexus's four files under `fixtures/print/` print back byte-identical.
-The crate's own `ethos-zero.ethos` and `error.ethos` are written in it, and
-the no-argument CLI prints `ethos-zero.ethos` through it.
+The layout is Protos's canonical print (`protos::Textualizable`).
+`Printable::print` on a `File` uses the resolved vector spelling; on
+`protos::Protos` it lays out the structure without resolving names. The
+four Flow Nexus files under `fixtures/print/` still round-trip
+byte-for-byte through that structural print. The no-argument CLI prints
+`ethos-zero.ethos` through the semantic `File` print.
 
 File ascent projects the File directly into its `protos::Protos`
 structure; it does not textualize and parse the result again.

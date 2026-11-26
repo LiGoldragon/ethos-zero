@@ -4,7 +4,7 @@
 //! last element's line; a space inside every non-empty bracket. The text is
 //! the product here, so the text is what is asserted.
 
-use ethos_zero::{Actualizing, Canonicalizable, File, Potential, Printable};
+use ethos_zero::{Actualizing, Canonicalizable, File, Generating, Potential, Printable};
 use protos::Protosizable;
 
 /// The trait whose capability reads ethos text to its structure and prints it.
@@ -46,13 +46,19 @@ fn the_flow_nexus_four_files_round_trip_byte_identical() {
 }
 
 #[test]
-fn a_checked_file_prints_as_it_was_written_in_the_canonical_form() {
-    let source = "flow-library".fixture();
+fn a_legacy_flow_file_prints_white_vectors_without_changing_its_meaning() {
+    let source = "flow-memory".fixture();
     let file = match Potential::<File>::from(source.as_str()).actualize() {
         Ok(file) => file,
         Err(error) => panic!("the Library reads: {error:?}"),
     };
-    assert_eq!(file.print(), source);
+    let printed = file.print();
+    assert!(printed.contains('⟦'));
+    let reread = Potential::<File>::from(printed.as_str())
+        .actualize()
+        .unwrap();
+    assert_eq!(reread.print(), printed);
+    assert_eq!(reread.generate().unwrap(), file.generate().unwrap());
 }
 
 #[test]
@@ -123,36 +129,45 @@ fn every_fixture_prints_to_a_text_that_reads_back_to_it_and_prints_the_same() {
             Ok(file) => file,
             Err(error) => panic!("{path} printed does not read: {error:?}\n{printed}"),
         };
-        assert_eq!(file, repeated, "{path}");
         assert_eq!(repeated.print(), printed, "{path}");
+        if let Ok(expected) = file.generate() {
+            assert_eq!(repeated.generate().unwrap(), expected, "{path}");
+        }
     }
 }
 
 #[test]
-fn a_reference_with_arguments_prints_as_it_was_written() {
+fn vector_positions_print_white_while_other_angles_stay_tight() {
     let source = "Library\n[]\n[ Lock.String\n  Locks.Vector<Lock>\n  Reply.[ Many.Vector<Lock>\n          Nothing ] ]\n[ Holding.{ [ Fillable ]\n            [ Item<Fillable> ]\n            [ LIMIT.Integer ]\n            [ take![ Option<Item> ] ] }\n  Fillable.[ fill![ Vector<Lock> ] ] ]\n[]\n";
     let file = match Potential::<File>::from(source).actualize() {
         Ok(file) => file,
         Err(error) => panic!("the Library reads: {error:?}"),
     };
-    assert_eq!(file.print(), source);
+    assert_eq!(
+        file.print(),
+        source.replace("Vector<Lock>", "⟦ Lock ⟧").reprint()
+    );
 }
 
 #[test]
-fn the_crates_own_ethos_is_written_in_the_canonical_print() {
+fn the_crates_own_legacy_ethos_round_trips_to_the_canonical_print() {
     let root = env!("CARGO_MANIFEST_DIR");
     for name in ["ethos-zero.ethos", "error.ethos"] {
         let source = std::fs::read_to_string(format!("{root}/{name}")).expect(name);
-        let uncommented: String = source
-            .lines()
-            .filter(|line| !line.starts_with(';'))
-            .map(|line| format!("{line}\n"))
-            .collect();
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(error) => panic!("{name} reads: {error:?}"),
         };
-        assert_eq!(file.print(), uncommented, "{name}");
+        let printed = file.print();
+        let reread = Potential::<File>::from(printed.as_str())
+            .actualize()
+            .unwrap();
+        assert_eq!(reread.print(), printed, "{name}");
+        assert_eq!(
+            reread.generate().unwrap(),
+            file.generate().unwrap(),
+            "{name}"
+        );
     }
 }
 
@@ -164,15 +179,65 @@ fn white_vectors_round_trip_in_mixed_type_positions() {
     for spelling in [
         "Items.⟦ Item ⟧",
         "Items.⟦ Option<⟦ Item ⟧> ⟧",
-        "⟦ Vector<Item> ⟧",
-        "Vector<⟦ Item ⟧>",
+        "⟦ ⟦ Item ⟧ ⟧",
     ] {
         assert!(printed.contains(spelling), "{printed}");
     }
-    assert_eq!(
-        Potential::<File>::from(printed.as_str())
+    assert_eq!(printed.matches("⟦ ⟦ Item ⟧ ⟧").count(), 2);
+    assert!(!printed.contains("Vector"));
+    let reread = Potential::<File>::from(printed.as_str())
+        .actualize()
+        .unwrap();
+    assert_eq!(reread.print(), printed);
+    assert_eq!(reread.generate().unwrap(), file.generate().unwrap());
+}
+
+#[test]
+fn the_printer_uses_the_shared_resolution_for_protos_and_external_vectors() {
+    for (source, expected) in [
+        (
+            "Library [] [ Alias.protos:Vector<Vector<String>> ] [] []",
+            "Library [] [ Alias.⟦ ⟦ String ⟧ ⟧ ] [] []",
+        ),
+        (
+            "Library [ protos:Vector ] [ Alias.Vector<String> ] [] []",
+            "Library [ protos:Vector ] [ Alias.⟦ String ⟧ ] [] []",
+        ),
+        (
+            "Library [ external:Vector ] [ Alias.Vector<⟦ String ⟧> ] [] []",
+            "Library [ external:Vector ] [ Alias.Vector<⟦ String ⟧> ] [] []",
+        ),
+        (
+            "Library [] [ Vector.String Alias.Vector ] [] []",
+            "Library [] [ Vector.String Alias.Vector ] [] []",
+        ),
+        (
+            "Library [] [ Alias.external:Vector<Vector<String>> ] [] []",
+            "Library [] [ Alias.external:Vector<⟦ String ⟧> ] [] []",
+        ),
+    ] {
+        let original = Potential::<File>::from(source).actualize().unwrap();
+        let printed = original.print();
+        let reread = Potential::<File>::from(printed.as_str())
             .actualize()
-            .unwrap(),
-        file
+            .unwrap();
+        assert_eq!(printed, expected.reprint(), "{source}");
+        assert_eq!(reread.print(), printed);
+        assert_eq!(reread.generate(), original.generate());
+    }
+}
+
+#[test]
+fn printing_does_not_turn_a_malformed_vector_into_a_valid_one() {
+    let source = "Library [] [ Good.Vector<String> Bad.Vector<String Integer> Empty.Vector ] [] []";
+    let file = Potential::<File>::from(source).actualize().unwrap();
+    let printed = file.print();
+    assert_eq!(
+        printed,
+        "Library [] [ Good.⟦ String ⟧ Bad.Vector<String Integer> Empty.Vector ] [] []".reprint()
     );
+    let reread = Potential::<File>::from(printed.as_str())
+        .actualize()
+        .unwrap();
+    assert!(reread.generate().is_err());
 }

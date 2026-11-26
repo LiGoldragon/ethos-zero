@@ -2,6 +2,8 @@
 
 use std::process::Command;
 
+use ethos_zero::{Actualizing, File, Potential, Printable};
+
 trait Invoking {
     fn invoke(&self) -> (bool, String);
 }
@@ -52,18 +54,15 @@ fn generate(source: &str, directory: &str) -> String {
 fn no_argument_prints_the_crates_own_ethos_ending_with_a_newline() {
     let (success, output) = [].invoke();
     assert!(success);
-    // The canonical print of the crate's ethos: its source, which is
-    // written in the canonical print, without the comments that open it.
+    // The source can still use the legacy spelling; the CLI prints the
+    // semantic canonical form of that same declaration.
     let source = include_str!("../ethos-zero.ethos");
-    let uncommented: String = source
-        .lines()
-        .filter(|line| !line.starts_with(';'))
-        .map(|line| format!("{line}\n"))
-        .collect();
-    assert_eq!(output, uncommented);
+    let file = Potential::<File>::from(source).actualize().unwrap();
+    assert_eq!(output, file.print());
     assert!(output.ends_with('\n'));
     assert!(output.contains("Generate.Generation"));
-    assert!(output.contains("Check.Vector<String>"));
+    assert!(output.contains("Check.⟦ String ⟧"));
+    assert!(!output.contains("Vector<"));
 }
 
 #[test]

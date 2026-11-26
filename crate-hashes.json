@@ -1,5 +1,5 @@
 {
-  "git+https://github.com/LiGoldragon/datom-codec?rev=59776b4bc8532d9f86480f911b312cfb2fc56631#0.33.2": "1ll4rdirrij4ajyg8afbp8lk0qpkkf2sp731b0c0qd7h36xpjyrd",
-  "git+https://github.com/LiGoldragon/datom-codec?rev=59776b4bc8532d9f86480f911b312cfb2fc56631#datom-codec-derive@0.32.3": "1ll4rdirrij4ajyg8afbp8lk0qpkkf2sp731b0c0qd7h36xpjyrd",
-  "git+https://github.com/LiGoldragon/protos?rev=981051d2190e04de4ead0b5d97e47548114e2dd6#0.34.0": "1qp2gm2a7qnf5dink6kyqvsh606r8i0ram10v8mxfl7r8vdcfhvj"
+  "git+https://github.com/LiGoldragon/datom-codec?rev=490d49ff6a6b07476da515da95ce70358d144621#0.33.3": "0fg69mjciqylmyqbc6x0ivbsch3p0yzbzjxrf20cq88afxahzl6k",
+  "git+https://github.com/LiGoldragon/datom-codec?rev=490d49ff6a6b07476da515da95ce70358d144621#datom-codec-derive@0.32.3": "0fg69mjciqylmyqbc6x0ivbsch3p0yzbzjxrf20cq88afxahzl6k",
+  "git+https://github.com/LiGoldragon/protos?rev=b3c5489a8d6d2d7a6b79cc6b21cc7c74d8119884#0.34.1": "1n9p7ln9m5m1pn6hf5h1w15h8169ngfr839bcpzvqcnk313ng712"
 }
