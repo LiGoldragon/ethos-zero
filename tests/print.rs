@@ -57,20 +57,19 @@ fn a_checked_file_prints_as_it_was_written_in_the_canonical_form() {
 
 #[test]
 fn a_one_line_layout_expands_to_the_canonical_print() {
-    let written =
-        "Library [] [ Flow.{ FlowId Voice State.[ Running Ended ] Vector<Event> } ] [] []";
+    let written = "Library [] [ Flow.{ FlowId Voice State.[ Running Ended ] ⟦ Event ⟧ } ] [] []";
     assert_eq!(
         written.reprint(),
-        "Library\n[]\n[ Flow.{ FlowId\n         Voice\n         State.[ Running Ended ]\n         Vector<Event> } ]\n[]\n[]\n"
+        "Library\n[]\n[ Flow.{ FlowId\n         Voice\n         State.[ Running Ended ]\n         ⟦ Event ⟧ } ]\n[]\n[]\n"
     );
 }
 
 #[test]
 fn leaves_stay_on_one_line_and_angles_stay_tight() {
     assert_eq!(
-        "Memory [ crate:[ Handle ] ] [ Pair.{ Vector<Option<String>> Result<String Integer> } ] [] [] []"
+        "Memory [ crate:[ Handle ] ] [ Pair.{ ⟦ Option<String> ⟧ Result<String Integer> } ] [] [] []"
             .reprint(),
-        "Memory\n[ crate:[ Handle ] ]\n[ Pair.{ Vector<Option<String>> Result<String Integer> } ]\n[]\n[]\n[]\n"
+        "Memory\n[ crate:[ Handle ] ]\n[ Pair.{ ⟦ Option<String> ⟧ Result<String Integer> } ]\n[]\n[]\n[]\n"
     );
 }
 
@@ -130,7 +129,7 @@ fn every_fixture_prints_to_a_text_that_reads_back_to_it_and_prints_the_same() {
 
 #[test]
 fn a_reference_with_arguments_prints_as_it_was_written() {
-    let source = "Library\n[]\n[ Lock.String\n  Locks.Vector<Lock>\n  Reply.[ Many.Vector<Lock>\n          Nothing ] ]\n[ Holding.{ [ Fillable ]\n            [ Item<Fillable> ]\n            [ LIMIT.Integer ]\n            [ take![ Option<Item> ] ] }\n  Fillable.[ fill![ Vector<Lock> ] ] ]\n[]\n";
+    let source = "Library\n[]\n[ Lock.String\n  Locks.⟦ Lock ⟧\n  Reply.[ Many.⟦ Lock ⟧\n          Nothing ] ]\n[ Holding.{ [ Fillable ]\n            [ Item<Fillable> ]\n            [ LIMIT.Integer ]\n            [ take![ Option<Item> ] ] }\n  Fillable.[ fill![ ⟦ Lock ⟧ ] ] ]\n[]\n";
     let file = match Potential::<File>::from(source).actualize() {
         Ok(file) => file,
         Err(error) => panic!("the Library reads: {error:?}"),
@@ -158,14 +157,14 @@ fn the_crates_own_ethos_is_written_in_the_canonical_print() {
 
 #[test]
 fn white_vectors_round_trip_in_mixed_type_positions() {
-    let source = "Library [] [ Item.String Items.⟦ Item ⟧ Reply.[ Items.⟦ Option<⟦ Item ⟧> ⟧ Empty ] Mixed.{ ⟦ Vector<Item> ⟧ Vector<⟦ Item ⟧> } ] [ Listing.[ list![ ⟦ Item ⟧ ] ] ] []";
+    let source = "Library [] [ Item.String Items.⟦ Item ⟧ Reply.[ Items.⟦ Option<⟦ Item ⟧> ⟧ Empty ] Nested.{ ⟦ ⟦ Item ⟧ ⟧ Option<⟦ Item ⟧> } ] [ Listing.[ list![ ⟦ Item ⟧ ] ] ] []";
     let file = Potential::<File>::from(source).actualize().unwrap();
     let printed = file.print();
     for spelling in [
         "Items.⟦ Item ⟧",
         "Items.⟦ Option<⟦ Item ⟧> ⟧",
-        "⟦ Vector<Item> ⟧",
-        "Vector<⟦ Item ⟧>",
+        "⟦ ⟦ Item ⟧ ⟧",
+        "Option<⟦ Item ⟧>",
     ] {
         assert!(printed.contains(spelling), "{printed}");
     }

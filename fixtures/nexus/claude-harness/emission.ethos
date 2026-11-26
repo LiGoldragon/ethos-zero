@@ -5,7 +5,7 @@ Emission
   claude_harness:meta:[ Hooks HookClient ] ]
 [ Follow.{ FilePath ReadFrom RowCount }
   Install.{ HookClient Hooks } ]
-[ Following.{ Vector<Row> Offset }
+[ Following.{ ⟦ Row ⟧ Offset }
   Installation.[ Installed.FilePath
                  Uninstalled.Integer ] ]
 [ Row.[ Assistant.Tokens

@@ -11,5 +11,5 @@ Signal
          UserPromptSubmit.SessionId
          PermissionRequest.SessionId
          PostToolUse.SessionId
-         Stop.{ SessionId Option<Response> Vector<BackgroundWork> }
+         Stop.{ SessionId Option<Response> ⟦ BackgroundWork ⟧ }
          SessionEnd.{ SessionId EndReason } ] ]

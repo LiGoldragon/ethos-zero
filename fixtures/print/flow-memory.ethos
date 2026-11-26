@@ -3,7 +3,7 @@ Memory
 [ Flow.{ FlowId
          Voice
          State.[ Running Ended ]
-         Vector<Event> } ]
+         ⟦ Event ⟧ } ]
 []
 []
 []

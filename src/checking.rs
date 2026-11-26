@@ -289,7 +289,7 @@ pub(crate) trait Taking {
 impl Taking for Intrinsic {
     fn arity(&self) -> usize {
         match self {
-            Intrinsic::Vector | Intrinsic::Option => 1,
+            Intrinsic::Option => 1,
             Intrinsic::Result | Intrinsic::Stream => 2,
             Intrinsic::String
             | Intrinsic::Integer
@@ -445,7 +445,7 @@ impl Naming for Capability {
 // Placement: every path is the Protos path of the structure in error
 // ---------------------------------------------------------------------------
 
-/// The path step naming the angled enclosure beside a node. `Vector<Integer>`
+/// The path step naming the angled enclosure beside a node. `Option<Integer>`
 /// in a list is two Protos siblings, the name and the enclosure after it, so
 /// a reference's arguments are not below its node but beside it. The
 /// reference writes this step; the list, which knows where the node sits,
@@ -1474,7 +1474,6 @@ impl Roled for Intrinsic {
             | Intrinsic::Decimal
             | Intrinsic::Boolean
             | Intrinsic::Meaning
-            | Intrinsic::Vector
             | Intrinsic::Option
             | Intrinsic::Result
             | Intrinsic::Stream
@@ -2151,35 +2150,6 @@ impl NamingCarried for Variant {
     }
 }
 
-/// The trait whose capability compares carried types while the legacy vector
-/// spelling is still read. A name that shadows the intrinsic keeps its meaning.
-trait MatchingType {
-    fn same_type(&self, other: &Self, scope: &Scope) -> bool;
-}
-
-impl MatchingType for Reference {
-    fn same_type(&self, other: &Self, scope: &Scope) -> bool {
-        let same_head = match (self, other) {
-            (Self::Vector(_), Self::Vector(_)) => true,
-            (Self::Named(left), Self::Named(right)) => {
-                left.name == right.name && left.source == right.source
-            }
-            (Self::Named(named), Self::Vector(_)) | (Self::Vector(_), Self::Named(named)) => {
-                named.source.is_none()
-                    && scope.resolve(&named.name) == Resolution::Intrinsic(Intrinsic::Vector)
-            }
-        };
-        let left = self.arguments();
-        let right = other.arguments();
-        same_head
-            && left.len() == right.len()
-            && left
-                .iter()
-                .zip(right)
-                .all(|(left, right)| left.same_type(right, scope))
-    }
-}
-
 /// The trait whose capability refuses two emissions that carry the same
 /// type: each carried type is bound to the one outcome its emission pairs
 /// with, so the second is a `Duplicate` of the type, at its path.
@@ -2193,10 +2163,7 @@ impl Binding for [Variant] {
         let mut at = 0;
         for emission in self {
             if let Some(reference) = emission.named_carried(scope) {
-                if carried
-                    .iter()
-                    .any(|prior| prior.same_type(&reference, scope))
-                {
+                if carried.contains(&reference) {
                     return Err(Error::conceptual(
                         vec![at],
                         Problem::Duplicate(reference.title().to_owned()),

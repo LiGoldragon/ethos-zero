@@ -2,6 +2,15 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 32.0.0: white brackets are the only vector type constructor
+
+Use `⟦ Element ⟧` for a vector type, including under a named generic:
+`Option<⟦ Element ⟧>`. Migrate authored Ethos and regenerate together with
+the compiler upgrade. The old unqualified `Vector<Element>` has no
+intrinsic name to resolve to; names explicitly declared or imported still
+resolve in the usual way. Neither generated Rust vector types nor Datom's
+square-bracket vector values change.
+
 ## 31.1.1: imports of inline Nexus payloads name the generated type
 
 When the roots of a Nexus are generated together, an import of a variant's

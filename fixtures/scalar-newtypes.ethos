@@ -7,7 +7,7 @@ Library
   Host.String ; ordered, not copyable
   Alias.Host ; chained: the same scalar
   Note.Meaning ; no total order, not copyable
-  Names.Vector<Host> ; a container is no scalar
+  Names.⟦ Host ⟧ ; a container is no scalar
   Failure.Error ; imported: the capability is not established
   Record.{ ExchangeId Host } ]
 [] ; traits

@@ -367,7 +367,7 @@ pub trait ReferenceAccess {
     fn named(&self) -> Option<&NamedReference>;
     /// The types supplied to this reference, including a vector's element type.
     fn arguments(&self) -> &[Reference];
-    /// The reference name, or the name of the vector constructor.
+    /// The reference name, or the vector's diagnostic label.
     fn title(&self) -> &str;
 }
 
@@ -389,7 +389,7 @@ impl ReferenceAccess for Reference {
     fn title(&self) -> &str {
         match self {
             Self::Named(reference) => reference.name.as_ref(),
-            Self::Vector(_) => Intrinsic::Vector.name(),
+            Self::Vector(_) => "Vector",
         }
     }
 }
@@ -401,7 +401,7 @@ pub struct NamedReference {
     pub source: Option<Source>,
     /// The name referred to.
     pub name: Name,
-    /// The arguments in angle brackets: `Vector<Text>`, `Result<Integer SinkError>`.
+    /// The arguments in angle brackets: `Option<Text>`, `Result<Integer SinkError>`.
     pub arguments: Vec<Reference>,
 }
 
@@ -427,7 +427,7 @@ pub enum Constraint {
 /// place, `Brief.String`, which the position then holds.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Position {
-    /// A type named: `Voice`, `Vector<Event>`.
+    /// A reference to a type: `Voice`, `⟦ Event ⟧`.
     Referenced(Reference),
     /// A type declared where it is used: `State.[ Running Ended ]`.
     Declared(TypeDeclaration),
@@ -590,8 +590,6 @@ pub enum Intrinsic {
     Boolean,
     /// `datom_codec::Meaning`.
     Meaning,
-    /// `Vec`.
-    Vector,
     /// `Option`.
     Option,
     /// `Result`.
@@ -884,7 +882,6 @@ impl Named for Intrinsic {
             Intrinsic::Decimal => "Decimal",
             Intrinsic::Boolean => "Boolean",
             Intrinsic::Meaning => "Meaning",
-            Intrinsic::Vector => "Vector",
             Intrinsic::Option => "Option",
             Intrinsic::Result => "Result",
             Intrinsic::Stream => "Stream",
@@ -902,7 +899,6 @@ impl Identifiable for Intrinsic {
             Intrinsic::Decimal,
             Intrinsic::Boolean,
             Intrinsic::Meaning,
-            Intrinsic::Vector,
             Intrinsic::Option,
             Intrinsic::Result,
             Intrinsic::Stream,
@@ -1000,7 +996,7 @@ mod behavior {
 
     #[test]
     fn approved_declared_and_inline_payloads_generate_named_fields() {
-        let source = "Library [] [ Generation.{ String String } FilePath.String SyntaxError.Vector<FilePath> GenerationFailure.[ SyntaxError Unwritable ] Lock.{ String } LockRejection.[ DuplicateName.Lock PathOverlap.{ Lock Lock } ] ] [] []";
+        let source = "Library [] [ Generation.{ String String } FilePath.String SyntaxError.⟦ FilePath ⟧ GenerationFailure.[ SyntaxError Unwritable ] Lock.{ String } LockRejection.[ DuplicateName.Lock PathOverlap.{ Lock Lock } ] ] [] []";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -1025,7 +1021,7 @@ mod behavior {
 
     #[test]
     fn library_traits_generate_trait_surfaces() {
-        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ ⟦ String ⟧ ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -1113,7 +1109,7 @@ mod behavior {
 
     #[test]
     fn canonical_ascent_round_trips_nonempty_library_and_signal() {
-        let library = "Library [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.Vector<FilePath> External.external:Vector<FilePath> Record.{ Vector<Option<String>> Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Capability ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ]";
+        let library = "Library [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.⟦ FilePath ⟧ External.external:Vector<FilePath> Record.{ ⟦ Option<String> ⟧ Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Capability ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ]";
         let signal = "Signal [ datom_codec:[ Error Path ] ] [ Generate.Generation ] [ Generated.String Malformed.Error ] [ Generation.{ String String } ]";
         for source in [library, signal] {
             let file = match Potential::<File>::from(source).actualize() {
@@ -1161,7 +1157,7 @@ mod behavior {
 
     #[test]
     fn emission_reads_its_four_sections_and_ascends() {
-        let source = "Emission [ :signal_herdr:signal:[ Input Output ] ] [ Command.{ Verb Vector<Argument> } ] [ Outcome.[ Done Refused.Integer ] ] [ Verb.[ List Show ] Argument.[ Name.String Quiet ] ]";
+        let source = "Emission [ :signal_herdr:signal:[ Input Output ] ] [ Command.{ Verb ⟦ Argument ⟧ } ] [ Outcome.[ Done Refused.Integer ] ] [ Verb.[ List Show ] Argument.[ Name.String Quiet ] ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("approved Emission reads"),
@@ -1269,7 +1265,7 @@ mod behavior {
 
     #[test]
     fn public_file_protosization_has_the_shared_exact_canonical_extents() {
-        let source = "Library [] [ Alias.Vector<Option<String>> Record.{ Vector<Option<String>> Result<String Integer> } ] [ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] []";
+        let source = "Library [] [ Alias.⟦ Option<String> ⟧ Record.{ ⟦ Option<String> ⟧ Result<String Integer> } ] [ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] []";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("generic source reads"),
@@ -1317,7 +1313,7 @@ mod behavior {
             ("Memory [] [ 1 ] [] [] []", vec![1, 1, 0]),
             ("Operation [ 1 ] [] [] []", vec![1, 0, 0]),
             ("Emission [ 1 ] [] [] []", vec![1, 0, 0]),
-            ("Library [] [ Alias.Vector<1> ] [] []", vec![1, 1, 1, 0]),
+            ("Library [] [ Alias.Option<1> ] [] []", vec![1, 1, 1, 0]),
         ];
         for (source, expected) in cases {
             match Potential::<File>::from(source).actualize() {
@@ -1356,22 +1352,22 @@ mod behavior {
             "Library.{ [] [ 1 ] [] [] }",
             "Signal [ 1 ] [] [] []",
             "Memory [] [ 1 ] [] [] []",
-            "Operation [] [ Go.Vector<Bogus> ] [] []",
-            "Emission [] [ Go.Vector<Bogus> ] [ Gone ] []",
-            "Library [] [ Alias.Vector<1> ] [] []",
+            "Operation [] [ Go.⟦ Bogus ⟧ ] [] []",
+            "Emission [] [ Go.⟦ Bogus ⟧ ] [ Gone ] []",
+            "Library [] [ Alias.⟦ 1 ⟧ ] [] []",
             "Library [] [] [ K.[ 1 ] ] []",
             "Library [] [] [ K.{ [ 1 ] [] [] [] } ] []",
             "Library [] [ T.String ] [ K.[] ] [ T.[ 1 ] ]",
             "Library [] [ Rec.{ String Bogus } ] [] []",
-            "Library [] [ Rec.{ Vector<String> Option<Bogus> } ] [] []",
-            "Library [] [ Rec.{ Vector<Option<Bogus>> } ] [] []",
+            "Library [] [ Rec.{ ⟦ String ⟧ Option<Bogus> } ] [] []",
+            "Library [] [ Rec.{ ⟦ Option<Bogus> ⟧ } ] [] []",
             "Library [] [ Alias.Result<String Bogus> ] [] []",
-            "Library [] [ E.[ A.Vector<String> B.Option<Bogus> ] ] [] []",
+            "Library [] [ E.[ A.⟦ String ⟧ B.Option<Bogus> ] ] [] []",
             "Library [ x:[ T ] ] [ Rec.{ x:T<Bogus> } ] [] []",
             "Library [] [] [ K.[ run.{ [ Self Bogus ] [ String ] } ] ] []",
-            "Library [] [] [ K.[ run.{ [ Self ] [ Vector<Bogus> ] } ] ] []",
+            "Library [] [] [ K.[ run.{ [ Self ] [ ⟦ Bogus ⟧ ] } ] ] []",
             "Library [] [] [ K.{ [] [ Item<Bogus> ] [] [] } ] []",
-            "Signal [] [ Ask.Vector<Bogus> ] [] []",
+            "Signal [] [ Ask.⟦ Bogus ⟧ ] [] []",
         ];
         for source in cases {
             let potential = Potential::<File>::from(source);
@@ -1390,7 +1386,7 @@ mod behavior {
                 .expect("one offending token");
             assert_eq!(
                 (location.line.0, location.column.0),
-                (1, offending as i64 + 1),
+                (1, source[..offending].chars().count() as i64 + 1),
                 "{source}: {error:?}"
             );
         }

@@ -7,7 +7,7 @@ Signal
   Watch.Selection
   Subscribe ]
 [ Launched.FlowId
-  Watched.Stream<Vector<Pane> Changed>
+  Watched.Stream<⟦ Pane ⟧ Changed>
   Subscribed.Stream<FlowId Changed>
   Refused.String ]
 [ LaunchRequest.{ String }

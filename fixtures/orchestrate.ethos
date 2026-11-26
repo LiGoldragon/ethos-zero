@@ -7,7 +7,7 @@ Signal
   LockName.String
   FlowId.String
   LockPath.String
-  LockPaths.Vector<LockPath>
+  LockPaths.⟦ LockPath ⟧
   LockReason.String
   LockRequest.{ LockName FlowId LockPaths LockReason }
   Lock.{ LockId LockName FlowId LockPaths LockReason }
@@ -15,5 +15,5 @@ Signal
   LockRejection.[ DuplicateName.Lock  PathOverlap.LockOverlap ]
   ReleaseRejection.[ UnknownLockId AlreadyReleased ]
   ObserveSelection.[ Locks  Lock.LockId ]
-  Locks.Vector<Lock>
+  Locks.⟦ Lock ⟧
   Observation.[ Locks  Lock ] ]

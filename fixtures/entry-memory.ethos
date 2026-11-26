@@ -1,7 +1,7 @@
 ; A memory file: the records kept, the changes with their answers, and the types they carry
 Memory
 []
-[ Record.{ String Vector<Entry> } ]
+[ Record.{ String ⟦ Entry ⟧ } ]
 []
 []
 [ Entry.{ String Integer } ]

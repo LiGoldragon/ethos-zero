@@ -25,7 +25,7 @@ Every error carries the Protos path of the structure in error, from the
 file's root: a headed form puts its head at child zero and body at child
 one, qualified head arguments remain below the head, and a reference's
 arguments are the angled enclosure beside it in its list
-(`Vector<Bogus>` at index 0 puts `Bogus` at `[ 1 0 ]`). `Locating`
+(`Option<Bogus>` at index 0 puts `Bogus` at `[ 1 0 ]`). `Locating`
 follows that path down the source's structure and carries the node's
 start back across the sweet form's seam, so every error is situated as a
 line and a column in the text as written. Every method
@@ -184,10 +184,10 @@ Memory
   flow:[ FlowId ] ]
 [ Watch.{ FlowId FilePath }
   Observed ]
-[ Observe.{ FlowId Vector<Event> }
+[ Observe.{ FlowId ⟦ Event ⟧ }
   Recall.{} ]
-[ Observation.Vector<Changed>
-  Recollection.Vector<Observed> ]
+[ Observation.⟦ Changed ⟧
+  Recollection.⟦ Observed ⟧ ]
 []
 ```
 
@@ -315,7 +315,7 @@ a separate package, with and without `datom`, and sends a value of each root
 through rkyv.
 
 A struct position may declare its type in place: `Brief.String`,
-`State.[ Running Ended ]`, `Capsule.{ Home.String Login.Vector<String> }`.
+`State.[ Running Ended ]`, `Capsule.{ Home.String Login.⟦ String ⟧ }`.
 The type is named by its own name, shares the file's namespace (a second
 `Brief` anywhere in the file is a `Duplicate`), and the position holds it
 by name, so its field is `brief: Brief`. It is declared outside any
@@ -345,10 +345,10 @@ field takes the import with its leading colon:
 declares; an uncapitalized one is a source, so `Holder.{ custom:Name }`
 is a field of `custom::Name`. A position is boxed only
 where it closes a by-value cycle: it names, through aliases, `Option` and
-`Result` but not `Vector`, a type declared no later than its owner that
+`Result` but not vectors, a type declared no later than its owner that
 reaches the owner by value; in `Twin.{ Twig Twig }  Twig.[ Tip  Grow.Twin ]`
 only `Grow` is boxed. Every position that reaches its owner by
-any path, `Vector` included, carries `#[rkyv(omit_bounds)]`, and its type
+any path, vectors included, carries `#[rkyv(omit_bounds)]`, and its type
 states the serializer, deserializer and validator bounds once, so a
 recursive contract archives and restores. The generated Rust writes
 every standard name by its core or alloc path, `alloc::string::String`,
@@ -362,7 +362,7 @@ A field is named for its type alone, in snake case, and never for the
 namespace the type comes from: `:protos:Error` gives `error`,
 `nexus:ConfigurationState<OrchestrateNexusConfiguration>` gives
 `orchestrate_nexus_configuration_configuration_state`. A constructed type
-is named type-first, `Vector<String>` as `string_vector`, `Option<Lock>` as
+is named type-first, `⟦ String ⟧` as `string_vector`, `Option<Lock>` as
 `lock_option`. Positions whose names are the same are told apart as first
 and second, `Generation.{ String String }` giving `first_string` and
 `second_string`, and `Errors.{ :a:Error :b:Error }` giving `first_error`
@@ -374,7 +374,7 @@ head naming the position, `Brief.String`, tells the two apart.
 A type or trait declaration is refused when its name is an intrinsic's
 (`Intrinsic.Result`: the declaration would shadow the intrinsic for every
 later reference), or does not begin with a capital (`Case.a`). A declared
-type with no finite value, one that reaches itself with no `Vector`,
+type with no finite value, one that reaches itself with no vector,
 `Option` or other variant to stop at, such as `S.{ Self }`, is refused as
 a `Cycle`. Every generated item carries `#[rustfmt::skip]`, an inline
 payload's as much as its enum's.
@@ -415,9 +415,9 @@ when one would capture an authored type reference.
 
 ## Stream
 
-`Stream` is an intrinsic, known without import as `Vector` is, and takes
+`Stream` is an intrinsic, known without import, and takes
 exactly two types: the state a stream opens with and the change it then
-carries, `Stream<Vector<Pane> Changed>`. It is answered as a stream: one
+carries, `Stream<⟦ Pane ⟧ Changed>`. It is answered as a stream: one
 subscription, then frames. The signal library holds its two Rust types,
 `signal::Frame<State, Change>`, an archived and datomizable enum
 `Opened(State) | Changed(Change) | Lagged(State) | Ended(Ending)`, and
@@ -426,7 +426,7 @@ A crate holding a Signal with a stream output depends on that library under
 the name `signal`.
 
 A `Stream` stands in two places. One is the whole payload of a Signal's
-output: `Signal [] [ Subscribe ] [ Subscribed.Stream<Vector<Pane> Changed> ] [ … ]`.
+output: `Signal [] [ Subscribe ] [ Subscribed.Stream<⟦ Pane ⟧ Changed> ] [ … ]`.
 The `Output` holds one frame of it,
 `Subscribed(signal::Frame<alloc::vec::Vec<Pane>, Changed>)`, with the derives
 every `Output` bears, so each frame on the wire is one `Output`. The other is a trait capability's yield, where its
@@ -436,7 +436,7 @@ gives `fn open(&self, input: Self::State) -> signal::Stream<Self::State, Self::C
 (`fixtures/publishing-trait.ethos`). A `Stream` anywhere else is refused as
 `Placement.Stream` at its path: in a field, an alias, a variant's payload in
 any root's types or in an Operation's or Emission's sections, a Signal's
-input, and inside another type's arguments, `Vector<Stream<…>>`,
+input, and inside another type's arguments, `⟦ Stream<…> ⟧`,
 `Option<Stream<…>>` and a `Stream` among a `Stream`'s own arguments among
 them; an output's payload declared in place, `Watched.{ Stream<…> }`, holds
 it as a field and is refused too. `Stream<String>` is refused as
@@ -502,7 +502,7 @@ Where an associated type of the trait is already bounded by that trait
 (`Streamable.{ [] [ Item<Textualizable> ] [] [ push!{ [ Textualizable ] [ Self ] } ] }`),
 the input is that associated type, `Self::Item`. `Self`, a parameter of the
 trait's head, and an associated type named directly stay as they are. A
-concrete type in an input (`String`, `Vector<Self>`, a declared type) is
+concrete type in an input (`String`, `⟦ Self ⟧`, a declared type) is
 written as that type (`resolve.{ [ Rec ] [ Self ] }` gives
 `fn resolve(&self, input: Rec) -> Self`). An imported name says nothing of
 its role, so in an input it is taken as a trait. A yield may name a concrete type; a
@@ -521,7 +521,10 @@ bracket), opens on its line and its elements hang beneath the first,
 aligned; the closing delimiter ends the last element's line. Elements that
 are all leaves sit on one line, one space apart. A space stands inside
 every non-empty bracket and brace; an empty one is `[]` or `{}`. An angled
-enclosure stays tight against the name it qualifies, `Vector<Event>`. A
+enclosure stays tight against the name it qualifies, `Option<Event>`.
+A white enclosure, `⟦ Event ⟧`, declares a vector and holds exactly one
+type. A vector may itself be an element or a generic argument. Square
+brackets in Datom still enclose vector values. A
 file prints in the sweet form, its root's head on the first line and each
 section on its own line; comments are not printed.
 
@@ -531,7 +534,7 @@ Memory
 [ Flow.{ FlowId
          Voice
          State.[ Running Ended ]
-         Vector<Event> } ]
+         ⟦ Event ⟧ } ]
 []
 []
 []

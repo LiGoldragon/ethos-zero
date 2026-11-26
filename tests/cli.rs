@@ -63,7 +63,7 @@ fn no_argument_prints_the_crates_own_ethos_ending_with_a_newline() {
     assert_eq!(output, uncommented);
     assert!(output.ends_with('\n'));
     assert!(output.contains("Generate.Generation"));
-    assert!(output.contains("Check.Vector<String>"));
+    assert!(output.contains("Check.⟦ String ⟧"));
 }
 
 #[test]
@@ -245,7 +245,7 @@ fn check_locates_an_undeclared_name_below_a_comment() {
     let directory = "undeclared".scratch();
     let source = directory.write_source(
         "undeclared",
-        "; The comment and the sweet form's seam are counted too.\nLibrary\n[]\n[ Record.{ String\n           Vector<Option<Bogus>> } ]\n[]\n[]\n",
+        "; The comment and the sweet form's seam are counted too.\nLibrary\n[]\n[ Record.{ String\n           ⟦ Option<Bogus> ⟧ } ]\n[]\n[]\n",
     );
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
@@ -253,7 +253,7 @@ fn check_locates_an_undeclared_name_below_a_comment() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 5 26 }} Conceptual.{{ [ 1 1 0 1 2 1 0 ] Undeclared.Bogus }} }}\n"
+            "Rejected.{{ {source} {{ 5 21 }} Conceptual.{{ [ 1 1 0 1 1 1 0 ] Undeclared.Bogus }} }}\n"
         )
     );
 }

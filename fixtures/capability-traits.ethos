@@ -5,6 +5,6 @@ Library
 []
 [ Summarizable.[ summarize.[ String ] ]
   Fillable.[ push!{ [ Summarizable ] [ Result<Integer SinkError> ] }
-             drain![ Vector<String> ]
+             drain![ ⟦ String ⟧ ]
              create:[ Self ] ] ]
 []

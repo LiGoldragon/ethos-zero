@@ -73,7 +73,6 @@ impl Tokening for Intrinsic {
             Intrinsic::Decimal => quote! { datom_codec::Decimal },
             Intrinsic::Boolean => quote! { bool },
             Intrinsic::Meaning => quote! { datom_codec::Meaning },
-            Intrinsic::Vector => quote! { alloc::vec::Vec },
             Intrinsic::Option => quote! { core::option::Option },
             Intrinsic::Result => quote! { core::result::Result },
             Intrinsic::Stream => quote! { signal::Stream },
@@ -102,7 +101,6 @@ impl Holding for Intrinsic {
             | Intrinsic::Decimal
             | Intrinsic::Boolean
             | Intrinsic::Meaning
-            | Intrinsic::Vector
             | Intrinsic::Option
             | Intrinsic::Result
             | Intrinsic::Itself
@@ -164,9 +162,8 @@ impl Emitting for Reference {
     fn emit(&self, scope: &Scope) -> TokenStream {
         let reference = match self {
             Self::Vector(element) => {
-                let vector = Intrinsic::Vector.tokens();
                 let element = element.emit(scope);
-                return quote! { #vector <#element> };
+                return quote! { alloc::vec::Vec<#element> };
             }
             Self::Named(reference) => reference,
         };
@@ -327,9 +324,6 @@ impl Reaching for Reference {
                 return true;
             }
             match file.resolve(&reference.name) {
-                Resolution::Intrinsic(Intrinsic::Vector) if passage == Passage::ByValue => {
-                    return false;
-                }
                 Resolution::Type(name) if !visited.contains(&name) => {
                     visited.push(name.clone());
                     if let Some(declaration) = file.declaration(&name)
@@ -489,9 +483,8 @@ impl Closing for Reference {
         if &reference.name == owner || reference.name.0 == "Self" {
             return true;
         }
-        match file.resolve(&reference.name) {
-            Resolution::Intrinsic(Intrinsic::Vector) => return false,
-            Resolution::Type(name) => match file.declaration(&name) {
+        if let Resolution::Type(name) = file.resolve(&reference.name) {
+            match file.declaration(&name) {
                 Some(TypeDeclaration::Alias(_, aliased)) => {
                     if aliased.closes(owner, file) {
                         return true;
@@ -509,8 +502,7 @@ impl Closing for Reference {
                     }
                 }
                 None => {}
-            },
-            _ => {}
+            }
         }
         for argument in &reference.arguments {
             if argument.closes(owner, file) {
