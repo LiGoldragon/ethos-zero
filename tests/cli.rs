@@ -61,7 +61,7 @@ fn no_argument_prints_the_crates_own_ethos_ending_with_a_newline() {
     assert_eq!(output, file.print());
     assert!(output.ends_with('\n'));
     assert!(output.contains("Generate.Generation"));
-    assert!(output.contains("Check.⟦ String ⟧"));
+    assert!(output.contains("Check.⟦String⟧"));
     assert!(!output.contains("Vector<"));
 }
 

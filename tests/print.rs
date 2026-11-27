@@ -4,8 +4,7 @@
 //! last element's line; a space inside every non-empty bracket. The text is
 //! the product here, so the text is what is asserted.
 
-use ethos_zero::{Actualizing, Canonicalizable, File, Generating, Potential, Printable};
-use protos::Protosizable;
+use ethos_zero::{Actualizing, File, Generating, Potential, Printable};
 
 /// The trait whose capability reads ethos text to its structure and prints it.
 trait Reprinting {
@@ -14,9 +13,10 @@ trait Reprinting {
 
 impl Reprinting for str {
     fn reprint(&self) -> String {
-        let canonical = self.to_owned().canonicalize().expect("sweet form opens");
-        let protos = canonical.text.protosize().expect("canonical text reads");
-        protos.print()
+        let file = Potential::<File>::from(self)
+            .actualize()
+            .expect("sweet form reads");
+        file.print()
     }
 }
 
@@ -33,7 +33,7 @@ impl Fixture for str {
 }
 
 #[test]
-fn the_flow_nexus_four_files_round_trip_byte_identical() {
+fn the_flow_nexus_four_files_round_trip_with_tight_vectors() {
     for name in [
         "flow-library",
         "flow-signal",
@@ -41,7 +41,19 @@ fn the_flow_nexus_four_files_round_trip_byte_identical() {
         "flow-memory",
     ] {
         let source = name.fixture();
-        assert_eq!(source.reprint(), source, "{name}");
+        let file = Potential::<File>::from(source.as_str())
+            .actualize()
+            .unwrap_or_else(|error| panic!("{name}: {error:?}"));
+        let printed = file.print();
+        let reread = Potential::<File>::from(printed.as_str())
+            .actualize()
+            .unwrap_or_else(|error| panic!("{name}: {error:?}"));
+        assert_eq!(reread.print(), printed, "{name}");
+        assert_eq!(
+            reread.generate().unwrap(),
+            file.generate().unwrap(),
+            "{name}"
+        );
     }
 }
 
@@ -173,14 +185,10 @@ fn white_vectors_round_trip_in_mixed_type_positions() {
     let source = "Library [] [ Item.String Items.⟦ Item ⟧ Reply.[ Items.⟦ Option<⟦ Item ⟧> ⟧ Empty ] Mixed.{ ⟦ ⟦ Item ⟧ ⟧ ⟦⟦Item⟧⟧ } ] [ Listing.[ list![ ⟦ Item ⟧ ] ] ] []";
     let file = Potential::<File>::from(source).actualize().unwrap();
     let printed = file.print();
-    for spelling in [
-        "Items.⟦ Item ⟧",
-        "Items.⟦ Option<⟦ Item ⟧> ⟧",
-        "⟦ ⟦ Item ⟧ ⟧",
-    ] {
+    for spelling in ["Items.⟦Item⟧", "Items.⟦Option<⟦Item⟧>⟧", "⟦⟦Item⟧⟧"] {
         assert!(printed.contains(spelling), "{printed}");
     }
-    assert_eq!(printed.matches("⟦ ⟦ Item ⟧ ⟧").count(), 2);
+    assert_eq!(printed.matches("⟦⟦Item⟧⟧").count(), 2);
     assert!(!printed.contains("Vector"));
     let reread = Potential::<File>::from(printed.as_str())
         .actualize()
