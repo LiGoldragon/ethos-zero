@@ -14,7 +14,7 @@ fn read(source: &str) -> File {
 
 #[test]
 fn full_library_round_trips_and_generates_named_types_and_traits() {
-    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+    let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ ⟦ String ⟧ ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
     let file = read(source);
     let repeated = read(&file.protosize().textualize());
     assert_eq!(file, repeated);
@@ -130,7 +130,7 @@ fn emission_generates_its_enums_and_binds_each_emission_to_its_outcome() {
 
 #[test]
 fn an_outcome_past_the_last_emission_pairs_with_none_and_a_bare_outcome_binds_unit() {
-    let rust = "Emission [] [ Go.Vector<String> Stop Ask.Question ] [ Gone Stopped.Integer Answer Extra.String ] [ Question.String Answer.Integer ]".compact();
+    let rust = "Emission [] [ Go.⟦ String ⟧ Stop Ask.Question ] [ Gone Stopped.Integer Answer Extra.String ] [ Question.String Answer.Integer ]".compact();
     assert!(
         rust.contains("implEmittedforalloc::vec::Vec<alloc::string::String>{typeOutcome=();}"),
         "{rust}"
@@ -209,7 +209,7 @@ fn a_bare_emission_whose_unit_a_type_may_not_take_is_refused() {
 
 #[test]
 fn self_in_an_emission_or_outcome_is_bound_as_the_enum_it_stands_for() {
-    let rust = "Emission [] [ Go.Vector<Self> ] [ Gone.Option<Self> ] []".compact();
+    let rust = "Emission [] [ Go.⟦ Self ⟧ ] [ Gone.Option<Self> ] []".compact();
     assert!(
         rust.contains("implEmittedforalloc::vec::Vec<Emission>{typeOutcome=core::option::Option<alloc::boxed::Box<Outcome>>;}"),
         "{rust}"
@@ -302,8 +302,8 @@ fn a_process_of_one_bracket_or_of_two_outcomes_is_refused() {
 #[test]
 fn an_emission_left_without_an_outcome_is_refused_at_its_path() {
     assert_eq!(
-        "Emission [] [ Go.Vector<String> Stop ] [ Gone ] []".refusal(),
-        (vec![1, 1, 2], Problem::Unpaired("Stop".to_owned()))
+        "Emission [] [ Go.⟦ String ⟧ Stop ] [ Gone ] []".refusal(),
+        (vec![1, 1, 1], Problem::Unpaired("Stop".to_owned()))
     );
     assert_eq!(
         "Emission [] [ Go ] [] []".refusal(),
@@ -360,7 +360,7 @@ fn a_signal_generates_answering_with_one_capability_per_input_and_the_input_answ
 #[test]
 fn an_input_s_capability_borrows_self_as_the_input_and_a_keyword_raw() {
     let rust =
-        "Signal [] [ Again.Vector<Self> Match.Type ] [ Done.Option<Self> Matched ] [ Type.String ]"
+        "Signal [] [ Again.⟦ Self ⟧ Match.Type ] [ Done.Option<Self> Matched ] [ Type.String ]"
             .compact();
     // prettyplease ends a parameter list it wraps with a comma.
     let rust = rust.replace(",)", ")");
@@ -394,8 +394,8 @@ fn an_input_named_answer_has_the_capability_answer() {
 #[test]
 fn an_input_left_without_an_output_is_refused_at_its_path() {
     assert_eq!(
-        "Signal [] [ Ask.Vector<String> Tell ] [ Told ] []".refusal(),
-        (vec![1, 1, 2], Problem::Unpaired("Tell".to_owned()))
+        "Signal [] [ Ask.⟦ String ⟧ Tell ] [ Told ] []".refusal(),
+        (vec![1, 1, 1], Problem::Unpaired("Tell".to_owned()))
     );
 }
 
@@ -416,7 +416,7 @@ fn an_input_whose_capability_name_is_taken_is_refused() {
 #[test]
 fn a_named_position_declares_its_type_in_place() {
     let file = read(
-        "Memory [] [ Flow.{ Integer Brief.String State.[ Running Ended ] Capsule.{ Home.String Login.Vector<String> } } ] [] [] []",
+        "Memory [] [ Flow.{ Integer Brief.String State.[ Running Ended ] Capsule.{ Home.String Login.⟦ String ⟧ } } ] [] [] []",
     );
     assert_eq!(file, read(&file.protosize().textualize()));
     let rust = match file.generate() {
@@ -536,13 +536,12 @@ fn memory_generates_a_record_type_named_record() {
 
 #[test]
 fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
-    let generated =
-        match read("Memory [] [ Entry.{ String } Record.{ Entry Vector<Entry> } ] [] [] []")
-            .generate()
-        {
-            Ok(generated) => generated,
-            Err(_) => panic!("a two-record Memory generates"),
-        };
+    let generated = match read("Memory [] [ Entry.{ String } Record.{ Entry ⟦ Entry ⟧ } ] [] [] []")
+        .generate()
+    {
+        Ok(generated) => generated,
+        Err(_) => panic!("a two-record Memory generates"),
+    };
     assert!(generated.contains("pub struct Entry"));
     assert!(generated.contains("pub entry_vector: alloc::vec::Vec<Entry>"));
     assert!(
@@ -630,7 +629,7 @@ fn generates(source: &str) -> String {
 
 #[test]
 fn rooted_imports_in_the_imports_section_take_every_namespace_segment() {
-    let source = "Library [ :flow_ethos:message:Type :flow_ethos:signal:[ Input Output ] :protos:[ Textualizable ] ] [ Record.{ Type Input Vector<Output> } ] [] [ Record.[ Textualizable ] ]";
+    let source = "Library [ :flow_ethos:message:Type :flow_ethos:signal:[ Input Output ] :protos:[ Textualizable ] ] [ Record.{ Type Input ⟦ Output ⟧ } ] [] [ Record.[ Textualizable ] ]";
     let generated = generates(source);
     assert!(
         generated.contains(": flow_ethos::message::Type"),
@@ -662,8 +661,8 @@ fn rooted_imports_in_the_imports_section_take_every_namespace_segment() {
 fn a_chained_import_of_several_segments_generates_as_its_rooted_spelling() {
     for (chained, rooted, spelled) in [
         (
-            "Library [ signal_capsule:signal:[ Input Output ] ] [ Record.{ Input Vector<Output> } ] [] []",
-            "Library [ :signal_capsule:signal:[ Input Output ] ] [ Record.{ Input Vector<Output> } ] [] []",
+            "Library [ signal_capsule:signal:[ Input Output ] ] [ Record.{ Input ⟦ Output ⟧ } ] [] []",
+            "Library [ :signal_capsule:signal:[ Input Output ] ] [ Record.{ Input ⟦ Output ⟧ } ] [] []",
             "signal_capsule:signal:[",
         ),
         (
@@ -685,7 +684,7 @@ fn a_chained_import_of_several_segments_generates_as_its_rooted_spelling() {
         assert!(!print.contains(&format!(":{spelled}")), "{print}");
     }
     let generated = generates(
-        "Library [ signal_capsule:signal:[ Input Output ] ] [ Record.{ Input Vector<Output> } ] [] []",
+        "Library [ signal_capsule:signal:[ Input Output ] ] [ Record.{ Input ⟦ Output ⟧ } ] [] []",
     );
     assert!(
         generated.contains(": signal_capsule::signal::Input"),
@@ -1165,7 +1164,7 @@ fn an_enum_of_two_variants_is_accepted_declared_and_inline() {
 
 #[test]
 fn a_repeated_type_is_told_apart_as_first_and_second() {
-    let rust = "Library [] [ Pair.{ String String } StringVector.String Both.{ Vector<String> StringVector } ] [] []".compact();
+    let rust = "Library [] [ Pair.{ String String } StringVector.String Both.{ ⟦ String ⟧ StringVector } ] [] []".compact();
     assert!(
         rust.contains("pubstructPair{pubfirst_string:alloc::string::String,pubsecond_string:alloc::string::String,}"),
         "{rust}"
@@ -1195,7 +1194,7 @@ fn a_variant_named_as_a_defined_type_and_written_bare_carries_it() {
 
 #[test]
 fn variant_wrapping_of_named_types_and_inline_shapes_remains_valid() {
-    let source = "Library [] [ Record.{ String } Inner.[ First Second ] Outer.[ Other Wrapped.Record Nested.Inner Items.Vector<String> Inline.{ String Integer } ] ] [] []";
+    let source = "Library [] [ Record.{ String } Inner.[ First Second ] Outer.[ Other Wrapped.Record Nested.Inner Items.⟦ String ⟧ Inline.{ String Integer } ] ] [] []";
     assert!(read(source).generate().is_ok(), "{source}");
 }
 
@@ -1204,7 +1203,7 @@ fn scalar_vector_inline_and_nested_newtype_wrapping_remains_valid() {
     for source in [
         "Library [] [ Distance.Integer ] [] []",
         "Library [] [ Meters.Integer Distance.Meters ] [] []",
-        "Library [] [ Names.Vector<String> More.Names ] [] []",
+        "Library [] [ Names.⟦ String ⟧ More.Names ] [] []",
         "Library [] [ Record.{ String } Holder.{ Inline.Record } ] [] []",
         "Signal [] [ Acquire.LockRequest ] [ Locked.Lock ] [ LockRequest.{ String } Lock.{ String } ]",
     ] {
@@ -1272,7 +1271,7 @@ fn a_type_with_no_finite_value_is_refused() {
     );
     // A Vector, an Option or another variant is a way out.
     for finite in [
-        "Library [] [ S.{ Vector<Self> } ] [] []",
+        "Library [] [ S.{ ⟦ Self ⟧ } ] [] []",
         "Library [] [ S.{ Option<Self> } ] [] []",
         "Library [] [ E.[ Leaf Node.{ E E } ] ] [] []",
         "Library [] [ S.{ Result<Self String> } ] [] []",
@@ -1503,7 +1502,9 @@ fn a_concrete_type_in_an_input_is_written_as_that_type() {
         rust.contains("fnresolve(&self,input:alloc::string::String)->SelfwhereSelf:Sized;"),
         "{rust}"
     );
-    let rust = "Library [] [ Outline.String ] [ Outlined.[ outline.{ [ Vector<Outline> ] [ Self ] } ] ] []".compact();
+    let rust =
+        "Library [] [ Outline.String ] [ Outlined.[ outline.{ [ ⟦ Outline ⟧ ] [ Self ] } ] ] []"
+            .compact();
     assert!(
         rust.contains("fnoutline(&self,input:alloc::vec::Vec<Outline>)->SelfwhereSelf:Sized;"),
         "{rust}"
@@ -1590,8 +1591,8 @@ fn a_stream_is_refused_wherever_it_is_not_a_whole_output_or_a_capability_s_yield
         ),
         // Inside another type, in an output.
         (
-            "Signal [] [ Watch ] [ Watched.Vector<Stream<String Integer>> ] []",
-            vec![1, 2, 1, 0],
+            "Signal [] [ Watch ] [ Watched.⟦ Stream<String Integer> ⟧ ] []",
+            vec![1, 2, 0, 1, 0],
         ),
         (
             "Signal [] [ Watch ] [ Watched.Option<Stream<String Integer>> ] []",
@@ -1741,27 +1742,35 @@ fn the_retired_stream_block_is_refused() {
 }
 
 #[test]
-fn white_vectors_generate_the_same_rust_as_legacy_vectors() {
+fn white_vectors_generate_nested_rust_vectors_and_legacy_spelling_is_refused() {
     let legacy = "Library [] [ FilePath.String SyntaxError.Vector<FilePath> Table.{ Vector<Vector<Option<String>>> } Tree.{ Vector<Self> } Reply.[ Many.Vector<FilePath> Empty ] ] [ Listing.[ list![ Vector<FilePath> ] ] ] []";
-    let white = "Library [] [ FilePath.String SyntaxError.⟦ FilePath ⟧ Table.{ ⟦ ⟦ Option<String> ⟧ ⟧ } Tree.{ ⟦ Self ⟧ } Reply.[ Many.⟦ FilePath ⟧ Empty ] ] [ Listing.[ list![ ⟦ FilePath ⟧ ] ] ] []";
-    assert_eq!(white.compact(), legacy.compact());
+    assert_eq!(legacy.refusal().1, Problem::Renamed("⟦ T ⟧".to_owned()));
 
-    let mixed = "Library [] [ Mixed.{ Vector<⟦ String ⟧> ⟦ Vector<Integer> ⟧ } ] [] []";
-    assert_eq!(
-        mixed.compact(),
-        "Library [] [ Mixed.{ Vector<Vector<String>> Vector<Vector<Integer>> } ] [] []".compact(),
+    let white = "Library [] [ FilePath.String SyntaxError.⟦ FilePath ⟧ Table.{ ⟦ ⟦ Option<String> ⟧ ⟧ } Tree.{ ⟦ Self ⟧ } Reply.[ Many.⟦ FilePath ⟧ Empty ] ] [ Listing.[ list![ ⟦ FilePath ⟧ ] ] ] []";
+    let rust = white.compact();
+    assert!(
+        rust.contains("pubstructSyntaxError(puballoc::vec::Vec<FilePath>)"),
+        "{rust}"
     );
+    assert!(
+        rust.replace(",>", ">").contains(
+            "alloc::vec::Vec<alloc::vec::Vec<core::option::Option<alloc::string::String>>>"
+        ),
+        "{rust}"
+    );
+    assert!(rust.contains("Many(alloc::vec::Vec<FilePath>)"), "{rust}");
 }
 
 #[test]
-fn the_protos_vector_spellings_generate_the_builtin_vec() {
+fn the_protos_builtin_vector_with_angles_is_refused() {
     for source in [
         "Library [] [ Alias.protos:Vector<String> ] [] []",
+        "Library [] [ Alias.:protos:Vector<String> ] [] []",
         "Library [ protos:Vector ] [ Alias.Vector<String> ] [] []",
     ] {
         assert_eq!(
-            source.compact(),
-            "Library [] [ Alias.⟦ String ⟧ ] [] []".compact(),
+            source.refusal().1,
+            Problem::Renamed("⟦ T ⟧".to_owned()),
             "{source}",
         );
     }
@@ -1782,30 +1791,49 @@ fn white_vectors_keep_their_meaning_when_the_legacy_name_is_imported() {
 }
 
 #[test]
-fn differently_written_nested_vectors_carry_the_same_emission_type() {
-    let (path, problem) = "Emission [] [ First.Vector<Vector<String>> Second.⟦ ⟦ String ⟧ ⟧ ] [ FirstResult SecondResult ] []".refusal();
+fn equal_nested_white_vectors_carry_the_same_emission_type() {
+    let (path, problem) =
+        "Emission [] [ First.⟦ ⟦ String ⟧ ⟧ Second.⟦⟦String⟧⟧ ] [ FirstResult SecondResult ] []"
+            .refusal();
     assert_eq!(&path[..2], &[1, 1]);
     assert_eq!(problem, Problem::Duplicate("Vector".to_owned()));
 }
 
 #[test]
-fn a_builtin_vector_refuses_two_arguments_in_either_spelling() {
-    for source in [
-        "Library [] [ Alias.Vector<String Integer> ] [] []",
-        "Library [] [ Alias.⟦ String Integer ⟧ ] [] []",
-    ] {
-        let potential = Potential::<File>::from(source);
-        let at = potential.actualize().and_then(|file| file.generate());
-        let Err(Error::Conceptual(error)) = at else {
-            panic!("invalid vector arity must be refused: {source}");
-        };
-        assert_eq!(error.integer_vector, vec![1, 1, 0, 1]);
-        assert_eq!(
-            error.problem,
+fn malformed_angle_and_white_vectors_keep_their_arity_diagnostics() {
+    for (source, problem) in [
+        (
+            "Library [] [ Alias.Vector<String Integer> ] [] []",
             Problem::Arity(ethos_zero::Arity_Data {
                 first_integer: 1,
                 second_integer: 2,
-            })
+            }),
+        ),
+        (
+            "Library [] [ Alias.⟦ String Integer ⟧ ] [] []",
+            Problem::Arity(ethos_zero::Arity_Data {
+                first_integer: 1,
+                second_integer: 2,
+            }),
+        ),
+        (
+            "Library [] [ Alias.Vector ] [] []",
+            Problem::Arity(ethos_zero::Arity_Data {
+                first_integer: 1,
+                second_integer: 0,
+            }),
+        ),
+    ] {
+        let Err(Error::Conceptual(error)) = Potential::<File>::from(source)
+            .actualize()
+            .and_then(|file| file.generate())
+        else {
+            panic!("invalid vector must be refused: {source}");
+        };
+        assert_eq!(
+            (error.integer_vector, error.problem),
+            (vec![1, 1, 0, 1], problem),
+            "{source}"
         );
     }
 }
@@ -1859,8 +1887,8 @@ fn white_vector_errors_point_to_the_authored_element() {
 }
 
 #[test]
-fn legacy_and_white_spelling_cannot_bind_two_outcomes_to_one_emission_type() {
+fn a_legacy_emission_is_refused_before_looking_for_duplicate_types() {
     let (_, problem) =
         "Emission [] [ First.Vector<String> Second.⟦ String ⟧ ] [ Done Gone ] []".refusal();
-    assert_eq!(problem, Problem::Duplicate("Vector".to_owned()));
+    assert_eq!(problem, Problem::Renamed("⟦ T ⟧".to_owned()));
 }

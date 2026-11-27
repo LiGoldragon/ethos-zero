@@ -3,7 +3,7 @@ Signal
 [ Configure.Set ]
 [ Configured.Set ]
 [ HookName.String
-  Hooks.Vector<HookName>
+  Hooks.⟦ HookName ⟧
   HookClient.String
   Set.[ Hooks
         RemoveHook.HookName

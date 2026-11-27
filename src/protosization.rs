@@ -186,7 +186,7 @@ impl AssociatedTypesProtosizing for [AssociatedType] {
     }
 }
 /// A variant carrying a type with arguments is a headed name and the
-/// arguments' angled enclosure beside it in the list: `Many.Vector<Lock>`.
+/// arguments' angled enclosure beside it in the list: `Maybe.Option<Lock>`.
 trait VariantsProtosizing {
     fn variant_nodes(&self) -> Vec<Protos>;
 }

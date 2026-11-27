@@ -3,6 +3,6 @@ Signal
 [ harness:[ Observed Event State ]
   flow:[ FlowId ] ]
 [ Subscribe ]
-[ Subscribed.Vector<Observed>
+[ Subscribed.⟦ Observed ⟧
   Changed.{ FlowId Event State } ]
 []

@@ -9,8 +9,8 @@ Memory
 [ Watch.{ FlowId FilePath ReadFrom }
   Observed
   Keep.Set ]
-[ Observe.{ FlowId Vector<Event> Option<Offset> }
+[ Observe.{ FlowId ⟦ Event ⟧ Option<Offset> }
   Recall.{} ]
-[ Observation.Vector<Changed>
-  Recollection.Vector<Observed> ]
+[ Observation.⟦ Changed ⟧
+  Recollection.⟦ Observed ⟧ ]
 []

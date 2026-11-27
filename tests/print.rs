@@ -46,7 +46,7 @@ fn the_flow_nexus_four_files_round_trip_byte_identical() {
 }
 
 #[test]
-fn a_legacy_flow_file_prints_white_vectors_without_changing_its_meaning() {
+fn a_flow_file_keeps_its_white_vectors_and_meaning_when_printed() {
     let source = "flow-memory".fixture();
     let file = match Potential::<File>::from(source.as_str()).actualize() {
         Ok(file) => file,
@@ -138,19 +138,16 @@ fn every_fixture_prints_to_a_text_that_reads_back_to_it_and_prints_the_same() {
 
 #[test]
 fn vector_positions_print_white_while_other_angles_stay_tight() {
-    let source = "Library\n[]\n[ Lock.String\n  Locks.Vector<Lock>\n  Reply.[ Many.Vector<Lock>\n          Nothing ] ]\n[ Holding.{ [ Fillable ]\n            [ Item<Fillable> ]\n            [ LIMIT.Integer ]\n            [ take![ Option<Item> ] ] }\n  Fillable.[ fill![ Vector<Lock> ] ] ]\n[]\n";
+    let source = "Library\n[]\n[ Lock.String\n  Locks.⟦ Lock ⟧\n  Reply.[ Many.⟦ Lock ⟧\n          Nothing ] ]\n[ Holding.{ [ Fillable ]\n            [ Item<Fillable> ]\n            [ LIMIT.Integer ]\n            [ take![ Option<Item> ] ] }\n  Fillable.[ fill![ ⟦ Lock ⟧ ] ] ]\n[]\n";
     let file = match Potential::<File>::from(source).actualize() {
         Ok(file) => file,
         Err(error) => panic!("the Library reads: {error:?}"),
     };
-    assert_eq!(
-        file.print(),
-        source.replace("Vector<Lock>", "⟦ Lock ⟧").reprint()
-    );
+    assert_eq!(file.print(), source.reprint());
 }
 
 #[test]
-fn the_crates_own_legacy_ethos_round_trips_to_the_canonical_print() {
+fn the_crates_own_ethos_round_trips_to_the_canonical_print() {
     let root = env!("CARGO_MANIFEST_DIR");
     for name in ["ethos-zero.ethos", "error.ethos"] {
         let source = std::fs::read_to_string(format!("{root}/{name}")).expect(name);
@@ -173,7 +170,7 @@ fn the_crates_own_legacy_ethos_round_trips_to_the_canonical_print() {
 
 #[test]
 fn white_vectors_round_trip_in_mixed_type_positions() {
-    let source = "Library [] [ Item.String Items.⟦ Item ⟧ Reply.[ Items.⟦ Option<⟦ Item ⟧> ⟧ Empty ] Mixed.{ ⟦ Vector<Item> ⟧ Vector<⟦ Item ⟧> } ] [ Listing.[ list![ ⟦ Item ⟧ ] ] ] []";
+    let source = "Library [] [ Item.String Items.⟦ Item ⟧ Reply.[ Items.⟦ Option<⟦ Item ⟧> ⟧ Empty ] Mixed.{ ⟦ ⟦ Item ⟧ ⟧ ⟦⟦Item⟧⟧ } ] [ Listing.[ list![ ⟦ Item ⟧ ] ] ] []";
     let file = Potential::<File>::from(source).actualize().unwrap();
     let printed = file.print();
     for spelling in [
@@ -193,51 +190,34 @@ fn white_vectors_round_trip_in_mixed_type_positions() {
 }
 
 #[test]
-fn the_printer_uses_the_shared_resolution_for_protos_and_external_vectors() {
-    for (source, expected) in [
-        (
-            "Library [] [ Alias.protos:Vector<Vector<String>> ] [] []",
-            "Library [] [ Alias.⟦ ⟦ String ⟧ ⟧ ] [] []",
-        ),
-        (
-            "Library [ protos:Vector ] [ Alias.Vector<String> ] [] []",
-            "Library [ protos:Vector ] [ Alias.⟦ String ⟧ ] [] []",
-        ),
-        (
-            "Library [ external:Vector ] [ Alias.Vector<⟦ String ⟧> ] [] []",
-            "Library [ external:Vector ] [ Alias.Vector<⟦ String ⟧> ] [] []",
-        ),
-        (
-            "Library [] [ Vector.String Alias.Vector ] [] []",
-            "Library [] [ Vector.String Alias.Vector ] [] []",
-        ),
-        (
-            "Library [] [ Alias.external:Vector<Vector<String>> ] [] []",
-            "Library [] [ Alias.external:Vector<⟦ String ⟧> ] [] []",
-        ),
+fn valid_builtin_and_external_vectors_keep_their_own_forms_in_print() {
+    for source in [
+        "Library [] [ Alias.⟦ ⟦ String ⟧ ⟧ ] [] []",
+        "Library [ protos:Vector ] [ Alias.⟦ String ⟧ ] [] []",
+        "Library [ external:Vector ] [ Alias.Vector<⟦ String ⟧> ] [] []",
+        "Library [] [ Alias.external:Vector<⟦ String ⟧> ] [] []",
     ] {
         let original = Potential::<File>::from(source).actualize().unwrap();
         let printed = original.print();
         let reread = Potential::<File>::from(printed.as_str())
             .actualize()
             .unwrap();
-        assert_eq!(printed, expected.reprint(), "{source}");
+        assert_eq!(printed, source.reprint(), "{source}");
         assert_eq!(reread.print(), printed);
-        assert_eq!(reread.generate(), original.generate());
+        assert_eq!(reread.generate().unwrap(), original.generate().unwrap());
     }
 }
 
 #[test]
-fn printing_does_not_turn_a_malformed_vector_into_a_valid_one() {
-    let source = "Library [] [ Good.Vector<String> Bad.Vector<String Integer> Empty.Vector ] [] []";
+fn unchecked_printing_does_not_repair_legacy_or_malformed_vectors() {
+    let source =
+        "Library [] [ Legacy.Vector<String> Bad.Vector<String Integer> Empty.Vector ] [] []";
     let file = Potential::<File>::from(source).actualize().unwrap();
     let printed = file.print();
-    assert_eq!(
-        printed,
-        "Library [] [ Good.⟦ String ⟧ Bad.Vector<String Integer> Empty.Vector ] [] []".reprint()
-    );
+    assert_eq!(printed, source.reprint());
     let reread = Potential::<File>::from(printed.as_str())
         .actualize()
         .unwrap();
-    assert!(reread.generate().is_err());
+    assert_eq!(reread.print(), printed);
+    assert_eq!(reread.generate().unwrap_err(), file.generate().unwrap_err());
 }

@@ -1,12 +1,10 @@
 //! Printing: an ethos file in the sweet form. Its root's head stands on the
 //! first line and each section on a line of its own, from the first column;
 //! each section is written by the protos writer, whose canonical print
-//! expands vertically. Resolved vectors are given to that writer in their
-//! canonical structural form.
+//! expands vertically. Printing places those sections; checking is separate.
 
 use protos::{Enclosure, Protos, Protosizable, Separator, Textualizable};
 
-use crate::vector_normalization::NormalizedFile;
 use crate::{File, Printable};
 
 impl Printable for Protos {
@@ -42,6 +40,6 @@ impl Printable for Protos {
 
 impl Printable for File {
     fn print(&self) -> String {
-        self.normalized().protosize().print()
+        self.protosize().print()
     }
 }

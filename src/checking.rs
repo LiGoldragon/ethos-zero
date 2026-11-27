@@ -12,7 +12,6 @@ use datom_codec::{Integer, Path};
 use crate::generation::{FieldNaming, Identifying, SnakeCasing};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
-use crate::vector_normalization::{NormalizedFile, NormalizingVectors};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Entry, Error, File, Identifiable, Identity, Import, Intrinsic, Memory,
@@ -446,7 +445,7 @@ impl Naming for Capability {
 // Placement: every path is the Protos path of the structure in error
 // ---------------------------------------------------------------------------
 
-/// The path step naming the angled enclosure beside a node. `Vector<Integer>`
+/// The path step naming the angled enclosure beside a node. `Option<Integer>`
 /// in a list is two Protos siblings, the name and the enclosure after it, so
 /// a reference's arguments are not below its node but beside it. The
 /// reference writes this step; the list, which knows where the node sits,
@@ -1663,6 +1662,14 @@ impl ReferringParts for Reference {
                     Problem::Undeclared(reference.name.0.clone()),
                 ));
             }
+            Resolution::Intrinsic(Intrinsic::Vector)
+                if reference.arguments.len() == Intrinsic::Vector.arity() =>
+            {
+                return Err(Error::conceptual(
+                    vec![],
+                    Problem::Renamed("⟦ T ⟧".to_owned()),
+                ));
+            }
             Resolution::Intrinsic(intrinsic) => intrinsic.into(),
             Resolution::Parameter(_) | Resolution::Associated(_) => ReferenceRequirement {
                 role: Role::Type,
@@ -2170,8 +2177,7 @@ impl Binding for [Variant] {
         let mut carried: Vec<Reference> = Vec::new();
         let mut at = 0;
         for emission in self {
-            if let Some(mut reference) = emission.named_carried(scope) {
-                reference.normalize_vectors(scope);
+            if let Some(reference) = emission.named_carried(scope) {
                 if carried.contains(&reference) {
                     return Err(Error::conceptual(
                         vec![at],
@@ -2372,18 +2378,6 @@ impl Checkable for Association {
         self.identity.check(scope).place(0)?;
         // The traits borne are named outside the identity that bears them.
         self.traits.refer_each(scope, Role::Trait, 0).place(1)
-    }
-}
-
-/// The capability for yielding the semantic value of a valid authored file.
-pub(crate) trait CheckingFile {
-    fn checked(&self) -> Result<File, Error>;
-}
-
-impl CheckingFile for File {
-    fn checked(&self) -> Result<File, Error> {
-        self.validate()?;
-        Ok(self.normalized())
     }
 }
 

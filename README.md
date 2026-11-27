@@ -25,7 +25,7 @@ Every error carries the Protos path of the structure in error, from the
 file's root: a headed form puts its head at child zero and body at child
 one, qualified head arguments remain below the head, and a reference's
 arguments are the angled enclosure beside it in its list
-(`Vector<Bogus>` at index 0 puts `Bogus` at `[ 1 0 ]`). `Locating`
+(`Option<Bogus>` at index 0 puts `Bogus` at `[ 1 0 ]`). `Locating`
 follows that path down the source's structure and carries the node's
 start back across the sweet form's seam, so every error is situated as a
 line and a column in the text as written. Every method
@@ -184,10 +184,10 @@ Memory
   flow:[ FlowId ] ]
 [ Watch.{ FlowId FilePath }
   Observed ]
-[ Observe.{ FlowId Vector<Event> }
+[ Observe.{ FlowId ⟦ Event ⟧ }
   Recall.{} ]
-[ Observation.Vector<Changed>
-  Recollection.Vector<Observed> ]
+[ Observation.⟦ Changed ⟧
+  Recollection.⟦ Observed ⟧ ]
 []
 ```
 
@@ -315,7 +315,7 @@ a separate package, with and without `datom`, and sends a value of each root
 through rkyv.
 
 A struct position may declare its type in place: `Brief.String`,
-`State.[ Running Ended ]`, `Capsule.{ Home.String Login.Vector<String> }`.
+`State.[ Running Ended ]`, `Capsule.{ Home.String Login.⟦ String ⟧ }`.
 The type is named by its own name, shares the file's namespace (a second
 `Brief` anywhere in the file is a `Duplicate`), and the position holds it
 by name, so its field is `brief: Brief`. It is declared outside any
@@ -362,7 +362,7 @@ A field is named for its type alone, in snake case, and never for the
 namespace the type comes from: `:protos:Error` gives `error`,
 `nexus:ConfigurationState<OrchestrateNexusConfiguration>` gives
 `orchestrate_nexus_configuration_configuration_state`. A constructed type
-is named type-first, `Vector<String>` as `string_vector`, `Option<Lock>` as
+is named type-first, `⟦ String ⟧` as `string_vector`, `Option<Lock>` as
 `lock_option`. Positions whose names are the same are told apart as first
 and second, `Generation.{ String String }` giving `first_string` and
 `second_string`, and `Errors.{ :a:Error :b:Error }` giving `first_error`
@@ -417,7 +417,7 @@ when one would capture an authored type reference.
 
 `Stream` is an intrinsic, known without import as `Vector` is, and takes
 exactly two types: the state a stream opens with and the change it then
-carries, `Stream<Vector<Pane> Changed>`. It is answered as a stream: one
+carries, `Stream<⟦ Pane ⟧ Changed>`. It is answered as a stream: one
 subscription, then frames. The signal library holds its two Rust types,
 `signal::Frame<State, Change>`, an archived and datomizable enum
 `Opened(State) | Changed(Change) | Lagged(State) | Ended(Ending)`, and
@@ -426,7 +426,7 @@ A crate holding a Signal with a stream output depends on that library under
 the name `signal`.
 
 A `Stream` stands in two places. One is the whole payload of a Signal's
-output: `Signal [] [ Subscribe ] [ Subscribed.Stream<Vector<Pane> Changed> ] [ … ]`.
+output: `Signal [] [ Subscribe ] [ Subscribed.Stream<⟦ Pane ⟧ Changed> ] [ … ]`.
 The `Output` holds one frame of it,
 `Subscribed(signal::Frame<alloc::vec::Vec<Pane>, Changed>)`, with the derives
 every `Output` bears, so each frame on the wire is one `Output`. The other is a trait capability's yield, where its
@@ -436,7 +436,7 @@ gives `fn open(&self, input: Self::State) -> signal::Stream<Self::State, Self::C
 (`fixtures/publishing-trait.ethos`). A `Stream` anywhere else is refused as
 `Placement.Stream` at its path: in a field, an alias, a variant's payload in
 any root's types or in an Operation's or Emission's sections, a Signal's
-input, and inside another type's arguments, `Vector<Stream<…>>`,
+input, and inside another type's arguments, `⟦ Stream<…> ⟧`,
 `Option<Stream<…>>` and a `Stream` among a `Stream`'s own arguments among
 them; an output's payload declared in place, `Watched.{ Stream<…> }`, holds
 it as a field and is refused too. `Stream<String>` is refused as
@@ -502,7 +502,7 @@ Where an associated type of the trait is already bounded by that trait
 (`Streamable.{ [] [ Item<Textualizable> ] [] [ push!{ [ Textualizable ] [ Self ] } ] }`),
 the input is that associated type, `Self::Item`. `Self`, a parameter of the
 trait's head, and an associated type named directly stay as they are. A
-concrete type in an input (`String`, `Vector<Self>`, a declared type) is
+concrete type in an input (`String`, `⟦ Self ⟧`, a declared type) is
 written as that type (`resolve.{ [ Rec ] [ Self ] }` gives
 `fn resolve(&self, input: Rec) -> Self`). An imported name says nothing of
 its role, so in an input it is taken as a trait. A yield may name a concrete type; a
@@ -515,11 +515,13 @@ bounds and are not counted against it.
 
 ## Print
 
-The printer writes a resolved built-in vector as `⟦ T ⟧`, including a
-legacy `Vector<T>` that resolves to the built-in. Another type of the same
-name keeps its name and angled arguments. Other angled arguments stay
-tight against the name they qualify, as in `Option<Event>`. The reader
-still accepts the legacy spelling.
+Write a built-in vector as `⟦ T ⟧`. Checking and generation refuse legacy
+`Vector<T>` when name resolution finds the built-in, including qualified
+or imported Protos references. An external type of the same name keeps
+its name and angled arguments. Other angled arguments stay tight against
+the name they qualify, as in `Option<Event>`. Actualization reads the
+authored structure without checking; unchecked printing is not a syntax
+migration.
 
 Braces and ordinary or white square brackets expand vertically when they
 have multiple elements and at least one element is headed or is itself a
@@ -542,11 +544,11 @@ Memory
 ```
 
 The layout is Protos's canonical print (`protos::Textualizable`).
-`Printable::print` on a `File` uses the resolved vector spelling; on
-`protos::Protos` it lays out the structure without resolving names. The
-four Flow Nexus files under `fixtures/print/` still round-trip
-byte-for-byte through that structural print. The no-argument CLI prints
-`ethos-zero.ethos` through the semantic `File` print.
+`Printable::print` lays out an authored `File` or `protos::Protos`
+without validating it. A valid file's built-in vectors are already white.
+The four Flow Nexus fixtures under `fixtures/print/` round-trip
+byte-for-byte through the structural print. The no-argument CLI prints
+its own white-bracket `ethos-zero.ethos`.
 
 File ascent projects the File directly into its `protos::Protos`
 structure; it does not textualize and parse the result again.

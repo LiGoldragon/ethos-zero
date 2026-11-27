@@ -54,8 +54,8 @@ fn generate(source: &str, directory: &str) -> String {
 fn no_argument_prints_the_crates_own_ethos_ending_with_a_newline() {
     let (success, output) = [].invoke();
     assert!(success);
-    // The source can still use the legacy spelling; the CLI prints the
-    // semantic canonical form of that same declaration.
+    // The CLI prints the
+    // canonical form of the crate's white-bracket declaration.
     let source = include_str!("../ethos-zero.ethos");
     let file = Potential::<File>::from(source).actualize().unwrap();
     assert_eq!(output, file.print());
@@ -244,7 +244,7 @@ fn check_locates_an_undeclared_name_below_a_comment() {
     let directory = "undeclared".scratch();
     let source = directory.write_source(
         "undeclared",
-        "; The comment and the sweet form's seam are counted too.\nLibrary\n[]\n[ Record.{ String\n           Vector<Option<Bogus>> } ]\n[]\n[]\n",
+        "; The comment and the sweet form's seam are counted too.\nLibrary\n[]\n[ Record.{ String\n           ⟦ Option<Bogus> ⟧ } ]\n[]\n[]\n",
     );
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
@@ -252,9 +252,23 @@ fn check_locates_an_undeclared_name_below_a_comment() {
     assert_eq!(
         output,
         format!(
-            "Rejected.{{ {source} {{ 5 26 }} Conceptual.{{ [ 1 1 0 1 2 1 0 ] Undeclared.Bogus }} }}\n"
+            "Rejected.{{ {source} {{ 5 21 }} Conceptual.{{ [ 1 1 0 1 1 1 0 ] Undeclared.Bogus }} }}\n"
         )
     );
+}
+
+#[test]
+fn check_and_generate_refuse_the_same_legacy_builtin_vector_at_its_name() {
+    let directory = "legacy-vector".scratch();
+    let source = directory.write_source("legacy", "Library [] [ Alias.Vector<String> ] [] []");
+    let outputs = format!("{directory}/unwritten");
+    let expected = format!(
+        "Rejected.{{ {source} {{ 1 20 }} Conceptual.{{ [ 1 1 0 1 ] Renamed.«⟦ T ⟧» }} }}\n"
+    );
+    for request in [check(&source), generate(&source, &outputs)] {
+        assert_eq!([request.as_str()].invoke(), (false, expected.clone()));
+    }
+    assert!(!std::path::Path::new(&outputs).exists());
 }
 
 #[test]

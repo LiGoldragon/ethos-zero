@@ -9,7 +9,7 @@
 //! |---|---|---|---|
 //! | Text, as written (the sweet form) | `String` | [`Canonicalizable`] | [`Canonical`] |
 //! | Text, canonical (the braced form) | [`Canonical`] | `protos::Protosizable` | `protos::Protos` |
-//! | Structure | `protos::Protos` | [`Ethosizable`]<[`File`]> | [`File`], checked whole |
+//! | Structure | `protos::Protos` | [`Ethosizable`]<[`File`]> | [`File`], not yet checked |
 //! | Concept | [`File`] | [`Generating`] | Rust text, or a whole-file error |
 //!
 //! [`Potential<File>`](Potential) bears [`Actualizing`]<[`File`]>: the
@@ -401,7 +401,7 @@ pub struct NamedReference {
     pub source: Option<Source>,
     /// The name referred to.
     pub name: Name,
-    /// The arguments in angle brackets: `Vector<Text>`, `Result<Integer SinkError>`.
+    /// The arguments in angle brackets: `Result<Integer SinkError>`.
     pub arguments: Vec<Reference>,
 }
 
@@ -427,7 +427,7 @@ pub enum Constraint {
 /// place, `Brief.String`, which the position then holds.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Position {
-    /// A type named: `Voice`, `Vector<Event>`.
+    /// A type named: `Voice`, `⟦ Event ⟧`.
     Referenced(Reference),
     /// A type declared where it is used: `State.[ Running Ended ]`.
     Declared(TypeDeclaration),
@@ -934,7 +934,6 @@ mod printing;
 mod protosization;
 mod sectioning;
 mod signature;
-mod vector_normalization;
 
 #[cfg(test)]
 mod behavior {
@@ -1001,7 +1000,7 @@ mod behavior {
 
     #[test]
     fn approved_declared_and_inline_payloads_generate_named_fields() {
-        let source = "Library [] [ Generation.{ String String } FilePath.String SyntaxError.Vector<FilePath> GenerationFailure.[ SyntaxError Unwritable ] Lock.{ String } LockRejection.[ DuplicateName.Lock PathOverlap.{ Lock Lock } ] ] [] []";
+        let source = "Library [] [ Generation.{ String String } FilePath.String SyntaxError.⟦ FilePath ⟧ GenerationFailure.[ SyntaxError Unwritable ] Lock.{ String } LockRejection.[ DuplicateName.Lock PathOverlap.{ Lock Lock } ] ] [] []";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -1026,7 +1025,7 @@ mod behavior {
 
     #[test]
     fn library_traits_generate_trait_surfaces() {
-        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ Vector<String> ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
+        let source = "Library [ std:[ Clonable Sendable Serializable ] ] [ SinkError.[ Closed Full ] Sink.{ String } ] [ Fillable.[ push!{ [ Serializable ] [ Result<Integer SinkError> ] } drain![ ⟦ String ⟧ ] create:[ Self ] ] Streamable.{ [ Fillable ] [ Item<Serializable> ] [ CAPACITY.Integer ] [ next![ Option<Item> ] ] } Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Sink.[ Fillable ] ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => {
@@ -1114,7 +1113,7 @@ mod behavior {
 
     #[test]
     fn canonical_ascent_round_trips_nonempty_library_and_signal() {
-        let library = "Library [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.Vector<FilePath> External.external:Vector<FilePath> Record.{ Vector<Option<String>> Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Capability ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ]";
+        let library = "Library [ crate:[ Capability ] external:[ Vector ] ] [ FilePath.String SyntaxError.⟦ FilePath ⟧ External.external:Vector<FilePath> Record.{ ⟦ Option<String> ⟧ Result<String Integer> } State.[ Idle Busy ] ] [ Fillable.[ fill!{ [ Capability ] [ Result<String Integer> ] } ] Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] [ Record.[ Fillable ] ]";
         let signal = "Signal [ datom_codec:[ Error Path ] ] [ Generate.Generation ] [ Generated.String Malformed.Error ] [ Generation.{ String String } ]";
         for source in [library, signal] {
             let file = match Potential::<File>::from(source).actualize() {
@@ -1162,7 +1161,7 @@ mod behavior {
 
     #[test]
     fn emission_reads_its_four_sections_and_ascends() {
-        let source = "Emission [ :signal_herdr:signal:[ Input Output ] ] [ Command.{ Verb Vector<Argument> } ] [ Outcome.[ Done Refused.Integer ] ] [ Verb.[ List Show ] Argument.[ Name.String Quiet ] ]";
+        let source = "Emission [ :signal_herdr:signal:[ Input Output ] ] [ Command.{ Verb ⟦ Argument ⟧ } ] [ Outcome.[ Done Refused.Integer ] ] [ Verb.[ List Show ] Argument.[ Name.String Quiet ] ]";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("approved Emission reads"),
@@ -1203,49 +1202,51 @@ mod behavior {
     }
 
     #[test]
-    fn checked_vectors_are_typed_once_without_capturing_a_shadowing_name() {
-        use crate::checking::CheckingFile;
+    fn actualization_retains_legacy_shape_but_validation_refuses_it() {
+        use crate::Validating;
 
-        let File::Library(white) =
-            Potential::<File>::from("Library [] [ Alias.⟦ ⟦ String ⟧ ⟧ ] [] []")
-                .actualize()
-                .unwrap()
-                .checked()
-                .unwrap()
-        else {
-            panic!("library expected");
-        };
         for source in [
             "Library [] [ Alias.Vector<Vector<String>> ] [] []",
             "Library [] [ Alias.protos:Vector<protos:Vector<String>> ] [] []",
             "Library [ protos:Vector ] [ Alias.Vector<Vector<String>> ] [] []",
         ] {
-            let File::Library(checked) = Potential::<File>::from(source)
-                .actualize()
-                .unwrap()
-                .checked()
-                .unwrap()
-            else {
+            let file = Potential::<File>::from(source).actualize().unwrap();
+            let File::Library(library) = &file else {
                 panic!("library expected");
             };
-            assert!(
-                matches!(
-                    &checked.types[0],
-                    TypeDeclaration::Alias(_, Reference::Vector(element))
-                        if matches!(element.as_ref(), Reference::Vector(_))
-                ),
-                "{source}"
-            );
-            assert_eq!(checked.types, white.types, "{source}");
+            assert!(matches!(
+                library.types[0],
+                TypeDeclaration::Alias(_, Reference::Named(_))
+            ));
+            let error = file.validate().unwrap_err();
+            assert_eq!(file.generate().unwrap_err(), error);
+            let Error::Conceptual(error) = error else {
+                panic!("legacy vector refused during validation: {source}");
+            };
+            assert_eq!(error.integer_vector, [1, 1, 0, 1]);
+            assert_eq!(error.problem, Problem::Renamed("⟦ T ⟧".to_owned()));
         }
 
-        let File::Library(shadowed) = Potential::<File>::from(
+        let file = Potential::<File>::from("Library [] [ Alias.⟦ ⟦ String ⟧ ⟧ ] [] []")
+            .actualize()
+            .unwrap();
+        file.validate().unwrap();
+        let File::Library(white) = file else {
+            panic!("library expected");
+        };
+        assert!(matches!(
+            &white.types[0],
+            TypeDeclaration::Alias(_, Reference::Vector(element))
+                if matches!(element.as_ref(), Reference::Vector(_))
+        ));
+
+        let file = Potential::<File>::from(
             "Library [ external:Vector ] [ Alias.Vector<⟦ String ⟧> ] [] []",
         )
         .actualize()
-        .unwrap()
-        .checked()
-        .unwrap() else {
+        .unwrap();
+        file.validate().unwrap();
+        let File::Library(shadowed) = file else {
             panic!("library expected");
         };
         assert!(matches!(
@@ -1324,7 +1325,7 @@ mod behavior {
 
     #[test]
     fn public_file_protosization_has_the_shared_exact_canonical_extents() {
-        let source = "Library [] [ Alias.Vector<Option<String>> Record.{ Vector<Option<String>> Result<String Integer> } ] [ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] []";
+        let source = "Library [] [ Alias.⟦ Option<String> ⟧ Record.{ ⟦ Option<String> ⟧ Result<String Integer> } ] [ Processable<[Clonable Sendable] Serializable>.[ process.[ String ] ] ] []";
         let file = match Potential::<File>::from(source).actualize() {
             Ok(file) => file,
             Err(_) => panic!("generic source reads"),
@@ -1372,7 +1373,7 @@ mod behavior {
             ("Memory [] [ 1 ] [] [] []", vec![1, 1, 0]),
             ("Operation [ 1 ] [] [] []", vec![1, 0, 0]),
             ("Emission [ 1 ] [] [] []", vec![1, 0, 0]),
-            ("Library [] [ Alias.Vector<1> ] [] []", vec![1, 1, 1, 0]),
+            ("Library [] [ Alias.Option<1> ] [] []", vec![1, 1, 1, 0]),
         ];
         for (source, expected) in cases {
             match Potential::<File>::from(source).actualize() {
@@ -1411,22 +1412,22 @@ mod behavior {
             "Library.{ [] [ 1 ] [] [] }",
             "Signal [ 1 ] [] [] []",
             "Memory [] [ 1 ] [] [] []",
-            "Operation [] [ Go.Vector<Bogus> ] [] []",
-            "Emission [] [ Go.Vector<Bogus> ] [ Gone ] []",
-            "Library [] [ Alias.Vector<1> ] [] []",
+            "Operation [] [ Go.⟦ Bogus ⟧ ] [] []",
+            "Emission [] [ Go.⟦ Bogus ⟧ ] [ Gone ] []",
+            "Library [] [ Alias.Option<1> ] [] []",
             "Library [] [] [ K.[ 1 ] ] []",
             "Library [] [] [ K.{ [ 1 ] [] [] [] } ] []",
             "Library [] [ T.String ] [ K.[] ] [ T.[ 1 ] ]",
             "Library [] [ Rec.{ String Bogus } ] [] []",
-            "Library [] [ Rec.{ Vector<String> Option<Bogus> } ] [] []",
-            "Library [] [ Rec.{ Vector<Option<Bogus>> } ] [] []",
+            "Library [] [ Rec.{ ⟦ String ⟧ Option<Bogus> } ] [] []",
+            "Library [] [ Rec.{ ⟦ Option<Bogus> ⟧ } ] [] []",
             "Library [] [ Alias.Result<String Bogus> ] [] []",
-            "Library [] [ E.[ A.Vector<String> B.Option<Bogus> ] ] [] []",
+            "Library [] [ E.[ A.⟦ String ⟧ B.Option<Bogus> ] ] [] []",
             "Library [ x:[ T ] ] [ Rec.{ x:T<Bogus> } ] [] []",
             "Library [] [] [ K.[ run.{ [ Self Bogus ] [ String ] } ] ] []",
-            "Library [] [] [ K.[ run.{ [ Self ] [ Vector<Bogus> ] } ] ] []",
+            "Library [] [] [ K.[ run.{ [ Self ] [ ⟦ Bogus ⟧ ] } ] ] []",
             "Library [] [] [ K.{ [] [ Item<Bogus> ] [] [] } ] []",
-            "Signal [] [ Ask.Vector<Bogus> ] [] []",
+            "Signal [] [ Ask.⟦ Bogus ⟧ ] [] []",
         ];
         for source in cases {
             let potential = Potential::<File>::from(source);
@@ -1445,7 +1446,7 @@ mod behavior {
                 .expect("one offending token");
             assert_eq!(
                 (location.line.0, location.column.0),
-                (1, offending as i64 + 1),
+                (1, source[..offending].chars().count() as i64 + 1),
                 "{source}: {error:?}"
             );
         }

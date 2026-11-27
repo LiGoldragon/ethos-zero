@@ -326,7 +326,7 @@ fn imported_payloads() -> Nexus {
         ),
         (
             "memory",
-            "Memory [ app:signal:[ Changed Noted.Marked Plain ] ] [ Held.{ Changed Vector<Changed> Option<Changed> Noted Plain } Latest.Changed ] [] [] []",
+            "Memory [ app:signal:[ Changed Noted.Marked Plain ] ] [ Held.{ Changed ⟦ Changed ⟧ Option<Changed> Noted Plain } Latest.Changed ] [] [] []",
         ),
         (
             "process",

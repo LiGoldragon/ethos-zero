@@ -137,14 +137,14 @@ impl Brackets for Protos {
 /// The trait whose capability pairs each node of a list with the angle-bracketed
 /// constraints written against it.
 ///
-/// `Vector<Integer>` is one type in Ethos and two sibling protos structures: a
+/// `Option<Integer>` is one type in Ethos and two sibling protos structures: a
 /// constrained head that no separator follows is rewound to a bare run, leaving
 /// the angled enclosure beside it.
 ///
 /// This re-join is owed to protos, not to Ethos. `Protos::Headed` carries a
 /// separator and a body unconditionally, so a name bearing constraints and no
 /// body has no node to be read into; for Ethos to read and print
-/// `Vector<Integer>` as one structure, protos needs such a node -- constraints
+/// `Option<Integer>` as one structure, protos needs such a node -- constraints
 /// on a bare run, or an optional separator and body on a headed one -- a reader
 /// that keeps the constraints instead of rewinding past them, and a writer that
 /// prints the constraints against the name with no space between. Until then

@@ -22,9 +22,7 @@ use datom_codec::Integer;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
-use crate::checking::{
-    Carrying, CheckingFile, Declaring, Inlining, Spanning, Streaming, Titled, Uniting,
-};
+use crate::checking::{Carrying, Declaring, Inlining, Spanning, Streaming, Titled, Uniting};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
@@ -1757,12 +1755,12 @@ impl AllowFormatting for String {
 
 impl Generating for File {
     fn generate(&self) -> Result<String, crate::Error> {
-        let checked = self.checked()?;
+        crate::Validating::validate(self)?;
         let scope = Scope {
-            file: &checked,
+            file: self,
             identity: None,
             associated: &[],
         };
-        Ok(checked.items(&scope).render())
+        Ok(self.items(&scope).render())
     }
 }

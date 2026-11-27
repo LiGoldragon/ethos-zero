@@ -5,7 +5,7 @@ Library
 [ Structural_Error.{ Extent
                      protos:Problem }
   Error.[ Structural.Structural_Error
-          Conceptual.{ Vector<Integer> Problem } ]
+          Conceptual.{ ⟦ Integer ⟧ Problem } ]
   Problem.[ Root
             Arity.{ Integer Integer }
             Expected.Form
