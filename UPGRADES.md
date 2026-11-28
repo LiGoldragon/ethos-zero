@@ -2,6 +2,22 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 46.0.0: Opening for Result; Carried and Carrying taken only where generated
+
+A Signal of open enums generates `Opening` for `::core::result::Result<Value,
+Failure>` beside its impls for `Vec`, `Option` and `Box`, each side read
+through `Opening`, `Ok.<value>` or `Err.<failure>` as datom-codec composes a
+`Result`; a type holding `Result<Model ⟦ Model ⟧>` is now read, where it
+named an impl that did not exist. `Carried` and `Carrying` are reserved only
+where the Signal generates them, where its open enums carry a type, as they
+are exported only there: a Signal whose every declared type holds an open enum
+may declare or import either (`Carried.{ Model }`), which 45.0.0 refused as
+`Duplicate`. `Opening` stays reserved in every Signal of open enums.
+
+To deploy: repin to 46.0.0 and regenerate. Nothing that checked under 45.0.0
+is refused, and no Ethos source changes. The Rust API of ethos-zero is
+unchanged.
+
 ## 45.0.0: no alloc header; an open enum's own module is written from self
 
 A generated module opens with no `extern crate alloc;`: every standard path

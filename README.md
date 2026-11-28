@@ -203,7 +203,10 @@ that reaches an open enum, as carrying reaches (through struct positions, enum
 payloads, vectors and options; `Input` and `Output` among them): each is read
 only through the generated `Opening<Registry>`, bound by the `Registry` of
 every open enum it reaches, so no text yields a head never added.
-`Model::open(&datom, &mut budget, &registry)` reads a value and
+Beside the impls for `Vec`, `Option` and `Box`, `Opening` is generated for
+`Result` as for `Option`, each side through `Opening`: `Ok.<value>` or
+`Err.<failure>`, so `Outcome.{ Result<Model ⟦ Model ⟧> }` reads
+`{ Ok.Fable.High }`. `Model::open(&datom, &mut budget, &registry)` reads a value and
 `Input::open(&datom, &mut budget, &registry)` a whole input
 (`Launch.Fable.High`), with the `Registry` the runtime implements; a type that
 reaches nothing keeps its derived `Composing` (`Output`, when no output holds
@@ -219,9 +222,14 @@ declare is `ErrorKind::Variant`. Beside `Carried` the file generates
 `Carried::read("QuadrupleEffort", &datom, &mut budget)`, the reading of one by
 its name, which `Opening` uses. A generic type that reaches an open enum gets
 no `Opening` yet. An open enum is a name of
-its own: an input or output of its name, `Carried`, `Carrying` or `Opening`
-among the types, is `Duplicate`; the three are reserved only in a Signal of
-open enums. A Nexus exports the open enum, `Carried`, `Carrying` and `Opening`
+its own: an input or output of its name is `Duplicate`. A generated name is
+taken where it exists and nowhere else: `Opening`, declared or imported in a
+Signal of open enums, is `Duplicate`, and so are `Carried` and `Carrying` only
+where the Signal generates them, where its open enums carry a type
+(`Signal [] [] [] [ Carried.String ] [ Model ]` is refused, while
+`Signal [] [ Launch.Carried ] [ Launched ] [ Carried.{ Model } ] [ Model ]`,
+whose one type holds `Model` and so is carried by none, checks and generates
+its own `Carried`). A Nexus exports the open enum, `Carried`, `Carrying` and `Opening`
 of a Signal to its importers by name, `Carried` and `Carrying` only where the
 Signal generates them: an import of either from a Signal that has nothing to
 carry is `UnknownName`. The contract module is a namespace of its own, the

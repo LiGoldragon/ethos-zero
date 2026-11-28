@@ -1,0 +1,10 @@
+; Opening is generated for Result as for Option: Outcome holds a Result whose
+; two sides reach Model, so it is read through Opening, each side with the
+; registry.
+Signal
+[]
+[ Settle.Outcome ]
+[ Settled ]
+[ Outcome.{ Result<Model ⟦ Model ⟧> }
+  Effort.[ Low High ] ]
+[ Model ]

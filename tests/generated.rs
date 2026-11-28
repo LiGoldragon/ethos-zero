@@ -112,6 +112,8 @@ mod open_enum_bare;
 mod open_enum_held;
 #[path = "generated/open-enum-recursive.rs"]
 mod open_enum_recursive;
+#[path = "generated/open-enum-result.rs"]
+mod open_enum_result;
 #[path = "generated/open-enum-shadow.rs"]
 mod open_enum_shadow;
 #[path = "generated/open-enum-signal.rs"]
@@ -1480,4 +1482,55 @@ fn a_recursive_type_that_holds_no_open_enum_keeps_composing() {
         }
     );
     assert_eq!(<Carried as open_enum_recursive::Carrying>::NAMES, &["Tree"]);
+}
+
+/// The Result Signal's registry: Fable, carrying an Effort.
+struct Settling;
+
+impl open_enum_result::model::Registry for Settling {
+    fn variant(
+        &self,
+        name: &open_enum_result::model::Name,
+    ) -> Option<open_enum_result::model::Variant> {
+        (name.0 == "Fable").then(|| open_enum_result::model::Variant {
+            name: name.clone(),
+            type_option: Some(open_enum_result::model::Type::Name(
+                open_enum_result::model::Name("Effort".to_owned()),
+            )),
+        })
+    }
+}
+
+#[cfg(feature = "datom")]
+#[test]
+fn a_result_that_reaches_an_open_enum_is_read_through_opening() {
+    use open_enum_result::{Carried, Effort, Input, Model, Opening, Outcome, model};
+    let fable = Model {
+        name: model::Name("Fable".to_owned()),
+        carried: Some(Carried::Effort(Effort::High)),
+    };
+    assert_eq!(
+        Input::open(
+            &formed("Settle.{ Ok.Fable.High }"),
+            &mut budget(),
+            &Settling
+        )
+        .expect("an Ok reads"),
+        Input::Settle(Outcome {
+            model_model_vector_result: Ok(fable.clone())
+        })
+    );
+    assert_eq!(
+        Input::open(
+            &formed("Settle.{ Err.[ Fable.High ] }"),
+            &mut budget(),
+            &Settling
+        )
+        .expect("an Err reads"),
+        Input::Settle(Outcome {
+            model_model_vector_result: Err(vec![fable])
+        })
+    );
+    assert!(Input::open(&formed("Settle.{ Ok.Nonesuch }"), &mut budget(), &Settling).is_err());
+    assert!(Input::open(&formed("Settle.{ Maybe.Fable }"), &mut budget(), &Settling).is_err());
 }

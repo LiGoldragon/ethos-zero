@@ -2149,6 +2149,7 @@ impl Pointed for Organism {
 
 impl Verifying for Nexus {
     fn verify(&self) -> Result<(), Refusal> {
+        let inferred = self.namespace().ok().flatten();
         let mut processes: Option<usize> = None;
         let mut libraries: Option<usize> = None;
         for (index, module) in self.modules.iter().enumerate() {
@@ -2168,7 +2169,7 @@ impl Verifying for Nexus {
                 identity: None,
                 associated: &[],
                 namespaces: &self.namespaces,
-                reach: &Reach::default(),
+                reach: &self.reach(index, inferred.as_deref()),
             };
             if let Err(error) = module.file.check(&scope) {
                 return Err(Refusal {

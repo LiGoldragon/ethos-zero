@@ -2371,5 +2371,26 @@ fn an_input_an_output_or_a_type_named_as_an_open_enum_generates_is_a_duplicate()
             "Signal [] [ Model ] [ Told ] [ Carried.String Opening.String ]"
         )),
         Ok(())
-    );
+    ); // Carried and Carrying are taken only where they are generated: a Signal
+    // whose open enums carry no type, since every type it declares holds one,
+    // generates neither, and its own Carried, Carrying or an import of either
+    // is no Duplicate.
+    for source in [
+        "Signal [] [ Launch.Carried ] [ Launched ] [ Carried.{ Model } ] [ Model ]",
+        "Signal [] [ Launch.Carrying ] [ Launched ] [ Carrying.{ Model } ] [ Model ]",
+        "Signal [ other:[ Carried Carrying ] ] [ Launch.Model ] [ Launched ] [] [ Model ]",
+    ] {
+        assert_eq!(
+            ethos_zero::Validating::validate(&read(source)),
+            Ok(()),
+            "{source}"
+        );
+        let rust = read(source).generate().expect("it generates");
+        assert!(!rust.contains("pub enum Carried"), "{source}");
+        assert!(!rust.contains("pub trait Carrying"), "{source}");
+    }
+    let rust = read("Signal [] [ Launch.Carried ] [ Launched ] [ Carried.{ Model } ] [ Model ]")
+        .generate()
+        .expect("it generates");
+    assert!(rust.contains("pub struct Carried {\n    pub model: Model,\n}"));
 }

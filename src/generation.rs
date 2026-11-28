@@ -2391,6 +2391,46 @@ impl Opening for File {
                 }
             }
         });
+        // A Result is read as an Option is, each side through `Opening`:
+        // `Ok.<value>` or `Err.<failure>`, as datom-codec composes one.
+        items.push(quote! {
+            #[cfg(feature = "datom")]
+            #[rustfmt::skip]
+            impl<Registry, Value: Opening<Registry>, Failure: Opening<Registry>> Opening<Registry>
+                for ::core::result::Result<Value, Failure>
+            {
+                fn open(
+                    datom: &::datom_codec::Datom,
+                    budget: &mut ::datom_codec::Budget,
+                    registry: &Registry,
+                ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+                    let (head, body) = ::datom_codec::Variantizing::variant(datom, budget, "Variant")?;
+                    let ok = match head {
+                        "Ok" => true,
+                        "Err" => false,
+                        found => {
+                            return ::core::result::Result::Err(
+                                <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                                    datom.path.clone(),
+                                    ::datom_codec::ErrorKind::Variant {
+                                        expected: ::std::string::String::from("Result"),
+                                        found: ::std::string::String::from(found),
+                                    },
+                                ),
+                            );
+                        }
+                    };
+                    ::datom_codec::CompositionDepthing::enter_composition(budget, &body.path)?;
+                    let read = if ok {
+                        Value::open(body, budget, registry).map(::core::result::Result::Ok)
+                    } else {
+                        Failure::open(body, budget, registry).map(::core::result::Result::Err)
+                    };
+                    ::datom_codec::CompositionDepthing::leave_composition(budget);
+                    read
+                }
+            }
+        });
         items.push(quote! {
             #[cfg(feature = "datom")]
             #[rustfmt::skip]

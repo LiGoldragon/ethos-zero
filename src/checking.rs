@@ -11,6 +11,7 @@ use datom_codec::{Integer, Path};
 
 use crate::generation::{FieldNaming, Identifying, SnakeCasing};
 use crate::nexus::{Export, Exporting, Spelling};
+use crate::reach::Reaching as _;
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
@@ -1011,6 +1012,16 @@ impl Checkable for File {
         // The derived names come first, so an authored name that would
         // capture one is the occurrence refused.
         let mut names = self.inline_sites();
+        // `Carried` and `Carrying` are taken only where they are generated, as
+        // they are exported only there: where the open enums carry a type.
+        if !scope.reach.carriable(self).is_empty() {
+            for generated in ["Carried", "Carrying"] {
+                names.push(DeclarationSite {
+                    name: Name::try_from(generated).expect("static identifier"),
+                    path: vec![4],
+                });
+            }
+        }
         names.extend(self.declared());
         names.distinct().place(1)?;
         self.fields_distinct().place(1)?;
@@ -1318,14 +1329,14 @@ impl Declared for Signal {
                 path: vec![1],
             },
         ];
-        // What the open enums generate beside them, once for the file.
+        // What the open enums generate beside them, once for the file:
+        // `Opening` always; `Carried` and `Carrying` only where the file has a
+        // type to carry, which the file's reach decides (see `Checkable for File`).
         if self.open.as_ref().is_some_and(|open| !open.is_empty()) {
-            for generated in ["Carried", "Carrying", "Opening"] {
-                names.push(DeclarationSite {
-                    name: Name::try_from(generated).expect("static identifier"),
-                    path: vec![4],
-                });
-            }
+            names.push(DeclarationSite {
+                name: Name::try_from("Opening").expect("static identifier"),
+                path: vec![4],
+            });
         }
         names.extend(self.imports.imported_in(0));
         names.extend(self.types.names_in(3));
@@ -2713,7 +2724,7 @@ impl Validating for File {
             identity: None,
             associated: &[],
             namespaces: &[],
-            reach: &crate::reach::Reach::default(),
+            reach: &crate::reach::Reckoning::reckon(self, vec![]),
         })
     }
 }
