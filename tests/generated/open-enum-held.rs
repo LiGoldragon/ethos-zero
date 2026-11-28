@@ -9,10 +9,70 @@
 extern crate alloc;
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable))]
 pub struct Pair {
     pub model: Model,
     pub effort: Effort,
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry: model::Registry + effort::Registry> Opening<Registry> for Pair {
+    fn open(
+        datom: &datom_codec::Datom,
+        budget: &mut datom_codec::Budget,
+        registry: &Registry,
+    ) -> core::result::Result<Self, datom_codec::Error> {
+        datom_codec::Budgeted::spend(budget, &datom.path)?;
+        let children = match &datom.form {
+            datom_codec::Form::Struct(children) => children,
+            found => {
+                return core::result::Result::Err(
+                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        datom_codec::ErrorKind::Form {
+                            expected: alloc::string::String::from("Struct"),
+                            found: alloc::string::String::from(
+                                datom_codec::Naming::form_name(found),
+                            ),
+                        },
+                    ),
+                );
+            }
+        };
+        if children.len() != 2 {
+            return core::result::Result::Err(
+                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                    datom.path.clone(),
+                    datom_codec::ErrorKind::Arity {
+                        expected: 2,
+                        found: children.len() as datom_codec::Integer,
+                    },
+                ),
+            );
+        }
+        core::result::Result::Ok(Self {
+            model: {
+                let child = &children[0];
+                datom_codec::CompositionDepthing::enter_composition(
+                    budget,
+                    &child.path,
+                )?;
+                let read = Opening::open(child, budget, registry);
+                datom_codec::CompositionDepthing::leave_composition(budget);
+                read?
+            },
+            effort: {
+                let child = &children[1];
+                datom_codec::CompositionDepthing::enter_composition(
+                    budget,
+                    &child.path,
+                )?;
+                let read = Opening::open(child, budget, registry);
+                datom_codec::CompositionDepthing::leave_composition(budget);
+                read?
+            },
+        })
+    }
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -24,6 +84,53 @@ pub struct Mark(pub alloc::string::String);
 pub enum Carried {
     Mark(Mark),
 }
+#[rustfmt::skip]
+pub trait Carrying: Sized {
+    const NAMES: &'static [&'static str];
+    fn name(&self) -> &'static str;
+    #[cfg(feature = "datom")]
+    fn read(
+        name: &str,
+        datom: &datom_codec::Datom,
+        budget: &mut datom_codec::Budget,
+    ) -> core::result::Result<Self, datom_codec::Error>;
+}
+#[rustfmt::skip]
+impl Carrying for Carried {
+    const NAMES: &'static [&'static str] = &["Mark"];
+    fn name(&self) -> &'static str {
+        match self {
+            Carried::Mark(_) => "Mark",
+        }
+    }
+    #[cfg(feature = "datom")]
+    fn read(
+        name: &str,
+        datom: &datom_codec::Datom,
+        budget: &mut datom_codec::Budget,
+    ) -> core::result::Result<Self, datom_codec::Error> {
+        match name {
+            "Mark" => {
+                core::result::Result::Ok(
+                    Carried::Mark(datom_codec::Composing::compose(datom, budget)?),
+                )
+            }
+            other => {
+                core::result::Result::Err(
+                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        datom_codec::ErrorKind::Variant {
+                            expected: alloc::string::String::from(
+                                "a type the file declares",
+                            ),
+                            found: alloc::string::String::from(other),
+                        },
+                    ),
+                )
+            }
+        }
+    }
+}
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
 pub trait Opening<Registry>: Sized {
@@ -32,6 +139,97 @@ pub trait Opening<Registry>: Sized {
         budget: &mut datom_codec::Budget,
         registry: &Registry,
     ) -> core::result::Result<Self, datom_codec::Error>;
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry, Value: Opening<Registry>> Opening<Registry> for alloc::vec::Vec<Value> {
+    fn open(
+        datom: &datom_codec::Datom,
+        budget: &mut datom_codec::Budget,
+        registry: &Registry,
+    ) -> core::result::Result<Self, datom_codec::Error> {
+        datom_codec::Budgeted::spend(budget, &datom.path)?;
+        let children = match &datom.form {
+            datom_codec::Form::Vector(children) => children,
+            found => {
+                return core::result::Result::Err(
+                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        datom_codec::ErrorKind::Form {
+                            expected: alloc::string::String::from("Vector"),
+                            found: alloc::string::String::from(
+                                datom_codec::Naming::form_name(found),
+                            ),
+                        },
+                    ),
+                );
+            }
+        };
+        let mut values = alloc::vec::Vec::with_capacity(children.len());
+        for child in children {
+            datom_codec::CompositionDepthing::enter_composition(budget, &child.path)?;
+            let read = Value::open(child, budget, registry);
+            datom_codec::CompositionDepthing::leave_composition(budget);
+            values.push(read?);
+        }
+        core::result::Result::Ok(values)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry, Value: Opening<Registry>> Opening<Registry>
+for core::option::Option<Value> {
+    fn open(
+        datom: &datom_codec::Datom,
+        budget: &mut datom_codec::Budget,
+        registry: &Registry,
+    ) -> core::result::Result<Self, datom_codec::Error> {
+        if let datom_codec::Form::Bare(head) = &datom.form {
+            datom_codec::Budgeted::spend(budget, &datom.path)?;
+            return if head == "None" {
+                core::result::Result::Ok(core::option::Option::None)
+            } else {
+                core::result::Result::Err(
+                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        datom_codec::ErrorKind::Variant {
+                            expected: alloc::string::String::from("Option"),
+                            found: head.clone(),
+                        },
+                    ),
+                )
+            };
+        }
+        let (head, body) = datom_codec::Variantizing::variant(datom, budget, "Variant")?;
+        if head != "Some" {
+            return core::result::Result::Err(
+                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                    datom.path.clone(),
+                    datom_codec::ErrorKind::Variant {
+                        expected: alloc::string::String::from("Option"),
+                        found: alloc::string::String::from(head),
+                    },
+                ),
+            );
+        }
+        datom_codec::CompositionDepthing::enter_composition(budget, &body.path)?;
+        let read = Value::open(body, budget, registry);
+        datom_codec::CompositionDepthing::leave_composition(budget);
+        core::result::Result::Ok(core::option::Option::Some(read?))
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry, Value: Opening<Registry>> Opening<Registry> for alloc::boxed::Box<Value> {
+    fn open(
+        datom: &datom_codec::Datom,
+        budget: &mut datom_codec::Budget,
+        registry: &Registry,
+    ) -> core::result::Result<Self, datom_codec::Error> {
+        core::result::Result::Ok(
+            alloc::boxed::Box::new(Value::open(datom, budget, registry)?),
+        )
+    }
 }
 #[rustfmt::skip]
 pub mod model {
@@ -323,39 +521,6 @@ impl datom_codec::Datomizable for Model {
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl datom_codec::Composing for Model {
-    fn compose(
-        datom: &datom_codec::Datom,
-        budget: &mut datom_codec::Budget,
-    ) -> core::result::Result<Self, datom_codec::Error> {
-        datom_codec::Budgeted::spend(budget, &datom.path)?;
-        match &datom.form {
-            datom_codec::Form::Bare(head) => {
-                core::result::Result::Ok(Self {
-                    name: model::Name(head.clone()),
-                    carried: core::option::Option::None,
-                })
-            }
-            found => {
-                core::result::Result::Err(
-                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
-                        datom.path.clone(),
-                        datom_codec::ErrorKind::Form {
-                            expected: alloc::string::String::from(
-                                "Bare; a name that carries a type is read with its registry, by Opening",
-                            ),
-                            found: alloc::string::String::from(
-                                datom_codec::Naming::form_name(found),
-                            ),
-                        },
-                    ),
-                )
-            }
-        }
-    }
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
 impl<Registry: model::Registry> Opening<Registry> for Model {
     fn open(
         datom: &datom_codec::Datom,
@@ -405,24 +570,11 @@ impl<Registry: model::Registry> Opening<Registry> for Model {
                 core::option::Option::Some(model::Type::Name(carried)),
                 core::option::Option::Some(body),
             ) => {
-                let carried = match carried.0.as_str() {
-                    "Mark" => {
-                        Carried::Mark(datom_codec::Composing::compose(body, budget)?)
-                    }
-                    other => {
-                        return core::result::Result::Err(
-                            <datom_codec::Error as datom_codec::ErrorRaising>::composition(
-                                datom.path.clone(),
-                                datom_codec::ErrorKind::Variant {
-                                    expected: alloc::string::String::from(
-                                        "a type the file declares",
-                                    ),
-                                    found: alloc::string::String::from(other),
-                                },
-                            ),
-                        );
-                    }
-                };
+                let carried = <Carried as Carrying>::read(
+                    carried.0.as_str(),
+                    body,
+                    budget,
+                )?;
                 core::result::Result::Ok(Self {
                     name,
                     carried: core::option::Option::Some(carried),
@@ -734,39 +886,6 @@ impl datom_codec::Datomizable for Effort {
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl datom_codec::Composing for Effort {
-    fn compose(
-        datom: &datom_codec::Datom,
-        budget: &mut datom_codec::Budget,
-    ) -> core::result::Result<Self, datom_codec::Error> {
-        datom_codec::Budgeted::spend(budget, &datom.path)?;
-        match &datom.form {
-            datom_codec::Form::Bare(head) => {
-                core::result::Result::Ok(Self {
-                    name: effort::Name(head.clone()),
-                    carried: core::option::Option::None,
-                })
-            }
-            found => {
-                core::result::Result::Err(
-                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
-                        datom.path.clone(),
-                        datom_codec::ErrorKind::Form {
-                            expected: alloc::string::String::from(
-                                "Bare; a name that carries a type is read with its registry, by Opening",
-                            ),
-                            found: alloc::string::String::from(
-                                datom_codec::Naming::form_name(found),
-                            ),
-                        },
-                    ),
-                )
-            }
-        }
-    }
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
 impl<Registry: effort::Registry> Opening<Registry> for Effort {
     fn open(
         datom: &datom_codec::Datom,
@@ -816,24 +935,11 @@ impl<Registry: effort::Registry> Opening<Registry> for Effort {
                 core::option::Option::Some(effort::Type::Name(carried)),
                 core::option::Option::Some(body),
             ) => {
-                let carried = match carried.0.as_str() {
-                    "Mark" => {
-                        Carried::Mark(datom_codec::Composing::compose(body, budget)?)
-                    }
-                    other => {
-                        return core::result::Result::Err(
-                            <datom_codec::Error as datom_codec::ErrorRaising>::composition(
-                                datom.path.clone(),
-                                datom_codec::ErrorKind::Variant {
-                                    expected: alloc::string::String::from(
-                                        "a type the file declares",
-                                    ),
-                                    found: alloc::string::String::from(other),
-                                },
-                            ),
-                        );
-                    }
-                };
+                let carried = <Carried as Carrying>::read(
+                    carried.0.as_str(),
+                    body,
+                    budget,
+                )?;
                 core::result::Result::Ok(Self {
                     name,
                     carried: core::option::Option::Some(carried),
@@ -857,12 +963,86 @@ impl<Registry: effort::Registry> Opening<Registry> for Effort {
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable))]
 pub enum Input {
     Launch(Pair),
     Stop(Mark),
     Model(model::Input),
     Effort(effort::Input),
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry: model::Registry + effort::Registry> Opening<Registry> for Input {
+    fn open(
+        datom: &datom_codec::Datom,
+        budget: &mut datom_codec::Budget,
+        registry: &Registry,
+    ) -> core::result::Result<Self, datom_codec::Error> {
+        match &datom.form {
+            datom_codec::Form::Bare(head) => {
+                datom_codec::Budgeted::spend(budget, &datom.path)?;
+                let other = head.as_str();
+                core::result::Result::Err(
+                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        datom_codec::ErrorKind::Variant {
+                            expected: alloc::string::String::from("Input"),
+                            found: alloc::string::String::from(other),
+                        },
+                    ),
+                )
+            }
+            _ => {
+                let (head, body) = datom_codec::Variantizing::variant(
+                    datom,
+                    budget,
+                    "Variant",
+                )?;
+                match head {
+                    "Launch" => {
+                        core::result::Result::Ok(
+                            Self::Launch({
+                                let child = body;
+                                datom_codec::CompositionDepthing::enter_composition(
+                                    budget,
+                                    &child.path,
+                                )?;
+                                let read = Opening::open(child, budget, registry);
+                                datom_codec::CompositionDepthing::leave_composition(budget);
+                                read?
+                            }),
+                        )
+                    }
+                    "Stop" => {
+                        core::result::Result::Ok(
+                            Self::Stop(datom_codec::Composable::compose(body, budget)?),
+                        )
+                    }
+                    "Model" => {
+                        core::result::Result::Ok(
+                            Self::Model(datom_codec::Composable::compose(body, budget)?),
+                        )
+                    }
+                    "Effort" => {
+                        core::result::Result::Ok(
+                            Self::Effort(datom_codec::Composable::compose(body, budget)?),
+                        )
+                    }
+                    other => {
+                        core::result::Result::Err(
+                            <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                datom.path.clone(),
+                                datom_codec::ErrorKind::Variant {
+                                    expected: alloc::string::String::from("Input"),
+                                    found: alloc::string::String::from(other),
+                                },
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

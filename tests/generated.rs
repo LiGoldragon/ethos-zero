@@ -982,18 +982,19 @@ fn formed(text: &str) -> datom_codec::Datom {
 #[test]
 fn an_open_enums_contract_round_trips_as_datom_text() {
     use datom_codec::{Actualizing, Datomizable, Potential};
-    use open_enum_signal::{Input, Output, model};
+    use open_enum_signal::{Input, Opening, Output, model};
     use protos::{Compactable, Protosizable};
 
+    // Input reaches the open enum, so it is read through Opening, with a
+    // registry; the contract's own variants need none of its entries.
+    let none = Added(vec![]);
     let written = "Model.Add.{ Fable Some.Name.QuadrupleEffort }";
     let added = Input::Model(model::Input::Add(model::Variant {
         name: model::Name("Fable".to_owned()),
         type_option: Some(model::Type::Name(model::Name("QuadrupleEffort".to_owned()))),
     }));
     assert_eq!(
-        Potential::<Input>::from(written)
-            .actualize(&mut budget())
-            .expect("the notion's datom reads"),
+        Input::open(&formed(written), &mut budget(), &none).expect("the notion's datom reads"),
         added
     );
     assert_eq!(added.datomize(vec![]).protosize().compact(), written);
@@ -1011,9 +1012,7 @@ fn an_open_enums_contract_round_trips_as_datom_text() {
             })),
         ),
     ] {
-        let read = Potential::<Input>::from(text)
-            .actualize(&mut budget())
-            .expect("reads");
+        let read = Input::open(&formed(text), &mut budget(), &none).expect("reads");
         assert_eq!(read, input, "{text}");
         assert_eq!(input.datomize(vec![]).protosize().compact(), text);
     }
@@ -1029,13 +1028,15 @@ fn an_open_enums_contract_round_trips_as_datom_text() {
 
 #[test]
 fn an_open_enums_type_is_any_type_of_the_syntax_which_the_runtime_refuses() {
-    use datom_codec::{Actualizing, Potential};
-    use open_enum_signal::{Input, model};
+    use open_enum_signal::{Input, Opening, model};
     // Only a name is carried at run time, but every form of a type reads, so
     // the runtime can answer Refused to the others.
-    let read = Potential::<Input>::from("Model.Add.{ Fable Some.Vector.Name.Low }")
-        .actualize(&mut budget())
-        .expect("a vector of a type reads");
+    let read = Input::open(
+        &formed("Model.Add.{ Fable Some.Vector.Name.Low }"),
+        &mut budget(),
+        &Added(vec![]),
+    )
+    .expect("a vector of a type reads");
     let Input::Model(model::Input::Add(variant)) = read else {
         panic!("an add")
     };
@@ -1105,10 +1106,6 @@ fn an_open_enums_value_is_read_with_the_registry_of_added_variants() {
     let bare = Model::open(&formed("Plain"), &mut budget(), &plain).expect("reads");
     assert_eq!(bare.carried, None);
     assert_eq!(bare.datomize(vec![]).protosize().compact(), "Plain");
-    assert_eq!(
-        <Model as datom_codec::Composing>::compose(&formed("Plain"), &mut budget()),
-        Ok(bare)
-    );
 
     // A head that was never added is refused where it is read.
     let kind = |text: &str, registry: &Added| {
@@ -1151,23 +1148,105 @@ fn an_open_enums_value_is_read_with_the_registry_of_added_variants() {
 }
 
 #[test]
-fn an_open_enums_value_that_carries_a_type_is_not_read_without_its_registry() {
-    use datom_codec::{Actualizing, ErrorKind, Potential};
-    use open_enum_signal::Input;
-    let refused = Potential::<Input>::from("Launch.Fable.High").actualize(&mut budget());
-    assert!(matches!(
-        refused.expect_err("needs a registry").kind,
-        ErrorKind::Form { .. }
-    ));
+fn a_whole_input_is_read_through_opening_with_its_registry() {
+    use datom_codec::ErrorKind;
+    use open_enum_signal::{Carried, Input, Model, Opening, QuadrupleEffort, model};
+    let registry = Added::naming("Fable", "QuadrupleEffort");
     assert_eq!(
-        Potential::<Input>::from("Launch.Plain")
-            .actualize(&mut budget())
-            .expect("a bare name reads"),
-        Input::Launch(open_enum_signal::Model {
-            name: open_enum_signal::model::Name("Plain".to_owned()),
-            carried: None,
+        Input::open(&formed("Launch.Fable.High"), &mut budget(), &registry).expect("reads"),
+        Input::Launch(Model {
+            name: model::Name("Fable".to_owned()),
+            carried: Some(Carried::QuadrupleEffort(QuadrupleEffort::High)),
         })
     );
+    // A head never added is refused where it is read, inside the Input too.
+    assert_eq!(
+        Input::open(&formed("Launch.Jev"), &mut budget(), &registry)
+            .expect_err("never added")
+            .kind,
+        ErrorKind::Variant {
+            expected: "Model".to_owned(),
+            found: "Jev".to_owned(),
+        }
+    );
+    assert!(matches!(
+        Input::open(&formed("Halt.Fable.High"), &mut budget(), &registry)
+            .expect_err("no such input")
+            .kind,
+        ErrorKind::Variant { .. }
+    ));
+}
+
+#[test]
+fn a_body_reads_what_carried_holds_by_the_name_of_its_type() {
+    use open_enum_signal::{Carried, Carrying, QuadrupleEffort, TripleEffort};
+    assert_eq!(Carried::NAMES, ["TripleEffort", "QuadrupleEffort"]);
+    let high = Carried::read("QuadrupleEffort", &formed("High"), &mut budget()).expect("reads");
+    assert_eq!(high, Carried::QuadrupleEffort(QuadrupleEffort::High));
+    assert_eq!(high.name(), "QuadrupleEffort");
+    assert_eq!(
+        Carried::TripleEffort(TripleEffort::Low).name(),
+        "TripleEffort"
+    );
+    assert!(Carried::read("Missing", &formed("High"), &mut budget()).is_err());
+    assert!(Carried::read("TripleEffort", &formed("Maximum"), &mut budget()).is_err());
+}
+
+/// A registry of both open enums of the held Signal: Fable a Model, High an
+/// Effort carrying a Mark.
+struct Both;
+
+impl open_enum_held::model::Registry for Both {
+    fn variant(
+        &self,
+        name: &open_enum_held::model::Name,
+    ) -> Option<open_enum_held::model::Variant> {
+        (name.0 == "Fable").then(|| open_enum_held::model::Variant {
+            name: name.clone(),
+            type_option: None,
+        })
+    }
+}
+
+impl open_enum_held::effort::Registry for Both {
+    fn variant(
+        &self,
+        name: &open_enum_held::effort::Name,
+    ) -> Option<open_enum_held::effort::Variant> {
+        (name.0 == "High").then(|| open_enum_held::effort::Variant {
+            name: name.clone(),
+            type_option: Some(open_enum_held::effort::Type::Name(
+                open_enum_held::effort::Name("Mark".to_owned()),
+            )),
+        })
+    }
+}
+
+#[test]
+fn a_type_that_holds_two_open_enums_is_read_with_a_registry_of_each() {
+    use datom_codec::Datomizable;
+    use open_enum_held::{Carried, Effort, Input, Mark, Model, Opening, Pair, effort, model};
+    use protos::{Compactable, Protosizable};
+    let text = "Launch.{ Fable High.seal }";
+    let input = Input::open(&formed(text), &mut budget(), &Both).expect("reads");
+    assert_eq!(
+        input,
+        Input::Launch(Pair {
+            model: Model {
+                name: model::Name("Fable".to_owned()),
+                carried: None,
+            },
+            effort: Effort {
+                name: effort::Name("High".to_owned()),
+                carried: Some(Carried::Mark(Mark("seal".to_owned()))),
+            },
+        })
+    );
+    assert_eq!(input.datomize(vec![]).protosize().compact(), text);
+    // Either head never added is refused inside the struct.
+    assert!(Input::open(&formed("Launch.{ Jev High.seal }"), &mut budget(), &Both).is_err());
+    assert!(Input::open(&formed("Launch.{ Fable Low.seal }"), &mut budget(), &Both).is_err());
+    assert!(Input::open(&formed("Launch.{ Fable }"), &mut budget(), &Both).is_err());
 }
 
 /// A Nexus of the open-enum Signal: it launches, and answers the contract of

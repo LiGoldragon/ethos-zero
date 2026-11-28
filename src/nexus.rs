@@ -528,7 +528,7 @@ impl Generated for File {
         }
         // What a Signal's open enums generate beside them, once for the file.
         if !self.opened().is_empty() {
-            for name in ["Carried", "Opening"] {
+            for name in ["Carried", "Carrying", "Opening"] {
                 names.push(Name::try_from(name).expect("a generated name is an identifier"));
             }
         }
