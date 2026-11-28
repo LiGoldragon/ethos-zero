@@ -5,8 +5,12 @@
 ; namespaces the caller gives, each as an import writes its first segment and
 ; its ethos files: an import that names a module of one must find each name it
 ; takes there, and is refused as UnknownName otherwise; an import of any other
-; is trusted, and Checked lists it, by file, as unchecked. A rejection names
-; the file, the line and column of the error in it, and the error.
+; is trusted, and Checked and Generated each list it, by file, as unchecked.
+; A rejection names the file, the line and column of the error in it, and the
+; error. Each string is a type for what it holds: a file is a FilePath, the
+; directory written into a Directory, a namespace a Namespace, a name a Name;
+; the reason a file is unreadable or unwritable, a message a person reads,
+; stays a String.
 ; The files read are of eight roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
 ;   Signal     [ imports ] [ inputs ] [ outputs ] [ types ] ; or with a fifth, [ open enums ], each generated with its contract module
@@ -22,17 +26,21 @@ Library
   ethos_zero:[ Problem Location ] ]
 [ Query.[ Generate.Generation
           Check.Reading ]
-  Response.[ Generated.⟦ String ⟧
-             Checked.{ ⟦ String ⟧ ⟦ Unchecked ⟧ }
+  Response.[ Generated.{ ⟦ FilePath ⟧ ⟦ Unchecked ⟧ }
+             Checked.{ ⟦ FilePath ⟧ ⟦ Unchecked ⟧ }
              Arguments.Integer
              Malformed.Error
-             Unreadable.{ String String }
-             Rejected.{ String Location Generation_Error }
-             Unwritable.{ String String } ]
-  Reading.{ ⟦ String ⟧ ⟦ Namespace ⟧ }
-  Generation.{ Reading String }
-  Namespace.{ String ⟦ String ⟧ }
-  Unchecked.{ String String ⟦ String ⟧ }
+             Unreadable.{ FilePath String }
+             Rejected.{ FilePath Location Generation_Error }
+             Unwritable.{ FilePath String } ]
+  Reading.{ ⟦ FilePath ⟧ ⟦ GivenNamespace ⟧ }
+  Generation.{ Reading Directory }
+  GivenNamespace.{ Namespace ⟦ FilePath ⟧ }
+  Unchecked.{ FilePath Namespace ⟦ Name ⟧ }
+  FilePath.String
+  Directory.String
+  Namespace.String
+  Name.String
   Generation_Error.[ Structural.protos:Error
                      Conceptual.{ ⟦ Integer ⟧
                                   ethos_zero:Problem } ] ]

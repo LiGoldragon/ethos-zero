@@ -133,7 +133,7 @@ the file resolves (`Launch.Model` above). A name that the file also declares in
 its types, imports or names twice in the section is `Duplicate` at the later
 occurrence, and a lowercase or intrinsic name is refused as `Case` or
 `Intrinsic` as a declared type's is. A section that is no bracket is
-`Expected.Section` and an entry that is no bare name `Expected.Name`, each at
+`Expected.Section` and an entry that is no bare name `Expected.Symbol`, each at
 its path. An open enum is read, checked and printed back as written, and generated.
 Its variants are data, added while the system runs: each is a name and the type
 it carries, and the datom of a value is the name and, after it, what it
@@ -460,6 +460,21 @@ namespace given, `serde_json:Value` or `flow_nexus:generated:memory:[ … ]`
 with only `flow_nexus` given, is trusted as before, and `Checked` lists it, one
 entry per file and namespace with the names taken:
 `Checked.{ [ /a/signal.ethos ] [ { /a/signal.ethos serde_json [ Value ] } ] }`.
+`Generated` lists the same, built by the same code, beside the files it wrote:
+`Generated.{ [ /out/signal.rs ] [ { /a/signal.ethos serde_json [ Value ] } ] }`.
+Each string a refusal or an entry carries is a type for what it holds, each
+`X.String`, so its text is the string. In `error.ethos`, a declared name is
+`Name`, so `UnknownName.{ Namespace Name }`, `Misrooted.{ Namespace Name }` (the
+name of the root the pointed file bears) and every one-name refusal,
+`Duplicate.Name`, `Undeclared.Name`, `Cycle.Name`, a bare `Name` and their like;
+a namespace is `Namespace` (a bare `Namespace`, `Unpointed.Namespace`); the
+successor of a renamed spelling is `Renamed.Successor`; a field is
+`DuplicateField.Field`. A file headed by no root is `Unrooted`, and an entry that
+is no bare name `Expected.Symbol`. In `ethos-zero.ethos`, a file is `FilePath`
+(the files read, written, checked, unreadable, rejected or unwritable),
+Generate's directory is `Directory`, an entry is
+`Unchecked.{ FilePath Namespace ⟦ Name ⟧ }`, and a namespace the caller gives is
+`GivenNamespace.{ Namespace ⟦ FilePath ⟧ }`; each file declares its own.
 A caller may give the set's own namespace with the set's files, and its imports
 are then checked like any other.
 
@@ -791,11 +806,11 @@ structure; it does not textualize and parse the result again.
 ## CLI
 
 ```
-ethos-zero 'Generate.{ [ /abs/signal.ethos /abs/memory.ethos /abs/process.ethos ] /abs/out-dir }'
-# -> Generated.[ /abs/out-dir/signal.rs /abs/out-dir/memory.rs /abs/out-dir/process.rs ]
-ethos-zero 'Check.[ /abs/file.ethos ]'
-# -> Checked.[ /abs/file.ethos ]
-# -> Rejected.{ /abs/file.ethos { { 4 } { 19 } } Conceptual.{ [ 1 1 0 1 1 ] Undeclared.Bogus } }
+ethos-zero 'Generate.{ { [ /abs/signal.ethos /abs/memory.ethos /abs/process.ethos ] [] } /abs/out-dir }'
+# -> Generated.{ [ /abs/out-dir/signal.rs /abs/out-dir/memory.rs /abs/out-dir/process.rs ] [] }
+ethos-zero 'Check.{ [ /abs/file.ethos ] [] }'
+# -> Checked.{ [ /abs/file.ethos ] [] }
+# -> Rejected.{ /abs/file.ethos { 4 19 } Conceptual.{ [ 1 1 0 1 1 ] Undeclared.Bogus } }
 ```
 
 Both take the root files of one namespace together, a single file being a set of one.

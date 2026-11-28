@@ -127,20 +127,38 @@ fn a_matrix_of_one_imported_record_generates() {
 #[test]
 fn a_matrix_may_not_declare_memory() {
     let (path, problem) = "Matrix [] [ Memory.{ String } ]".refusal();
-    assert_eq!(problem, Problem::Duplicate("Memory".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Duplicate(ethos_zero::error::Name("Memory".to_owned()))
+    );
     assert_eq!(path, vec![1, 1, 0, 0]);
     let (_, problem) = "Matrix [ crate:[ Memory ] ] [ Memory ]".refusal();
-    assert_eq!(problem, Problem::Duplicate("Memory".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Duplicate(ethos_zero::error::Name("Memory".to_owned()))
+    );
     // Memorizable, the trait every record bears, is a name the Matrix generates.
     let (path, problem) = "Matrix [] [ Memorizable.{ String } ]".refusal();
-    assert_eq!(problem, Problem::Duplicate("Memorizable".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Duplicate(ethos_zero::error::Name("Memorizable".to_owned()))
+    );
     assert_eq!(path, vec![1, 1, 0, 0]);
     let (_, problem) = "Matrix [ crate:[ Memorizable ] ] [ Memorizable ]".refusal();
-    assert_eq!(problem, Problem::Duplicate("Memorizable".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Duplicate(ethos_zero::error::Name("Memorizable".to_owned()))
+    );
     let (_, problem) = "Matrix [] [ Watch.String Watch.Integer ]".refusal();
-    assert_eq!(problem, Problem::Duplicate("Watch".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Duplicate(ethos_zero::error::Name("Watch".to_owned()))
+    );
     let (_, problem) = "Matrix [] [ Watch.{ Bogus } ]".refusal();
-    assert_eq!(problem, Problem::Undeclared("Bogus".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Undeclared(ethos_zero::error::Name("Bogus".to_owned()))
+    );
     // Memory is no name of a Memory root's file: a Memory may declare it.
     assert!(
         read("Memory [] [ Memory.{ String } ] [] [] []")
@@ -282,17 +300,26 @@ fn a_bare_emission_whose_unit_a_type_may_not_take_is_refused() {
     for name in ["Emission", "Outcome", "Emitted", "Emittable"] {
         assert_eq!(
             format!("Emission [] [ {name} ] [ Done ] []").refusal(),
-            (vec![1, 1, 0], Problem::Duplicate(name.to_owned()))
+            (
+                vec![1, 1, 0],
+                Problem::Duplicate(ethos_zero::error::Name(name.to_owned()))
+            )
         );
     }
     assert_eq!(
         "Emission [] [ Go String ] [ Gone Done ] []".refusal(),
-        (vec![1, 1, 1], Problem::Intrinsic("String".to_owned()))
+        (
+            vec![1, 1, 1],
+            Problem::Intrinsic(ethos_zero::error::Name("String".to_owned()))
+        )
     );
     // A unit meets a derived name as any declaration does.
     assert_eq!(
         "Emission [] [ Go_Data Go.{ String } ] [ Gone Done ] []".refusal(),
-        (vec![1, 1, 0], Problem::Duplicate("Go_Data".to_owned()))
+        (
+            vec![1, 1, 0],
+            Problem::Duplicate(ethos_zero::error::Name("Go_Data".to_owned()))
+        )
     );
 }
 
@@ -341,13 +368,16 @@ fn a_process_that_ends_one_way_declares_no_outcome() {
 fn a_process_born_of_a_name_neither_imported_nor_declared_is_refused() {
     assert_eq!(
         "Process [ :signal:Reported ] [ Report.{ [] [ Reported ] } ] []".refusal(),
-        (vec![1, 1, 0, 0], Problem::Undeclared("Report".to_owned()))
+        (
+            vec![1, 1, 0, 0],
+            Problem::Undeclared(ethos_zero::error::Name("Report".to_owned()))
+        )
     );
     assert_eq!(
         "Process [ :signal:Report ] [ Report.{ [] [ Reported ] } ] []".refusal(),
         (
             vec![1, 1, 0, 1, 1, 0],
-            Problem::Undeclared("Reported".to_owned())
+            Problem::Undeclared(ethos_zero::error::Name("Reported".to_owned()))
         )
     );
 }
@@ -356,11 +386,17 @@ fn a_process_born_of_a_name_neither_imported_nor_declared_is_refused() {
 fn two_processes_of_one_name_and_a_type_named_as_a_generated_enum_are_refused() {
     assert_eq!(
         "Process [ :signal:Report ] [ Report.{ [] [] } Report.{ [] [] } ] []".refusal(),
-        (vec![1, 1, 1, 0], Problem::Duplicate("Report".to_owned()))
+        (
+            vec![1, 1, 1, 0],
+            Problem::Duplicate(ethos_zero::error::Name("Report".to_owned()))
+        )
     );
     assert_eq!(
         "Process [ :signal:Report ] [ Report.{ [] [] } ] [ Gift.[ One Two ] ]".refusal(),
-        (vec![1, 2, 0, 0], Problem::Duplicate("Gift".to_owned()))
+        (
+            vec![1, 2, 0, 0],
+            Problem::Duplicate(ethos_zero::error::Name("Gift".to_owned()))
+        )
     );
 }
 
@@ -392,11 +428,17 @@ fn a_process_of_one_bracket_or_of_two_outcomes_is_refused() {
 fn an_emission_left_without_an_outcome_is_refused_at_its_path() {
     assert_eq!(
         "Emission [] [ Go.⟦ String ⟧ Stop ] [ Gone ] []".refusal(),
-        (vec![1, 1, 1], Problem::Unpaired("Stop".to_owned()))
+        (
+            vec![1, 1, 1],
+            Problem::Unpaired(ethos_zero::error::Name("Stop".to_owned()))
+        )
     );
     assert_eq!(
         "Emission [] [ Go ] [] []".refusal(),
-        (vec![1, 1, 0], Problem::Unpaired("Go".to_owned()))
+        (
+            vec![1, 1, 0],
+            Problem::Unpaired(ethos_zero::error::Name("Go".to_owned()))
+        )
     );
 }
 
@@ -404,11 +446,17 @@ fn an_emission_left_without_an_outcome_is_refused_at_its_path() {
 fn two_emissions_carrying_one_type_are_refused_at_the_second() {
     assert_eq!(
         "Emission [] [ Show.Pane Close.Pane ] [ Shown Closed ] [ Pane.String ]".refusal(),
-        (vec![1, 1, 1], Problem::Duplicate("Pane".to_owned()))
+        (
+            vec![1, 1, 1],
+            Problem::Duplicate(ethos_zero::error::Name("Pane".to_owned()))
+        )
     );
     assert_eq!(
         "Emission [] [ Show.Pane Pane ] [ Shown Closed ] [ Pane.String ]".refusal(),
-        (vec![1, 1, 1], Problem::Duplicate("Pane".to_owned()))
+        (
+            vec![1, 1, 1],
+            Problem::Duplicate(ethos_zero::error::Name("Pane".to_owned()))
+        )
     );
 }
 
@@ -417,7 +465,10 @@ fn an_emission_declaring_an_implied_enum_or_trait_name_is_refused() {
     for name in ["Emission", "Outcome", "Emitted", "Emittable"] {
         assert_eq!(
             format!("Emission [] [ Go ] [ Gone ] [ {name}.String ]").refusal(),
-            (vec![1, 3, 0, 0], Problem::Duplicate(name.to_owned()))
+            (
+                vec![1, 3, 0, 0],
+                Problem::Duplicate(ethos_zero::error::Name(name.to_owned()))
+            )
         );
     }
 }
@@ -484,7 +535,10 @@ fn an_input_named_answer_has_the_capability_answer() {
 fn an_input_left_without_an_output_is_refused_at_its_path() {
     assert_eq!(
         "Signal [] [ Ask.⟦ String ⟧ Tell ] [ Told ] []".refusal(),
-        (vec![1, 1, 1], Problem::Unpaired("Tell".to_owned()))
+        (
+            vec![1, 1, 1],
+            Problem::Unpaired(ethos_zero::error::Name("Tell".to_owned()))
+        )
     );
 }
 
@@ -492,12 +546,18 @@ fn an_input_left_without_an_output_is_refused_at_its_path() {
 fn an_input_whose_capability_name_is_taken_is_refused() {
     assert_eq!(
         "Signal [] [ UrlFetch URLFetch ] [ Fetched Fetched2 ] []".refusal(),
-        (vec![1, 1, 1], Problem::Duplicate("url_fetch".to_owned()))
+        (
+            vec![1, 1, 1],
+            Problem::Duplicate(ethos_zero::error::Name("url_fetch".to_owned()))
+        )
     );
     for name in ["Answering", "Answerable", "Answer"] {
         assert_eq!(
             format!("Signal [] [ Ask ] [ Told ] [ {name}.String ]").refusal(),
-            (vec![1, 3, 0, 0], Problem::Duplicate(name.to_owned()))
+            (
+                vec![1, 3, 0, 0],
+                Problem::Duplicate(ethos_zero::error::Name(name.to_owned()))
+            )
         );
     }
 }
@@ -585,7 +645,10 @@ fn a_signal_declaring_the_input_type_is_refused() {
     // also declare.
     assert_eq!(
         "Signal [] [ Ask.Input ] [ Told.Input ] [ Input.{ String } ]".refusal(),
-        (vec![1, 3, 0, 0], Problem::Duplicate("Input".to_owned()))
+        (
+            vec![1, 3, 0, 0],
+            Problem::Duplicate(ethos_zero::error::Name("Input".to_owned()))
+        )
     );
     // `Query` and `Response` are ordinary names: nothing is generated under them.
     let generated = match read(
@@ -606,7 +669,10 @@ fn a_signal_declaring_the_input_type_is_refused() {
 fn a_signal_declaring_the_output_type_is_refused() {
     assert_eq!(
         "Signal [] [ Ask.Output ] [ Told.Output ] [ Output.{ String } ]".refusal(),
-        (vec![1, 3, 0, 0], Problem::Duplicate("Output".to_owned()))
+        (
+            vec![1, 3, 0, 0],
+            Problem::Duplicate(ethos_zero::error::Name("Output".to_owned()))
+        )
     );
 }
 
@@ -819,7 +885,11 @@ fn a_chained_import_refuses_a_capitalized_segment_and_places_its_names_below_eve
     ] {
         match Potential::<File>::from(source).actualize() {
             Err(Error::Conceptual(data)) => {
-                assert_eq!(data.problem, Problem::Name(name.to_owned()), "{source}");
+                assert_eq!(
+                    data.problem,
+                    Problem::Name(ethos_zero::error::Name(name.to_owned())),
+                    "{source}"
+                );
                 assert_eq!(data.integer_vector, path, "{source}");
             }
             Err(Error::Structural(_)) => panic!("{source} is a conceptual refusal"),
@@ -831,7 +901,10 @@ fn a_chained_import_refuses_a_capitalized_segment_and_places_its_names_below_eve
     // giving `Y` twice is a duplicate; two namespaces may give one name.
     match read("Library [ a:b:[ Y ] a:b:[ X Y ] ] [] [] []").generate() {
         Err(Error::Conceptual(data)) => {
-            assert_eq!(data.problem, Problem::Duplicate("Y".to_owned()));
+            assert_eq!(
+                data.problem,
+                Problem::Duplicate(ethos_zero::error::Name("Y".to_owned()))
+            );
             assert_eq!(data.integer_vector, vec![1, 0, 1, 1, 1, 1]);
         }
         other => panic!("a name imported twice is refused: {other:?}"),
@@ -897,7 +970,7 @@ fn a_rooted_namespace_segment_is_uncapitalized_and_a_name_seen_twice_is_placed_b
         match Potential::<File>::from(source).actualize() {
             Err(Error::Conceptual(data)) => {
                 assert!(
-                    matches!(data.problem, Problem::Name(_)),
+                    matches!(data.problem, Problem::Name(ethos_zero::error::Name(_))),
                     "{source}: {:?}",
                     data.problem
                 );
@@ -912,7 +985,10 @@ fn a_rooted_namespace_segment_is_uncapitalized_and_a_name_seen_twice_is_placed_b
     // twice is a duplicate; two namespaces may give one name.
     match read("Library [ :c:[ X ] :c:[ Y X ] ] [] [] []").generate() {
         Err(Error::Conceptual(data)) => {
-            assert_eq!(data.problem, Problem::Duplicate("X".to_owned()));
+            assert_eq!(
+                data.problem,
+                Problem::Duplicate(ethos_zero::error::Name("X".to_owned()))
+            );
             assert_eq!(data.integer_vector, vec![1, 0, 3, 1]);
         }
         other => panic!("a name imported twice is refused: {other:?}"),
@@ -932,7 +1008,10 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
         "Library [] [ P.[ X.{ String } Y ] Q.[ X.{ Integer } Y ] P_X_Data.String ] [] []";
     match read(captured).generate() {
         Err(Error::Conceptual(data)) => {
-            assert_eq!(data.problem, Problem::Duplicate("P_X_Data".to_owned()));
+            assert_eq!(
+                data.problem,
+                Problem::Duplicate(ethos_zero::error::Name("P_X_Data".to_owned()))
+            );
             assert_eq!(data.integer_vector, vec![1, 1, 2, 0]);
         }
         _ => panic!("an authored name capturing a derived one is refused"),
@@ -940,7 +1019,10 @@ fn an_authored_name_capturing_a_derived_inline_name_is_refused() {
     let captured = "Library [] [ P.[ X.{ String } Y ] X_Data.String ] [] []";
     match read(captured).generate() {
         Err(Error::Conceptual(data)) => {
-            assert_eq!(data.problem, Problem::Duplicate("X_Data".to_owned()));
+            assert_eq!(
+                data.problem,
+                Problem::Duplicate(ethos_zero::error::Name("X_Data".to_owned()))
+            );
             assert_eq!(data.integer_vector, vec![1, 1, 1, 0]);
         }
         _ => panic!("an authored X_Data beside a unique inline X is refused"),
@@ -1139,7 +1221,10 @@ fn positions_whose_fields_would_meet_are_refused_at_the_later_position() {
     ] {
         assert_eq!(
             source.refusal(),
-            (path, Problem::DuplicateField("first_string".to_owned())),
+            (
+                path,
+                Problem::DuplicateField(ethos_zero::error::Field("first_string".to_owned()))
+            ),
             "{source}"
         );
     }
@@ -1168,7 +1253,10 @@ fn an_enum_of_one_variant_is_refused_naming_the_enum() {
     ] {
         assert_eq!(
             source.refusal(),
-            (path, Problem::TooFewVariants(enumeration.to_owned())),
+            (
+                path,
+                Problem::TooFewVariants(ethos_zero::error::Name(enumeration.to_owned()))
+            ),
             "{source}"
         );
     }
@@ -1195,7 +1283,10 @@ fn an_inline_enum_of_one_variant_is_refused_naming_its_variant() {
     ] {
         assert_eq!(
             source.refusal(),
-            (path, Problem::TooFewVariants(enumeration.to_owned())),
+            (
+                path,
+                Problem::TooFewVariants(ethos_zero::error::Name(enumeration.to_owned()))
+            ),
             "{source}"
         );
     }
@@ -1230,7 +1321,10 @@ fn an_enum_of_no_variants_is_refused_naming_the_enum() {
     ] {
         assert_eq!(
             source.refusal(),
-            (path, Problem::TooFewVariants(enumeration.to_owned())),
+            (
+                path,
+                Problem::TooFewVariants(ethos_zero::error::Name(enumeration.to_owned()))
+            ),
             "{source}"
         );
     }
@@ -1308,25 +1402,37 @@ fn a_declared_intrinsic_name_is_refused_by_name() {
     // Result<String Integer> failed as an obscure Arity.{ 0 2 }.
     assert_eq!(
         "Library [] [ Result.{ String } Pair.{ Result<String Integer> } ] [] []".refusal(),
-        (vec![1, 1, 0, 0], Problem::Intrinsic("Result".to_owned()))
+        (
+            vec![1, 1, 0, 0],
+            Problem::Intrinsic(ethos_zero::error::Name("Result".to_owned()))
+        )
     );
     assert_eq!(
         "Library [] [ Meaning.String ] [] []".refusal(),
-        (vec![1, 1, 0, 0], Problem::Intrinsic("Meaning".to_owned()))
+        (
+            vec![1, 1, 0, 0],
+            Problem::Intrinsic(ethos_zero::error::Name("Meaning".to_owned()))
+        )
     );
     assert_eq!(
         "Library [] [] [ Option.[] ] []".refusal(),
-        (vec![1, 2, 0, 0], Problem::Intrinsic("Option".to_owned()))
+        (
+            vec![1, 2, 0, 0],
+            Problem::Intrinsic(ethos_zero::error::Name("Option".to_owned()))
+        )
     );
     assert_eq!(
         "Library [] [] [ Listing.{ [] [ Vector ] [] [] } ] []"
             .refusal()
             .1,
-        Problem::Intrinsic("Vector".to_owned())
+        Problem::Intrinsic(ethos_zero::error::Name("Vector".to_owned()))
     );
     assert_eq!(
         "Signal [] [] [] [ Integer.{ String } ]".refusal(),
-        (vec![1, 3, 0, 0], Problem::Intrinsic("Integer".to_owned()))
+        (
+            vec![1, 3, 0, 0],
+            Problem::Intrinsic(ethos_zero::error::Name("Integer".to_owned()))
+        )
     );
 }
 
@@ -1334,15 +1440,24 @@ fn a_declared_intrinsic_name_is_refused_by_name() {
 fn a_lowercase_type_or_trait_name_is_refused() {
     assert_eq!(
         "Library [] [ a.{ String } ] [] []".refusal(),
-        (vec![1, 1, 0, 0], Problem::Case("a".to_owned()))
+        (
+            vec![1, 1, 0, 0],
+            Problem::Case(ethos_zero::error::Name("a".to_owned()))
+        )
     );
     assert_eq!(
         "Library [] [] [ runnable.[] ] []".refusal(),
-        (vec![1, 2, 0, 0], Problem::Case("runnable".to_owned()))
+        (
+            vec![1, 2, 0, 0],
+            Problem::Case(ethos_zero::error::Name("runnable".to_owned()))
+        )
     );
     assert_eq!(
         "Memory [] [ record.{ String } ] [] [] []".refusal(),
-        (vec![1, 1, 0, 0], Problem::Case("record".to_owned()))
+        (
+            vec![1, 1, 0, 0],
+            Problem::Case(ethos_zero::error::Name("record".to_owned()))
+        )
     );
 }
 
@@ -1350,15 +1465,24 @@ fn a_lowercase_type_or_trait_name_is_refused() {
 fn a_type_with_no_finite_value_is_refused() {
     assert_eq!(
         "Library [] [ S.{ Self } ] [] []".refusal(),
-        (vec![1, 1, 0, 0], Problem::Cycle("S".to_owned()))
+        (
+            vec![1, 1, 0, 0],
+            Problem::Cycle(ethos_zero::error::Name("S".to_owned()))
+        )
     );
     assert_eq!(
         "Library [] [ Leaf.String A.{ Leaf B } B.{ A } ] [] []".refusal(),
-        (vec![1, 1, 1, 0], Problem::Cycle("A".to_owned()))
+        (
+            vec![1, 1, 1, 0],
+            Problem::Cycle(ethos_zero::error::Name("A".to_owned()))
+        )
     );
     assert_eq!(
         "Library [] [ E.[ Only.E Also.E ] ] [] []".refusal(),
-        (vec![1, 1, 0, 0], Problem::Cycle("E".to_owned()))
+        (
+            vec![1, 1, 0, 0],
+            Problem::Cycle(ethos_zero::error::Name("E".to_owned()))
+        )
     );
     // A Vector, an Option or another variant is a way out.
     for finite in [
@@ -1635,7 +1759,7 @@ fn a_stream_takes_two_types() {
 
 #[test]
 fn a_stream_is_refused_wherever_it_is_not_a_whole_output_or_a_capability_s_yield() {
-    let placement = Problem::Placement("Stream".to_owned());
+    let placement = Problem::Placement(ethos_zero::error::Name("Stream".to_owned()));
     for (source, path) in [
         // A field, of every root.
         (
@@ -1790,7 +1914,10 @@ fn a_signal_with_no_stream_answers_with_its_output() {
 fn a_stream_output_named_once_is_refused_and_one_named_answer_is_answered() {
     assert_eq!(
         "Signal [] [ Ask Watch ] [ Told Once.Stream<String Integer> ] []".refusal(),
-        (vec![1, 2, 1, 0], Problem::Duplicate("Once".to_owned()))
+        (
+            vec![1, 2, 1, 0],
+            Problem::Duplicate(ethos_zero::error::Name("Once".to_owned()))
+        )
     );
     // An output answered once may be named Once, and a stream Answer.
     let rust = "Signal [] [ Ask Watch ] [ Once Answer.Stream<String Integer> ] []".compact();
@@ -1837,7 +1964,10 @@ fn the_retired_stream_block_is_refused() {
 #[test]
 fn white_vectors_generate_nested_rust_vectors_and_legacy_spelling_is_refused() {
     let legacy = "Library [] [ FilePath.String SyntaxError.Vector<FilePath> Table.{ Vector<Vector<Option<String>>> } Tree.{ Vector<Self> } Reply.[ Many.Vector<FilePath> Empty ] ] [ Listing.[ list![ Vector<FilePath> ] ] ] []";
-    assert_eq!(legacy.refusal().1, Problem::Renamed("⟦ T ⟧".to_owned()));
+    assert_eq!(
+        legacy.refusal().1,
+        Problem::Renamed(ethos_zero::error::Successor("⟦ T ⟧".to_owned()))
+    );
 
     let white = "Library [] [ FilePath.String SyntaxError.⟦ FilePath ⟧ Table.{ ⟦ ⟦ Option<String> ⟧ ⟧ } Tree.{ ⟦ Self ⟧ } Reply.[ Many.⟦ FilePath ⟧ Empty ] ] [ Listing.[ list![ ⟦ FilePath ⟧ ] ] ] []";
     let rust = white.compact();
@@ -1863,7 +1993,7 @@ fn the_protos_builtin_vector_with_angles_is_refused() {
     ] {
         assert_eq!(
             source.refusal().1,
-            Problem::Renamed("⟦ T ⟧".to_owned()),
+            Problem::Renamed(ethos_zero::error::Successor("⟦ T ⟧".to_owned())),
             "{source}",
         );
     }
@@ -1889,7 +2019,10 @@ fn equal_nested_white_vectors_carry_the_same_emission_type() {
         "Emission [] [ First.⟦ ⟦ String ⟧ ⟧ Second.⟦⟦String⟧⟧ ] [ FirstResult SecondResult ] []"
             .refusal();
     assert_eq!(&path[..2], &[1, 1]);
-    assert_eq!(problem, Problem::Duplicate("Vector".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Duplicate(ethos_zero::error::Name("Vector".to_owned()))
+    );
 }
 
 #[test]
@@ -1959,7 +2092,10 @@ fn a_white_enclosure_holds_exactly_one_type() {
 fn white_vector_errors_point_to_the_authored_element() {
     let (path, problem) =
         "Library [] [ Record.{ First.⟦ Option<⟦ Missing ⟧> ⟧ String } ] [] []".refusal();
-    assert_eq!(problem, Problem::Undeclared("Missing".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Undeclared(ethos_zero::error::Name("Missing".to_owned()))
+    );
     assert_eq!(path, vec![1, 1, 0, 1, 0, 1, 1, 0, 0]);
 
     for source in [
@@ -1983,7 +2119,10 @@ fn white_vector_errors_point_to_the_authored_element() {
 fn a_legacy_emission_is_refused_before_looking_for_duplicate_types() {
     let (_, problem) =
         "Emission [] [ First.Vector<String> Second.⟦ String ⟧ ] [ Done Gone ] []".refusal();
-    assert_eq!(problem, Problem::Renamed("⟦ T ⟧".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Renamed(ethos_zero::error::Successor("⟦ T ⟧".to_owned()))
+    );
 }
 
 /// The open enums sketched for a Signal: a fifth section naming them.
@@ -2052,7 +2191,10 @@ fn a_signal_of_other_section_counts_is_an_arity() {
 fn a_reference_to_an_open_enum_resolves_only_where_it_is_named() {
     assert_eq!(
         "Signal [] [ Launch.Model ] [ Launched ] [] []".checking_refusal(),
-        (vec![1, 1, 0, 1], Problem::Undeclared("Model".to_owned()))
+        (
+            vec![1, 1, 0, 1],
+            Problem::Undeclared(ethos_zero::error::Name("Model".to_owned()))
+        )
     );
     assert_eq!(
         ethos_zero::Validating::validate(&read(
@@ -2076,7 +2218,7 @@ fn an_open_enum_also_declared_imported_or_named_twice_is_a_duplicate() {
         let (found, problem) = source.checking_refusal();
         assert_eq!(found, path, "{source}");
         assert!(
-            matches!(problem, Problem::Duplicate(_)),
+            matches!(problem, Problem::Duplicate(ethos_zero::error::Name(_))),
             "{source}: {problem:?}"
         );
     }
@@ -2084,7 +2226,7 @@ fn an_open_enum_also_declared_imported_or_named_twice_is_a_duplicate() {
         "Signal [] [] [] [ Model.[ A B ] ] [ Model ]"
             .checking_refusal()
             .1,
-        Problem::Duplicate("Model".to_owned())
+        Problem::Duplicate(ethos_zero::error::Name("Model".to_owned()))
     );
 }
 
@@ -2092,15 +2234,21 @@ fn an_open_enum_also_declared_imported_or_named_twice_is_a_duplicate() {
 fn an_open_enum_is_named_as_a_type_is() {
     assert_eq!(
         "Signal [] [] [] [] [ model ]".checking_refusal(),
-        (vec![1, 4, 0], Problem::Case("model".to_owned()))
+        (
+            vec![1, 4, 0],
+            Problem::Case(ethos_zero::error::Name("model".to_owned()))
+        )
     );
     assert_eq!(
         "Signal [] [] [] [] [ String ]".checking_refusal(),
-        (vec![1, 4, 0], Problem::Intrinsic("String".to_owned()))
+        (
+            vec![1, 4, 0],
+            Problem::Intrinsic(ethos_zero::error::Name("String".to_owned()))
+        )
     );
     assert_eq!(
         "Signal [] [] [] [] [ Model.String ]".reading_refusal(),
-        (vec![1, 4, 0], Problem::Expected(Form::Name))
+        (vec![1, 4, 0], Problem::Expected(Form::Symbol))
     );
     assert_eq!(
         "Signal [] [] [] [] Model".reading_refusal(),
@@ -2187,7 +2335,10 @@ fn an_input_an_output_or_a_type_named_as_an_open_enum_generates_is_a_duplicate()
     ] {
         assert_eq!(
             source.checking_refusal(),
-            (path, Problem::Duplicate(name.to_owned())),
+            (
+                path,
+                Problem::Duplicate(ethos_zero::error::Name(name.to_owned()))
+            ),
             "{source}"
         );
     }

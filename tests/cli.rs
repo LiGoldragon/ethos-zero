@@ -74,7 +74,7 @@ fn generate_writes_a_named_field_module_and_replies_generated() {
     assert!(success, "{output}");
     assert_eq!(
         output,
-        format!("Generated.[ {directory}/record-types.rs ]\n")
+        format!("Generated.{{ [ {directory}/record-types.rs ] [] }}\n")
     );
     let written = std::fs::read_to_string(format!("{directory}/record-types.rs")).unwrap();
     assert!(written.contains("pub struct Record"));
@@ -91,7 +91,7 @@ fn quoted_inputs_canonicalize_paths_as_bare_strings() {
     assert!(success, "{output}");
     assert_eq!(
         output,
-        format!("Generated.[ {directory}/multi-types.rs ]\n")
+        format!("Generated.{{ [ {directory}/multi-types.rs ] [] }}\n")
     );
 }
 
@@ -137,7 +137,7 @@ fn the_roots_of_a_nexus_are_generated_together_each_into_a_module_of_its_files_n
     assert_eq!(
         output,
         format!(
-            "Generated.[ {directory}/signal.rs {directory}/memory.rs {directory}/process.rs ]\n"
+            "Generated.{{ [ {directory}/signal.rs {directory}/memory.rs {directory}/process.rs ] [] }}\n"
         )
     );
     let process = std::fs::read_to_string(format!("{directory}/process.rs")).unwrap();
@@ -510,6 +510,23 @@ fn an_import_a_given_namespace_does_not_provide_is_rejected_at_its_line_and_colu
         output,
         format!("Checked.{{ [ {resolved} ] [ {{ {resolved} elsewhere:sub [ Thing ] }} ] }}\n")
     );
+
+    // Generate lists the same unchecked imports Check does, beside what it wrote.
+    let generated = format!("{directory}/generated");
+    let argument = format!(
+        "Generate.{{ {{ [ {} ] [ {{ protos [ {} ] }} ] }} {} }}",
+        opaque(&resolved),
+        opaque(&given),
+        opaque(&generated)
+    );
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(success, "{output}");
+    assert_eq!(
+        output,
+        format!(
+            "Generated.{{ [ {generated}/resolved.rs ] [ {{ {resolved} elsewhere:sub [ Thing ] }} ] }}\n"
+        )
+    );
 }
 
 #[test]
@@ -587,7 +604,10 @@ fn an_organism_checks_and_generates_its_minimal_module() {
     );
     assert_eq!(
         [argument.as_str()].invoke(),
-        (true, format!("Generated.[ {outputs}/organism.rs ]\n"))
+        (
+            true,
+            format!("Generated.{{ [ {outputs}/organism.rs ] [] }}\n")
+        )
     );
     let written = std::fs::read_to_string(format!("{outputs}/organism.rs")).unwrap();
     assert!(written.contains("extern crate alloc;"));
@@ -668,7 +688,10 @@ fn generate_writes_a_signal_with_an_open_enum_and_its_contract() {
     let argument = generate(&source, &target);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(output, format!("Generated.[ {target}/open-enum.rs ]\n"));
+    assert_eq!(
+        output,
+        format!("Generated.{{ [ {target}/open-enum.rs ] [] }}\n")
+    );
     let rust = std::fs::read_to_string(format!("{target}/open-enum.rs")).expect("written");
     assert!(rust.contains("pub mod model {"));
     assert!(rust.contains("pub struct Model {"));
@@ -731,7 +754,10 @@ fn a_name_imported_from_two_namespaces_is_ambiguous_only_where_it_is_written_bar
     );
     assert_eq!(
         [generate.as_str()].invoke(),
-        (true, format!("Generated.[ {outputs}/qualified.rs ]\n"))
+        (
+            true,
+            format!("Generated.{{ [ {outputs}/qualified.rs ] [] }}\n")
+        )
     );
     let written = std::fs::read_to_string(format!("{outputs}/qualified.rs")).unwrap();
     assert!(
@@ -758,4 +784,26 @@ fn an_emission_declaring_emission_or_outcome_is_rejected_where_it_declares_it() 
             )
         );
     }
+}
+
+#[test]
+fn a_file_headed_by_no_root_is_unrooted_and_an_entry_that_is_no_bare_name_expects_a_symbol() {
+    let directory = "renamed-variants".scratch();
+    let unrooted = directory.write_source("unrooted", "Nonsense\n[]\n[]\n[]\n[]\n");
+    let argument = check(&unrooted);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert_eq!(
+        output,
+        format!("Rejected.{{ {unrooted} {{ 1 1 }} Conceptual.{{ [ 0 ] Unrooted }} }}\n")
+    );
+
+    let unnamed = directory.write_source("unnamed", "Signal [] [] [] [] [ Model.String ]\n");
+    let argument = check(&unnamed);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert!(
+        output.ends_with("Conceptual.{ [ 1 4 0 ] Expected.Symbol } }\n"),
+        "{output}"
+    );
 }

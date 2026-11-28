@@ -46,48 +46,48 @@ pub struct Wrapping_Data {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct UnknownName_Data {
-    pub first_string: alloc::string::String,
-    pub second_string: alloc::string::String,
+    pub namespace: Namespace,
+    pub name: Name,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Misrooted_Data {
-    pub first_string: alloc::string::String,
-    pub second_string: alloc::string::String,
+    pub namespace: Namespace,
+    pub name: Name,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Problem {
-    Root,
+    Unrooted,
     Arity(Arity_Data),
     Expected(Form),
     Separator(protos::Separator),
-    Name(alloc::string::String),
-    Duplicate(alloc::string::String),
-    Undeclared(alloc::string::String),
-    Cycle(alloc::string::String),
+    Name(Name),
+    Duplicate(Name),
+    Undeclared(Name),
+    Cycle(Name),
     Yield,
     Empty,
     Depth,
-    Role(alloc::string::String),
-    Intrinsic(alloc::string::String),
-    Case(alloc::string::String),
-    Renamed(alloc::string::String),
+    Role(Name),
+    Intrinsic(Name),
+    Case(Name),
+    Renamed(Successor),
     Wrapping(Wrapping_Data),
-    DuplicateField(alloc::string::String),
-    Unpaired(alloc::string::String),
-    TooFewVariants(alloc::string::String),
-    Placement(alloc::string::String),
-    Foreign(alloc::string::String),
-    Unborn(alloc::string::String),
-    Ungivable(alloc::string::String),
-    Namespace(alloc::string::String),
+    DuplicateField(Field),
+    Unpaired(Name),
+    TooFewVariants(Name),
+    Placement(Name),
+    Foreign(Name),
+    Unborn(Name),
+    Ungivable(Name),
+    Namespace(Namespace),
     UnknownName(UnknownName_Data),
-    Unpointed(alloc::string::String),
+    Unpointed(Namespace),
     Misrooted(Misrooted_Data),
-    Ambiguous(alloc::string::String),
+    Ambiguous(Name),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -96,7 +96,7 @@ pub enum Form {
     File,
     Section,
     Import,
-    Name,
+    Symbol,
     Declaration,
     Variant,
     Reference,
@@ -108,6 +108,22 @@ pub enum Form {
     Process,
     Pointer,
 }
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Name(pub alloc::string::String);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Namespace(pub alloc::string::String);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Successor(pub alloc::string::String);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Field(pub alloc::string::String);
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]

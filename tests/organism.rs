@@ -4,7 +4,7 @@
 
 use ethos_zero::{
     Actualizing, ArityProblem, Assembling, Error, File, Form, Locating, Misrooted_Data, Module,
-    Namespace, Nexus, Potential, Problem, Root, Rooted, Trusting, Verifying,
+    Namespace, Nexus, Potential, Problem, Root, Rooted, Trusting, Verifying, error,
 };
 
 /// Files written in place, each a module as its stem and its text.
@@ -83,8 +83,8 @@ fn refused(text: &str) -> (Vec<i64>, Problem, (i64, i64)) {
 
 fn misrooted(pointer: &str, root: &str) -> Problem {
     Problem::Misrooted(Misrooted_Data {
-        first_string: pointer.to_owned(),
-        second_string: root.to_owned(),
+        namespace: error::Namespace(pointer.to_owned()),
+        name: error::Name(root.to_owned()),
     })
 }
 
@@ -185,16 +185,25 @@ fn a_pointer_to_no_file_given_is_refused_at_its_line_and_column() {
     let (path, problem, location) =
         refused("Organism\n[ :flow:signal ]\n[ :harness:signal\n  :harness:ghost ]\n[]\n[]\n");
     assert_eq!(path, vec![1, 1, 1]);
-    assert_eq!(problem, Problem::Unpointed("harness:ghost".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Unpointed(ethos_zero::error::Namespace("harness:ghost".to_owned()))
+    );
     assert_eq!(location, (4, 3));
     // A namespace the caller did not give names no file.
     let (path, problem, location) = refused("Organism\n[ :elsewhere:signal ]\n[]\n[]\n[]\n");
     assert_eq!(path, vec![1, 0, 0]);
-    assert_eq!(problem, Problem::Unpointed("elsewhere:signal".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Unpointed(ethos_zero::error::Namespace("elsewhere:signal".to_owned()))
+    );
     assert_eq!(location, (2, 3));
     // A Library is no file of a stem: the namespace alone names it.
     let (_, problem, _) = refused("Organism\n[ :flow:library ]\n[]\n[]\n[]\n");
-    assert_eq!(problem, Problem::Unpointed("flow:library".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Unpointed(ethos_zero::error::Namespace("flow:library".to_owned()))
+    );
 }
 
 #[test]
@@ -252,13 +261,19 @@ fn a_headed_pair_to_one_file_checks_and_the_same_unheaded_twice_does_not() {
     let (path, problem, location) =
         refused("Organism\n[ :harness:signal\n  harness:signal ]\n[]\n[]\n[]\n");
     assert_eq!(path, vec![1, 0, 1]);
-    assert_eq!(problem, Problem::Duplicate("harness:signal".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Duplicate(ethos_zero::error::Name("harness:signal".to_owned()))
+    );
     assert_eq!(location, (3, 3));
     // Two pointers of one head are one too many, though they point at two files.
     let (path, problem, location) =
         refused("Organism\n[ Codex:harness:signal\n  Codex:flow:signal ]\n[]\n[]\n[]\n");
     assert_eq!(path, vec![1, 0, 1]);
-    assert_eq!(problem, Problem::Duplicate("Codex:flow:signal".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Duplicate(ethos_zero::error::Name("Codex:flow:signal".to_owned()))
+    );
     assert_eq!(location, (3, 3));
     // The same file may stand once in each position.
     let nexus = organism("Organism [ :harness:signal ] [ :harness:signal ] [] []");

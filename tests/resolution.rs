@@ -5,7 +5,7 @@
 
 use ethos_zero::{
     Actualizing, Assembling, Error, File, Generating, Locating, Module, Name, Namespace, Nexus,
-    Potential, Problem, Trusting, Unchecked, UnknownName_Data, Verifying,
+    Potential, Problem, Trusting, Unchecked, UnknownName_Data, Verifying, error,
 };
 
 /// Files written in place, each a module as its stem and its text.
@@ -83,8 +83,8 @@ fn refused(text: &str) -> (Vec<i64>, Problem, (i64, i64)) {
 
 fn unknown(namespace: &str, name: &str) -> Problem {
     Problem::UnknownName(UnknownName_Data {
-        first_string: namespace.to_owned(),
-        second_string: name.to_owned(),
+        namespace: error::Namespace(namespace.to_owned()),
+        name: error::Name(name.to_owned()),
     })
 }
 
@@ -463,7 +463,7 @@ fn one_name_imported_from_two_namespaces_checks_until_it_is_written_bare() {
         assert!(nexus.verify().is_ok(), "{text}: {:?}", nexus.verify());
         assert!(nexus.assemble().is_ok(), "{text}");
     }
-    let ambiguous = Problem::Ambiguous("Input".to_owned());
+    let ambiguous = Problem::Ambiguous(ethos_zero::error::Name("Input".to_owned()));
     // Written bare in a position.
     assert_eq!(
         refused_with_flow(&format!(
@@ -488,7 +488,7 @@ fn one_name_imported_from_two_namespaces_checks_until_it_is_written_bare() {
 
 #[test]
 fn a_name_imported_twice_from_one_namespace_or_also_declared_is_still_a_duplicate() {
-    let duplicate = Problem::Duplicate("Input".to_owned());
+    let duplicate = Problem::Duplicate(ethos_zero::error::Name("Input".to_owned()));
     assert_eq!(
         refused_with_flow("Library [ :flow:signal:[ Input ] :flow:signal:[ Input ] ] [] [] []"),
         (vec![1, 0, 3, 0], duplicate.clone())
