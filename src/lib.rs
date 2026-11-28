@@ -678,6 +678,9 @@ pub enum Resolution {
     /// A body reference cannot say which parameter it means, even when the
     /// constraints differ as whole groups.
     Ambiguous(Name),
+    /// A name imported from more than one namespace, written bare: it says
+    /// none of them, and each use is written with its namespace.
+    AmbiguousImport(Name),
     /// An associated type of the enclosing trait, written `Self::Name`.
     Associated(Name),
     /// A name nothing declares.

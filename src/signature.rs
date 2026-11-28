@@ -109,6 +109,7 @@ impl Standing for Reference {
             | Resolution::Parameter(_)
             | Resolution::Associated(_)
             | Resolution::Ambiguous(_)
+            | Resolution::AmbiguousImport(_)
             | Resolution::Undeclared => Stance::Kept,
         }
     }

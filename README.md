@@ -561,6 +561,17 @@ colon, reads the same: `protos:String`, `protos:[ String ]`, and
 `signal_capsule:signal:[ Input Output ]` as
 `:signal_capsule:signal:[ Input Output ]`.
 
+One name may be imported from two namespaces, as `Input` from
+`:flow:signal:` and from `:flow:meta:`:
+`Library [ :flow:signal:[ Input Output ] :flow:meta:[ Input Output ] ] [] [] []`
+checks. In such a file the name written bare says neither, and is refused
+where it is used, in a position, a payload or as a bare variant, as
+`Ambiguous.<name>`: `Holder.{ Input }` is `Conceptual.{ [ 1 1 0 1 0 ]
+Ambiguous.Input }`. Each use is written where it stands with its namespace,
+`Holder.{ :flow:signal:Input }`, which generates `flow::signal::Input`. A
+name imported twice from one namespace, or imported and also declared, is
+still a `Duplicate` at the later of the two.
+
 An import may stand where the type is used instead. In a declaration the
 colon replaces the period: `Topic:custom:sub:Name` declares `Topic` over
 `custom::sub::Name`, in the types section or in place in a struct. A

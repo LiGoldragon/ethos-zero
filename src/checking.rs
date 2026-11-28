@@ -51,15 +51,80 @@ impl Resolving for Import {
     }
 }
 
+/// A name imported from two namespaces says neither when it is written bare:
+/// it resolves as an ambiguous import, and each use is written with its
+/// namespace, `:flow:signal:Input`. A name imported twice from one namespace
+/// resolves to it, and is refused as a `Duplicate` where it is imported.
 impl Resolving for [Import] {
     fn resolve(&self, name: &Name) -> Resolution {
+        let mut found: Option<(&Source, Resolution)> = None;
         for import in self {
             let resolution = import.resolve(name);
-            if resolution != Resolution::Undeclared {
-                return resolution;
+            if resolution == Resolution::Undeclared {
+                continue;
+            }
+            match &found {
+                Some((source, _)) if source.as_ref() != import.source().as_ref() => {
+                    return Resolution::AmbiguousImport(name.clone());
+                }
+                Some(_) => {}
+                None => found = Some((import.source(), resolution)),
             }
         }
-        Resolution::Undeclared
+        match found {
+            Some((_, resolution)) => resolution,
+            None => Resolution::Undeclared,
+        }
+    }
+}
+
+/// The trait whose capability yields the namespace an import takes from.
+trait Sourced {
+    fn source(&self) -> &Source;
+}
+
+impl Sourced for Import {
+    fn source(&self) -> &Source {
+        match self {
+            Import::One(source, _) | Import::Many(source, _) => source,
+        }
+    }
+}
+
+/// The trait whose capability lists the names a file's imports declare, each
+/// under its Protos index, as [`Sectioned`] does, save that a name already
+/// imported from another namespace is not declared again: one name may be
+/// imported from two namespaces, and is ambiguous only where it is written
+/// bare. A name imported twice from one namespace is listed twice, so
+/// [`Distinct`] refuses it as a `Duplicate`.
+trait ImportedNames {
+    fn imported_in(&self, section: Integer) -> Vec<DeclarationSite>;
+}
+
+impl ImportedNames for [Import] {
+    fn imported_in(&self, section: Integer) -> Vec<DeclarationSite> {
+        let mut names = Vec::new();
+        let mut namespaces: Vec<(Name, &Source)> = Vec::new();
+        let mut at = 0;
+        for import in self {
+            let source = import.source();
+            for declared in std::slice::from_ref(import).names_in(section) {
+                let elsewhere = namespaces.iter().any(|(name, earlier)| {
+                    name == &declared.name && earlier.as_ref() != source.as_ref()
+                });
+                if !elsewhere {
+                    let mut placed = declared.path;
+                    placed[1] += at;
+                    namespaces.push((declared.name.clone(), source));
+                    names.push(DeclarationSite {
+                        name: declared.name,
+                        path: placed,
+                    });
+                }
+            }
+            at += import.span();
+        }
+        names
     }
 }
 
@@ -110,7 +175,7 @@ impl Declared for Process {
                 path: vec![1],
             });
         }
-        names.extend(self.imports.names_in(0));
+        names.extend(self.imports.imported_in(0));
         names.extend(self.types.names_in(2));
         names
     }
@@ -1211,7 +1276,7 @@ trait Declared {
 
 impl Declared for crate::Library {
     fn declared(&self) -> Vec<DeclarationSite> {
-        let mut names = self.imports.names_in(0);
+        let mut names = self.imports.imported_in(0);
         names.extend(self.types.names_in(1));
         names.extend(self.traits.names_in(2));
         names
@@ -1253,7 +1318,7 @@ impl Declared for Signal {
                 });
             }
         }
-        names.extend(self.imports.names_in(0));
+        names.extend(self.imports.imported_in(0));
         names.extend(self.types.names_in(3));
         if let Some(open) = &self.open {
             names.extend(open.names_in(4));
@@ -1274,7 +1339,7 @@ impl Declared for Operation {
                 path: vec![2],
             },
         ];
-        names.extend(self.imports.names_in(0));
+        names.extend(self.imports.imported_in(0));
         names.extend(self.types.names_in(3));
         names
     }
@@ -1295,7 +1360,7 @@ impl Declared for Emission {
                 path: vec![section],
             });
         }
-        names.extend(self.imports.names_in(0));
+        names.extend(self.imports.imported_in(0));
         names.extend(self.types.names_in(3));
         names
     }
@@ -1303,7 +1368,7 @@ impl Declared for Emission {
 
 impl Declared for Memory {
     fn declared(&self) -> Vec<DeclarationSite> {
-        let mut names = self.imports.names_in(0);
+        let mut names = self.imports.imported_in(0);
         names.extend(self.records.names_in(1));
         names.extend(self.changes.names_in(2));
         names.extend(self.answers.names_in(3));
@@ -1323,7 +1388,7 @@ impl Declared for Matrix {
                 path: vec![1],
             });
         }
-        names.extend(self.imports.names_in(0));
+        names.extend(self.imports.imported_in(0));
         names.extend(self.records.names_in(1));
         names
     }
@@ -1871,6 +1936,9 @@ impl ReferringParts for Reference {
             Resolution::Ambiguous(name) => {
                 return Err(Error::conceptual(vec![], Problem::Duplicate(name.0)));
             }
+            Resolution::AmbiguousImport(name) => {
+                return Err(Error::conceptual(vec![], Problem::Ambiguous(name.0)));
+            }
             Resolution::Undeclared => {
                 return Err(Error::conceptual(
                     vec![],
@@ -1966,6 +2034,7 @@ impl Wrapping for TypeDeclaration {
             | Resolution::Parameter(_)
             | Resolution::Associated(_)
             | Resolution::Ambiguous(_)
+            | Resolution::AmbiguousImport(_)
             | Resolution::Undeclared => false,
         };
         if structural {
@@ -2093,6 +2162,7 @@ impl Cycling for Reference {
             | Resolution::Parameter(_)
             | Resolution::Associated(_)
             | Resolution::Ambiguous(_)
+            | Resolution::AmbiguousImport(_)
             | Resolution::Undeclared => false,
         }
     }
@@ -2152,6 +2222,7 @@ impl Cycling for Reference {
             | Resolution::Parameter(_)
             | Resolution::Associated(_)
             | Resolution::Ambiguous(_)
+            | Resolution::AmbiguousImport(_)
             | Resolution::Undeclared => false,
         }
     }
@@ -2292,6 +2363,7 @@ impl Carrying for Scope<'_> {
             | Resolution::Parameter(_)
             | Resolution::Associated(_)
             | Resolution::Ambiguous(_)
+            | Resolution::AmbiguousImport(_)
             | Resolution::Undeclared => false,
         }
     }
@@ -2412,7 +2484,17 @@ impl Binding for [Variant] {
 impl Checkable for Variant {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         match self {
-            Variant::Bare(name) => name.define(),
+            // A bare variant named for a type carries it, so a name imported
+            // from two namespaces is as ambiguous here as in a position.
+            Variant::Bare(name) => {
+                name.define()?;
+                match scope.resolve(name) {
+                    Resolution::AmbiguousImport(name) => {
+                        Err(Error::conceptual(vec![], Problem::Ambiguous(name.0)))
+                    }
+                    _ => Ok(()),
+                }
+            }
             Variant::Typed(name, reference) => {
                 name.define().place(0)?;
                 reference.check(scope).lifted(1)

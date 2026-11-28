@@ -203,6 +203,7 @@ impl Emitting for Reference {
             Resolution::Type(_)
             | Resolution::Trait(_)
             | Resolution::Ambiguous(_)
+            | Resolution::AmbiguousImport(_)
             | Resolution::Undeclared => {
                 quote! { #name #applied }
             }

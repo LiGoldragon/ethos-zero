@@ -2,6 +2,22 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 38.0.0: a name imported from two namespaces, Ambiguous where it is bare
+
+One name may be imported from two namespaces. Repin to 38.0.0; no file is
+rewritten. A file importing it twice, as
+`Library [ :flow:signal:[ Input Output ] :flow:meta:[ Input Output ] ] [] [] []`,
+was refused at Check as `Duplicate.Input` at the second import; it now checks.
+In such a file the name written bare, in a position, a payload or as a bare
+variant, is refused where it stands as `Ambiguous.<name>`, and each use is
+written with its namespace, `:flow:signal:Input`, which generates
+`flow::signal::Input`. A name imported twice from one namespace, or imported
+and also declared, is a `Duplicate` as before. `Problem` gains
+`Ambiguous(String)` and `Resolution` gains `AmbiguousImport(Name)`, so a crate
+that matches either exhaustively adds the arm; nothing else of the Rust API
+changes. A type an Emission declares as `Emission` or `Outcome` is a
+`Duplicate`, as `Input` and `Output` are in a Signal, as it already was.
+
 ## 37.0.1: a Matrix of no records generates no Memorizable
 
 A Matrix with no record generates neither the trait `Memorizable` nor provides

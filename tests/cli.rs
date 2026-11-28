@@ -676,3 +676,86 @@ fn generate_writes_a_signal_with_an_open_enum_and_its_contract() {
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
 }
+
+/// The namespace `flow` of two Signals, `signal` and `meta`, each of one input
+/// and one output, given with a query.
+fn two_signal_namespaces(directory: &str) -> String {
+    let signal = format!("{directory}/flow")
+        .write_source("signal", "Signal [] [ Ask.String ] [ Told.String ] []");
+    let meta = format!("{directory}/flow").write_source(
+        "meta",
+        "Signal [] [ Refresh.String ] [ Refreshed.String ] []",
+    );
+    format!("[ {{ flow [ {} {} ] }} ]", opaque(&signal), opaque(&meta))
+}
+
+#[test]
+fn a_name_imported_from_two_namespaces_is_ambiguous_only_where_it_is_written_bare() {
+    let directory = "ambiguous".scratch();
+    let namespaces = two_signal_namespaces(&directory);
+    let imports = "Library\n[ :flow:signal:[ Input Output ]\n  :flow:meta:[ Input Output ] ]\n";
+    let unused = directory.write_source("unused", &format!("{imports}[]\n[]\n[]\n"));
+    let argument = format!("Check.{{ [ {} ] {namespaces} }}", opaque(&unused));
+    assert_eq!(
+        [argument.as_str()].invoke(),
+        (true, format!("Checked.{{ [ {unused} ] [] }}\n"))
+    );
+    let bare = directory.write_source(
+        "bare",
+        &format!("{imports}[ Holder.{{ Input }} ]\n[]\n[]\n"),
+    );
+    let argument = format!("Check.{{ [ {} ] {namespaces} }}", opaque(&bare));
+    assert_eq!(
+        [argument.as_str()].invoke(),
+        (
+            false,
+            format!(
+                "Rejected.{{ {bare} {{ 4 12 }} Conceptual.{{ [ 1 1 0 1 0 ] Ambiguous.Input }} }}\n"
+            )
+        )
+    );
+    let qualified = directory.write_source(
+        "qualified",
+        &format!("{imports}[ Holder.{{ :flow:signal:Input }} ]\n[]\n[]\n"),
+    );
+    let argument = format!("Check.{{ [ {} ] {namespaces} }}", opaque(&qualified));
+    assert_eq!(
+        [argument.as_str()].invoke(),
+        (true, format!("Checked.{{ [ {qualified} ] [] }}\n"))
+    );
+    let outputs = format!("{directory}/generated");
+    let generate = format!(
+        "Generate.{{ {{ [ {} ] {namespaces} }} {} }}",
+        opaque(&qualified),
+        opaque(&outputs)
+    );
+    assert_eq!(
+        [generate.as_str()].invoke(),
+        (true, format!("Generated.[ {outputs}/qualified.rs ]\n"))
+    );
+    let written = std::fs::read_to_string(format!("{outputs}/qualified.rs")).unwrap();
+    assert!(
+        written.contains("pub input: flow::signal::Input,"),
+        "{written}"
+    );
+}
+
+#[test]
+fn an_emission_declaring_emission_or_outcome_is_rejected_where_it_declares_it() {
+    let directory = "emission-collision".scratch();
+    for name in ["Emission", "Outcome"] {
+        let source = directory.write_source(
+            name,
+            &format!("Emission\n[]\n[ Go ]\n[ Gone ]\n[ {name}.String ]\n"),
+        );
+        assert_eq!(
+            [check(&source).as_str()].invoke(),
+            (
+                false,
+                format!(
+                    "Rejected.{{ {source} {{ 5 3 }} Conceptual.{{ [ 1 3 0 0 ] Duplicate.{name} }} }}\n"
+                )
+            )
+        );
+    }
+}

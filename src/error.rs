@@ -87,6 +87,7 @@ pub enum Problem {
     UnknownName(UnknownName_Data),
     Unpointed(alloc::string::String),
     Misrooted(Misrooted_Data),
+    Ambiguous(alloc::string::String),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

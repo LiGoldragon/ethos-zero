@@ -827,8 +827,9 @@ fn a_chained_import_refuses_a_capitalized_segment_and_places_its_names_below_eve
         }
     }
 
-    // `a:b:[ X Y ]` holds its names below both segments.
-    match read("Library [ c:[ Y ] a:b:[ X Y ] ] [] [] []").generate() {
+    // `a:b:[ X Y ]` holds its names below both segments. One namespace
+    // giving `Y` twice is a duplicate; two namespaces may give one name.
+    match read("Library [ a:b:[ Y ] a:b:[ X Y ] ] [] [] []").generate() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Duplicate("Y".to_owned()));
             assert_eq!(data.integer_vector, vec![1, 0, 1, 1, 1, 1]);
@@ -906,9 +907,10 @@ fn a_rooted_namespace_segment_is_uncapitalized_and_a_name_seen_twice_is_placed_b
         }
     }
 
-    // `:a:b:` and its bracket are two siblings, so the second import's
-    // names sit in the bracket at index three.
-    match read("Library [ :a:b:[ X ] :c:[ Y X ] ] [] [] []").generate() {
+    // `:c:` and its bracket are two siblings, so the second import's
+    // names sit in the bracket at index three. One namespace giving `X`
+    // twice is a duplicate; two namespaces may give one name.
+    match read("Library [ :c:[ X ] :c:[ Y X ] ] [] [] []").generate() {
         Err(Error::Conceptual(data)) => {
             assert_eq!(data.problem, Problem::Duplicate("X".to_owned()));
             assert_eq!(data.integer_vector, vec![1, 0, 3, 1]);

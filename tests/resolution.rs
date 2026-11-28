@@ -4,8 +4,8 @@
 //! trusted, and listed as unchecked.
 
 use ethos_zero::{
-    Actualizing, Assembling, Error, File, Locating, Module, Name, Namespace, Nexus, Potential,
-    Problem, Trusting, Unchecked, UnknownName_Data, Verifying,
+    Actualizing, Assembling, Error, File, Generating, Locating, Module, Name, Namespace, Nexus,
+    Potential, Problem, Trusting, Unchecked, UnknownName_Data, Verifying,
 };
 
 /// Files written in place, each a module as its stem and its text.
@@ -420,5 +420,107 @@ fn the_sets_own_namespace_given_checks_its_imports_like_any_other() {
             integer_vector: vec![1, 0, 0, 1, 1, 0],
             problem: unknown("tally:signal", "Ghost"),
         })
+    );
+}
+
+/// The namespace `flow` of two Signals, `signal` and `meta`, each generating
+/// an `Input` and an `Output`.
+fn flow() -> Namespace {
+    given(
+        "flow",
+        &[
+            ("signal", "Signal [] [ Ask.String ] [ Told.String ] []"),
+            (
+                "meta",
+                "Signal [] [ Refresh.String ] [ Refreshed.String ] []",
+            ),
+        ],
+    )
+}
+
+/// The refusal of a file read alone with `flow` given: its path and its problem.
+fn refused_with_flow(text: &str) -> (Vec<i64>, Problem) {
+    match alone(text, vec![flow()]).verify() {
+        Err(refusal) => match refusal.error {
+            Error::Conceptual(data) => (data.integer_vector, data.problem),
+            Error::Structural(_) => panic!("a conceptual refusal is wanted"),
+        },
+        Ok(()) => panic!("{text} must be refused"),
+    }
+}
+
+#[test]
+fn one_name_imported_from_two_namespaces_checks_until_it_is_written_bare() {
+    let imports = ":flow:signal:[ Input Output ] :flow:meta:[ Input Output ]";
+    for text in [
+        format!("Library [ {imports} ] [] [] []"),
+        format!("Library [ {imports} ] [ Holder.{{ :flow:signal:Input }} ] [] []"),
+        format!("Library [ {imports} ] [ Holder.[ Some.:flow:meta:Output None ] ] [] []"),
+        // Chained and rooted spellings of the two namespaces.
+        "Library [ flow:signal:[ Input ] :flow:meta:Input ] [] [] []".to_owned(),
+    ] {
+        let nexus = alone(&text, vec![flow()]);
+        assert!(nexus.verify().is_ok(), "{text}: {:?}", nexus.verify());
+        assert!(nexus.assemble().is_ok(), "{text}");
+    }
+    let ambiguous = Problem::Ambiguous("Input".to_owned());
+    // Written bare in a position.
+    assert_eq!(
+        refused_with_flow(&format!(
+            "Library [ {imports} ] [ Holder.{{ Input }} ] [] []"
+        )),
+        (vec![1, 1, 0, 1, 0], ambiguous.clone())
+    );
+    // Written bare as a variant's payload, and as a bare variant that would carry it.
+    assert_eq!(
+        refused_with_flow(&format!(
+            "Library [ {imports} ] [ Holder.[ Some.Input None ] ] [] []"
+        )),
+        (vec![1, 1, 0, 1, 0, 1], ambiguous.clone())
+    );
+    assert_eq!(
+        refused_with_flow(&format!(
+            "Library [ {imports} ] [ Holder.[ Input None ] ] [] []"
+        )),
+        (vec![1, 1, 0, 1, 0], ambiguous)
+    );
+}
+
+#[test]
+fn a_name_imported_twice_from_one_namespace_or_also_declared_is_still_a_duplicate() {
+    let duplicate = Problem::Duplicate("Input".to_owned());
+    assert_eq!(
+        refused_with_flow("Library [ :flow:signal:[ Input ] :flow:signal:[ Input ] ] [] [] []"),
+        (vec![1, 0, 3, 0], duplicate.clone())
+    );
+    assert_eq!(
+        refused_with_flow(
+            "Library [ :flow:signal:[ Input ] :flow:meta:[ Input ] ] [ Input.String ] [] []"
+        ),
+        (vec![1, 1, 0, 0], duplicate)
+    );
+}
+
+#[test]
+fn a_qualified_use_of_an_ambiguous_name_generates_its_namespace_path() {
+    let text = "Library [ :flow:signal:[ Input ] :flow:meta:[ Input ] ] [ Holder.{ :flow:signal:Input } Both.{ :flow:signal:Input :flow:meta:Input } ] [] []";
+    let file = match Potential::<File>::from(text).actualize() {
+        Ok(file) => file,
+        Err(error) => panic!("{text} does not read: {error:?}"),
+    };
+    let rust = match file.generate() {
+        Ok(rust) => rust,
+        Err(error) => panic!("{text} does not generate: {error:?}"),
+    };
+    assert!(rust.contains("pub input: flow::signal::Input,"), "{rust}");
+    // Two positions of one name from two namespaces are named first and
+    // second, as `Errors.{ :a:Error :b:Error }` is.
+    assert!(
+        rust.contains("pub first_input: flow::signal::Input,"),
+        "{rust}"
+    );
+    assert!(
+        rust.contains("pub second_input: flow::meta::Input,"),
+        "{rust}"
     );
 }
