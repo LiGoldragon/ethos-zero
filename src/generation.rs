@@ -1882,9 +1882,33 @@ impl AllowFormatting for String {
 /// module the syntax would be imported from is not yet declared.
 const OPEN_CONTRACT: &str = include_str!("open-enum.ethos");
 
+/// The contract each open enum's module is: what generates it, and what it
+/// therefore holds, read by the generator and by the resolution of an import
+/// alike.
+pub(crate) struct Contract;
+
+/// The trait whose capabilities read the contract: the root its Ethos is, and
+/// the name of the `Registry` trait generated beside what that root generates.
+pub(crate) trait Contractual {
+    fn file(&self) -> File;
+    fn registry(&self) -> Name;
+}
+
+impl Contractual for Contract {
+    fn file(&self) -> File {
+        Potential::<File>::from(OPEN_CONTRACT.to_owned())
+            .actualize()
+            .expect("the contract of an open enum is Ethos")
+    }
+
+    fn registry(&self) -> Name {
+        Name::try_from("Registry").expect("a generated name is an identifier")
+    }
+}
+
 /// The trait whose capability names the module an open enum's contract is
 /// generated into: its name in snake case.
-trait Modulating {
+pub(crate) trait Modulating {
     fn module(&self) -> Ident;
 }
 
@@ -1928,9 +1952,7 @@ trait Contracted {
 
 impl Contracted for Name {
     fn contract(&self) -> TokenStream {
-        let file = Potential::<File>::from(OPEN_CONTRACT.to_owned())
-            .actualize()
-            .expect("the contract of an open enum is Ethos");
+        let file = Contract.file();
         let scope = Scope {
             file: &file,
             identity: None,
@@ -1939,12 +1961,13 @@ impl Contracted for Name {
         };
         let items = file.items(&scope);
         let module = self.module();
+        let registry = Contract.registry().tokens();
         quote! {
             #[rustfmt::skip]
             pub mod #module {
                 extern crate alloc;
                 #( #items )*
-                pub trait Registry {
+                pub trait #registry {
                     fn variant(&self, name: &Name) -> core::option::Option<Variant>;
                 }
             }

@@ -209,7 +209,13 @@ among the types, is `Duplicate`; the three are reserved only in a Signal of
 open enums. A Nexus exports the open enum, `Carried`, `Carrying` and `Opening`
 of a Signal to its importers by name, `Carried` and `Carrying` only where the
 Signal generates them: an import of either from a Signal that has nothing to
-carry is `UnknownName`. `fixtures/open-enum-signal.ethos`, `open-enum-held.ethos`
+carry is `UnknownName`. The contract module is a namespace of its own, the
+Signal's and the enum's module: `models:signal:model:[ Variant ]` takes
+`Variant` from the module `model` of the Signal `signal` of `models`, and
+generates `models::signal::model::Variant`. With that Signal given or read in
+the set, the import resolves against exactly what the module generates (what
+`src/open-enum.ethos` declares, and `Registry`), and any other name is
+`UnknownName.{ models:signal:model <name> }`. `fixtures/open-enum-signal.ethos`, `open-enum-held.ethos`
 (two open enums, a type that holds them) and `open-enum-bare.ethos` (no type)
 are generated into `tests/generated/` and built with and without `datom`.
 
@@ -453,7 +459,8 @@ naming each other by the Nexus's namespace, the crate that holds them:
 of the Library, at the crate's root. The namespace is written nowhere: it is the
 one first segment of an import whose imports, those that name a module of the set, all land on one
 that declares what it takes (a type, a trait, a variant of an input, an output, an
-emission or an outcome, or a record named). Two that land are `Namespace.<second>`;
+emission or an outcome, a record named, or a name an open enum's contract module
+generates, `tally:signal:model:[ Variant ]`). Two that land are `Namespace.<second>`;
 none, and a Process root that names something is `Foreign.<name>` for it.
 
 ## Namespaces given

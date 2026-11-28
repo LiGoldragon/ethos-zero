@@ -849,6 +849,39 @@ fn a_signal_exports_carrying_only_where_it_exports_carried() {
     }
 }
 
+#[test]
+fn check_resolves_an_import_from_an_open_enums_module_with_its_namespace_given() {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let signal = format!("{root}/fixtures/nexus/models/signal.ethos");
+    let matrix = format!("{root}/fixtures/nexus/models/matrix.ethos");
+    let checked = |matrix: &str| {
+        format!(
+            "Check.{{ [ {} ] [ {{ models [ {} ] }} ] }}",
+            opaque(matrix),
+            opaque(&signal)
+        )
+    };
+    // What the module generates checks, and no finding is left unchecked.
+    assert_eq!(
+        [checked(&matrix).as_str()].invoke(),
+        (true, format!("Checked.{{ [ {matrix} ] [] }}\n"))
+    );
+    // A name it does not generate is refused at the name.
+    let ghost = "open-enum-module".scratch().write_source(
+        "matrix",
+        "Matrix\n[ models:signal:model:[ Nonesuch ] ]\n[ Models.⟦Nonesuch⟧ ]\n",
+    );
+    assert_eq!(
+        [checked(&ghost).as_str()].invoke(),
+        (
+            false,
+            format!(
+                "Rejected.{{ {ghost} {{ 2 25 }} Conceptual.{{ [ 1 0 0 1 1 1 0 ] UnknownName.{{ models:signal:model Nonesuch }} }} }}\n"
+            )
+        )
+    );
+}
+
 /// The namespace `flow` of two Signals, `signal` and `meta`, each of one input
 /// and one output, given with a query.
 fn two_signal_namespaces(directory: &str) -> String {

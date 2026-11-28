@@ -31,8 +31,8 @@ use crate::checking::{
     Supplied, Titled, Uniting,
 };
 use crate::generation::{
-    Carriable, DatomDeriving, Emitting, FieldNaming, Identifying, Itemizing, Rendering,
-    SnakeCasing, StructFielding, Tokening,
+    Carriable, Contract, Contractual, DatomDeriving, Emitting, FieldNaming, Identifying, Itemizing,
+    Modulating, Rendering, SnakeCasing, StructFielding, Tokening,
 };
 use crate::sectioning::{ReferencingEach, Sectioning};
 use crate::{
@@ -334,6 +334,7 @@ impl Kinding for File {
 trait Finding {
     fn library(&self) -> Option<usize>;
     fn module(&self, source: &Source, namespace: &str) -> Option<usize>;
+    fn contract(&self, source: &Source, namespace: &str) -> Option<usize>;
     fn home(&self, module: usize, namespace: &str) -> Source;
     fn namespace(&self) -> Result<Option<String>, Refusal>;
     fn lands(&self, namespace: &str) -> bool;
@@ -374,6 +375,23 @@ impl Finding for Nexus {
         }
     }
 
+    /// The module of the namespace whose open enum's contract module a source
+    /// names: the namespace, the stem of that module, and the contract's module.
+    fn contract(&self, source: &Source, namespace: &str) -> Option<usize> {
+        let [first, stem, segment] = source.segments() else {
+            return None;
+        };
+        if first.0 != namespace {
+            return None;
+        }
+        for (index, module) in self.modules.iter().enumerate() {
+            if module.stem == stem.0 && module.file.contracted(&segment.0).is_some() {
+                return Some(index);
+            }
+        }
+        None
+    }
+
     /// Where a module's types are written from: the namespace and the stem,
     /// the namespace alone for the Library.
     fn home(&self, module: usize, namespace: &str) -> Source {
@@ -391,6 +409,16 @@ impl Finding for Nexus {
         for module in &self.modules {
             for import in module.file.imports() {
                 if import.source().segments()[0].0 != namespace {
+                    continue;
+                }
+                // An open enum's contract module exports what it generates.
+                if self.contract(import.source(), namespace).is_some() {
+                    for imported in import.imported() {
+                        if !Contract.exports(&imported.emitted) {
+                            return false;
+                        }
+                    }
+                    landed = true;
                     continue;
                 }
                 // A module the set lacks is a file not given, not another namespace.
@@ -574,13 +602,44 @@ impl Exported for File {
     }
 }
 
+/// An open enum's contract module exports exactly what is generated in it:
+/// what the contract's root declares or generates, and its `Registry`.
+impl Exported for Contract {
+    fn exports(&self, name: &Name) -> bool {
+        self.file().exports(name) || &self.registry() == name
+    }
+}
+
+/// The trait whose capability finds the open enum a root names whose contract
+/// module is the segment given, `model` for `Model`.
+trait Contracting {
+    fn contracted(&self, segment: &str) -> Option<&Name>;
+}
+
+impl Contracting for File {
+    fn contracted(&self, segment: &str) -> Option<&Name> {
+        for open in self.opened() {
+            if open.module() == segment {
+                return Some(open);
+            }
+        }
+        None
+    }
+}
+
 /// The trait whose capability lists the modules of a namespace given that a
 /// source names: for the namespace alone, its root, every Library and the file
 /// named for the crate (a hyphen of the stem read as an underscore); for the
 /// namespace and a stem, the file of that stem that is no Library; for any
 /// other source, none.
+///
+/// Its second capability lists the open enums whose contract module a source
+/// names: for the namespace, a stem and a module, each that the file of that
+/// stem names whose module it is, `models:signal:model` for the open enum
+/// `Model` of the Signal `signal`.
 trait Addressing {
     fn addressed(&self, source: &Source) -> Vec<&Module>;
+    fn contracts(&self, source: &Source) -> Vec<&Name>;
 }
 
 impl Addressing for Namespace {
@@ -606,6 +665,22 @@ impl Addressing for Namespace {
             _ => {}
         }
         addressed
+    }
+
+    fn contracts(&self, source: &Source) -> Vec<&Name> {
+        let mut contracts = Vec::new();
+        if let [crate_name, stem, segment] = source.segments()
+            && crate_name.0 == self.name
+        {
+            for module in &self.modules {
+                if module.stem == stem.0
+                    && let Some(open) = module.file.contracted(&segment.0)
+                {
+                    contracts.push(open);
+                }
+            }
+        }
+        contracts
     }
 }
 
@@ -633,6 +708,12 @@ impl Exporting for [Namespace] {
         for namespace in self {
             for module in namespace.addressed(source) {
                 if module.file.exports(name) {
+                    return Export::Provided;
+                }
+                named = true;
+            }
+            if !namespace.contracts(source).is_empty() {
+                if Contract.exports(name) {
                     return Export::Provided;
                 }
                 named = true;
@@ -886,6 +967,12 @@ impl Trusting for Nexus {
                 if let Some(namespace) = &inferred
                     && let Some(target) = self.module(source, namespace)
                     && self.modules[target].file.exports(name)
+                {
+                    continue;
+                }
+                if let Some(namespace) = &inferred
+                    && self.contract(source, namespace).is_some()
+                    && Contract.exports(name)
                 {
                     continue;
                 }

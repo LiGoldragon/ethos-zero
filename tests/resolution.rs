@@ -524,3 +524,170 @@ fn a_qualified_use_of_an_ambiguous_name_generates_its_namespace_path() {
         "{rust}"
     );
 }
+
+/// The Models Nexus's roots, as the CLI reads them: a Signal naming the open
+/// enum `Model`, and a Matrix importing from the contract module `model` it
+/// generates.
+fn models() -> Vec<Module> {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let mut read = Vec::new();
+    for stem in ["matrix", "signal"] {
+        let text =
+            std::fs::read_to_string(format!("{root}/fixtures/nexus/models/{stem}.ethos")).unwrap();
+        read.push(Module {
+            stem: stem.to_owned(),
+            file: Potential::<File>::from(text).actualize().unwrap(),
+        });
+    }
+    read
+}
+
+/// The namespace `models`: the Models Nexus's Signal alone.
+fn models_signal() -> Namespace {
+    let mut modules = models();
+    modules.remove(0);
+    Namespace {
+        name: "models".to_owned(),
+        modules,
+    }
+}
+
+#[test]
+fn an_import_from_an_open_enums_module_checks_against_what_is_generated_in_it() {
+    // Every name the contract module generates, and only those.
+    for text in [
+        "Matrix [ models:signal:model:[ Variant ] ] [ Models.⟦Variant⟧ ]",
+        "Library [ :models:signal:model:[ Name Word Namespace Import Declaration Variant Type Input Output Registry ] ] [] [] []",
+        "Library [] [ R.{ models:signal:model:Variant } ] [] []",
+    ] {
+        let nexus = alone(text, vec![models_signal()]);
+        assert!(nexus.verify().is_ok(), "{text}: {:?}", nexus.verify());
+        assert_eq!(nexus.unchecked(), vec![], "{text}");
+        assert!(nexus.assemble().is_ok(), "{text}");
+    }
+    for (text, path, ghost) in [
+        (
+            "Matrix [ models:signal:model:[ Nonesuch ] ] [ Models.⟦Nonesuch⟧ ]",
+            vec![1, 0, 0, 1, 1, 1, 0],
+            "Nonesuch",
+        ),
+        // The Signal's own names are not its open enum's.
+        (
+            "Library [ models:signal:model:[ Variant Carried ] ] [] [] []",
+            vec![1, 0, 0, 1, 1, 1, 1],
+            "Carried",
+        ),
+        // Rust the module holds that no Ethos name generates.
+        (
+            "Library [ models:signal:model:[ Applied_Data ] ] [] [] []",
+            vec![1, 0, 0, 1, 1, 1, 0],
+            "Applied_Data",
+        ),
+    ] {
+        match alone(text, vec![models_signal()]).verify() {
+            Err(refusal) => assert_eq!(
+                refusal.error,
+                Error::Conceptual(ethos_zero::Conceptual_Data {
+                    integer_vector: path,
+                    problem: unknown("models:signal:model", ghost),
+                }),
+                "{text}"
+            ),
+            Ok(()) => panic!("{text} must be refused"),
+        }
+    }
+}
+
+#[test]
+fn a_module_of_no_open_enum_the_signal_names_is_not_a_contract() {
+    // The Signal names no open enum `Effort`, and a Library has no contract
+    // module: neither source names a module of the namespace, and is trusted.
+    let nexus = alone(
+        "Library [ models:signal:effort:[ Variant ] models:model:[ Variant ] ] [] [] []",
+        vec![models_signal()],
+    );
+    assert!(nexus.verify().is_ok(), "{:?}", nexus.verify());
+    assert_eq!(
+        nexus.unchecked(),
+        vec![
+            Unchecked {
+                module: 0,
+                namespace: "models:signal:effort".to_owned(),
+                names: names(&["Variant"]),
+            },
+            Unchecked {
+                module: 0,
+                namespace: "models:model".to_owned(),
+                names: names(&["Variant"]),
+            },
+        ]
+    );
+}
+
+#[test]
+fn the_sets_open_enum_module_resolves_its_imports_given_or_not() {
+    let inferred = Nexus {
+        modules: models(),
+        namespaces: vec![],
+    };
+    assert!(inferred.verify().is_ok(), "{:?}", inferred.verify());
+    assert_eq!(inferred.unchecked(), vec![]);
+    let given = Nexus {
+        modules: models(),
+        namespaces: vec![models_signal()],
+    };
+    assert!(given.verify().is_ok(), "{:?}", given.verify());
+    assert_eq!(given.unchecked(), vec![]);
+    assert_eq!(given.assemble(), inferred.assemble());
+    // The import's Rust path is the module the contract is generated into.
+    let assembled = inferred.assemble().unwrap();
+    let matrix = &assembled[0].rust;
+    assert!(
+        matrix.contains("pub struct Models(pub alloc::vec::Vec<models::signal::model::Variant>);"),
+        "{matrix}"
+    );
+    let signal = &assembled[1].rust;
+    assert!(signal.contains("pub mod model {"), "{signal}");
+    assert!(signal.contains("pub struct Variant {"), "{signal}");
+}
+
+#[test]
+fn a_ghost_of_the_sets_open_enum_module_is_refused_when_the_namespace_is_given() {
+    let mut roots = models();
+    roots[0].file = Potential::<File>::from(
+        "Matrix [ models:signal:model:[ Nonesuch ] ] [ Models.⟦Nonesuch⟧ ]",
+    )
+    .actualize()
+    .unwrap();
+    // Inferred, no namespace lands, and the import is trusted as any ghost of
+    // the set's own namespace is.
+    let inferred = Nexus {
+        modules: roots.clone(),
+        namespaces: vec![],
+    };
+    assert!(inferred.verify().is_ok(), "{:?}", inferred.verify());
+    assert_eq!(
+        inferred.unchecked(),
+        vec![Unchecked {
+            module: 0,
+            namespace: "models:signal:model".to_owned(),
+            names: names(&["Nonesuch"]),
+        }]
+    );
+    let given = Nexus {
+        namespaces: vec![Namespace {
+            name: "models".to_owned(),
+            modules: roots.clone(),
+        }],
+        modules: roots,
+    };
+    let refusal = given.verify().unwrap_err();
+    assert_eq!(refusal.module, 0);
+    assert_eq!(
+        refusal.error,
+        Error::Conceptual(ethos_zero::Conceptual_Data {
+            integer_vector: vec![1, 0, 0, 1, 1, 1, 0],
+            problem: unknown("models:signal:model", "Nonesuch"),
+        })
+    );
+}

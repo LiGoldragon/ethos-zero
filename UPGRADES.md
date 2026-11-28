@@ -2,6 +2,22 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 41.0.0: an open enum's module is a namespace an import resolves
+
+The contract module a Signal generates for an open enum, `model` for `Model`,
+is a namespace ethos-zero resolves: `models:signal:model:[ Variant ]`, with the
+Signal `signal` of the namespace `models` given or read in the same set,
+checks, and is no longer an `Unchecked` finding; a name the module does not
+generate, `models:signal:model:[ Nonesuch ]`, is refused at Check as
+`UnknownName.{ models:signal:model Nonesuch }` at the name, where it was
+trusted. The module provides exactly what it generates: what the Ethos of
+`src/open-enum.ethos` declares (`Name`, `Word`, `Namespace`, `Import`,
+`Declaration`, `Variant`, `Type`, `Input`, `Output`) and its `Registry`.
+Repin to 41.0.0; no file is rewritten, and the Rust API is unchanged. A crate
+that imported a name the module does not generate removes it. Read as a set
+with no namespace given, such a ghost is trusted as any ghost of the set's own
+namespace is.
+
 ## 40.0.0: a type that reaches an open enum is read only through Opening
 
 A Signal's open-enum value, and every type the file declares that reaches an
