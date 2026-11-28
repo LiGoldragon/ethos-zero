@@ -110,6 +110,8 @@ mod nested_collision;
 mod open_enum_bare;
 #[path = "generated/open-enum-held.rs"]
 mod open_enum_held;
+#[path = "generated/open-enum-named-open.rs"]
+mod open_enum_named_open;
 #[path = "generated/open-enum-recursive.rs"]
 mod open_enum_recursive;
 #[path = "generated/open-enum-result.rs"]
@@ -1194,7 +1196,7 @@ fn a_whole_input_is_read_through_opening_with_its_registry() {
 
 #[test]
 fn a_body_reads_what_carried_holds_by_the_name_of_its_type() {
-    use open_enum_signal::open::Name;
+    use open_enum_signal::_open::Name;
     use open_enum_signal::{Carried, Carrying, QuadrupleEffort, TripleEffort};
     let named = |name: &str| Name(name.to_owned());
     assert_eq!(
@@ -1389,6 +1391,32 @@ fn an_open_enum_named_for_a_crate_shadows_no_path_the_code_writes() {
     assert_eq!(std::Input::List, std::Input::List);
 }
 
+#[test]
+fn an_open_enum_named_open_has_its_module_beside_the_shared_one() {
+    use datom_codec::Datomizable;
+    use open_enum_named_open::{_open, Model, Open, Pair, model, open};
+    use protos::{Compactable, Protosizable};
+    // `open` is the contract module of `Open`, `_open` the module the file's
+    // open enums share; both re-export it, so their `Name` is one type.
+    let pair = Pair {
+        open: Open {
+            name: open::Name("Door".to_owned()),
+            carried: None,
+        },
+        model: Model {
+            name: model::Name("Fable".to_owned()),
+            carried: None,
+        },
+    };
+    let shared: _open::Name = pair.open.name.clone();
+    let other: open::Name = model::Name("Door".to_owned());
+    assert_eq!(shared, other);
+    assert_ne!(pair.model.name, shared);
+    assert_eq!(pair.open.datomize(vec![]).protosize().compact(), "Door");
+    assert_eq!(open::Input::List, open::Input::List);
+    assert_eq!(model::Input::List, model::Input::List);
+}
+
 /// The registry of the Signal that declares no type.
 struct Bare(Vec<open_enum_bare::model::Variant>);
 
@@ -1491,7 +1519,7 @@ fn a_recursive_type_that_holds_no_open_enum_keeps_composing() {
     );
     assert_eq!(
         <Carried as open_enum_recursive::Carrying>::names(),
-        [open_enum_recursive::open::Name("Tree".to_owned())]
+        [open_enum_recursive::_open::Name("Tree".to_owned())]
     );
 }
 
@@ -1614,6 +1642,6 @@ fn the_open_enums_of_a_file_share_one_name_and_one_variant() {
         name: name.clone(),
         type_option: None,
     };
-    let shared: open_enum_held::open::Variant = variant;
-    assert_eq!(shared.name, open_enum_held::open::Name("High".to_owned()));
+    let shared: open_enum_held::_open::Variant = variant;
+    assert_eq!(shared.name, open_enum_held::_open::Name("High".to_owned()));
 }

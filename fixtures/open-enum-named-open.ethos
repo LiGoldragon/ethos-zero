@@ -1,0 +1,12 @@
+; Open enums named Open and Model: Open's contract module is open, and the
+; module every open enum of the file shares is open_, a name no declared
+; name's module can be, so neither is refused for the sake of Rust.
+Signal
+[]
+[ Launch.Pair
+  Stop.Mark ]
+[ Launched
+  Refused.String ]
+[ Pair.{ Open Model }
+  Mark.String ]
+[ Open Model ]

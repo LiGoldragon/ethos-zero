@@ -1963,8 +1963,11 @@ impl Contractual for Contract {
             .collect()
     }
 
+    /// `_open`: a declared name is capitalized, so its module, the name in
+    /// snake case, never begins with an underscore, and no open enum's module,
+    /// `Open`'s `open` among them, can take this one.
     fn shared(&self) -> Ident {
-        Ident::new("open", Span::call_site())
+        Ident::new("_open", Span::call_site())
     }
 }
 

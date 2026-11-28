@@ -2,6 +2,22 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 51.0.0: the module the open enums of a file share is `_open`
+
+The module 50.0.0 generated as `open` is `_open`: an underscore where the
+generator never puts one, as in `Command_Data`. A declared name is capitalized,
+so its module, the name in snake case, never begins with an underscore, and no
+open enum's module can be `_open`. An open enum named `Open` generates
+`pub mod open`, its own module, beside the shared `pub mod _open`, where 50.0.0
+generated `open` twice; no name is refused for the sake of Rust. The shared
+module is still not addressed from Ethos.
+
+To deploy: repin to 51.0.0 and regenerate. A Rust caller that wrote the shared
+module writes `_open::` where it wrote `open::`
+(`signal::_open::Name("Fable".to_owned())`); a path through an open enum's
+module, `signal::model::Name`, is unchanged. No Ethos source changes, and
+nothing that checked is refused.
+
 ## 50.0.0: one Name per file, shared by its open enums
 
 A Signal of open enums generates the contract's syntax once, into a module
@@ -32,8 +48,7 @@ To deploy: repin to 50.0.0 and regenerate. A Rust caller replaces
 passes `&Name` to `Carried::read`; a caller that implemented `Registry` for
 two open enums of one file, or converted one's `Name` into the other's, may
 drop the conversion. No Ethos source changes, and nothing that checked is
-refused. An open enum named `Open` would collide with the shared module and is
-owed to design.
+refused.
 
 ## 49.0.0: Opening is borne by every scalar and every declared type
 

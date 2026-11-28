@@ -50,7 +50,7 @@ impl<Registry> Opening<Registry> for QuadrupleEffort {
     }
 }
 #[rustfmt::skip]
-pub mod open {
+pub mod _open {
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -290,25 +290,25 @@ impl<Registry> Opening<Registry> for Carried {
 }
 #[rustfmt::skip]
 pub trait Carrying: Sized {
-    fn names() -> ::std::vec::Vec<self::open::Name>;
-    fn name(&self) -> self::open::Name;
+    fn names() -> ::std::vec::Vec<self::_open::Name>;
+    fn name(&self) -> self::_open::Name;
     #[cfg(feature = "datom")]
     fn read(
-        name: &self::open::Name,
+        name: &self::_open::Name,
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
     ) -> ::core::result::Result<Self, ::datom_codec::Error>;
 }
 #[rustfmt::skip]
 impl Carrying for Carried {
-    fn names() -> ::std::vec::Vec<self::open::Name> {
+    fn names() -> ::std::vec::Vec<self::_open::Name> {
         ::std::vec![
-            self::open::Name(::std::string::String::from("TripleEffort")),
-            self::open::Name(::std::string::String::from("QuadrupleEffort"))
+            self::_open::Name(::std::string::String::from("TripleEffort")),
+            self::_open::Name(::std::string::String::from("QuadrupleEffort"))
         ]
     }
-    fn name(&self) -> self::open::Name {
-        self::open::Name(
+    fn name(&self) -> self::_open::Name {
+        self::_open::Name(
             ::std::string::String::from(
                 match self {
                     Carried::TripleEffort(_) => "TripleEffort",
@@ -319,7 +319,7 @@ impl Carrying for Carried {
     }
     #[cfg(feature = "datom")]
     fn read(
-        name: &self::open::Name,
+        name: &self::_open::Name,
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
     ) -> ::core::result::Result<Self, ::datom_codec::Error> {
@@ -554,7 +554,7 @@ impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::boxed::Box
 }
 #[rustfmt::skip]
 pub mod model {
-    pub use super::open::*;
+    pub use super::_open::*;
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -603,7 +603,7 @@ pub mod model {
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Model {
-    pub name: self::open::Name,
+    pub name: self::_open::Name,
     pub carried: ::core::option::Option<Carried>,
 }
 #[cfg(feature = "datom")]
@@ -671,7 +671,7 @@ impl<Registry: self::model::Registry> Opening<Registry> for Model {
                 );
             }
         };
-        let name = self::open::Name(head.clone());
+        let name = self::_open::Name(head.clone());
         let ::core::option::Option::Some(entry) = registry.variant(&name) else {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
@@ -691,7 +691,7 @@ impl<Registry: self::model::Registry> Opening<Registry> for Model {
                 })
             }
             (
-                ::core::option::Option::Some(self::open::Type::Name(carried)),
+                ::core::option::Option::Some(self::_open::Type::Name(carried)),
                 ::core::option::Option::Some(body),
             ) => {
                 let carried = <Carried as Carrying>::read(&carried, body, budget)?;

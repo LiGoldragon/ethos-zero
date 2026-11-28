@@ -5,7 +5,7 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-pub mod open {
+pub mod _open {
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -422,7 +422,7 @@ impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::boxed::Box
 }
 #[rustfmt::skip]
 pub mod model {
-    pub use super::open::*;
+    pub use super::_open::*;
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -471,7 +471,7 @@ pub mod model {
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Model {
-    pub name: self::open::Name,
+    pub name: self::_open::Name,
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
@@ -511,7 +511,7 @@ impl<Registry: self::model::Registry> Opening<Registry> for Model {
                 );
             }
         };
-        let name = self::open::Name(head.clone());
+        let name = self::_open::Name(head.clone());
         let ::core::option::Option::Some(entry) = registry.variant(&name) else {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(

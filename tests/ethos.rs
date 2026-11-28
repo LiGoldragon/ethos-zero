@@ -2265,13 +2265,13 @@ fn a_signal_with_open_enums_generates_the_types_the_contract_and_the_dispatch() 
     // The enum of every type the file declares, and the value of the open enum.
     assert!(rust.contains("pub enum Carried {\n    TripleEffort(TripleEffort),\n    QuadrupleEffort(QuadrupleEffort),\n}"));
     assert!(rust.contains(
-        "pub struct Model {\n    pub name: self::open::Name,\n    pub carried: ::core::option::Option<Carried>,\n}"
+        "pub struct Model {\n    pub name: self::_open::Name,\n    pub carried: ::core::option::Option<Carried>,\n}"
     ));
     // The contract: the syntax's Name, Word, Variant and Type in the module
-    // `open` the file's open enums share, re-exported by a module named for
+    // `_open` the file's open enums share, re-exported by a module named for
     // the enum, which holds its own Input and Output.
-    assert!(rust.contains("pub mod open {"));
-    assert!(rust.contains("pub mod model {\n    pub use super::open::*;"));
+    assert!(rust.contains("pub mod _open {"));
+    assert!(rust.contains("pub mod model {\n    pub use super::_open::*;"));
     for expected in [
         "pub struct Name(pub ::std::string::String);",
         "pub struct Variant {",
@@ -2302,7 +2302,7 @@ fn a_signal_with_open_enums_generates_the_types_the_contract_and_the_dispatch() 
     ));
     // What a body needs of Carried: its types' names, and the reading by one.
     assert!(rust.contains(
-        "fn names() -> ::std::vec::Vec<self::open::Name> {\n        ::std::vec![\n            self::open::Name(::std::string::String::from(\"TripleEffort\")),\n            self::open::Name(::std::string::String::from(\"QuadrupleEffort\"))\n        ]\n    }"
+        "fn names() -> ::std::vec::Vec<self::_open::Name> {\n        ::std::vec![\n            self::_open::Name(::std::string::String::from(\"TripleEffort\")),\n            self::_open::Name(::std::string::String::from(\"QuadrupleEffort\"))\n        ]\n    }"
     ));
     // Two open enums share one Carried and one Name, each with its own
     // module and its own Input.
@@ -2332,7 +2332,7 @@ fn a_signal_with_open_enums_generates_the_types_the_contract_and_the_dispatch() 
 fn an_open_enum_alone_generates_its_input_output_and_capability() {
     let rust = generates("Signal [] [] [] [] [ Model ]");
     assert!(!rust.contains("Carried"));
-    assert!(rust.contains("pub struct Model {\n    pub name: self::open::Name,\n}"));
+    assert!(rust.contains("pub struct Model {\n    pub name: self::_open::Name,\n}"));
     assert!(rust.contains("pub enum Input {\n    Model(self::model::Input),\n}"));
     assert!(rust.contains("model: &self::model::Input,"));
 }
