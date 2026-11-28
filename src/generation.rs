@@ -827,6 +827,7 @@ trait Enumerating {
 pub(crate) trait DatomDeriving {
     fn datom_derives(&self) -> TokenStream;
     fn scalar_datom_derives(&self, scalar: Scalar) -> TokenStream;
+    fn writing_derives(&self) -> TokenStream;
 }
 
 /// What every declared type derives, and what none does.
@@ -855,6 +856,17 @@ impl DatomDeriving for Identity {
             #[rustfmt::skip]
             #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
             #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+        }
+    }
+
+    /// The derives of a type that reaches an open enum: it is written as
+    /// any type is, and read only through `Opening`, with the registry of
+    /// added variants, so it bears no `Composing` that reads without one.
+    fn writing_derives(&self) -> TokenStream {
+        quote! {
+            #[rustfmt::skip]
+            #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+            #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable))]
         }
     }
 
@@ -973,7 +985,15 @@ impl StructFielding for [Reference] {
             archivals.push(position.archival(scope, owner));
             recursive |= position.recursive(scope, owner);
         }
-        let derive = identity.datom_derives();
+        let opens = self.opens_reached(scope.file);
+        let (derive, opening) = if opens.is_empty() || !identity.constraints.is_empty() {
+            (identity.datom_derives(), TokenStream::new())
+        } else {
+            (
+                identity.writing_derives(),
+                identity.open_impl(&opens, self.struct_reading(scope.file, fields)),
+            )
+        };
         let bounds = if recursive {
             identity.recursion_bounds()
         } else {
@@ -983,6 +1003,7 @@ impl StructFielding for [Reference] {
             #derive
             #bounds
             pub struct #name #parameters { #( #archivals pub #fields: #types ),* }
+            #opening
         }
     }
 }
@@ -991,7 +1012,15 @@ impl Enumerating for [Variant] {
     fn enumeration(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
-        let derive = identity.datom_derives();
+        let opens = self.opens_reached(scope.file);
+        let (derive, opening) = if opens.is_empty() || !identity.constraints.is_empty() {
+            (identity.datom_derives(), TokenStream::new())
+        } else {
+            (
+                identity.writing_derives(),
+                identity.open_impl(&opens, self.enum_reading(scope, identity)),
+            )
+        };
         let mut definitions = Vec::with_capacity(self.len());
         let mut nested = Vec::new();
         let mut recursive = false;
@@ -1010,6 +1039,7 @@ impl Enumerating for [Variant] {
             #derive
             #bounds
             pub enum #name #parameters { #( #definitions ),* }
+            #opening
         }
     }
 }
@@ -1046,11 +1076,21 @@ impl Emitting for TypeDeclaration {
                 let parameters = identity.parameters(&inner);
                 let aliased_reference = aliased;
                 let aliased = aliased.emit(&inner);
-                let derive = match aliased_reference.scalar(&inner) {
-                    Some(scalar) => identity.scalar_datom_derives(scalar),
-                    None => identity.datom_derives(),
+                let opens = aliased_reference.opens_reached(scope.file);
+                let (derive, opening) = match aliased_reference.scalar(&inner) {
+                    Some(scalar) => (identity.scalar_datom_derives(scalar), TokenStream::new()),
+                    None if opens.is_empty() || !identity.constraints.is_empty() => {
+                        (identity.datom_derives(), TokenStream::new())
+                    }
+                    None => (
+                        identity.writing_derives(),
+                        identity.open_impl(
+                            &opens,
+                            quote! { core::result::Result::Ok(Self(Opening::open(datom, budget, registry)?)) },
+                        ),
+                    ),
                 };
-                quote! { #derive pub struct #name #parameters (pub #aliased); }
+                quote! { #derive pub struct #name #parameters (pub #aliased); #opening }
             }
         }
     }
@@ -1947,6 +1987,204 @@ impl Carriable for File {
     }
 }
 
+/// The trait whose capability names the open enums of the file a value
+/// reaches, as carrying reaches: through every type the file declares, its
+/// positions, payloads, vectors and options. A type that reaches one is read
+/// only through `Opening`, with a registry of each.
+trait OpenReaching {
+    fn opens_reached(&self, file: &File) -> Vec<Name>;
+}
+
+impl<Reached: Reaching + ?Sized> OpenReaching for Reached {
+    fn opens_reached(&self, file: &File) -> Vec<Name> {
+        file.opened()
+            .iter()
+            .filter(|open| self.reaches(open, Passage::Any, file, &mut vec![]))
+            .cloned()
+            .collect()
+    }
+}
+
+/// The trait whose capability yields the reading of one child datom: through
+/// `Opening` with the registry where the child reaches an open enum, through
+/// `Composing` where it does not, each within the composition depth.
+trait ChildReading {
+    fn child_reading(&self, file: &File, child: TokenStream) -> TokenStream;
+}
+
+impl<Reached: OpenReaching + ?Sized> ChildReading for Reached {
+    fn child_reading(&self, file: &File, child: TokenStream) -> TokenStream {
+        if self.opens_reached(file).is_empty() {
+            quote! { datom_codec::Composable::compose(#child, budget)? }
+        } else {
+            quote! {
+                {
+                    let child = #child;
+                    datom_codec::CompositionDepthing::enter_composition(budget, &child.path)?;
+                    let read = Opening::open(child, budget, registry);
+                    datom_codec::CompositionDepthing::leave_composition(budget);
+                    read?
+                }
+            }
+        }
+    }
+}
+
+/// The trait whose capability wraps a reading into the `Opening` impl of a
+/// type, bound by the registry of each open enum it reaches.
+trait OpenImplementing {
+    fn open_impl(&self, opens: &[Name], body: TokenStream) -> TokenStream;
+}
+
+impl OpenImplementing for Identity {
+    fn open_impl(&self, opens: &[Name], body: TokenStream) -> TokenStream {
+        let name = self.name.tokens();
+        let modules: Vec<Ident> = opens.iter().map(Modulating::module).collect();
+        quote! {
+            #[cfg(feature = "datom")]
+            #[rustfmt::skip]
+            impl<Registry: #( #modules::Registry )+*> Opening<Registry> for #name {
+                fn open(
+                    datom: &datom_codec::Datom,
+                    budget: &mut datom_codec::Budget,
+                    registry: &Registry,
+                ) -> core::result::Result<Self, datom_codec::Error> {
+                    #body
+                }
+            }
+        }
+    }
+}
+
+/// The trait whose capability yields the reading of a struct of these
+/// positions, as the `Composing` derive reads one: a struct form of its
+/// arity, each position in order.
+trait StructReading {
+    fn struct_reading(&self, file: &File, fields: &[Ident]) -> TokenStream;
+}
+
+impl StructReading for [Reference] {
+    fn struct_reading(&self, file: &File, fields: &[Ident]) -> TokenStream {
+        let arity = proc_macro2::Literal::usize_unsuffixed(self.len());
+        let mut reads = Vec::with_capacity(self.len());
+        for (index, reference) in self.iter().enumerate() {
+            let index = proc_macro2::Literal::usize_unsuffixed(index);
+            reads.push(reference.child_reading(file, quote! { &children[#index] }));
+        }
+        quote! {
+            datom_codec::Budgeted::spend(budget, &datom.path)?;
+            let children = match &datom.form {
+                datom_codec::Form::Struct(children) => children,
+                found => {
+                    return core::result::Result::Err(
+                        <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                            datom.path.clone(),
+                            datom_codec::ErrorKind::Form {
+                                expected: alloc::string::String::from("Struct"),
+                                found: alloc::string::String::from(datom_codec::Naming::form_name(found)),
+                            },
+                        ),
+                    );
+                }
+            };
+            if children.len() != #arity {
+                return core::result::Result::Err(
+                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        datom_codec::ErrorKind::Arity {
+                            expected: #arity,
+                            found: children.len() as datom_codec::Integer,
+                        },
+                    ),
+                );
+            }
+            core::result::Result::Ok(Self { #( #fields: #reads ),* })
+        }
+    }
+}
+
+/// The trait whose capability yields the reading of an enum of these
+/// variants, as the `Composing` derive reads one: a bare head for a variant
+/// that carries nothing, a head and its body for one that carries.
+trait EnumReading {
+    fn enum_reading(&self, scope: &Scope, identity: &Identity) -> TokenStream;
+}
+
+impl EnumReading for [Variant] {
+    fn enum_reading(&self, scope: &Scope, identity: &Identity) -> TokenStream {
+        let spelled = identity.name.0.clone();
+        let mut units = Vec::new();
+        let mut unit_spellings = Vec::new();
+        let mut carriers = Vec::new();
+        let mut carrier_spellings = Vec::new();
+        let mut reads = Vec::new();
+        for variant in self {
+            let (name, carries) = match variant {
+                Variant::Bare(name) => (name, scope.carries(name)),
+                Variant::Typed(name, _) | Variant::Struct(name, _) | Variant::Enum(name, _) => {
+                    (name, true)
+                }
+            };
+            if carries {
+                carriers.push(name.tokens());
+                carrier_spellings.push(name.0.clone());
+                reads.push(variant.child_reading(scope.file, quote! { body }));
+            } else {
+                units.push(name.tokens());
+                unit_spellings.push(name.0.clone());
+            }
+        }
+        let unknown = quote! {
+            core::result::Result::Err(
+                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                    datom.path.clone(),
+                    datom_codec::ErrorKind::Variant {
+                        expected: alloc::string::String::from(#spelled),
+                        found: alloc::string::String::from(other),
+                    },
+                ),
+            )
+        };
+        // A head with no variant that carries nothing is unknown outright.
+        let bare = if units.is_empty() {
+            quote! {
+                let other = head.as_str();
+                #unknown
+            }
+        } else {
+            quote! {
+                match head.as_str() {
+                    #( #unit_spellings => core::result::Result::Ok(Self::#units), )*
+                    other => #unknown,
+                }
+            }
+        };
+        quote! {
+            match &datom.form {
+                datom_codec::Form::Bare(head) => {
+                    datom_codec::Budgeted::spend(budget, &datom.path)?;
+                    #bare
+                }
+                _ => {
+                    let (head, body) = datom_codec::Variantizing::variant(datom, budget, "Variant")?;
+                    match head {
+                        #( #carrier_spellings => core::result::Result::Ok(Self::#carriers(#reads)), )*
+                        other => core::result::Result::Err(
+                            <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                datom.path.clone(),
+                                datom_codec::ErrorKind::Variant {
+                                    expected: alloc::string::String::from(#spelled),
+                                    found: alloc::string::String::from(other),
+                                },
+                            ),
+                        ),
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// The trait whose capability yields the items a Signal's open enums
 /// generate. Once for the file, `Carried`, an enum of every type the file
 /// declares, one variant each, and `Opening`, by which a datom is read with
@@ -1957,8 +2195,12 @@ impl Carriable for File {
 /// open enum, which would make the value hold itself. The value's datom is
 /// the name, and after it what the entry of that name in the registry says it
 /// carries, read as that type: `Fable.High`. Written, the value needs no
-/// registry; read, it does, so `Composing` reads a name that carries nothing
-/// and refuses any other form, and `Opening` reads them all with a registry.
+/// registry; read, it does, so the value, and every type the file declares
+/// that reaches it, bears no `Composing` and is read only by `Opening`, with
+/// a registry of each open enum it reaches. `Carrying` gives a body what it
+/// needs of `Carried`: the names of its types, and the reading of one by its
+/// name. `Opening` names datom-codec in its signature, so it stands behind
+/// the `datom` feature, as `Carrying::read` does.
 trait Opening {
     fn open_items(&self, scope: &Scope) -> Vec<TokenStream>;
 }
@@ -1997,6 +2239,51 @@ impl Opening for File {
                 )
                 .emit(scope),
             );
+            // What a body needs of `Carried`: the names of its types, the
+            // name of the one a value is, and the reading of one by its name.
+            items.push(quote! {
+                #[rustfmt::skip]
+                pub trait Carrying: Sized {
+                    const NAMES: &'static [&'static str];
+                    fn name(&self) -> &'static str;
+                    #[cfg(feature = "datom")]
+                    fn read(
+                        name: &str,
+                        datom: &datom_codec::Datom,
+                        budget: &mut datom_codec::Budget,
+                    ) -> core::result::Result<Self, datom_codec::Error>;
+                }
+            });
+            items.push(quote! {
+                #[rustfmt::skip]
+                impl Carrying for Carried {
+                    const NAMES: &'static [&'static str] = &[ #( #spellings ),* ];
+                    fn name(&self) -> &'static str {
+                        match self {
+                            #( Carried::#names(_) => #spellings, )*
+                        }
+                    }
+                    #[cfg(feature = "datom")]
+                    fn read(
+                        name: &str,
+                        datom: &datom_codec::Datom,
+                        budget: &mut datom_codec::Budget,
+                    ) -> core::result::Result<Self, datom_codec::Error> {
+                        match name {
+                            #( #spellings => core::result::Result::Ok(Carried::#names(datom_codec::Composing::compose(datom, budget)?)), )*
+                            other => core::result::Result::Err(
+                                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                    datom.path.clone(),
+                                    datom_codec::ErrorKind::Variant {
+                                        expected: alloc::string::String::from("a type the file declares"),
+                                        found: alloc::string::String::from(other),
+                                    },
+                                ),
+                            ),
+                        }
+                    }
+                }
+            });
         }
         items.push(quote! {
             #[cfg(feature = "datom")]
@@ -2007,6 +2294,100 @@ impl Opening for File {
                     budget: &mut datom_codec::Budget,
                     registry: &Registry,
                 ) -> core::result::Result<Self, datom_codec::Error>;
+            }
+        });
+        // The containers a type reaches an open enum through, read as the
+        // codec reads them, each element with the registry.
+        items.push(quote! {
+            #[cfg(feature = "datom")]
+            #[rustfmt::skip]
+            impl<Registry, Value: Opening<Registry>> Opening<Registry> for alloc::vec::Vec<Value> {
+                fn open(
+                    datom: &datom_codec::Datom,
+                    budget: &mut datom_codec::Budget,
+                    registry: &Registry,
+                ) -> core::result::Result<Self, datom_codec::Error> {
+                    datom_codec::Budgeted::spend(budget, &datom.path)?;
+                    let children = match &datom.form {
+                        datom_codec::Form::Vector(children) => children,
+                        found => {
+                            return core::result::Result::Err(
+                                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                    datom.path.clone(),
+                                    datom_codec::ErrorKind::Form {
+                                        expected: alloc::string::String::from("Vector"),
+                                        found: alloc::string::String::from(datom_codec::Naming::form_name(found)),
+                                    },
+                                ),
+                            );
+                        }
+                    };
+                    let mut values = alloc::vec::Vec::with_capacity(children.len());
+                    for child in children {
+                        datom_codec::CompositionDepthing::enter_composition(budget, &child.path)?;
+                        let read = Value::open(child, budget, registry);
+                        datom_codec::CompositionDepthing::leave_composition(budget);
+                        values.push(read?);
+                    }
+                    core::result::Result::Ok(values)
+                }
+            }
+        });
+        items.push(quote! {
+            #[cfg(feature = "datom")]
+            #[rustfmt::skip]
+            impl<Registry, Value: Opening<Registry>> Opening<Registry> for core::option::Option<Value> {
+                fn open(
+                    datom: &datom_codec::Datom,
+                    budget: &mut datom_codec::Budget,
+                    registry: &Registry,
+                ) -> core::result::Result<Self, datom_codec::Error> {
+                    if let datom_codec::Form::Bare(head) = &datom.form {
+                        datom_codec::Budgeted::spend(budget, &datom.path)?;
+                        return if head == "None" {
+                            core::result::Result::Ok(core::option::Option::None)
+                        } else {
+                            core::result::Result::Err(
+                                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                    datom.path.clone(),
+                                    datom_codec::ErrorKind::Variant {
+                                        expected: alloc::string::String::from("Option"),
+                                        found: head.clone(),
+                                    },
+                                ),
+                            )
+                        };
+                    }
+                    let (head, body) = datom_codec::Variantizing::variant(datom, budget, "Variant")?;
+                    if head != "Some" {
+                        return core::result::Result::Err(
+                            <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                datom.path.clone(),
+                                datom_codec::ErrorKind::Variant {
+                                    expected: alloc::string::String::from("Option"),
+                                    found: alloc::string::String::from(head),
+                                },
+                            ),
+                        );
+                    }
+                    datom_codec::CompositionDepthing::enter_composition(budget, &body.path)?;
+                    let read = Value::open(body, budget, registry);
+                    datom_codec::CompositionDepthing::leave_composition(budget);
+                    core::result::Result::Ok(core::option::Option::Some(read?))
+                }
+            }
+        });
+        items.push(quote! {
+            #[cfg(feature = "datom")]
+            #[rustfmt::skip]
+            impl<Registry, Value: Opening<Registry>> Opening<Registry> for alloc::boxed::Box<Value> {
+                fn open(
+                    datom: &datom_codec::Datom,
+                    budget: &mut datom_codec::Budget,
+                    registry: &Registry,
+                ) -> core::result::Result<Self, datom_codec::Error> {
+                    core::result::Result::Ok(alloc::boxed::Box::new(Value::open(datom, budget, registry)?))
+                }
             }
         });
         // The value's field of what it carries, its absence, and what its
@@ -2065,20 +2446,7 @@ impl Opening for File {
                         core::option::Option::Some(#module::Type::Name(carried)),
                         core::option::Option::Some(body),
                     ) => {
-                        let carried = match carried.0.as_str() {
-                            #( #spellings => Carried::#names(datom_codec::Composing::compose(body, budget)?), )*
-                            other => {
-                                return core::result::Result::Err(
-                                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
-                                        datom.path.clone(),
-                                        datom_codec::ErrorKind::Variant {
-                                            expected: alloc::string::String::from("a type the file declares"),
-                                            found: alloc::string::String::from(other),
-                                        },
-                                    ),
-                                );
-                            }
-                        };
+                        let carried = <Carried as Carrying>::read(carried.0.as_str(), body, budget)?;
                         core::result::Result::Ok(Self { name, carried: core::option::Option::Some(carried) })
                     }
                 }
@@ -2098,33 +2466,6 @@ impl Opening for File {
                 impl datom_codec::Datomizable for #value {
                     fn datomize(&self, at: datom_codec::Path) -> datom_codec::Datom {
                         #datomizing
-                    }
-                }
-            });
-            items.push(quote! {
-                #[cfg(feature = "datom")]
-                #[rustfmt::skip]
-                impl datom_codec::Composing for #value {
-                    fn compose(
-                        datom: &datom_codec::Datom,
-                        budget: &mut datom_codec::Budget,
-                    ) -> core::result::Result<Self, datom_codec::Error> {
-                        datom_codec::Budgeted::spend(budget, &datom.path)?;
-                        match &datom.form {
-                            datom_codec::Form::Bare(head) => core::result::Result::Ok(Self {
-                                name: #module::Name(head.clone()),
-                                #absent
-                            }),
-                            found => core::result::Result::Err(
-                                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
-                                    datom.path.clone(),
-                                    datom_codec::ErrorKind::Form {
-                                        expected: alloc::string::String::from("Bare; a name that carries a type is read with its registry, by Opening"),
-                                        found: alloc::string::String::from(datom_codec::Naming::form_name(found)),
-                                    },
-                                ),
-                            ),
-                        }
                     }
                 }
             });

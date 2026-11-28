@@ -548,9 +548,12 @@ impl Generated for File {
             names.push(Name::try_from(*name).expect("a generated name is an identifier"));
         }
         // What a Signal's open enums generate beside them, once for the file:
-        // `Carried` where they carry any type, as generation decides it.
+        // `Carried` and its `Carrying` where they carry any type, as
+        // generation decides it.
         if !self.carriable().is_empty() {
-            names.push(Name::try_from("Carried").expect("a generated name is an identifier"));
+            for name in ["Carried", "Carrying"] {
+                names.push(Name::try_from(name).expect("a generated name is an identifier"));
+            }
         }
         if !self.opened().is_empty() {
             names.push(Name::try_from("Opening").expect("a generated name is an identifier"));

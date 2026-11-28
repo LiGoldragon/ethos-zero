@@ -15,7 +15,7 @@ types. Each pass is a module named for it.
 | conception | `Ethosizable<File>` | `protos::Protos` | `File`, checked whole |
 | checking | `Resolving`, `Checkable` | `File` | names resolved, duplicates and undeclared names refused |
 | generation | `Generating` | `File` | Rust text, or a whole-file error |
-| datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Composing` derives |
+| datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Composing` derives; a type that reaches an open enum, `Datomizable` and a generated `Opening` |
 | nexus | `Verifying`, `Assembling` | the `File`s of one namespace, each named for its file | each module's Rust, a Process root's with the enums over its processes, or a refusal naming the file |
 | ascent | `Protosizable`, `Textualizable` | `File` | canonical text on one line (cannot err) |
 | printing | `Printable` | `File` or `protos::Protos` | the sweet form, each section in protos' vertical print (cannot err) |
@@ -182,22 +182,34 @@ same Signal file; every other form of `Type` reads, so the runtime can answer
 the open enum is read from the datom `Fable.High` by finding `Fable` among the
 added variants and reading `High` as the type its entry names, so reading needs
 the registry: written, the value needs none. Under the `datom` feature `Model`
-is `datom_codec::Datomizable`, writing `Fable.High` or the bare `Fable`; it is
-`datom_codec::Composing` for a name that carries nothing alone, refusing any
-other form (a `Datom` of `Fable.High` is no value without its registry); and
-the generated `Opening<Registry>` reads them all: `Model::open(&datom, &mut
-budget, &registry)`, with the `Registry` the runtime implements. A head never
+is `datom_codec::Datomizable`, writing `Fable.High` or the bare `Fable`. It
+bears no `datom_codec::Composing`, and neither does any type the file declares
+that reaches an open enum, as carrying reaches (through struct positions, enum
+payloads, vectors and options; `Input` and `Output` among them): each is read
+only through the generated `Opening<Registry>`, bound by the `Registry` of
+every open enum it reaches, so no text yields a head never added.
+`Model::open(&datom, &mut budget, &registry)` reads a value and
+`Input::open(&datom, &mut budget, &registry)` a whole input
+(`Launch.Fable.High`), with the `Registry` the runtime implements; a type that
+reaches nothing keeps its derived `Composing` (`Output`, when no output holds
+an open enum, and the contract's `model::Input`, read with no entry of the
+registry). `Opening` names `datom_codec::Datom`, `Budget` and `Error` in its
+signature, so it stands behind the `datom` feature. A head never
 added is `ErrorKind::Variant` where it is read; a head whose entry says it
 carries nothing (or one that carries a type, read bare), or names a form of
 type but a name, is `ErrorKind::Value`; a name of a type the file does not
-declare is `ErrorKind::Variant`. A whole `Input` that holds an open enum's value
-which carries a type (`Launch.Fable.High`) is therefore not composed by its
-derive; the runtime reads the value with `Opening`. An open enum is a name of
-its own: an input or output of its name, `Carried` or `Opening` among the
-types, is `Duplicate`; `Carried` and `Opening` are reserved only in a Signal of
-open enums. A Nexus exports the open enum, `Carried` and `Opening` of a Signal
-to its importers by name, `Carried` only where the Signal generates it: an
-import of it from a Signal that has nothing to carry is `UnknownName`. `fixtures/open-enum-signal.ethos`, `open-enum-held.ethos`
+declare is `ErrorKind::Variant`. Beside `Carried` the file generates
+`Carrying`, what a body needs of it: `Carried::NAMES`, the names of its types;
+`value.name()`, the name of the type a value is; and, under `datom`,
+`Carried::read("QuadrupleEffort", &datom, &mut budget)`, the reading of one by
+its name, which `Opening` uses. A generic type that reaches an open enum gets
+no `Opening` yet. An open enum is a name of
+its own: an input or output of its name, `Carried`, `Carrying` or `Opening`
+among the types, is `Duplicate`; the three are reserved only in a Signal of
+open enums. A Nexus exports the open enum, `Carried`, `Carrying` and `Opening`
+of a Signal to its importers by name, `Carried` and `Carrying` only where the
+Signal generates them: an import of either from a Signal that has nothing to
+carry is `UnknownName`. `fixtures/open-enum-signal.ethos`, `open-enum-held.ethos`
 (two open enums, a type that holds them) and `open-enum-bare.ethos` (no type)
 are generated into `tests/generated/` and built with and without `datom`.
 

@@ -1311,7 +1311,7 @@ impl Declared for Signal {
         ];
         // What the open enums generate beside them, once for the file.
         if self.open.as_ref().is_some_and(|open| !open.is_empty()) {
-            for generated in ["Carried", "Opening"] {
+            for generated in ["Carried", "Carrying", "Opening"] {
                 names.push(DeclarationSite {
                     name: Name::try_from(generated).expect("static identifier"),
                     path: vec![4],

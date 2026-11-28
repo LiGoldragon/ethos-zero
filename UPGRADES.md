@@ -2,6 +2,25 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 40.0.0: a type that reaches an open enum is read only through Opening
+
+A Signal's open-enum value, and every type the file declares that reaches an
+open enum (through positions, payloads, vectors and options; `Input` and
+`Output` among them), no longer derives `datom_codec::Composing`; each gets a
+generated `Opening<Registry>` impl, bound by the `Registry` of every open enum
+it reaches, so text never yields a head that was never added. Repin to 40.0.0
+and regenerate. A crate that composed such a type (`Potential::<Input>`,
+`Input::compose`, `Model::compose`) reads it with `Input::open(&datom, &mut
+budget, &registry)` instead, and drops any hand reading that cut a carried
+body to compose an `Input`. Beside `Carried` the file generates the trait
+`Carrying`: `Carried::NAMES`, `value.name()` and, under `datom`,
+`Carried::read(name, &datom, &mut budget)`, so a body repeats none of the
+Signal's type names. `Carrying` is reserved and exported as `Carried` is: a
+Signal of open enums that declares or imports it is refused as `Duplicate`,
+and it is exported exactly where `Carried` is, from the same decision.
+The `Opening` trait and its impls stay behind the `datom` feature: its
+signature names datom-codec's `Datom`, `Budget` and `Error`.
+
 ## 39.0.1: a Signal exports Carried only where it generates it
 
 A Signal of open enums exports `Carried` only where it generates it, where its

@@ -2137,6 +2137,20 @@ fn a_signal_with_open_enums_generates_the_types_the_contract_and_the_dispatch() 
         "fn model(&self, model: &model::Input) -> core::result::Result<model::Output, Output>;"
     ));
     assert!(rust.contains("Input::Model(carried) => {"));
+    // The value and every type that reaches it bear no Composing, and are
+    // read through Opening with a registry; the others keep their Composing.
+    assert!(!rust.contains("impl datom_codec::Composing for Model"));
+    assert!(rust.contains(
+        "#[cfg_attr(feature = \"datom\", derive(datom_codec::Datomizable))]\npub enum Input {"
+    ));
+    assert!(rust.contains("impl<Registry: model::Registry> Opening<Registry> for Input {"));
+    assert!(rust.contains(
+        "#[cfg_attr(feature = \"datom\", derive(datom_codec::Datomizable, datom_codec::Composing))]\npub enum Output {"
+    ));
+    // What a body needs of Carried: its types' names, and the reading by one.
+    assert!(rust.contains(
+        "const NAMES: &'static [&'static str] = &[\"TripleEffort\", \"QuadrupleEffort\"];"
+    ));
     // Two open enums share one Carried, each with its own module.
     let two = generates("Signal [] [ Ask ] [ Told ] [ Mark.String ] [ Model Effort ]");
     assert_eq!(two.matches("pub enum Carried {").count(), 1);
@@ -2145,6 +2159,7 @@ fn a_signal_with_open_enums_generates_the_types_the_contract_and_the_dispatch() 
     let held =
         generates("Signal [] [ Ask ] [ Told ] [ Pair.{ Model Model } Mark.String ] [ Model ]");
     assert!(held.contains("pub enum Carried {\n    Mark(Mark),\n}"));
+    assert!(held.contains("impl<Registry: model::Registry> Opening<Registry> for Pair {"));
     // A Signal of five sections naming none, and one of four, generate as before.
     assert_eq!(
         generates("Signal [] [ Ask ] [ Told ] [] []"),
@@ -2183,6 +2198,11 @@ fn an_input_an_output_or_a_type_named_as_an_open_enum_generates_is_a_duplicate()
             "Signal [] [] [] [ Opening.String ] [ Model ]",
             vec![1, 3, 0, 0],
             "Opening",
+        ),
+        (
+            "Signal [] [] [] [ Carrying.String ] [ Model ]",
+            vec![1, 3, 0, 0],
+            "Carrying",
         ),
     ] {
         assert_eq!(
