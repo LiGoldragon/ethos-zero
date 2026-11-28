@@ -2,17 +2,30 @@
 
 How to deploy each breaking change of ethos-zero.
 
-## 34.0.0: the Matrix root
+## 34.0.0: the Matrix and Organism roots
 
-A seventh root, `Matrix`, of two sections, imports then records, for the
-database of a Nexus. It generates its records and `pub struct Memory` over them,
-one field per record, and provides both to the roots read with it. The Memory
-root of five sections is unchanged and nothing already written changes meaning,
-but the contract grows a root: `File` has a variant `Matrix`, `Root` a variant
-`Matrix`, and a crate that matches either exhaustively adds the arm. A file that
-was refused for its head `Matrix` (`Root`) now reads. Repin; no file is
-rewritten. A Matrix declares no Change yet, and `Memory` is a name it may not
-declare.
+Two roots are added, `Matrix` and `Organism`. A crate that matches `File`,
+`Root`, `Problem` or `Form` exhaustively adds the arms below. Repin to 34.0.0;
+no file is rewritten, and nothing else changes for a crate that holds neither.
+
+The Matrix root has two sections, imports then records, for the database of a
+Nexus. It generates its records and `pub struct Memory` over them, one field per
+record, and provides both to the roots read with it. The Memory root of five
+sections is unchanged and nothing already written changes meaning, but `File`
+and `Root` each gain a variant `Matrix`. A file that was refused for its head
+`Matrix` (`Root`) now reads. A Matrix declares no Change yet, and `Memory` is a
+name it may not declare.
+
+A file headed `Organism` is read: four sections, the receptor, the emitter, the
+memory and the organs, each a vector of pointers, a pointer being a namespace
+with no name after it, `:flow:signal`, with a head where one file stands twice,
+`Codex:harness:signal`. Check refuses an empty receptor (`Empty`), more than one
+memory pointer (`Arity.{ 1 n }`), a pointer repeated in a position with no head
+or the same head (`Duplicate`), a pointer that names no file given
+(`Unpointed.<pointer>`) and one to a file of the wrong root
+(`Misrooted.{ <pointer> <root> }`). Generate writes the minimal module and
+provides nothing to importers. `Problem` gains `Unpointed` and `Misrooted`,
+`Form` gains `Pointer`, and `File` and `Root` gain `Organism`.
 
 ## 33.0.0: the caller names the namespaces; imports resolve against them
 

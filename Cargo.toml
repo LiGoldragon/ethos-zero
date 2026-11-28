@@ -60,6 +60,10 @@ name = "print"
 path = "tests/print.rs"
 
 [[test]]
+name = "organism"
+path = "tests/organism.rs"
+
+[[test]]
 name = "cli"
 path = "tests/cli.rs"
 

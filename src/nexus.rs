@@ -37,9 +37,10 @@ use crate::generation::{
 use crate::sectioning::{ReferencingEach, Sectioning};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring, Constraint,
-    Entry, Error, File, Generating, Identity, Import, Imported, Name, NamedReference, Position,
-    Problem, ProcessDeclaration, Reference, ReferenceAccess, Resolution, Resolving, Scope,
-    Signature, Source, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Entry, Error, File, Generating, Identity, Import, Imported, Misrooted_Data, Name, Named,
+    NamedReference, Organism, Pointer, Position, Problem, ProcessDeclaration, Reference,
+    ReferenceAccess, Resolution, Resolving, Root, Rooted, Scope, Signature, Source, Spelled,
+    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 /// One root file of a Nexus and the name its module bears: the file's stem.
@@ -295,7 +296,11 @@ impl Kinding for File {
                 }
                 None
             }
-            File::Library(_) | File::Operation(_) | File::Matrix(_) | File::Process(_) => None,
+            File::Library(_)
+            | File::Operation(_)
+            | File::Matrix(_)
+            | File::Process(_)
+            | File::Organism(_) => None,
         }
     }
 }
@@ -442,6 +447,7 @@ impl Finding for Nexus {
             File::Matrix(matrix) => &mut matrix.imports,
             File::Emission(emission) => &mut emission.imports,
             File::Process(process) => &mut process.imports,
+            File::Organism(_) => return file,
         };
         for import in imports.iter_mut() {
             let (source, imported) = match import {
@@ -512,7 +518,8 @@ impl Generated for File {
             | File::Operation(_)
             | File::Memory(_)
             | File::Emission(_)
-            | File::Process(_) => &[],
+            | File::Process(_)
+            | File::Organism(_) => &[],
         };
         for name in traits {
             names.push(Name::try_from(*name).expect("a generated name is an identifier"));
@@ -621,6 +628,16 @@ impl Spelling for Source {
     }
 }
 
+impl Spelling for Pointer {
+    /// The head, then the source: `Codex:harness:signal`.
+    fn spelling(&self) -> String {
+        match &self.head {
+            Some(head) => format!("{}:{}", head.as_ref(), self.source.spelling()),
+            None => self.source.spelling(),
+        }
+    }
+}
+
 /// The trait whose capability lists every name a value takes from a source, in
 /// the order it is written: each name an import takes (the source's own name for
 /// it), and each reference that carries its source where it stands, the
@@ -670,6 +687,7 @@ impl Mentioning for File {
                 process.processes.mention(mentioned);
                 process.types.mention(mentioned);
             }
+            File::Organism(_) => {}
         }
     }
 }
@@ -1817,6 +1835,81 @@ impl Stripping for Nexus {
 }
 
 // ---------------------------------------------------------------------------
+// What an Organism points at
+// ---------------------------------------------------------------------------
+
+/// The roots each position of an Organism asks of the file it points at: the
+/// receptor Signal files, the emitter Signal files of peers and Emission files,
+/// the memory a Matrix file, the organs Organism files.
+trait Asking {
+    fn asks(&self, position: usize) -> &'static [Root];
+}
+
+impl Asking for Organism {
+    fn asks(&self, position: usize) -> &'static [Root] {
+        match position {
+            0 => &[Root::Signal],
+            1 => &[Root::Signal, Root::Emission],
+            2 => &[Root::Matrix],
+            _ => &[Root::Organism],
+        }
+    }
+}
+
+/// The trait whose capability lists the files a pointer names among the
+/// namespaces given and the set read together, the set's namespace being the
+/// one its imports infer.
+trait Pointed {
+    fn pointed(&self, nexus: &Nexus, namespace: Option<&str>) -> Result<(), Error>;
+}
+
+impl Pointed for Organism {
+    fn pointed(&self, nexus: &Nexus, namespace: Option<&str>) -> Result<(), Error> {
+        for (position, pointers) in [&self.receptor, &self.emitter, &self.memory, &self.organs]
+            .into_iter()
+            .enumerate()
+        {
+            for (index, pointer) in pointers.iter().enumerate() {
+                let mut files: Vec<&File> = Vec::new();
+                for given in &nexus.namespaces {
+                    for module in given.addressed(&pointer.source) {
+                        files.push(&module.file);
+                    }
+                }
+                if let Some(namespace) = namespace
+                    && let Some(module) = nexus.module(&pointer.source, namespace)
+                {
+                    files.push(&nexus.modules[module].file);
+                }
+                let at = vec![1, position as Integer, index as Integer];
+                let Some(first) = files.first() else {
+                    return Err(Error::conceptual(
+                        at,
+                        Problem::Unpointed(pointer.spelling()),
+                    ));
+                };
+                let mut right = false;
+                for file in &files {
+                    if self.asks(position).contains(&file.root()) {
+                        right = true;
+                    }
+                }
+                if !right {
+                    return Err(Error::conceptual(
+                        at,
+                        Problem::Misrooted(Misrooted_Data {
+                            first_string: pointer.spelling(),
+                            second_string: first.root().name().to_owned(),
+                        }),
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Verifying and assembling
 // ---------------------------------------------------------------------------
 
@@ -1852,7 +1945,8 @@ impl Verifying for Nexus {
                 | File::Operation(_)
                 | File::Memory(_)
                 | File::Matrix(_)
-                | File::Emission(_) => {
+                | File::Emission(_)
+                | File::Organism(_) => {
                     continue;
                 }
             };
@@ -1867,6 +1961,16 @@ impl Verifying for Nexus {
         let namespace = self.namespace()?;
         if let Some(process) = processes {
             self.describe(process, namespace.as_deref())?;
+        }
+        for (index, module) in self.modules.iter().enumerate() {
+            if let File::Organism(organism) = &module.file {
+                organism
+                    .pointed(self, namespace.as_deref())
+                    .map_err(|error| Refusal {
+                        module: index,
+                        error,
+                    })?;
+            }
         }
         Ok(())
     }
@@ -1903,7 +2007,8 @@ impl Assembling for Nexus {
                 | File::Operation(_)
                 | File::Memory(_)
                 | File::Matrix(_)
-                | File::Emission(_) => {
+                | File::Emission(_)
+                | File::Organism(_) => {
                     match self.resolved(index, namespace.as_deref()).generate() {
                         Ok(rust) => rust,
                         Err(error) => {

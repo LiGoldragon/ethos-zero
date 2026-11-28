@@ -8,9 +8,10 @@ use crate::checking::{CheckingArity, Taking};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Entry, Error, Ethosizable, File, Form, Identifiable, Identity, Import,
-    Imported, Intrinsic, Library, Matrix, Memory, Name, Named, NamedReference, Operation, Placing,
-    Position, Problem, Process, ProcessDeclaration, Receiver, Reference, Root, Signal, Signature,
-    Source, Spelled, Succeeding, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Imported, Intrinsic, Library, Matrix, Memory, Name, Named, NamedReference, Operation, Organism,
+    Placing, Pointer, Position, Problem, Process, ProcessDeclaration, Receiver, Reference, Root,
+    Signal, Signature, Source, Spelled, Succeeding, TraitBody, TraitDeclaration, TypeDeclaration,
+    Variant,
 };
 
 pub(crate) trait Conceiving<C> {
@@ -92,6 +93,7 @@ impl Conceiving<File> for Protos {
             Some(Root::Matrix) => Ok(File::Matrix(body.conceive().place(1)?)),
             Some(Root::Emission) => Ok(File::Emission(body.conceive().place(1)?)),
             Some(Root::Process) => Ok(File::Process(body.conceive().place(1)?)),
+            Some(Root::Organism) => Ok(File::Organism(body.conceive().place(1)?)),
             None => match Root::successor(&head.0) {
                 Some(successor) => Err(Error::conceptual(
                     vec![0],
@@ -421,6 +423,61 @@ impl Conceiving<Process> for Protos {
             processes: Protos::list(processes).place(1)?,
             types: declarations.declarations().place(2)?,
         })
+    }
+}
+/// An Organism has four sections, each a vector of pointers.
+impl Conceiving<Organism> for Protos {
+    fn conceive(&self) -> Result<Organism, Error> {
+        let s = self.sections(4)?;
+        Ok(Organism {
+            receptor: s[0].bracket().place(0)?,
+            emitter: s[1].bracket().place(1)?,
+            memory: s[2].bracket().place(2)?,
+            organs: s[3].bracket().place(3)?,
+        })
+    }
+}
+/// The trait whose capability reads a pointer's text as it is written: a bare
+/// run, or the colon-headed chain that heads one.
+trait Pointing {
+    fn pointed(&self) -> Option<String>;
+}
+impl Pointing for Protos {
+    fn pointed(&self) -> Option<String> {
+        match self {
+            Protos::Bare { text, .. } => Some(text.clone()),
+            Protos::Headed {
+                head,
+                constraints: None,
+                separator: Separator::Colon,
+                body,
+                ..
+            } => Some(format!("{}:{}", head.0, body.pointed()?)),
+            _ => None,
+        }
+    }
+}
+/// A pointer is a namespace with no name after it, `:flow:signal` or
+/// `flow:signal`, and a capitalized head before it where one file stands
+/// twice in a position, `Codex:harness:signal`.
+impl Conceiving<Pointer> for Protos {
+    fn conceive(&self) -> Result<Pointer, Error> {
+        let Some(text) = self.pointed() else {
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::Pointer)));
+        };
+        let (head, written) = match text.split_once(':') {
+            Some((head, rest)) if head.starts_with(|glyph: char| glyph.is_uppercase()) => {
+                (Some(head.name()?), rest)
+            }
+            _ => (None, text.as_str()),
+        };
+        let Ok(source) = Source::try_from(written) else {
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::Pointer)));
+        };
+        if head.is_some() && source.rooted() {
+            return Err(Error::conceptual(vec![], Problem::Expected(Form::Pointer)));
+        }
+        Ok(Pointer { head, source })
     }
 }
 /// A process is its name, a period and a brace of two brackets, the

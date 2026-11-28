@@ -16,10 +16,10 @@ use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Entry, Error, File, Identifiable, Identity, Import, Intrinsic, Matrix,
-    Memory, Name, NamedReference, Operation, Placing, Position, Problem, Process,
-    ProcessDeclaration, Reference, ReferenceAccess, Resolution, Resolving, Role, Scope, Signal,
-    Signature, Source, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, UnknownName_Data,
-    Validating, Variant, Wrapping_Data,
+    Memory, Name, NamedReference, Operation, Organism, Placing, Pointer, Position, Problem,
+    Process, ProcessDeclaration, Reference, ReferenceAccess, Resolution, Resolving, Role, Scope,
+    Signal, Signature, Source, Spelled, TraitBody, TraitDeclaration, TypeDeclaration,
+    UnknownName_Data, Validating, Variant, Wrapping_Data,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -905,6 +905,7 @@ impl Checkable for File {
             File::Matrix(matrix) => matrix.check(scope),
             File::Emission(emission) => emission.check(scope),
             File::Process(process) => process.check(scope),
+            File::Organism(organism) => organism.check(scope),
         };
         checked.place(1)?;
         // The derived names come first, so an authored name that would
@@ -1296,6 +1297,7 @@ impl Declared for File {
             File::Matrix(matrix) => matrix.declared(),
             File::Emission(emission) => emission.declared(),
             File::Process(process) => process.declared(),
+            File::Organism(_) => vec![],
         };
         // A type declared in place is a declaration of the file, named at its head.
         for placed in self.inlined() {
@@ -1436,6 +1438,54 @@ impl Checkable for Process {
         self.processes.check_each(scope, 1)?;
         self.types.check_each(scope, 2)?;
         self.types.refuse_wrapping(scope).place(2)
+    }
+}
+
+/// An Organism: a receptor of one pointer or more, a memory of none or one,
+/// and in each position one pointer to a file only once unless a head tells
+/// them apart. What each pointer points at is read against the files given.
+impl Checkable for Organism {
+    fn check(&self, _scope: &Scope) -> Result<(), Error> {
+        if self.receptor.is_empty() {
+            return Err(Error::conceptual(vec![0], Problem::Empty));
+        }
+        if self.memory.len() > 1 {
+            return Err(Error::conceptual(
+                vec![2],
+                Problem::arity(1, self.memory.len() as Integer),
+            ));
+        }
+        self.receptor.told_apart().place(0)?;
+        self.emitter.told_apart().place(1)?;
+        self.memory.told_apart().place(2)?;
+        self.organs.told_apart().place(3)
+    }
+}
+
+/// The trait whose capability errs on the second pointer to one file with no
+/// head, or the second of one head.
+trait Telling {
+    fn told_apart(&self) -> Result<(), Error>;
+}
+
+impl Telling for [Pointer] {
+    fn told_apart(&self) -> Result<(), Error> {
+        for (later, pointer) in self.iter().enumerate() {
+            for earlier in &self[..later] {
+                let alike = match (&earlier.head, &pointer.head) {
+                    (None, None) => earlier.source.segments() == pointer.source.segments(),
+                    (Some(first), Some(second)) => first == second,
+                    _ => false,
+                };
+                if alike {
+                    return Err(Error::conceptual(
+                        vec![later as Integer],
+                        Problem::Duplicate(pointer.spelling()),
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 }
 

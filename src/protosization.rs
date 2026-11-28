@@ -6,9 +6,9 @@ use protos::{
 
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, Emission, Entry, File,
-    Identity, Import, Imported, Library, Matrix, Memory, Operation, Position, Process,
-    ProcessDeclaration, Receiver, Reference, ReferenceAccess, Signal, Signature, Source, Spelled,
-    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Identity, Import, Imported, Library, Matrix, Memory, Operation, Organism, Pointer, Position,
+    Process, ProcessDeclaration, Receiver, Reference, ReferenceAccess, Signal, Signature, Source,
+    Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Protosizing {
@@ -527,6 +527,47 @@ impl Protosizing for Process {
         )
     }
 }
+/// A pointer is written as its source stands, the head before it: a rooted
+/// source is one bare run, `:flow:signal`; a chained one heads itself,
+/// `flow:signal`, `Codex:harness:signal`.
+impl Protosizing for Pointer {
+    fn protos(&self) -> Protos {
+        let mut segments = Vec::with_capacity(self.source.segments().len());
+        for segment in self.source.segments() {
+            segments.push(segment.0.as_str());
+        }
+        if self.source.rooted() {
+            let mut text = String::new();
+            for segment in &segments {
+                text.push(':');
+                text.push_str(segment);
+            }
+            return text.as_str().bare();
+        }
+        let last = segments.pop().unwrap_or_default();
+        let mut node = last.bare();
+        for segment in segments.iter().rev() {
+            node = segment.headed(None, Separator::Colon, node);
+        }
+        match &self.head {
+            Some(head) => head.as_ref().headed(None, Separator::Colon, node),
+            None => node,
+        }
+    }
+}
+impl Protosizing for Organism {
+    fn protos(&self) -> Protos {
+        "".enclosed(
+            Enclosure::Braced,
+            vec![
+                "".enclosed(Enclosure::Bracketed, self.receptor.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.emitter.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.memory.protos_list()),
+                "".enclosed(Enclosure::Bracketed, self.organs.protos_list()),
+            ],
+        )
+    }
+}
 impl Protosizing for Memory {
     fn protos(&self) -> Protos {
         "".enclosed(
@@ -585,6 +626,9 @@ impl Protosizing for File {
                 "Emission".headed(None, Separator::Period, emission.protos())
             }
             Self::Process(process) => "Process".headed(None, Separator::Period, process.protos()),
+            Self::Organism(organism) => {
+                "Organism".headed(None, Separator::Period, organism.protos())
+            }
         };
         // Shared Protos canonicalization assigns exact UTF-8 byte spans
         // without routing a valid conceptual ascent through a finite reader.

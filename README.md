@@ -39,12 +39,14 @@ regenerates both and every fixture under `tests/generated/`.
 
 ## File variants
 
-Seven roots: Library, Signal, Operation, Memory, Matrix, Emission, Process.
-Signal declares what a Nexus says; Operation what it does, one operation for
-every effect; Memory what it remembers; Matrix the records it stores; Emission what it sends into the world, each
+Eight roots: Library, Signal, Operation, Memory, Matrix, Emission, Process,
+Organism. Signal declares what a Nexus says; Operation what it does, one
+operation for every effect; Memory what it remembers; Matrix the records it
+stores; Emission what it sends into the world, each
 emission one external call and its outcome what the translator observed;
 Process what it is doing, each thing being done one object from its birth to
-its end (Process.4); Library what they share.
+its end (Process.4); Organism what a unit of the organic runtime is made of;
+Library what they share.
 
 ```
 Library    [ imports ] [ types ] [ traits ] [ associations ]
@@ -54,6 +56,7 @@ Memory     [ imports ] [ records ] [ changes ] [ answers ] [ types ]
 Matrix     [ imports ] [ records ]                             ; Memory implied
 Emission   [ imports ] [ emissions ] [ outcomes ] [ types ]    ; Emission and Outcome implied
 Process    [ imports ] [ processes ] [ types ]                 ; Process, Gift, Taken and Outcome held
+Organism   [ receptor ] [ emitter ] [ memory ] [ organs ]      ; each a vector of pointers; no imports
 ```
 
 Operation's sections are proposed, not yet the living's word.
@@ -266,6 +269,54 @@ A file alone checks every name it resolves, two processes of one name as
 `Arity`; its module is the types its outcomes carry. `Process`, `Gift`, `Taken` and
 `Outcome` are held for the enums over the processes: they, and each process's
 positions, are generated when the roots of the Nexus are read together.
+
+## Organism
+
+An Organism declares nothing and imports nothing. It has four sections, by
+position the receptor, the emitter, the memory and the organs, each a vector of
+pointers; a file of any other count of sections is `Arity.{ 4 <count> }`. It
+provides nothing to importers yet (`Handle`, `Seed` and `Life` are unruled), and
+generates the minimal module every root writes: the header and `extern crate
+alloc;`, no item.
+
+```
+Organism
+[ :flow:signal ]
+[ :harness:signal ]
+[ :flow:matrix ]
+[ :lock:organism ]
+```
+
+A pointer is a namespace with no name after it: `:flow:signal` is the file
+`signal.ethos` of the namespace `flow`, as an import of it is written, and
+`:flow` the Library or the file named for the crate (`flow:signal`, chained, reads
+the same). It may carry a capitalized head, `Codex:harness:signal`, and must where
+one file stands twice in a position. A pointer with a name after it, or a head on
+a rooted source, is `Expected.Pointer` at the pointer.
+
+| position | holds | how many |
+|---|---|---|
+| receptor | Signal files | one or more |
+| emitter | Signal files of peers, Emission files | none or more |
+| memory | a Matrix file, whole | none or one |
+| organs | Organism files | none or more |
+
+What is checked, in this order:
+
+- alone: an empty receptor is `Empty` at the receptor (`[ 1 0 ]`); more than one
+  memory pointer is `Arity.{ 1 <count> }` at the memory (`[ 1 2 ]`); two unheaded
+  pointers to one file in one position, or two pointers of one head, are
+  `Duplicate.<pointer>` at the second;
+- among the files given: each pointer resolves to a file of a namespace the caller
+  gave (`ns` names the Library or the file named for the crate, `ns:stem` the file
+  of that stem) or of the set read together, whose namespace its imports infer,
+  else it is `Unpointed.<pointer>`, at the pointer; and the file bears the root
+  its position asks, else it is `Misrooted.{ <pointer> <root the file bears> }`.
+  The position asks its root by name, so the memory's `Matrix` holds wherever a
+  Matrix root is read, and is refused as `Misrooted` until one is.
+
+An Organism has no imports, so the namespace of a set it stands in is inferred
+from the other files; given alone, every pointer names a namespace the caller gives.
 
 ## Nexus
 

@@ -46,8 +46,8 @@ use std::marker::PhantomData;
 mod error;
 
 pub use error::{
-    Arity_Data, Column, Conceptual_Data, Error, Form, Line, Location, Problem, Structural_Error,
-    UnknownName_Data, Wrapping_Data,
+    Arity_Data, Column, Conceptual_Data, Error, Form, Line, Location, Misrooted_Data, Problem,
+    Structural_Error, UnknownName_Data, Wrapping_Data,
 };
 
 // ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ impl AsRef<str> for Source {
     }
 }
 
-/// The unit of declaration: one file, one Rust module; an enum of its seven roots.
+/// The unit of declaration: one file, one Rust module; an enum of its eight roots.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum File {
     /// Library: imports, types, traits and associations in that order.
@@ -191,6 +191,8 @@ pub enum File {
     Emission(Emission),
     /// Process: imports, the processes, the types their outcomes carry.
     Process(Process),
+    /// Organism: the receptor, the emitter, the memory and the organs, each a vector of pointers.
+    Organism(Organism),
 }
 
 /// The head of a file: which variant of [`File`] it is.
@@ -211,6 +213,8 @@ pub enum Root {
     /// The process root: what a Nexus is doing, each thing being done one
     /// object from its birth to its end.
     Process,
+    /// The organism root: what a Nexus's unit receives, emits, remembers and holds.
+    Organism,
 }
 
 /// A library's complete declaration surface.  Types and traits share one
@@ -352,6 +356,34 @@ pub struct ProcessDeclaration {
     pub gifts: Vec<Reference>,
     /// What it ends in, when it ends more than one way.
     pub outcome: Option<Reference>,
+}
+
+/// The organism variant of a file: the unit of the organic runtime, which
+/// declares nothing and imports nothing, and points at the files it is made of.
+/// Four positions, each a vector of pointers: the receptor, Signal files; the
+/// emitter, Signal files of peers and Emission files; the memory, a Matrix file,
+/// whole; the organs, Organism files.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Organism {
+    /// The Signal files it receives: one or more.
+    pub receptor: Vec<Pointer>,
+    /// The Signal files of peers and the Emission files it emits: none or more.
+    pub emitter: Vec<Pointer>,
+    /// The Matrix file it remembers in: none or one.
+    pub memory: Vec<Pointer>,
+    /// The Organism files it holds: none or more.
+    pub organs: Vec<Pointer>,
+}
+
+/// A pointer to a file: the namespace that names it, `:flow:signal`, with no
+/// name after it, and a head where one file stands twice in a position,
+/// `Codex:harness:signal` beside `Claude:harness:signal`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Pointer {
+    /// What tells this pointer from another to the same file.
+    pub head: Option<Name>,
+    /// The namespace, `flow:signal`: the crate and the stem of the file.
+    pub source: Source,
 }
 
 /// An import: a source and the names taken from it.
@@ -856,6 +888,7 @@ impl Named for Root {
             Root::Matrix => "Matrix",
             Root::Emission => "Emission",
             Root::Process => "Process",
+            Root::Organism => "Organism",
         }
     }
 }
@@ -870,6 +903,7 @@ impl Identifiable for Root {
             Root::Matrix,
             Root::Emission,
             Root::Process,
+            Root::Organism,
         ] {
             if root.name() == name {
                 return Some(root);
@@ -900,6 +934,7 @@ impl Rooted for File {
             File::Matrix(_) => Root::Matrix,
             File::Emission(_) => Root::Emission,
             File::Process(_) => Root::Process,
+            File::Organism(_) => Root::Organism,
         }
     }
 }
