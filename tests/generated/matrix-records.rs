@@ -8,23 +8,32 @@
 #[rustfmt::skip]
 extern crate alloc;
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub struct Watch {
-    pub flow_id: flow::FlowId,
-    pub string: alloc::string::String,
+    pub flow_id: ::flow::FlowId,
+    pub string: ::alloc::string::String,
 }
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct Configured(pub core::option::Option<Watch>);
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
+pub struct Configured(pub ::core::option::Option<Watch>);
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub struct Memory {
     pub watch: Watch,
     pub configured: Configured,
-    pub event: flow::Event,
+    pub event: ::flow::Event,
 }
 #[rustfmt::skip]
 pub trait Memorizable {
@@ -46,7 +55,7 @@ impl Memorizable for Configured {
     }
 }
 #[rustfmt::skip]
-impl Memorizable for flow::Event {
+impl Memorizable for ::flow::Event {
     type Memory = Memory;
     fn recall(memory: &Memory) -> &Self {
         &memory.event

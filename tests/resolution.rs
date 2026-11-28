@@ -512,15 +512,15 @@ fn a_qualified_use_of_an_ambiguous_name_generates_its_namespace_path() {
         Ok(rust) => rust,
         Err(error) => panic!("{text} does not generate: {error:?}"),
     };
-    assert!(rust.contains("pub input: flow::signal::Input,"), "{rust}");
+    assert!(rust.contains("pub input: ::flow::signal::Input,"), "{rust}");
     // Two positions of one name from two namespaces are named first and
     // second, as `Errors.{ :a:Error :b:Error }` is.
     assert!(
-        rust.contains("pub first_input: flow::signal::Input,"),
+        rust.contains("pub first_input: ::flow::signal::Input,"),
         "{rust}"
     );
     assert!(
-        rust.contains("pub second_input: flow::meta::Input,"),
+        rust.contains("pub second_input: ::flow::meta::Input,"),
         "{rust}"
     );
 }
@@ -643,7 +643,9 @@ fn the_sets_open_enum_module_resolves_its_imports_given_or_not() {
     let assembled = inferred.assemble().unwrap();
     let matrix = &assembled[0].rust;
     assert!(
-        matrix.contains("pub struct Models(pub alloc::vec::Vec<models::signal::model::Variant>);"),
+        matrix.contains(
+            "pub struct Models(pub ::alloc::vec::Vec<::models::signal::model::Variant>);"
+        ),
         "{matrix}"
     );
     let signal = &assembled[1].rust;

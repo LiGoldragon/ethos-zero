@@ -2,6 +2,28 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 43.0.0: every crate path is written from the extern prelude
+
+The generated Rust writes every path into another crate with a leading `::`:
+`::core::option::Option`, `::alloc::string::String`, the derives
+`::rkyv::Archive` and `::datom_codec::Datomizable`, `::signal::Stream`, the
+process library's `::process::Caller`, and every import, `:flow:signal:Input`
+as `::flow::signal::Input`. An import headed by `crate`, `super` or `self` is
+written as it is. So no name a file declares shadows a path the code writes:
+an open enum `Core` or `Flow`, whose contract module is `core` or `flow`,
+generates beside `::core::…` and an import from `flow`, and nothing is
+refused for its name. The Signal's variant for an open enum reaches its
+module as `self::model::Input`; an open enum's module no longer declares its
+own `extern crate alloc;`.
+
+To deploy: repin to 43.0.0 and regenerate every committed module. A crate that
+includes a generated module below its root (`#[path = "…"] mod signal;`)
+declares `extern crate alloc;` at its crate root, since `::alloc` is reached
+only through the root's extern prelude; a crate whose root is the generated
+file needs nothing. A crate that stands in for an imported namespace with
+`extern crate self as flow;` keeps it at its root, where `::flow::…` finds it.
+No Ethos source changes, and the Rust API of ethos-zero is unchanged.
+
 ## 42.0.0: a refusal's strings are typed; Generate lists Check's findings
 
 Repin to 42.0.0. No ethos file is rewritten.

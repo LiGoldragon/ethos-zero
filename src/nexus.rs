@@ -16,9 +16,9 @@
 //! Process root's module is generated with.
 //!
 //! What returns for a thing given: nothing for an output; the standard
-//! `process::Answer` for a record kept; the `Result` of its answer or
-//! `process::Unremembered` for a change, the answer being the one of the
-//! change's place; the `Result` of its outcome or `process::Unobserved` for
+//! `::process::Answer` for a record kept; the `Result` of its answer or
+//! `::process::Unremembered` for a change, the answer being the one of the
+//! change's place; the `Result` of its outcome or `::process::Unobserved` for
 //! an emission; and for a process, its outcome at its end. Where one kind of
 //! thing returns to a process, its `Taken` is that type, bare.
 
@@ -1424,7 +1424,7 @@ impl Describing for Nexus {
                     item: None,
                     taking: Some(Taking {
                         name: Name::try_from("Answer").expect("a standard name"),
-                        ty: quote! { process::Answer },
+                        ty: quote! { ::process::Answer },
                     }),
                     path: vec![],
                 })
@@ -1453,7 +1453,7 @@ impl Describing for Nexus {
                     item: None,
                     taking: Some(Taking {
                         name: answer.entered().clone(),
-                        ty: quote! { core::result::Result<#answered, process::Unremembered> },
+                        ty: quote! { ::core::result::Result<#answered, ::process::Unremembered> },
                     }),
                     path: vec![],
                 })
@@ -1479,7 +1479,7 @@ impl Describing for Nexus {
                     item: None,
                     taking: Some(Taking {
                         name: outcome.title().clone(),
-                        ty: quote! { core::result::Result<#observed, process::Unobserved> },
+                        ty: quote! { ::core::result::Result<#observed, ::process::Unobserved> },
                     }),
                     path: vec![],
                 })
@@ -1854,7 +1854,7 @@ impl Returning for [Taking] {
     fn taking(&self, name: &Name) -> TokenStream {
         let alias = name.ident();
         match self {
-            [] => quote! { #[rustfmt::skip] pub type #alias = core::convert::Infallible; },
+            [] => quote! { #[rustfmt::skip] pub type #alias = ::core::convert::Infallible; },
             [only] => {
                 let ty = &only.ty;
                 quote! { #[rustfmt::skip] pub type #alias = #ty; }
@@ -1879,7 +1879,7 @@ trait Handing {
 impl Handing for [Described] {
     fn takes(&self, kinds: &[Taking]) -> TokenStream {
         let head = quote! {
-            fn take<N: process::Giving<Gift>>(&mut self, taken: Taken, giving: N) -> core::option::Option<Outcome>
+            fn take<N: ::process::Giving<Gift>>(&mut self, taken: Taken, giving: N) -> ::core::option::Option<Outcome>
         };
         if kinds.is_empty() {
             return quote! { #head { let _ = (self, giving); match taken {} } };
@@ -1911,12 +1911,12 @@ impl Handing for [Described] {
                     )
                 };
                 arms.push(quote! {
-                    (Process::#variant(#bound), #pattern) => process::Processable::take(#bound, #handed, giving).map(#mapping),
+                    (Process::#variant(#bound), #pattern) => ::process::Processable::take(#bound, #handed, giving).map(#mapping),
                 });
             }
         }
         if !covered {
-            arms.push(quote! { _ => core::option::Option::None, });
+            arms.push(quote! { _ => ::core::option::Option::None, });
         }
         quote! { #head { match (self, taken) { #( #arms )* } } }
     }
@@ -1994,16 +1994,16 @@ impl Producing for [Described] {
             };
             items.push(quote! {
                 #[rustfmt::skip]
-                impl process::Givable for #type_given { type Returned = #returned; }
+                impl ::process::Givable for #type_given { type Returned = #returned; }
             });
             items.push(quote! {
                 #[rustfmt::skip]
-                impl core::convert::From<#type_given> for Gift { #from }
+                impl ::core::convert::From<#type_given> for Gift { #from }
             });
         }
         items.push(quote! {
             #[rustfmt::skip]
-            impl process::Unwindable for Outcome {
+            impl ::process::Unwindable for Outcome {
                 fn unwound() -> Self { Outcome::Unwound }
             }
         });
@@ -2019,15 +2019,15 @@ impl Producing for [Described] {
         }
         let mut owners = Vec::new();
         if !memory.is_empty() {
-            owners.push(quote! { #( #memory )|* => process::Owner::Memory, });
+            owners.push(quote! { #( #memory )|* => ::process::Owner::Memory, });
         }
         if !signal.is_empty() {
-            owners.push(quote! { #( #signal )|* => process::Owner::Signal, });
+            owners.push(quote! { #( #signal )|* => ::process::Owner::Signal, });
         }
         items.push(quote! {
             #[rustfmt::skip]
-            impl process::Ownable for Process {
-                fn owner(&self) -> process::Owner { match self { #( #owners )* } }
+            impl ::process::Ownable for Process {
+                fn owner(&self) -> ::process::Owner { match self { #( #owners )* } }
             }
         });
         // The Process the manager holds: each begin and take goes to the
@@ -2041,17 +2041,17 @@ impl Producing for [Described] {
                 None => quote! { |()| Outcome::#variant },
             };
             begins.push(quote! {
-                Process::#variant(#bound) => process::Processable::begin(#bound, giving).map(#mapping),
+                Process::#variant(#bound) => ::process::Processable::begin(#bound, giving).map(#mapping),
             });
         }
         let take = self.takes(&kinds);
         items.push(quote! {
             #[rustfmt::skip]
-            impl process::Processable for Process {
+            impl ::process::Processable for Process {
                 type Taken = Taken;
                 type Gift = Gift;
                 type Outcome = Outcome;
-                fn begin<N: process::Giving<Gift>>(&mut self, giving: N) -> core::option::Option<Outcome> {
+                fn begin<N: ::process::Giving<Gift>>(&mut self, giving: N) -> ::core::option::Option<Outcome> {
                     match self { #( #begins )* }
                 }
                 #take

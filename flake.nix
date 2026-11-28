@@ -142,7 +142,9 @@
                 "signal"
                 "operation"
                 "memory"
-              ];
+              ]
+              # Open enums Core and Flow beside an import from flow.
+              ++ [ "open-enum-shadow.ethos" ];
               root = ./tests/flow-contract/lib.rs;
               inherit features dependencies;
               buildTests = true;

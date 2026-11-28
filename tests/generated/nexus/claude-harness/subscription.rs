@@ -8,24 +8,33 @@
 #[rustfmt::skip]
 extern crate alloc;
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub enum Input {
     Subscribe,
 }
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub struct Changed_Data {
-    pub flow_id: flow::FlowId,
-    pub event: harness::Event,
-    pub state: harness::State,
+    pub flow_id: ::flow::FlowId,
+    pub event: ::harness::Event,
+    pub state: ::harness::State,
 }
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub enum Output {
-    Subscribed(alloc::vec::Vec<harness::Observed>),
+    Subscribed(::alloc::vec::Vec<::harness::Observed>),
     Changed(Changed_Data),
 }
 #[rustfmt::skip]
@@ -33,7 +42,7 @@ pub enum Output {
 pub trait Answering {
     fn subscribe(
         &self,
-    ) -> core::result::Result<alloc::vec::Vec<harness::Observed>, Output>;
+    ) -> ::core::result::Result<::alloc::vec::Vec<::harness::Observed>, Output>;
 }
 #[rustfmt::skip]
 pub trait Answerable {

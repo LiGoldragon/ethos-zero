@@ -34,6 +34,9 @@
 // std forces, and no free function, is the crate's own rule.
 #![allow(clippy::manual_find, clippy::manual_map)]
 
+// A generated module writes `::alloc::…`, which reaches the crate root's alloc.
+extern crate alloc;
+
 use datom_codec::Integer;
 use protos::Extent;
 use std::marker::PhantomData;
@@ -1035,9 +1038,9 @@ mod behavior {
         // so the assertion is on the set it names, not on where it breaks.
         let derives: String = rust.chars().filter(|c| !c.is_whitespace()).collect();
         assert!(derives.contains(
-            "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]"
+            "#[derive(::rkyv::Archive,::rkyv::Serialize,::rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(::datom_codec::Datomizable,::datom_codec::Composing))]"
         ));
-        assert!(rust.contains("pub string: alloc::string::String"));
+        assert!(rust.contains("pub string: ::alloc::string::String"));
         assert!(rust.contains("pub integer: i64"));
     }
 
@@ -1046,7 +1049,7 @@ mod behavior {
     /// Nexus compiles its whole contract without datom-codec.
     #[test]
     fn every_root_archives_and_gates_its_datom_derives() {
-        let carried = "#[derive(rkyv::Archive,rkyv::Serialize,rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(datom_codec::Datomizable,datom_codec::Composing))]";
+        let carried = "#[derive(::rkyv::Archive,::rkyv::Serialize,::rkyv::Deserialize,Clone,Debug,PartialEq,Eq,Hash)]#[cfg_attr(feature=\"datom\",derive(::datom_codec::Datomizable,::datom_codec::Composing))]";
         for source in [
             "Library [] [ Record.{ String Integer } ] [] []",
             "Signal [] [ Ask.{ String Integer } ] [ Told ] []",
@@ -1091,8 +1094,8 @@ mod behavior {
             Ok(rust) => rust,
             Err(_) => panic!("approved payload examples generate"),
         };
-        assert!(rust.contains("pub first_string: alloc::string::String"));
-        assert!(rust.contains("pub second_string: alloc::string::String"));
+        assert!(rust.contains("pub first_string: ::alloc::string::String"));
+        assert!(rust.contains("pub second_string: ::alloc::string::String"));
         assert!(rust.contains("SyntaxError(SyntaxError)"));
         assert!(rust.contains("PathOverlap(PathOverlap_Data)"));
         assert!(rust.contains("pub first_lock: Lock"));
@@ -1114,7 +1117,7 @@ mod behavior {
             Err(_) => panic!("approved traits generate"),
         };
         assert!(rust.contains("pub trait Fillable"));
-        assert!(rust.contains("fn push<N: std::Serializable>("));
+        assert!(rust.contains("fn push<N: ::std::Serializable>("));
         assert!(rust.contains("fn create() -> Self"));
         assert!(rust.contains("pub trait Streamable"));
         assert!(rust.contains("type Item"));

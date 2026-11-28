@@ -1,0 +1,12 @@
+; Open enums named Core and Flow, beside an import from flow: their contract
+; modules, core and flow, stand beside the paths the generated Rust writes,
+; ::core::… and ::flow::Voice, and shadow none of them.
+Signal
+[ flow:[ Voice ] ]
+[ Launch.Pair
+  Stop.Mark ]
+[ Launched
+  Refused.String ]
+[ Pair.{ Core Flow Voice }
+  Mark.String ]
+[ Core Flow ]
