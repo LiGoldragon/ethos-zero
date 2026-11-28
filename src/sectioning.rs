@@ -15,8 +15,8 @@ use datom_codec::{Integer, Path};
 
 use crate::checking::Spanning;
 use crate::{
-    Entry, File, Identity, Import, Name, NamedReference, Position, Reference, TypeDeclaration,
-    Variant,
+    Entry, File, Identity, Import, Name, NamedReference, Position, Reference, Signal,
+    TypeDeclaration, Variant,
 };
 
 /// An enum a root implies: its name, its variants and the section holding them.
@@ -55,6 +55,9 @@ pub(crate) trait Sectioning {
     fn listed_declarations(&self) -> Vec<&TypeDeclaration>;
     /// The enums the root implies, in section order.
     fn implied_enums(&self) -> Vec<Implied<'_>>;
+    /// The open enums a Signal of five sections names, each a type it
+    /// declares by naming it; none for any other file.
+    fn opened(&self) -> &[Name];
     /// The struct a Matrix generates over its records, `Memory`, one
     /// position per record; none for any other root.
     fn matrix_memory(&self) -> Option<TypeDeclaration>;
@@ -84,6 +87,22 @@ impl Sectioning for File {
             File::Emission(emission) => &emission.types,
             File::Process(process) => &process.types,
             File::Organism(_) => &[],
+        }
+    }
+
+    fn opened(&self) -> &[Name] {
+        match self {
+            File::Signal(Signal {
+                open: Some(names), ..
+            }) => names,
+            File::Signal(_)
+            | File::Library(_)
+            | File::Operation(_)
+            | File::Memory(_)
+            | File::Matrix(_)
+            | File::Emission(_)
+            | File::Process(_)
+            | File::Organism(_) => &[],
         }
     }
 

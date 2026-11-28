@@ -656,3 +656,24 @@ fn an_organism_points_its_memory_at_a_matrix_file() {
         (true, format!("Checked.{{ [ {organism} ] [] }}\n"))
     );
 }
+
+#[test]
+fn generate_rejects_an_open_enum_at_its_section_with_line_and_column() {
+    let directory = "ungenerated".scratch();
+    let source = directory.write_source(
+        "ungenerated",
+        "Signal\n[]\n[ Launch.Model ]\n[ Launched ]\n[]\n[ Model ]\n",
+    );
+    let target = format!("{directory}/out");
+    let argument = generate(&source, &target);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert_eq!(
+        output,
+        format!("Rejected.{{ {source} {{ 6 1 }} Conceptual.{{ [ 1 4 ] Ungenerated.Model }} }}\n")
+    );
+    assert!(!std::path::Path::new(&target).exists());
+    let argument = check(&source);
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(success, "{output}");
+}

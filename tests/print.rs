@@ -266,3 +266,15 @@ fn an_organism_prints_back_as_written() {
         );
     }
 }
+
+#[test]
+fn a_signal_of_five_sections_prints_back_as_written() {
+    let written = "Signal\n[]\n[ Launch.Model\n  Stop.Model ]\n[ Launched\n  Refused.String ]\n[ TripleEffort.[ Low Medium High ]\n  QuadrupleEffort.[ Low Medium High Maximum ] ]\n[ Model ]\n";
+    assert_eq!(
+        "Signal [] [ Launch.Model Stop.Model ] [ Launched Refused.String ] [ TripleEffort.[ Low Medium High ] QuadrupleEffort.[ Low Medium High Maximum ] ] [ Model ]".reprint(),
+        written
+    );
+    assert_eq!(written.reprint(), written);
+    let four = "Signal\n[]\n[ Ask ]\n[ Told ]\n[]\n";
+    assert_eq!(four.reprint(), four);
+}

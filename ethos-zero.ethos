@@ -9,7 +9,7 @@
 ; the file, the line and column of the error in it, and the error.
 ; The files read are of eight roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
-;   Signal     [ imports ] [ inputs ] [ outputs ] [ types ]
+;   Signal     [ imports ] [ inputs ] [ outputs ] [ types ] ; or with a fifth, [ open enums ], read and checked, not yet generated
 ;   Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; proposed, pending the living's word
 ;   Memory     [ imports ] [ records ] [ changes ] [ answers ] [ types ]
 ;   Matrix     [ imports ] [ records ]

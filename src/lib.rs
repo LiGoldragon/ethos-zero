@@ -247,6 +247,10 @@ pub struct Signal {
     pub outputs: Vec<Variant>,
     /// The types the inputs and outputs carry.
     pub types: Vec<TypeDeclaration>,
+    /// The open enums the Signal names, each declared by being named there:
+    /// `None` of a Signal of four sections, `Some` of one of five. Read and
+    /// checked, not yet generated.
+    pub open: Option<Vec<Name>>,
 }
 
 /// The operation variant of a file: what a Nexus does, one operation for

@@ -51,6 +51,7 @@ Library what they share.
 ```
 Library    [ imports ] [ types ] [ traits ] [ associations ]
 Signal     [ imports ] [ inputs ] [ outputs ] [ types ]       ; Input and Output implied
+Signal     [ imports ] [ inputs ] [ outputs ] [ types ] [ open ]   ; the open enums it names
 Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; Operation and Outcome implied
 Memory     [ imports ] [ records ] [ changes ] [ answers ] [ types ]
 Matrix     [ imports ] [ records ]                             ; Memory implied
@@ -121,6 +122,23 @@ is generated into every Signal's file. `Answering` carries
 the refusal is the wire's `Output`, answered whole, however large its
 largest variant, and a capability borrows exactly the type its input
 carries, `&String`, `&Vec<_>` or `&Box<_>` among them.
+
+A Signal may have a fifth section after its types: a bracket of names, the
+open enums the Signal names (`Signal [] [ Launch.Model Stop.Model ] [ Launched
+Refused.String ] [ TripleEffort.[ Low Medium High ] ] [ Model ]`). A Signal of
+four sections reads as it always has; of five, it holds its open enums
+(`Signal.open`, `None` for four); any other count is an `Arity`. Each name is a
+type the Signal declares by naming it there, so a reference to it anywhere in
+the file resolves (`Launch.Model` above). A name that the file also declares in
+its types, imports or names twice in the section is `Duplicate` at the later
+occurrence, and a lowercase or intrinsic name is refused as `Case` or
+`Intrinsic` as a declared type's is. A section that is no bracket is
+`Expected.Section` and an entry that is no bare name `Expected.Name`, each at
+its path. An open enum is read, checked and printed back as written, and its
+variants are datom written as any enum's (`Launch.Fable.High`); it is not yet
+generated: generating a Signal with any open enum is refused at the fifth
+section, `Conceptual.{ [ 1 4 ] Ungenerated.<first open enum> }`, and a Nexus
+holding one is refused the same way on assembly. Check passes it.
 
 An Emission pairs its sections by position: the n-th outcome is the n-th
 emission's, and an outcome past the last emission pairs with none. An

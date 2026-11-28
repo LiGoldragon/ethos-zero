@@ -464,15 +464,20 @@ impl Protosizing for Library {
 }
 impl Protosizing for Signal {
     fn protos(&self) -> Protos {
-        "".enclosed(
-            Enclosure::Braced,
-            vec![
-                "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
-                "".enclosed(Enclosure::Bracketed, self.inputs.variant_nodes()),
-                "".enclosed(Enclosure::Bracketed, self.outputs.variant_nodes()),
-                "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
-            ],
-        )
+        let mut sections = vec![
+            "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
+            "".enclosed(Enclosure::Bracketed, self.inputs.variant_nodes()),
+            "".enclosed(Enclosure::Bracketed, self.outputs.variant_nodes()),
+            "".enclosed(Enclosure::Bracketed, self.types.declaration_nodes()),
+        ];
+        if let Some(names) = &self.open {
+            let mut nodes = Vec::new();
+            for name in names {
+                nodes.push(name.as_ref().bare());
+            }
+            sections.push("".enclosed(Enclosure::Bracketed, nodes));
+        }
+        "".enclosed(Enclosure::Braced, sections)
     }
 }
 impl Protosizing for Operation {

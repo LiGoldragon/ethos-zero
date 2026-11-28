@@ -26,10 +26,10 @@ use crate::checking::{Carrying, Declaring, Inlining, Spanning, Streaming, Titled
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
-    AssociatedConstant, AssociatedType, Association, Capability, Constraint, File, Generating,
-    Identity, Intrinsic, Name, NamedReference, Position, Receiver, Reference, ReferenceAccess,
-    Resolution, Resolving, Scope, Signature, Source, TraitBody, TraitDeclaration, TypeDeclaration,
-    Variant,
+    AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring, Constraint,
+    File, Generating, Identity, Intrinsic, Name, NamedReference, Position, Receiver, Reference,
+    ReferenceAccess, Resolution, Resolving, Scope, Signature, Source, TraitBody, TraitDeclaration,
+    TypeDeclaration, Variant,
 };
 
 // ---------------------------------------------------------------------------
@@ -1769,9 +1769,28 @@ impl AllowFormatting for String {
     }
 }
 
+/// The trait whose capability refuses a file that names what is not yet
+/// generated: a Signal's open enums, at its fifth section, naming the first.
+trait Ungenerating {
+    fn ungenerated(&self) -> Result<(), crate::Error>;
+}
+
+impl Ungenerating for File {
+    fn ungenerated(&self) -> Result<(), crate::Error> {
+        match self.opened().first() {
+            Some(open) => Err(crate::Error::conceptual(
+                vec![1, 4],
+                crate::Problem::Ungenerated(open.as_ref().to_owned()),
+            )),
+            None => Ok(()),
+        }
+    }
+}
+
 impl Generating for File {
     fn generate(&self) -> Result<String, crate::Error> {
         crate::Validating::validate(self)?;
+        self.ungenerated()?;
         let scope = Scope {
             file: self,
             identity: None,

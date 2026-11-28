@@ -146,6 +146,7 @@ impl Implying for File {
         for unit in self.units() {
             names.push(unit.name);
         }
+        names.extend(self.opened().iter().cloned());
         names
     }
 }
@@ -416,6 +417,15 @@ impl Naming for Variant {
     }
 }
 
+impl Naming for Name {
+    fn names(&self) -> Vec<DeclarationSite> {
+        vec![DeclarationSite {
+            name: self.clone(),
+            path: vec![],
+        }]
+    }
+}
+
 impl Naming for AssociatedType {
     fn names(&self) -> Vec<DeclarationSite> {
         vec![DeclarationSite {
@@ -521,6 +531,7 @@ impl Spanning for Import {
         }
     }
 }
+impl Spanning for Name {}
 impl Spanning for crate::Imported {}
 impl Spanning for TraitDeclaration {}
 impl Spanning for AssociatedConstant {}
@@ -587,6 +598,21 @@ impl<N: Naming + Spanning> Sectioned for [N] {
             at += element.span();
         }
         names
+    }
+}
+
+/// The trait whose capability makes sure each name of a list can be declared
+/// as a type, refusing the first that cannot at its index.
+trait Opening {
+    fn declare_each(&self) -> Result<(), Error>;
+}
+
+impl Opening for [Name] {
+    fn declare_each(&self) -> Result<(), Error> {
+        for (index, name) in self.iter().enumerate() {
+            name.declare().place(index as Integer)?;
+        }
+        Ok(())
     }
 }
 
@@ -1220,6 +1246,9 @@ impl Declared for Signal {
         ];
         names.extend(self.imports.names_in(0));
         names.extend(self.types.names_in(3));
+        if let Some(open) = &self.open {
+            names.extend(open.names_in(4));
+        }
         names
     }
 }
@@ -1338,6 +1367,9 @@ impl Checkable for Signal {
         self.outputs.check_answers(scope).place(2)?;
         self.types.check_each(scope, 3)?;
         self.types.refuse_wrapping(scope).place(3)?;
+        if let Some(open) = &self.open {
+            open.declare_each().place(4)?;
+        }
         self.inputs.paired(&self.outputs).place(1)?;
         self.inputs.capabilities_distinct().place(1)?;
         self.outputs

@@ -351,7 +351,16 @@ impl Conceiving<Library> for Protos {
 }
 impl Conceiving<Signal> for Protos {
     fn conceive(&self) -> Result<Signal, Error> {
-        let s = self.sections(4)?;
+        // A fifth section is the open enums; any other count but four is an arity.
+        let count = match self.children(Enclosure::Braced) {
+            Some(parts) if parts.len() == 5 => 5,
+            _ => 4,
+        };
+        let s = self.sections(count)?;
+        let open = match s.get(4) {
+            Some(names) => Some(names.bracket().place(4)?),
+            None => None,
+        };
         let Some(inputs) = s[1].children(Enclosure::Bracketed) else {
             return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
         };
@@ -366,7 +375,16 @@ impl Conceiving<Signal> for Protos {
             inputs: inputs.variants().place(1)?,
             outputs: outputs.variants().place(2)?,
             types: declarations.declarations().place(3)?,
+            open,
         })
+    }
+}
+impl Conceiving<Name> for Protos {
+    fn conceive(&self) -> Result<Name, Error> {
+        match self {
+            Protos::Bare { text, .. } => text.as_str().name(),
+            _ => Err(Error::conceptual(vec![], Problem::Expected(Form::Name))),
+        }
     }
 }
 impl Conceiving<Operation> for Protos {

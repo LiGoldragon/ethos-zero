@@ -1956,3 +1956,142 @@ fn a_legacy_emission_is_refused_before_looking_for_duplicate_types() {
         "Emission [] [ First.Vector<String> Second.⟦ String ⟧ ] [ Done Gone ] []".refusal();
     assert_eq!(problem, Problem::Renamed("⟦ T ⟧".to_owned()));
 }
+
+/// The open enums sketched for a Signal: a fifth section naming them.
+const OPEN: &str = "Signal [] [ Launch.Model Stop.Model ] [ Launched Refused.String ] [ TripleEffort.[ Low Medium High ] QuadrupleEffort.[ Low Medium High Maximum ] ] [ Model ]";
+
+/// The trait whose capability yields the conceptual refusal a source meets on reading.
+trait Reading {
+    fn reading_refusal(&self) -> (Vec<i64>, Problem);
+}
+
+impl Reading for str {
+    fn reading_refusal(&self) -> (Vec<i64>, Problem) {
+        match Potential::<File>::from(self).actualize() {
+            Err(Error::Conceptual(data)) => (data.integer_vector, data.problem),
+            Err(Error::Structural(_)) => panic!("{self} must be refused conceptually"),
+            Ok(_) => panic!("{self} must be refused"),
+        }
+    }
+}
+
+/// The trait whose capability yields the conceptual refusal a source meets on checking.
+trait Checking {
+    fn checking_refusal(&self) -> (Vec<i64>, Problem);
+}
+
+impl Checking for str {
+    fn checking_refusal(&self) -> (Vec<i64>, Problem) {
+        match ethos_zero::Validating::validate(&read(self)) {
+            Err(Error::Conceptual(data)) => (data.integer_vector, data.problem),
+            Err(Error::Structural(_)) => panic!("{self} must be refused conceptually"),
+            Ok(()) => panic!("{self} must be refused"),
+        }
+    }
+}
+
+#[test]
+fn a_signal_of_five_sections_holds_its_open_enums_and_checks() {
+    let file = read(OPEN);
+    assert_eq!(file, read(&file.protosize().textualize()));
+    let File::Signal(signal) = &file else {
+        panic!("a Signal")
+    };
+    assert_eq!(signal.open.as_ref().map(Vec::len), Some(1));
+    assert_eq!(ethos_zero::Validating::validate(&file), Ok(()));
+    let File::Signal(four) = read("Signal [] [] [] []") else {
+        panic!("a Signal")
+    };
+    assert_eq!(four.open, None);
+    let File::Signal(none) = read("Signal [] [] [] [] []") else {
+        panic!("a Signal")
+    };
+    assert_eq!(none.open, Some(vec![]));
+}
+
+#[test]
+fn a_signal_of_other_section_counts_is_an_arity() {
+    for count in [3, 6] {
+        let source = format!("Signal{}", " []".repeat(count));
+        let (path, problem) = source.reading_refusal();
+        assert_eq!(path, vec![1], "{source}");
+        assert!(matches!(problem, Problem::Arity(_)), "{source}");
+    }
+}
+
+#[test]
+fn a_reference_to_an_open_enum_resolves_only_where_it_is_named() {
+    assert_eq!(
+        "Signal [] [ Launch.Model ] [ Launched ] [] []".checking_refusal(),
+        (vec![1, 1, 0, 1], Problem::Undeclared("Model".to_owned()))
+    );
+    assert_eq!(
+        ethos_zero::Validating::validate(&read(
+            "Signal [] [ Launch.Model ] [ Launched ] [ Pair.{ Model Model } ] [ Model ]"
+        )),
+        Ok(())
+    );
+}
+
+#[test]
+fn an_open_enum_also_declared_imported_or_named_twice_is_a_duplicate() {
+    for (source, path) in [
+        ("Signal [] [] [] [ Model.[ A B ] ] [ Model ]", vec![1, 4, 0]),
+        (
+            "Signal [ crate:[ Model ] ] [] [] [] [ Model ]",
+            vec![1, 4, 0],
+        ),
+        ("Signal [] [] [] [] [ Model Model ]", vec![1, 4, 1]),
+        ("Signal [] [] [] [] [ Input ]", vec![1, 4, 0]),
+    ] {
+        let (found, problem) = source.checking_refusal();
+        assert_eq!(found, path, "{source}");
+        assert!(
+            matches!(problem, Problem::Duplicate(_)),
+            "{source}: {problem:?}"
+        );
+    }
+    assert_eq!(
+        "Signal [] [] [] [ Model.[ A B ] ] [ Model ]"
+            .checking_refusal()
+            .1,
+        Problem::Duplicate("Model".to_owned())
+    );
+}
+
+#[test]
+fn an_open_enum_is_named_as_a_type_is() {
+    assert_eq!(
+        "Signal [] [] [] [] [ model ]".checking_refusal(),
+        (vec![1, 4, 0], Problem::Case("model".to_owned()))
+    );
+    assert_eq!(
+        "Signal [] [] [] [] [ String ]".checking_refusal(),
+        (vec![1, 4, 0], Problem::Intrinsic("String".to_owned()))
+    );
+    assert_eq!(
+        "Signal [] [] [] [] [ Model.String ]".reading_refusal(),
+        (vec![1, 4, 0], Problem::Expected(Form::Name))
+    );
+    assert_eq!(
+        "Signal [] [] [] [] Model".reading_refusal(),
+        (vec![1, 4], Problem::Expected(Form::Section))
+    );
+}
+
+#[test]
+fn generate_refuses_a_signal_with_an_open_enum_at_the_fifth_section() {
+    assert_eq!(
+        OPEN.refusal(),
+        (vec![1, 4], Problem::Ungenerated("Model".to_owned()))
+    );
+    assert_eq!(
+        "Signal [] [] [] [] [ Model Other ]".refusal(),
+        (vec![1, 4], Problem::Ungenerated("Model".to_owned()))
+    );
+    // A Signal of five sections naming none, and one of four, generate as before.
+    assert_eq!(
+        generates("Signal [] [ Ask ] [ Told ] [] []"),
+        generates("Signal [] [ Ask ] [ Told ] []")
+    );
+}

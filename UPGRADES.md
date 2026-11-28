@@ -2,6 +2,22 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 35.0.0: the open enum, read and checked
+
+A Signal may have a fifth section, a bracket of names: the open enums the Signal
+names, each a type it declares by naming it there. Repin to 35.0.0. No file is
+rewritten and a Signal of four sections reads and generates as before, but
+`Signal` gains the field `open: Option<Vec<Name>>` (`None` for four sections), so
+a crate that builds or destructures one without `..` adds it, and `Problem`
+gains `Ungenerated(String)`, so a crate that matches it exhaustively adds the
+arm. A Signal of five sections that was refused as `Arity.{ 4 5 }` now reads, and
+check passes it; a Signal of any other count is still an `Arity`. A name of the
+fifth section that the file also declares, imports or names twice is `Duplicate`,
+and a lowercase or intrinsic one is `Case` or `Intrinsic`. Generate refuses a
+Signal with an open enum at its fifth section, `Conceptual.{ [ 1 4 ]
+Ungenerated.<first open enum> }`, until the generation is ruled; a Nexus holding
+one is refused on assembly the same way.
+
 ## 34.0.0: the Matrix and Organism roots
 
 Two roots are added, `Matrix` and `Organism`. A crate that matches `File`,
