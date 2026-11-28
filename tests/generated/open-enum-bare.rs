@@ -2,7 +2,6 @@
     dead_code,
     non_camel_case_types,
     non_snake_case,
-    unused_extern_crates,
     clippy::type_complexity
 )]
 #[cfg(feature = "datom")]
@@ -133,6 +132,61 @@ for ::core::result::Result<Value, Failure> {
         };
         ::datom_codec::CompositionDepthing::leave_composition(budget);
         read
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for ::std::string::String {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for i64 {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for ::datom_codec::Decimal {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for bool {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for ::datom_codec::Meaning {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
     }
 }
 #[cfg(feature = "datom")]
@@ -494,6 +548,17 @@ impl<Registry: self::model::Registry> Opening<Registry> for Model {
 pub enum Input {
     Model(self::model::Input),
 }
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for Input {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
+}
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
@@ -502,6 +567,17 @@ pub enum Input {
 )]
 pub enum Output {
     Model(self::model::Output),
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for Output {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
 }
 #[rustfmt::skip]
 #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]

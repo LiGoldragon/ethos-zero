@@ -15,7 +15,7 @@ types. Each pass is a module named for it.
 | conception | `Ethosizable<File>` | `protos::Protos` | `File`, checked whole |
 | checking | `Resolving`, `Checkable` | `File` | names resolved, duplicates and undeclared names refused |
 | generation | `Generating` | `File` | Rust text, or a whole-file error |
-| datomization | | each declared type | its `::datom_codec::Datomizable` and `::datom_codec::Composing` derives; a type that reaches an open enum, `Datomizable` and a generated `Opening` |
+| datomization | | each declared type | its `::datom_codec::Datomizable` and `::datom_codec::Composing` derives; a type that reaches an open enum, `Datomizable` and a generated `Opening`; in a Signal of open enums every other non-generic type also a generated `Opening`, its plain compose |
 | nexus | `Verifying`, `Assembling` | the `File`s of one namespace, each named for its file | each module's Rust, a Process root's with the enums over its processes, or a refusal naming the file |
 | ascent | `Protosizable`, `Textualizable` | `File` | canonical text on one line (cannot err) |
 | printing | `Printable` | `File` or `protos::Protos` | the sweet form, each section in protos' vertical print (cannot err) |
@@ -211,7 +211,15 @@ Beside the impls for `Vec`, `Option` and `Box`, `Opening` is generated for
 (`Launch.Fable.High`), with the `Registry` the runtime implements; a type that
 reaches nothing keeps its derived `Composing` (`Output`, when no output holds
 an open enum, and the contract's `model::Input`, read with no entry of the
-registry). `Opening` names `::datom_codec::Datom`, `Budget` and `Error` in its
+registry). `Opening` is borne by every position of the file: by every scalar
+Ethos knows (`String`, `Integer`, `Decimal`, `Boolean` and `Meaning`, generated
+once per file, as the trait is the file's own and so are its impls), and by
+every non-generic type the file declares, where one that reaches no open enum
+opens by its plain `Composing`, the registry unread, beside the `Composing` it
+keeps. So `Outcome.{ Result<Model String> }` reads `{ Ok.Fable.High }` and
+`{ Err.«text» }`, and a container never asks which side reaches. A file that
+imports `Opening` and is built without `datom`, where `Opening` is gated, is
+owed to design. `Opening` names `::datom_codec::Datom`, `Budget` and `Error` in its
 signature, so it stands behind the `datom` feature. A head never
 added is `ErrorKind::Variant` where it is read; a head whose entry says it
 carries nothing (or one that carries a type, read bare), or names a form of

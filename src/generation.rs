@@ -1005,7 +1005,7 @@ impl StructFielding for [Reference] {
         }
         let opens = scope.reach.opens_held(self);
         let (derive, opening) = if opens.is_empty() || !identity.constraints.is_empty() {
-            (identity.datom_derives(), TokenStream::new())
+            (identity.datom_derives(), identity.plain_open(scope))
         } else {
             (
                 identity.writing_derives(),
@@ -1032,7 +1032,7 @@ impl Enumerating for [Variant] {
         let parameters = identity.parameters(scope);
         let opens = scope.reach.opens_held(self);
         let (derive, opening) = if opens.is_empty() || !identity.constraints.is_empty() {
-            (identity.datom_derives(), TokenStream::new())
+            (identity.datom_derives(), identity.plain_open(scope))
         } else {
             (
                 identity.writing_derives(),
@@ -1099,9 +1099,12 @@ impl Emitting for TypeDeclaration {
                 let aliased = aliased.emit(&inner);
                 let opens = scope.reach.opens_held(aliased_reference);
                 let (derive, opening) = match aliased_reference.scalar(&inner) {
-                    Some(scalar) => (identity.scalar_datom_derives(scalar), TokenStream::new()),
+                    Some(scalar) => (
+                        identity.scalar_datom_derives(scalar),
+                        identity.plain_open(scope),
+                    ),
                     None if opens.is_empty() || !identity.constraints.is_empty() => {
-                        (identity.datom_derives(), TokenStream::new())
+                        (identity.datom_derives(), identity.plain_open(scope))
                     }
                     None => (
                         identity.writing_derives(),
@@ -1489,7 +1492,7 @@ impl Rendering for [TokenStream] {
     fn render(&self) -> String {
         let items = self;
         let tokens = quote! {
-            #![allow(dead_code, non_camel_case_types, non_snake_case, unused_extern_crates, clippy::type_complexity)]
+            #![allow(dead_code, non_camel_case_types, non_snake_case, clippy::type_complexity)]
             // Every crate path is written from the extern prelude, `::core::…` and
             // `::std::…`, so no declared name shadows it and the module needs no
             // header: an open enum `Alloc` or `Std` is a module like any other.
@@ -1904,8 +1907,8 @@ impl ColonSpacing for String {
 impl AllowFormatting for String {
     fn format_allow(&self) -> String {
         self.replacen(
-            "#![allow(dead_code, non_camel_case_types, non_snake_case, unused_extern_crates, clippy::type_complexity)]\n",
-            "#![allow(\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    unused_extern_crates,\n    clippy::type_complexity\n)]\n",
+            "#![allow(dead_code, non_camel_case_types, non_snake_case, clippy::type_complexity)]\n",
+            "#![allow(\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    clippy::type_complexity\n)]\n",
             1,
         )
     }
@@ -2048,6 +2051,12 @@ impl<Held: Bearing + ?Sized> ChildReading for Held {
 /// type, bound by the registry of each open enum it reaches.
 trait OpenImplementing {
     fn open_impl(&self, opens: &[Name], body: TokenStream) -> TokenStream;
+    /// The `Opening` of a type that reaches no open enum, in a file that has
+    /// one: its plain compose, the registry unread, beside its `Composing`, so
+    /// that every position of the file is read through `Opening` and a
+    /// container never asks which side reaches. A generic type, or a file of
+    /// no open enum, has none.
+    fn plain_open(&self, scope: &Scope) -> TokenStream;
 }
 
 impl OpenImplementing for Identity {
@@ -2064,6 +2073,40 @@ impl OpenImplementing for Identity {
                     registry: &Registry,
                 ) -> ::core::result::Result<Self, ::datom_codec::Error> {
                     #body
+                }
+            }
+        }
+    }
+
+    fn plain_open(&self, scope: &Scope) -> TokenStream {
+        if scope.file.opened().is_empty() || !self.constraints.is_empty() {
+            return TokenStream::new();
+        }
+        self.name.tokens().plain_open()
+    }
+}
+
+/// The trait whose capability writes the `Opening` of a type read by its
+/// `Composing` alone, the registry unread: a scalar, or a declared type that
+/// reaches no open enum. Its caller has entered the composition depth, as
+/// `Composing` expects of one reading a child.
+trait PlainOpening {
+    fn plain_open(&self) -> TokenStream;
+}
+
+impl PlainOpening for TokenStream {
+    fn plain_open(&self) -> TokenStream {
+        let value = self;
+        quote! {
+            #[cfg(feature = "datom")]
+            #[rustfmt::skip]
+            impl<Registry> Opening<Registry> for #value {
+                fn open(
+                    datom: &::datom_codec::Datom,
+                    budget: &mut ::datom_codec::Budget,
+                    _registry: &Registry,
+                ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+                    <Self as ::datom_codec::Composing>::compose(datom, budget)
                 }
             }
         }
@@ -2431,6 +2474,18 @@ impl Opening for File {
                 }
             }
         });
+        // The scalars Ethos knows, each read by its own `Composing`: every
+        // position of the file is read through `Opening`. The trait is the
+        // file's own, so each file's impls are its own and none conflicts.
+        for scalar in [
+            Intrinsic::String,
+            Intrinsic::Integer,
+            Intrinsic::Decimal,
+            Intrinsic::Boolean,
+            Intrinsic::Meaning,
+        ] {
+            items.push(scalar.tokens().plain_open());
+        }
         items.push(quote! {
             #[cfg(feature = "datom")]
             #[rustfmt::skip]

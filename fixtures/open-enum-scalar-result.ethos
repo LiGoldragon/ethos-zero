@@ -1,0 +1,10 @@
+; Every scalar and every declared type bears Opening: Outcome holds a Result
+; whose failure is a String, which reaches no open enum, so that side is read
+; by its plain compose, the registry unread.
+Signal
+[]
+[ Settle.Outcome ]
+[ Settled ]
+[ Outcome.{ Result<Model String> }
+  Effort.[ Low High ] ]
+[ Model ]

@@ -2,6 +2,28 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 49.0.0: Opening is borne by every scalar and every declared type
+
+In a Signal of open enums, `Opening` is generated for every scalar Ethos knows,
+`::std::string::String`, `i64`, `::datom_codec::Decimal`, `bool` and
+`::datom_codec::Meaning`, and for every non-generic type the file declares,
+inline ones among them: a type that reaches no open enum opens by its plain
+`Composing`, the registry unread, and keeps its `Composing` too. A
+`Result<Model String>`, whose failure 48.0.0 had no `Opening` for, now reads
+`Ok.Fable.High` and `Err.«text»`. The scalar impls are generated once per file
+beside those for `Vec`, `Option`, `Result` and `Box`: each file's `Opening` is
+its own trait, so two Signals of open enums in one crate do not conflict. A
+generic type still has no `Opening`, nor does a type imported from another
+file. The generated header no longer allows `unused_extern_crates`, which no
+longer applies since 45.0.0 dropped `extern crate alloc;`; its other allows
+each still silence a lint.
+
+A file that imports `Opening` and is built without the `datom` feature, where
+`Opening` is gated, is owed to design.
+
+To deploy: repin to 49.0.0 and regenerate. No Ethos source changes, nothing
+that checked is refused, and the Rust API of ethos-zero is unchanged.
+
 ## 48.0.0: the open enum of a file named for its crate is addressed from the namespace
 
 A file named for its crate is the namespace of the crate, and so is its open

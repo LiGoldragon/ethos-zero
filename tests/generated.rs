@@ -114,6 +114,8 @@ mod open_enum_held;
 mod open_enum_recursive;
 #[path = "generated/open-enum-result.rs"]
 mod open_enum_result;
+#[path = "generated/open-enum-scalar-result.rs"]
+mod open_enum_scalar_result;
 #[path = "generated/open-enum-shadow.rs"]
 mod open_enum_shadow;
 #[path = "generated/open-enum-signal.rs"]
@@ -1533,4 +1535,63 @@ fn a_result_that_reaches_an_open_enum_is_read_through_opening() {
     );
     assert!(Input::open(&formed("Settle.{ Ok.Nonesuch }"), &mut budget(), &Settling).is_err());
     assert!(Input::open(&formed("Settle.{ Maybe.Fable }"), &mut budget(), &Settling).is_err());
+}
+
+/// The scalar Result Signal's registry: Fable, carrying an Effort.
+struct Failing;
+
+impl open_enum_scalar_result::model::Registry for Failing {
+    fn variant(
+        &self,
+        name: &open_enum_scalar_result::model::Name,
+    ) -> Option<open_enum_scalar_result::model::Variant> {
+        (name.0 == "Fable").then(|| open_enum_scalar_result::model::Variant {
+            name: name.clone(),
+            type_option: Some(open_enum_scalar_result::model::Type::Name(
+                open_enum_scalar_result::model::Name("Effort".to_owned()),
+            )),
+        })
+    }
+}
+
+#[cfg(feature = "datom")]
+#[test]
+fn a_result_whose_failure_is_a_scalar_is_read_through_opening() {
+    use open_enum_scalar_result::{Carried, Effort, Input, Model, Opening, Outcome, model};
+    let fable = Model {
+        name: model::Name("Fable".to_owned()),
+        carried: Some(Carried::Effort(Effort::High)),
+    };
+    assert_eq!(
+        Input::open(&formed("Settle.{ Ok.Fable.High }"), &mut budget(), &Failing)
+            .expect("an Ok reads"),
+        Input::Settle(Outcome {
+            model_string_result: Ok(fable)
+        })
+    );
+    assert_eq!(
+        Input::open(&formed("Settle.{ Err.«text» }"), &mut budget(), &Failing)
+            .expect("an Err reads"),
+        Input::Settle(Outcome {
+            model_string_result: Err("text".to_owned())
+        })
+    );
+    // A scalar and a type that reaches no open enum are read through Opening
+    // as by their Composing, the registry unread.
+    assert_eq!(
+        <String as Opening<Failing>>::open(&formed("«text»"), &mut budget(), &Failing),
+        Ok("text".to_owned())
+    );
+    assert_eq!(
+        <Effort as Opening<Failing>>::open(&formed("High"), &mut budget(), &Failing),
+        Ok(Effort::High)
+    );
+    assert!(
+        Input::open(
+            &formed("Settle.{ Err.[ «text» ] }"),
+            &mut budget(),
+            &Failing
+        )
+        .is_err()
+    );
 }

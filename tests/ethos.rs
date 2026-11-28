@@ -1541,7 +1541,7 @@ fn every_generated_item_carries_rustfmt_skip() {
         let text = std::fs::read_to_string(&path).expect("generated module reads");
         assert!(
             text.starts_with(
-                "#![allow(\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    unused_extern_crates,\n    clippy::type_complexity\n)]\n"
+                "#![allow(\n    dead_code,\n    non_camel_case_types,\n    non_snake_case,\n    clippy::type_complexity\n)]\n"
             ),
             "{path} opens with the generated-file header"
         );
