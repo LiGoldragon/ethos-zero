@@ -38,67 +38,74 @@ impl Printable for Protos {
     }
 }
 
-/// Remove only canonical padding immediately inside typed white-bracket
-/// vector delimiters. Opaque text and parenthesized retained text are left
-/// untouched because they are not syntax nodes.
-fn tighten_vectors(text: String) -> String {
-    let mut output = String::with_capacity(text.len());
-    let mut opaque = None;
-    let mut escaped = false;
-    let mut chars = text.chars().peekable();
-    while let Some(character) = chars.next() {
-        if let Some(closer) = opaque {
-            output.push(character);
-            if escaped {
-                escaped = false;
-            } else if character == '\\' {
-                escaped = true;
-            } else if character == closer {
-                opaque = None;
-            }
-            continue;
-        }
-        match character {
-            '«' => {
-                opaque = Some('»');
+/// The trait whose capability removes only canonical padding immediately
+/// inside typed white-bracket vector delimiters. Opaque text and
+/// parenthesized retained text are left untouched because they are not
+/// syntax nodes.
+trait Tightening {
+    fn tighten_vectors(&self) -> String;
+}
+
+impl Tightening for str {
+    fn tighten_vectors(&self) -> String {
+        let mut output = String::with_capacity(self.len());
+        let mut opaque = None;
+        let mut escaped = false;
+        let mut chars = self.chars().peekable();
+        while let Some(character) = chars.next() {
+            if let Some(closer) = opaque {
                 output.push(character);
-            }
-            '(' => {
-                opaque = Some(')');
-                output.push(character);
-            }
-            '⟦' => {
-                output.push(character);
-                if chars.peek() == Some(&' ') {
-                    chars.next();
+                if escaped {
+                    escaped = false;
+                } else if character == '\\' {
+                    escaped = true;
+                } else if character == closer {
+                    opaque = None;
                 }
+                continue;
             }
-            '⟧' => {
-                if output.ends_with(' ') {
-                    output.pop();
+            match character {
+                '«' => {
+                    opaque = Some('»');
+                    output.push(character);
                 }
-                output.push(character);
+                '(' => {
+                    opaque = Some(')');
+                    output.push(character);
+                }
+                '⟦' => {
+                    output.push(character);
+                    if chars.peek() == Some(&' ') {
+                        chars.next();
+                    }
+                }
+                '⟧' => {
+                    if output.ends_with(' ') {
+                        output.pop();
+                    }
+                    output.push(character);
+                }
+                _ => output.push(character),
             }
-            _ => output.push(character),
         }
+        output
     }
-    output
 }
 
 impl Printable for File {
     fn print(&self) -> String {
-        tighten_vectors(self.protosize().print())
+        self.protosize().print().tighten_vectors()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::tighten_vectors;
+    use super::Tightening;
 
     #[test]
     fn opaque_text_is_not_rewritten_while_vectors_are_tightened() {
         assert_eq!(
-            tighten_vectors("«keep ⟦ spaces ⟧» ⟦ X ⟧ (keep ⟦ spaces ⟧)".into()),
+            "«keep ⟦ spaces ⟧» ⟦ X ⟧ (keep ⟦ spaces ⟧)".tighten_vectors(),
             "«keep ⟦ spaces ⟧» ⟦X⟧ (keep ⟦ spaces ⟧)"
         );
     }
