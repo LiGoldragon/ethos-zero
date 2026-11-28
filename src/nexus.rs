@@ -377,16 +377,27 @@ impl Finding for Nexus {
     }
 
     /// The module of the namespace whose open enum's contract module a source
-    /// names: the namespace, the stem of that module, and the contract's module.
+    /// names: the namespace, the stem of that module, and the contract's
+    /// module; or the namespace and the contract's module, of the file named
+    /// for the crate, which is the namespace of the crate.
     fn contract(&self, source: &Source, namespace: &str) -> Option<usize> {
-        let [first, stem, segment] = source.segments() else {
-            return None;
-        };
-        if first.0 != namespace {
+        let segments = source.segments();
+        if segments.first().map(|segment| segment.0.as_str()) != Some(namespace) {
             return None;
         }
         for (index, module) in self.modules.iter().enumerate() {
-            if module.stem == stem.0 && module.file.contracted(&segment.0).is_some() {
+            let addressed = match segments {
+                [_, stem, segment] => {
+                    module.stem == stem.0 && module.file.contracted(&segment.0).is_some()
+                }
+                // A file named for its crate is the namespace of the crate.
+                [_, segment] => {
+                    module.stem.replace('-', "_") == namespace
+                        && module.file.contracted(&segment.0).is_some()
+                }
+                _ => false,
+            };
+            if addressed {
                 return Some(index);
             }
         }
@@ -643,7 +654,9 @@ impl Contracting for File {
 /// Its second capability lists the open enums whose contract module a source
 /// names: for the namespace, a stem and a module, each that the file of that
 /// stem names whose module it is, `models:signal:model` for the open enum
-/// `Model` of the Signal `signal`.
+/// `Model` of the Signal `signal`; for the namespace and a module, each that
+/// the file named for the crate names, `protos:model` for the open enum `Model`
+/// of `protos.ethos`, since that file is the namespace of the crate.
 trait Addressing {
     fn addressed(&self, source: &Source) -> Vec<&Module>;
     fn contracts(&self, source: &Source) -> Vec<&Name>;
@@ -676,15 +689,20 @@ impl Addressing for Namespace {
 
     fn contracts(&self, source: &Source) -> Vec<&Name> {
         let mut contracts = Vec::new();
-        if let [crate_name, stem, segment] = source.segments()
-            && crate_name.0 == self.name
-        {
-            for module in &self.modules {
-                if module.stem == stem.0
-                    && let Some(open) = module.file.contracted(&segment.0)
-                {
-                    contracts.push(open);
+        let segments = source.segments();
+        if segments.first().map(|segment| segment.0.as_str()) != Some(self.name.as_str()) {
+            return contracts;
+        }
+        for module in &self.modules {
+            let open = match segments {
+                [_, stem, segment] if module.stem == stem.0 => module.file.contracted(&segment.0),
+                [_, segment] if module.stem.replace('-', "_") == self.name => {
+                    module.file.contracted(&segment.0)
                 }
+                _ => None,
+            };
+            if let Some(open) = open {
+                contracts.push(open);
             }
         }
         contracts
@@ -699,6 +717,10 @@ pub(crate) enum Export {
     Unprovided,
     /// The source names no module of a namespace given: the name is trusted.
     Ungiven,
+    /// The source names both a file of a namespace given and the contract
+    /// module of an open enum of the file named for its crate, `protos:model`
+    /// beside `model.ethos`: one name declared twice.
+    Collided,
 }
 
 /// The trait whose capability resolves a name taken from a source against the namespaces given.
@@ -713,6 +735,9 @@ impl Exporting for [Namespace] {
         }
         let mut named = false;
         for namespace in self {
+            if !namespace.addressed(source).is_empty() && !namespace.contracts(source).is_empty() {
+                return Export::Collided;
+            }
             for module in namespace.addressed(source) {
                 if (&module.file, &namespace.reach(module)).exports(name) {
                     return Export::Provided;
@@ -2201,6 +2226,30 @@ impl Verifying for Nexus {
             *slot = Some(index);
         }
         let namespace = self.namespace()?;
+        // The file named for the crate is the namespace of the crate: its open
+        // enum's contract module, `protos:model`, and a file `model.ethos` of
+        // the set are one name declared twice.
+        if let Some(namespace) = namespace.as_deref() {
+            for (index, module) in self.modules.iter().enumerate() {
+                if module.stem.replace('-', "_") != namespace {
+                    continue;
+                }
+                for (at, open) in module.file.opened().iter().enumerate() {
+                    let segment = open.module().to_string();
+                    if self.modules.iter().any(|other| {
+                        other.stem == segment && !matches!(other.file, File::Library(_))
+                    }) {
+                        return Err(Refusal {
+                            module: index,
+                            error: Error::conceptual(
+                                vec![1, 4, at as Integer],
+                                Problem::Duplicate(crate::error::Name(segment)),
+                            ),
+                        });
+                    }
+                }
+            }
+        }
         if let Some(process) = processes {
             self.describe(process, namespace.as_deref())?;
         }

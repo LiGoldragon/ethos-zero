@@ -2,6 +2,20 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 48.0.0: the open enum of a file named for its crate is addressed from the namespace
+
+A file named for its crate is the namespace of the crate, and so is its open
+enums' contract modules' parent: `Model` of `protos.ethos`, in the namespace
+`protos` given or inferred, is `protos:model:[ Variant ]`, checked against what
+the module generates (`UnknownName.{ protos:model Nonesuch }` otherwise),
+where 47.0.0 trusted it as naming no module. A file `model.ethos` in the same
+namespace is the same name declared twice: an import from `protos:model` is
+refused as `Duplicate.model` at the name it takes where the namespace is given,
+and in a set whose namespace is inferred the file named for the crate is
+refused as `Duplicate.model` at its open enum (`[ 1 4 <at> ]`). Repin to 48.0.0;
+a namespace holding both renames one. No other file is rewritten, and the Rust
+API of ethos-zero is unchanged.
+
 ## 47.0.0: the last strings of a refusal are typed
 
 Repin to 47.0.0. No ethos file is rewritten, and every datom text a refusal

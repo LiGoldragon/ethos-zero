@@ -991,6 +991,16 @@ impl Supplying for Source {
                     name: crate::error::Name(name.0.clone()),
                 }),
             )),
+            // The module a source names is two modules of one name.
+            Export::Collided => Err(Error::conceptual(
+                vec![],
+                Problem::Duplicate(crate::error::Name(
+                    self.segments()
+                        .last()
+                        .map(|segment| segment.0.clone())
+                        .unwrap_or_default(),
+                )),
+            )),
             Export::Provided | Export::Ungiven => Ok(()),
         }
     }

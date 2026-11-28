@@ -238,7 +238,15 @@ Signal's and the enum's module: `models:signal:model:[ Variant ]` takes
 generates `models::signal::model::Variant`. With that Signal given or read in
 the set, the import resolves against exactly what the module generates (what
 `src/open-enum.ethos` declares, and `Registry`), and any other name is
-`UnknownName.{ models:signal:model <name> }`. `fixtures/open-enum-signal.ethos`, `open-enum-held.ethos`
+`UnknownName.{ models:signal:model <name> }`. A file named for its crate is
+the namespace of the crate, so the contract module of its open enum has no
+stem: `Model` of `protos.ethos` in the namespace `protos` is
+`protos:model:[ Variant ]`, generating `protos::model::Variant`. A file
+`model.ethos` standing in that namespace too is the same name declared twice:
+an import from `protos:model` is refused as `Duplicate.model` at the name it
+takes, where the namespace is given, and the file named for the crate as
+`Duplicate.model` at its open enum, where the set's namespace is inferred.
+`fixtures/open-enum-signal.ethos`, `open-enum-held.ethos`
 (two open enums, a type that holds them) and `open-enum-bare.ethos` (no type)
 are generated into `tests/generated/` and built with and without `datom`.
 

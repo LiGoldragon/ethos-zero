@@ -692,3 +692,86 @@ fn a_ghost_of_the_sets_open_enum_module_is_refused_when_the_namespace_is_given()
         })
     );
 }
+
+/// The namespace `protos` whose file named for the crate, `protos.ethos`, is a
+/// Signal naming the open enum `Model`, with the files given beside it.
+fn protos(beside: &[(&str, &str)]) -> Namespace {
+    let mut files = vec![("protos", "Signal [] [] [] [] [ Model ]")];
+    files.extend_from_slice(beside);
+    given("protos", &files)
+}
+
+#[test]
+fn an_open_enum_of_the_file_named_for_its_crate_is_addressed_from_the_namespace() {
+    // `protos.ethos` is the namespace of the crate, so its open enum's module
+    // is `protos:model`, checked against what is generated in it.
+    let nexus = alone(
+        "Library [ protos:model:[ Variant Registry ] ] [] [] []",
+        vec![protos(&[])],
+    );
+    assert!(nexus.verify().is_ok(), "{:?}", nexus.verify());
+    assert_eq!(nexus.unchecked(), vec![]);
+    let refusal = alone(
+        "Library [ protos:model:[ Nonesuch ] ] [] [] []",
+        vec![protos(&[])],
+    )
+    .verify()
+    .unwrap_err();
+    assert_eq!(
+        refusal.error,
+        Error::Conceptual(ethos_zero::Conceptual_Data {
+            integer_vector: vec![1, 0, 0, 1, 1, 0],
+            problem: unknown("protos:model", "Nonesuch"),
+        })
+    );
+    // Read in the set, the namespace inferred, it resolves as well.
+    let inferred = Nexus {
+        modules: modules(&[
+            ("importer", "Library [ protos:model:[ Variant ] ] [] [] []"),
+            ("protos", "Signal [] [] [] [] [ Model ]"),
+        ]),
+        namespaces: vec![],
+    };
+    assert!(inferred.verify().is_ok(), "{:?}", inferred.verify());
+    assert_eq!(inferred.unchecked(), vec![]);
+}
+
+#[test]
+fn a_file_named_as_the_crate_files_open_enum_module_is_one_name_declared_twice() {
+    // `model.ethos` beside `protos.ethos`, whose open enum `Model` has the
+    // module `protos:model`: the source names two modules, refused at the
+    // name taken from it.
+    let refusal = alone(
+        "Library [ protos:model:[ Variant ] ] [] [] []",
+        vec![protos(&[("model", "Signal [] [] [] [ Variant.String ]")])],
+    )
+    .verify()
+    .unwrap_err();
+    assert_eq!(
+        refusal.error,
+        Error::Conceptual(ethos_zero::Conceptual_Data {
+            integer_vector: vec![1, 0, 0, 1, 1, 0],
+            problem: Problem::Duplicate(error::Name("model".to_owned())),
+        })
+    );
+    // In the set, the namespace inferred, the file named for the crate is
+    // refused at its open enum.
+    let refusal = Nexus {
+        modules: modules(&[
+            ("importer", "Library [ protos:model:[ Variant ] ] [] [] []"),
+            ("protos", "Signal [] [] [] [] [ Model ]"),
+            ("model", "Signal [] [] [] [ Variant.String ]"),
+        ]),
+        namespaces: vec![],
+    }
+    .verify()
+    .unwrap_err();
+    assert_eq!(refusal.module, 1);
+    assert_eq!(
+        refusal.error,
+        Error::Conceptual(ethos_zero::Conceptual_Data {
+            integer_vector: vec![1, 4, 0],
+            problem: Problem::Duplicate(error::Name("model".to_owned())),
+        })
+    );
+}
