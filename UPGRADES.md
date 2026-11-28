@@ -2,6 +2,52 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 42.0.0: a refusal's strings are typed; Generate lists Check's findings
+
+Repin to 42.0.0. No ethos file is rewritten.
+
+A datom reader changes three matches; every other text is the same, a newtype
+over `String` printing as its string:
+
+- `Conceptual.{ [ 0 ] Root }` is `Conceptual.{ [ 0 ] Unrooted }`, a file headed
+  by no root;
+- `Expected.Name` is `Expected.Symbol`, an entry that is no bare name;
+- Generate answers as Check does, the findings beside the files it wrote:
+  `Generated.{ [ /out/signal.rs ] [ Unchecked.{ /a/signal.ethos serde_json [ Value ] } Unused.{ /a/signal.ethos Model } ] }`,
+  where it answered `Generated.[ /out/signal.rs ]`; a caller reads its first
+  position, and an import nothing given checks, or an open enum nothing
+  carries, is no longer silent at Generate. The findings are one list, built
+  once for both, in the order `Checked` gives them.
+
+A Rust caller of the crate's `Problem` (`error.ethos`): `Problem::Root` is
+`Problem::Unrooted` and `Form::Name` is `Form::Symbol`. A declared name a
+refusal carries is `error::Name`: `Name`, `Duplicate`, `Undeclared`, `Cycle`,
+`Role`, `Intrinsic`, `Case`, `Unpaired`, `TooFewVariants`, `Placement`,
+`Foreign`, `Unborn`, `Ungivable` and `Ambiguous` each carry it where they
+carried a `String`; `Namespace` and `Unpointed` carry `error::Namespace`;
+`Renamed` carries `Successor`; `DuplicateField` carries `Field`. `Wrapping`
+keeps its two strings. `UnknownName_Data` was `{ first_string, second_string }`
+and is `{ namespace: error::Namespace, name: error::Name }`; `Misrooted_Data`
+likewise is `{ namespace: error::Namespace, name: error::Name }`. The module
+`error` is public; `Successor` and `Field` are exported at the crate root, while
+`error::Name` and `error::Namespace` stay in `error`, since the crate root's
+`Name` is the checked identifier and its `Namespace` the given namespace of a
+Nexus. A caller that builds or matches a refusal wraps or unwraps the string
+(`Problem::Duplicate(error::Name(text))`, `.0`).
+
+In the CLI contract (`ethos-zero.ethos`), only the binary's Rust changes: a
+file is `FilePath` in `Reading`, `Checked`, `Generated`, `Rejected`,
+`Unreadable` and `Unwritable` (`file_path`, `file_path_vector`), where each was
+a `String`; `Generation` carries `Directory` (`directory`, was `string`); the
+record `Namespace.{ String ⟦ String ⟧ }` is
+`GivenNamespace.{ Namespace ⟦ FilePath ⟧ }` (`Reading.given_namespace_vector`);
+`Unchecked.{ String String ⟦ String ⟧ }` is `Unchecked.{ FilePath Namespace ⟦ Name ⟧ }`
+(`file_path`, `namespace`, `name_vector`); `Unused.{ String Name }` is
+`Unused.{ FilePath Name }` (`Unused_Data { file_path, name }`); `Generated`
+carries `Generated_Data { file_path_vector, finding_vector }`, as `Checked`
+carries `Checked_Data`. The reason a file is unreadable or unwritable stays a
+`String`.
+
 ## 41.0.0: an open enum's module is a namespace an import resolves
 
 The contract module a Signal generates for an open enum, `model` for `Model`,

@@ -6,35 +6,39 @@ Library
                      protos:Problem }
   Error.[ Structural.Structural_Error
           Conceptual.{ ⟦ Integer ⟧ Problem } ]
-  Problem.[ Root
+  Problem.[ Unrooted
             Arity.{ Integer Integer }
             Expected.Form
             Separator
-            Name.String
-            Duplicate.String
-            Undeclared.String
-            Cycle.String
+            Name
+            Duplicate.Name
+            Undeclared.Name
+            Cycle.Name
             Yield
             Empty
             Depth
-            Role.String
-            Intrinsic.String
-            Case.String
-            Renamed.String
+            Role.Name
+            Intrinsic.Name
+            Case.Name
+            Renamed.Successor
             Wrapping.{ String String }
-            DuplicateField.String
-            Unpaired.String
-            TooFewVariants.String
-            Placement.String
-            Foreign.String
-            Unborn.String
-            Ungivable.String
-            Namespace.String
-            UnknownName.{ String String }
-            Unpointed.String
-            Misrooted.{ String String }
-            Ambiguous.String ]
-  Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association Process Pointer ]
+            DuplicateField.Field
+            Unpaired.Name
+            TooFewVariants.Name
+            Placement.Name
+            Foreign.Name
+            Unborn.Name
+            Ungivable.Name
+            Namespace
+            UnknownName.{ Namespace Name }
+            Unpointed.Namespace
+            Misrooted.{ Namespace Name }
+            Ambiguous.Name ]
+  Form.[ File Section Import Symbol Declaration Variant Reference Constraint Trait Capability Constant Association Process Pointer ]
+  Name.String
+  Namespace.String
+  Successor.String
+  Field.String
   Location.{ Line Column }
   Line.Integer
   Column.Integer ]

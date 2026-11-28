@@ -218,7 +218,10 @@ fn the_namespace_is_the_one_every_import_of_the_roots_lands_in() {
     ]);
     let (module, path, problem) = refused(&both);
     assert_eq!((module, path), (0, vec![1, 0]));
-    assert_eq!(problem, Problem::Namespace("b".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Namespace(ethos_zero::error::Namespace("b".to_owned()))
+    );
 }
 
 #[test]
@@ -232,7 +235,10 @@ fn what_a_process_names_that_the_nexus_does_not_declare_is_foreign() {
     ]);
     let (module, path, problem) = refused(&foreign);
     assert_eq!((module, path), (1, vec![1, 1, 0, 1, 1, 1]));
-    assert_eq!(problem, Problem::Foreign("Seen".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Foreign(ethos_zero::error::Name("Seen".to_owned()))
+    );
 }
 
 #[test]
@@ -246,7 +252,10 @@ fn a_process_is_born_of_an_input_or_a_record_or_a_process_that_gives_it() {
     ]);
     let (_, path, problem) = refused(&unborn);
     assert_eq!(path, vec![1, 1, 0, 0]);
-    assert_eq!(problem, Problem::Unborn("Told".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Unborn(ethos_zero::error::Name("Told".to_owned()))
+    );
 }
 
 #[test]
@@ -260,7 +269,10 @@ fn what_cannot_leave_a_process_is_ungivable() {
     ]);
     let (_, path, problem) = refused(&ungivable);
     assert_eq!(path, vec![1, 1, 0, 1, 1, 0]);
-    assert_eq!(problem, Problem::Ungivable("Tell".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Ungivable(ethos_zero::error::Name("Tell".to_owned()))
+    );
 }
 
 #[test]
@@ -271,7 +283,10 @@ fn a_change_is_answered_by_the_answer_of_its_place() {
     )]);
     let (module, path, problem) = refused(&unpaired);
     assert_eq!((module, path), (0, vec![1, 2, 1]));
-    assert_eq!(problem, Problem::Unpaired("Take".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Unpaired(ethos_zero::error::Name("Take".to_owned()))
+    );
 }
 
 #[test]
@@ -290,7 +305,10 @@ fn two_kinds_of_return_under_one_name_are_refused() {
     ]);
     let (module, path, problem) = refused(&twice);
     assert_eq!((module, path), (2, vec![1, 1, 0, 1, 1, 1]));
-    assert_eq!(problem, Problem::Duplicate("Answer".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Duplicate(ethos_zero::error::Name("Answer".to_owned()))
+    );
 }
 
 #[test]
@@ -322,7 +340,10 @@ fn two_roots_of_one_name_are_refused() {
     ]);
     let (module, _, problem) = refused(&twice);
     assert_eq!(module, 1);
-    assert_eq!(problem, Problem::Duplicate("signal".to_owned()));
+    assert_eq!(
+        problem,
+        Problem::Duplicate(ethos_zero::error::Name("signal".to_owned()))
+    );
 }
 
 #[test]

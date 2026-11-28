@@ -458,7 +458,10 @@ impl Finding for Nexus {
             1 => Ok(landing.pop()),
             _ => Err(Refusal {
                 module: 0,
-                error: Error::conceptual(vec![1, 0], Problem::Namespace(landing[1].clone())),
+                error: Error::conceptual(
+                    vec![1, 0],
+                    Problem::Namespace(crate::error::Namespace(landing[1].clone())),
+                ),
             }),
         }
     }
@@ -1359,18 +1362,18 @@ impl Describing for Nexus {
             }
         }
         let Some((module, emitted)) = self.landed(process, namespace, name) else {
-            return Err(Problem::Foreign(name.0.clone()));
+            return Err(Problem::Foreign(crate::error::Name(name.0.clone())));
         };
         match self.modules[module].file.kind(&emitted) {
             Some(Kind::Input(variant)) => Ok(Birth::Call(module, variant)),
             Some(Kind::Record(entry)) => Ok(Birth::Record(module, entry)),
-            _ => Err(Problem::Unborn(name.0.clone())),
+            _ => Err(Problem::Unborn(crate::error::Name(name.0.clone()))),
         }
     }
 
     fn gift(&self, process: usize, namespace: Option<&str>, name: &Name) -> Result<Given, Problem> {
         let File::Process(file) = &self.modules[process].file else {
-            return Err(Problem::Ungivable(name.0.clone()));
+            return Err(Problem::Ungivable(crate::error::Name(name.0.clone())));
         };
         let written = self.resolved(process, namespace);
         let scope = Scope {
@@ -1397,10 +1400,10 @@ impl Describing for Nexus {
                     });
                 }
             }
-            return Err(Problem::Ungivable(name.0.clone()));
+            return Err(Problem::Ungivable(crate::error::Name(name.0.clone())));
         }
         let Some((module, emitted)) = self.landed(process, namespace, name) else {
-            return Err(Problem::Foreign(name.0.clone()));
+            return Err(Problem::Foreign(crate::error::Name(name.0.clone())));
         };
         let namespace = namespace.expect("a name landed in a namespace");
         let origin = &self.modules[module].file;
@@ -1428,10 +1431,10 @@ impl Describing for Nexus {
             }
             Some(Kind::Change(index, entry)) => {
                 let File::Memory(memory) = origin else {
-                    return Err(Problem::Ungivable(name.0.clone()));
+                    return Err(Problem::Ungivable(crate::error::Name(name.0.clone())));
                 };
                 let Some(answer) = memory.answers.get(index) else {
-                    return Err(Problem::Unpaired(name.0.clone()));
+                    return Err(Problem::Unpaired(crate::error::Name(name.0.clone())));
                 };
                 let given = entry
                     .entered()
@@ -1457,13 +1460,13 @@ impl Describing for Nexus {
             }
             Some(Kind::Emission(index, variant)) => {
                 let File::Emission(emission) = origin else {
-                    return Err(Problem::Ungivable(name.0.clone()));
+                    return Err(Problem::Ungivable(crate::error::Name(name.0.clone())));
                 };
                 let Some(outcome) = emission.outcomes.get(index) else {
-                    return Err(Problem::Unpaired(name.0.clone()));
+                    return Err(Problem::Unpaired(crate::error::Name(name.0.clone())));
                 };
                 let Some(carried) = variant.carried(&spoken, &home, "Emission", true) else {
-                    return Err(Problem::Ungivable(name.0.clone()));
+                    return Err(Problem::Ungivable(crate::error::Name(name.0.clone())));
                 };
                 let observed = match outcome.carried(&spoken, &home, "Outcome", false) {
                     Some(observed) => observed.emit(&scope),
@@ -1481,7 +1484,9 @@ impl Describing for Nexus {
                     path: vec![],
                 })
             }
-            Some(Kind::Input(_)) | None => Err(Problem::Ungivable(name.0.clone())),
+            Some(Kind::Input(_)) | None => {
+                Err(Problem::Ungivable(crate::error::Name(name.0.clone())))
+            }
         }
     }
 
@@ -1571,7 +1576,7 @@ impl Describing for Nexus {
                 let Some(gift) = gift.named() else {
                     return Err(Refusal {
                         module: process,
-                        error: Error::conceptual(path, Problem::Expected(crate::Form::Name)),
+                        error: Error::conceptual(path, Problem::Expected(crate::Form::Symbol)),
                     });
                 };
                 match self.gift(process, namespace, &gift.name) {
@@ -1612,7 +1617,7 @@ impl Describing for Nexus {
                             module: process,
                             error: Error::conceptual(
                                 gift.path.clone(),
-                                Problem::Duplicate(taking.name.0.clone()),
+                                Problem::Duplicate(crate::error::Name(taking.name.0.clone())),
                             ),
                         });
                     }
@@ -2153,7 +2158,7 @@ impl Pointed for Organism {
                 let Some(first) = files.first() else {
                     return Err(Error::conceptual(
                         at,
-                        Problem::Unpointed(pointer.spelling()),
+                        Problem::Unpointed(crate::error::Namespace(pointer.spelling())),
                     ));
                 };
                 let mut right = false;
@@ -2166,8 +2171,8 @@ impl Pointed for Organism {
                     return Err(Error::conceptual(
                         at,
                         Problem::Misrooted(Misrooted_Data {
-                            first_string: pointer.spelling(),
-                            second_string: first.root().name().to_owned(),
+                            namespace: crate::error::Namespace(pointer.spelling()),
+                            name: crate::error::Name(first.root().name().to_owned()),
                         }),
                     ));
                 }
@@ -2190,7 +2195,10 @@ impl Verifying for Nexus {
                 if earlier.stem == module.stem {
                     return Err(Refusal {
                         module: index,
-                        error: Error::conceptual(vec![0], Problem::Duplicate(module.stem.clone())),
+                        error: Error::conceptual(
+                            vec![0],
+                            Problem::Duplicate(crate::error::Name(module.stem.clone())),
+                        ),
                     });
                 }
             }
@@ -2221,7 +2229,10 @@ impl Verifying for Nexus {
             if slot.is_some() {
                 return Err(Refusal {
                     module: index,
-                    error: Error::conceptual(vec![0], Problem::Duplicate(module.stem.clone())),
+                    error: Error::conceptual(
+                        vec![0],
+                        Problem::Duplicate(crate::error::Name(module.stem.clone())),
+                    ),
                 });
             }
             *slot = Some(index);

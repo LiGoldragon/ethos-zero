@@ -693,7 +693,7 @@ impl Distinct for [DeclarationSite] {
                 if earlier.name == declared.name {
                     return Err(Error::conceptual(
                         declared.path.clone(),
-                        Problem::Duplicate(declared.name.0.clone()),
+                        Problem::Duplicate(crate::error::Name(declared.name.0.clone())),
                     ));
                 }
             }
@@ -712,7 +712,10 @@ trait Defining {
 impl Defining for Name {
     fn define(&self) -> Result<(), Error> {
         if self.0 == "Self" {
-            return Err(Error::conceptual(vec![], Problem::Name(self.0.clone())));
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Name(crate::error::Name(self.0.clone())),
+            ));
         }
         Ok(())
     }
@@ -731,11 +734,14 @@ impl Typing for Name {
         if Intrinsic::identify(&self.0).is_some() {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Intrinsic(self.0.clone()),
+                Problem::Intrinsic(crate::error::Name(self.0.clone())),
             ));
         }
         if !self.0.starts_with(|glyph: char| glyph.is_uppercase()) {
-            return Err(Error::conceptual(vec![], Problem::Case(self.0.clone())));
+            return Err(Error::conceptual(
+                vec![],
+                Problem::Case(crate::error::Name(self.0.clone())),
+            ));
         }
         Ok(())
     }
@@ -844,7 +850,10 @@ impl Finite for File {
             if !known.inhabited.contains(name) {
                 let mut path = placed.path;
                 path.push(0);
-                return Err(Error::conceptual(path, Problem::Cycle(name.0.clone())));
+                return Err(Error::conceptual(
+                    path,
+                    Problem::Cycle(crate::error::Name(name.0.clone())),
+                ));
             }
         }
         Ok(())
@@ -977,8 +986,8 @@ impl Supplying for Source {
             Export::Unprovided => Err(Error::conceptual(
                 vec![],
                 Problem::UnknownName(UnknownName_Data {
-                    first_string: self.spelling(),
-                    second_string: name.0.clone(),
+                    namespace: crate::error::Namespace(self.spelling()),
+                    name: crate::error::Name(name.0.clone()),
                 }),
             )),
             Export::Provided | Export::Ungiven => Ok(()),
@@ -1058,7 +1067,7 @@ impl PositionFielding for [Position] {
             if fields[..index].contains(&fields[index]) {
                 return Err(Error::conceptual(
                     vec![at],
-                    Problem::DuplicateField(fields[index].to_string()),
+                    Problem::DuplicateField(crate::error::Field(fields[index].to_string())),
                 ));
             }
             at += position.span();
@@ -1110,7 +1119,7 @@ impl FieldsDistinct for File {
                 if fields[..index].contains(&fields[index]) {
                     return Err(Error::conceptual(
                         vec![1, at],
-                        Problem::DuplicateField(fields[index].to_string()),
+                        Problem::DuplicateField(crate::error::Field(fields[index].to_string())),
                     ));
                 }
                 at += entry.span();
@@ -1503,7 +1512,7 @@ impl StreamNaming for [Variant] {
             if output.stream(scope).is_some() && output.title().0 == "Once" {
                 return Err(Error::conceptual(
                     vec![at, 0],
-                    Problem::Duplicate(output.title().0.clone()),
+                    Problem::Duplicate(crate::error::Name(output.title().0.clone())),
                 ));
             }
             at += output.span();
@@ -1597,7 +1606,7 @@ impl Telling for [Pointer] {
                 if alike {
                     return Err(Error::conceptual(
                         vec![later as Integer],
-                        Problem::Duplicate(pointer.spelling()),
+                        Problem::Duplicate(crate::error::Name(pointer.spelling())),
                     ));
                 }
             }
@@ -1684,7 +1693,10 @@ impl EntryPairing for [Entry] {
                     Entry::Declared(declaration) => declaration.identity().name.0.clone(),
                     Entry::Named(name) => name.0.clone(),
                 };
-                return Err(Error::conceptual(vec![at], Problem::Unpaired(title)));
+                return Err(Error::conceptual(
+                    vec![at],
+                    Problem::Unpaired(crate::error::Name(title)),
+                ));
             }
             at += change.span();
         }
@@ -1710,7 +1722,7 @@ impl Checkable for Identity {
                 if parameters.contains(&&reference.name) {
                     return Err(Error::conceptual(
                         vec![index as Integer],
-                        Problem::Duplicate(reference.name.0.clone()),
+                        Problem::Duplicate(crate::error::Name(reference.name.0.clone())),
                     ));
                 }
                 parameters.push(&reference.name);
@@ -1824,7 +1836,7 @@ impl Referring for Reference {
         if self.stream(scope).is_some() {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Placement(self.title().to_owned()),
+                Problem::Placement(crate::error::Name(self.title().to_owned())),
             ));
         }
         self.refer_arguments(scope)
@@ -1917,14 +1929,14 @@ impl ReferringParts for Reference {
                 Role::Type => Ok(()),
                 Role::Trait => Err(Error::conceptual(
                     vec![],
-                    Problem::Role(self.title().to_owned()),
+                    Problem::Role(crate::error::Name(self.title().to_owned())),
                 )),
             };
         };
         if reference.source.is_some() && reference.name.0 == "Self" {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Name(reference.name.0.clone()),
+                Problem::Name(crate::error::Name(reference.name.0.clone())),
             ));
         }
         let resolution = reference.resolve_reference(scope);
@@ -1934,15 +1946,21 @@ impl ReferringParts for Reference {
         }
         let requirement = match resolution {
             Resolution::Ambiguous(name) => {
-                return Err(Error::conceptual(vec![], Problem::Duplicate(name.0)));
+                return Err(Error::conceptual(
+                    vec![],
+                    Problem::Duplicate(crate::error::Name(name.0)),
+                ));
             }
             Resolution::AmbiguousImport(name) => {
-                return Err(Error::conceptual(vec![], Problem::Ambiguous(name.0)));
+                return Err(Error::conceptual(
+                    vec![],
+                    Problem::Ambiguous(crate::error::Name(name.0)),
+                ));
             }
             Resolution::Undeclared => {
                 return Err(Error::conceptual(
                     vec![],
-                    Problem::Undeclared(reference.name.0.clone()),
+                    Problem::Undeclared(crate::error::Name(reference.name.0.clone())),
                 ));
             }
             Resolution::Intrinsic(Intrinsic::Vector)
@@ -1950,7 +1968,7 @@ impl ReferringParts for Reference {
             {
                 return Err(Error::conceptual(
                     vec![],
-                    Problem::Renamed("⟦ T ⟧".to_owned()),
+                    Problem::Renamed(crate::error::Successor("⟦ T ⟧".to_owned())),
                 ));
             }
             Resolution::Intrinsic(intrinsic) => intrinsic.into(),
@@ -1981,7 +1999,7 @@ impl ReferringParts for Reference {
         if requirement.role != role {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Role(reference.name.0.clone()),
+                Problem::Role(crate::error::Name(reference.name.0.clone())),
             ));
         }
         if let Some(expected) = requirement.arity {
@@ -2335,7 +2353,7 @@ impl Checkable for TypeDeclaration {
                 if aliased.cycles(&identity.name, scope.file, &mut vec![]) {
                     return Err(Error::conceptual(
                         vec![0],
-                        Problem::Cycle(identity.name.0.clone()),
+                        Problem::Cycle(crate::error::Name(identity.name.0.clone())),
                     ));
                 }
                 Ok(())
@@ -2401,7 +2419,7 @@ impl Pairing for [Variant] {
             if index >= replies.len() {
                 return Err(Error::conceptual(
                     vec![at],
-                    Problem::Unpaired(request.title().0.clone()),
+                    Problem::Unpaired(crate::error::Name(request.title().0.clone())),
                 ));
             }
             at += request.span();
@@ -2424,7 +2442,10 @@ impl CapabilityNaming for [Variant] {
         for input in self {
             let name = input.title().0.snake_case().identifier().to_string();
             if names.contains(&name) {
-                return Err(Error::conceptual(vec![at], Problem::Duplicate(name)));
+                return Err(Error::conceptual(
+                    vec![at],
+                    Problem::Duplicate(crate::error::Name(name)),
+                ));
             }
             names.push(name);
             at += input.span();
@@ -2470,7 +2491,7 @@ impl Binding for [Variant] {
                 if carried.contains(&reference) {
                     return Err(Error::conceptual(
                         vec![at],
-                        Problem::Duplicate(reference.title().to_owned()),
+                        Problem::Duplicate(crate::error::Name(reference.title().to_owned())),
                     ));
                 }
                 carried.push(reference);
@@ -2489,9 +2510,10 @@ impl Checkable for Variant {
             Variant::Bare(name) => {
                 name.define()?;
                 match scope.resolve(name) {
-                    Resolution::AmbiguousImport(name) => {
-                        Err(Error::conceptual(vec![], Problem::Ambiguous(name.0)))
-                    }
+                    Resolution::AmbiguousImport(name) => Err(Error::conceptual(
+                        vec![],
+                        Problem::Ambiguous(crate::error::Name(name.0)),
+                    )),
                     _ => Ok(()),
                 }
             }
@@ -2534,7 +2556,7 @@ impl Plural for [Variant] {
         if self.len() < 2 {
             return Err(Error::conceptual(
                 vec![],
-                Problem::TooFewVariants(enumeration.0.clone()),
+                Problem::TooFewVariants(crate::error::Name(enumeration.0.clone())),
             ));
         }
         Ok(())
@@ -2578,7 +2600,7 @@ impl Checkable for TraitDeclaration {
                     ) {
                         return Err(Error::conceptual(
                             vec![1, 0, index as Integer],
-                            Problem::Cycle(self.identity.name.0.clone()),
+                            Problem::Cycle(crate::error::Name(self.identity.name.0.clone())),
                         ));
                     }
                 }
@@ -2617,7 +2639,7 @@ impl Checkable for AssociatedConstant {
         if self.name.0 != self.name.0.to_uppercase() {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Name(self.name.0.clone()),
+                Problem::Name(crate::error::Name(self.name.0.clone())),
             ));
         }
         self.ty.check(scope).lifted(1)
@@ -2672,7 +2694,7 @@ impl Checkable for Association {
         if scope.resolve(&self.identity.name) == Resolution::Undeclared {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Undeclared(self.identity.name.0.clone()),
+                Problem::Undeclared(crate::error::Name(self.identity.name.0.clone())),
             ));
         }
         self.identity.check(scope).place(0)?;

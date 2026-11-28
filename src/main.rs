@@ -1,6 +1,6 @@
 //! The ethos-zero CLI, expressed through its generated Signal contract.
 
-use std::path::Path as FilePath;
+use std::path::Path as SystemPath;
 use std::process::ExitCode;
 
 use datom_codec::{Actualizing as _, Budget, Datomizable as _, Path, Potential};
@@ -16,9 +16,9 @@ use protos::{Compactable, Protosizable};
 mod contract;
 
 use contract::{
-    Checked_Data, Conceptual_Data as Generation_Conceptual_Data, Finding, Generation,
-    Generation_Error, Name, Query, Reading, Rejected_Data, Response, Unchecked, Unreadable_Data,
-    Unused_Data, Unwritable_Data,
+    Checked_Data, Conceptual_Data as Generation_Conceptual_Data, Directory, FilePath, Finding,
+    Generated_Data, Generation, Generation_Error, Name, Namespace, Query, Reading, Rejected_Data,
+    Response, Unchecked, Unreadable_Data, Unused_Data, Unwritable_Data,
 };
 
 const ETHOS: &str = include_str!("../ethos-zero.ethos");
@@ -58,9 +58,15 @@ trait Opening {
 trait Rejecting {
     fn reject(&self, source: &EthosPotential<File>, error: ethos_zero::Error) -> Response;
 }
+/// The trait whose capability lists the findings of the roots read: what they
+/// import that nothing given checks, and the open enums nothing carries, each
+/// by its file: the one list Check and Generate both answer.
+trait Listing {
+    fn list(&self, nexus: &Nexus) -> Vec<Finding>;
+}
 /// The trait whose capability turns a Nexus's refusal into a rejection of the file it lies in.
 trait Refusing {
-    fn refuse(&self, sources: &[String], texts: &[EthosPotential<File>]) -> Response;
+    fn refuse(&self, sources: &[FilePath], texts: &[EthosPotential<File>]) -> Response;
 }
 
 impl Texting for Response {
@@ -87,14 +93,14 @@ impl Erroring<Generation_Error> for ethos_zero::Error {
     }
 }
 
-impl Sourcing for String {
+impl Sourcing for FilePath {
     fn source(&self) -> Result<(EthosPotential<File>, File), Response> {
-        let text = match std::fs::read_to_string(self) {
+        let text = match std::fs::read_to_string(&self.0) {
             Ok(text) => text,
             Err(error) => {
                 return Err(Response::Unreadable(Unreadable_Data {
-                    first_string: self.clone(),
-                    second_string: error.to_string(),
+                    file_path: self.clone(),
+                    string: error.to_string(),
                 }));
             }
         };
@@ -106,13 +112,13 @@ impl Sourcing for String {
     }
 }
 
-impl Gathering for [String] {
+impl Gathering for [FilePath] {
     fn gather(&self) -> Result<(Vec<Module>, Vec<EthosPotential<File>>), Response> {
         let mut modules = Vec::with_capacity(self.len());
         let mut texts = Vec::with_capacity(self.len());
         for source in self {
             let (potential, file) = source.source()?;
-            let stem = FilePath::new(source)
+            let stem = SystemPath::new(&source.0)
                 .file_stem()
                 .unwrap_or_default()
                 .to_string_lossy()
@@ -126,12 +132,12 @@ impl Gathering for [String] {
 
 impl Opening for Reading {
     fn open(&self) -> Result<(Nexus, Vec<EthosPotential<File>>), Response> {
-        let (modules, texts) = self.string_vector.gather()?;
-        let mut namespaces = Vec::with_capacity(self.namespace_vector.len());
-        for namespace in &self.namespace_vector {
-            let (modules, _) = namespace.string_vector.gather()?;
+        let (modules, texts) = self.file_path_vector.gather()?;
+        let mut namespaces = Vec::with_capacity(self.given_namespace_vector.len());
+        for namespace in &self.given_namespace_vector {
+            let (modules, _) = namespace.file_path_vector.gather()?;
             namespaces.push(GivenNamespace {
-                name: namespace.string.clone(),
+                name: namespace.namespace.0.clone(),
                 modules,
             });
         }
@@ -145,16 +151,53 @@ impl Opening for Reading {
     }
 }
 
+impl Listing for Reading {
+    // What Check and Generate find amiss and pass, file by file in the order
+    // given, and within a file in the order of its text: every source it takes
+    // from unchecked is first written in its imports or its inputs, outputs and
+    // types, before the open enums of its last section.
+    fn list(&self, nexus: &Nexus) -> Vec<Finding> {
+        let unchecked = nexus.unchecked();
+        let unused = nexus.unused();
+        let mut findings = Vec::with_capacity(unchecked.len() + unused.len());
+        for (module, source) in self.file_path_vector.iter().enumerate() {
+            for trusted in &unchecked {
+                if trusted.module != module {
+                    continue;
+                }
+                let mut names = Vec::with_capacity(trusted.names.len());
+                for name in &trusted.names {
+                    names.push(Name(name.as_ref().to_owned()));
+                }
+                findings.push(Finding::Unchecked(Unchecked {
+                    file_path: source.clone(),
+                    namespace: Namespace(trusted.namespace.clone()),
+                    name_vector: names,
+                }));
+            }
+            for open in &unused {
+                if open.module == module {
+                    findings.push(Finding::Unused(Unused_Data {
+                        file_path: source.clone(),
+                        name: Name(open.name.as_ref().to_owned()),
+                    }));
+                }
+            }
+        }
+        findings
+    }
+}
+
 impl Refusing for Refusal {
-    fn refuse(&self, sources: &[String], texts: &[EthosPotential<File>]) -> Response {
+    fn refuse(&self, sources: &[FilePath], texts: &[EthosPotential<File>]) -> Response {
         sources[self.module].reject(&texts[self.module], self.error.clone())
     }
 }
 
-impl Rejecting for String {
+impl Rejecting for FilePath {
     fn reject(&self, source: &EthosPotential<File>, error: ethos_zero::Error) -> Response {
         Response::Rejected(Rejected_Data {
-            string: self.clone(),
+            file_path: self.clone(),
             location: source.locate(&error),
             generation__error: error.error(),
         })
@@ -163,8 +206,8 @@ impl Rejecting for String {
 
 impl Serving for Generation {
     fn serve(&mut self) -> Response {
-        let sources = &self.reading.string_vector;
-        let directory = &self.string;
+        let sources = &self.reading.file_path_vector;
+        let Directory(directory) = &self.directory;
         let (nexus, texts) = match self.reading.open() {
             Ok(read) => read,
             Err(response) => return response,
@@ -175,22 +218,25 @@ impl Serving for Generation {
         };
         if let Err(error) = std::fs::create_dir_all(directory) {
             return Response::Unwritable(Unwritable_Data {
-                first_string: directory.clone(),
-                second_string: error.to_string(),
+                file_path: FilePath(directory.clone()),
+                string: error.to_string(),
             });
         }
         let mut written = Vec::with_capacity(assembled.len());
         for module in assembled {
-            let target = FilePath::new(directory).join(format!("{}.rs", module.stem));
+            let target = SystemPath::new(directory).join(format!("{}.rs", module.stem));
             if let Err(error) = std::fs::write(&target, module.rust) {
                 return Response::Unwritable(Unwritable_Data {
-                    first_string: target.to_string_lossy().into_owned(),
-                    second_string: error.to_string(),
+                    file_path: FilePath(target.to_string_lossy().into_owned()),
+                    string: error.to_string(),
                 });
             }
-            written.push(target.to_string_lossy().into_owned());
+            written.push(FilePath(target.to_string_lossy().into_owned()));
         }
-        Response::Generated(written)
+        Response::Generated(Generated_Data {
+            file_path_vector: written,
+            finding_vector: self.reading.list(&nexus),
+        })
     }
 }
 
@@ -201,42 +247,11 @@ impl Serving for Reading {
             Err(response) => return response,
         };
         if let Err(refusal) = nexus.verify() {
-            return refusal.refuse(&self.string_vector, &texts);
-        }
-        // What Check finds amiss and passes, file by file in the order given,
-        // and within a file in the order of its text: every source it takes
-        // from unchecked is first written in its imports or its inputs,
-        // outputs and types, before the open enums of its last section.
-        let unchecked = nexus.unchecked();
-        let unused = nexus.unused();
-        let mut findings = Vec::with_capacity(unchecked.len() + unused.len());
-        for (module, source) in self.string_vector.iter().enumerate() {
-            for trusted in &unchecked {
-                if trusted.module != module {
-                    continue;
-                }
-                let mut names = Vec::with_capacity(trusted.names.len());
-                for name in &trusted.names {
-                    names.push(name.as_ref().to_owned());
-                }
-                findings.push(Finding::Unchecked(Unchecked {
-                    first_string: source.clone(),
-                    second_string: trusted.namespace.clone(),
-                    string_vector: names,
-                }));
-            }
-            for open in &unused {
-                if open.module == module {
-                    findings.push(Finding::Unused(Unused_Data {
-                        string: source.clone(),
-                        name: Name(open.name.as_ref().to_owned()),
-                    }));
-                }
-            }
+            return refusal.refuse(&self.file_path_vector, &texts);
         }
         Response::Checked(Checked_Data {
-            string_vector: self.string_vector.clone(),
-            finding_vector: findings,
+            file_path_vector: self.file_path_vector.clone(),
+            finding_vector: self.list(&nexus),
         })
     }
 }

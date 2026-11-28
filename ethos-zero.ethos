@@ -5,13 +5,17 @@
 ; namespaces the caller gives, each as an import writes its first segment and
 ; its ethos files: an import that names a module of one must find each name it
 ; takes there, and is refused as UnknownName otherwise; an import of any other
-; is trusted, and Checked lists it as an Unchecked finding. An open enum a
-; Signal names in its last section that no input or output carries is not
-; refused: Checked lists it as an Unused finding. An input or output carries an
-; open enum it reaches, named bare or by the file's own namespace, or held
-; through any type the file declares. The findings go file by file in the
-; order given, each file's in the order of its text. A rejection names the
-; file, the line and column of the error in it, and the error.
+; is trusted, and Checked and Generated each list it as an Unchecked finding.
+; An open enum a Signal names in its last section that no input or output
+; carries is not refused: Checked and Generated each list it as an Unused
+; finding. An input or output carries an open enum it reaches, named bare or by
+; the file's own namespace, or held through any type the file declares. The
+; findings, one list built once for both, go file by file in the order given,
+; each file's in the order of its text. A rejection names the file, the line
+; and column of the error in it, and the error. Each string is a type for what
+; it holds: a file is a FilePath, the directory written into a Directory, a
+; namespace a Namespace, a name a Name; the reason a file is unreadable or
+; unwritable, a message a person reads, stays a String.
 ; The files read are of eight roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
 ;   Signal     [ imports ] [ inputs ] [ outputs ] [ types ] ; or with a fifth, [ open enums ], each generated with its contract module
@@ -27,19 +31,22 @@ Library
   ethos_zero:[ Problem Location ] ]
 [ Query.[ Generate.Generation
           Check.Reading ]
-  Response.[ Generated.⟦ String ⟧
-             Checked.{ ⟦ String ⟧ ⟦ Finding ⟧ }
+  Response.[ Generated.{ ⟦ FilePath ⟧ ⟦ Finding ⟧ }
+             Checked.{ ⟦ FilePath ⟧ ⟦ Finding ⟧ }
              Arguments.Integer
              Malformed.Error
-             Unreadable.{ String String }
-             Rejected.{ String Location Generation_Error }
-             Unwritable.{ String String } ]
-  Reading.{ ⟦ String ⟧ ⟦ Namespace ⟧ }
-  Generation.{ Reading String }
-  Namespace.{ String ⟦ String ⟧ }
+             Unreadable.{ FilePath String }
+             Rejected.{ FilePath Location Generation_Error }
+             Unwritable.{ FilePath String } ]
+  Reading.{ ⟦ FilePath ⟧ ⟦ GivenNamespace ⟧ }
+  Generation.{ Reading Directory }
+  GivenNamespace.{ Namespace ⟦ FilePath ⟧ }
   Finding.[ Unchecked
-            Unused.{ String Name } ]
-  Unchecked.{ String String ⟦ String ⟧ }
+            Unused.{ FilePath Name } ]
+  Unchecked.{ FilePath Namespace ⟦ Name ⟧ }
+  FilePath.String
+  Directory.String
+  Namespace.String
   Name.String
   Generation_Error.[ Structural.protos:Error
                      Conceptual.{ ⟦ Integer ⟧

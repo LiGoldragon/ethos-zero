@@ -17,22 +17,29 @@ pub enum Query {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Generated_Data {
+    pub file_path_vector: alloc::vec::Vec<FilePath>,
+    pub finding_vector: alloc::vec::Vec<Finding>,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Checked_Data {
-    pub string_vector: alloc::vec::Vec<alloc::string::String>,
+    pub file_path_vector: alloc::vec::Vec<FilePath>,
     pub finding_vector: alloc::vec::Vec<Finding>,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Unreadable_Data {
-    pub first_string: alloc::string::String,
-    pub second_string: alloc::string::String,
+    pub file_path: FilePath,
+    pub string: alloc::string::String,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Rejected_Data {
-    pub string: alloc::string::String,
+    pub file_path: FilePath,
     pub location: ethos_zero::Location,
     pub generation__error: Generation_Error,
 }
@@ -40,14 +47,14 @@ pub struct Rejected_Data {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Unwritable_Data {
-    pub first_string: alloc::string::String,
-    pub second_string: alloc::string::String,
+    pub file_path: FilePath,
+    pub string: alloc::string::String,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Response {
-    Generated(alloc::vec::Vec<alloc::string::String>),
+    Generated(Generated_Data),
     Checked(Checked_Data),
     Arguments(i64),
     Malformed(datom_codec::Error),
@@ -59,28 +66,28 @@ pub enum Response {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Reading {
-    pub string_vector: alloc::vec::Vec<alloc::string::String>,
-    pub namespace_vector: alloc::vec::Vec<Namespace>,
+    pub file_path_vector: alloc::vec::Vec<FilePath>,
+    pub given_namespace_vector: alloc::vec::Vec<GivenNamespace>,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Generation {
     pub reading: Reading,
-    pub string: alloc::string::String,
+    pub directory: Directory,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct Namespace {
-    pub string: alloc::string::String,
-    pub string_vector: alloc::vec::Vec<alloc::string::String>,
+pub struct GivenNamespace {
+    pub namespace: Namespace,
+    pub file_path_vector: alloc::vec::Vec<FilePath>,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Unused_Data {
-    pub string: alloc::string::String,
+    pub file_path: FilePath,
     pub name: Name,
 }
 #[rustfmt::skip]
@@ -94,10 +101,22 @@ pub enum Finding {
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Unchecked {
-    pub first_string: alloc::string::String,
-    pub second_string: alloc::string::String,
-    pub string_vector: alloc::vec::Vec<alloc::string::String>,
+    pub file_path: FilePath,
+    pub namespace: Namespace,
+    pub name_vector: alloc::vec::Vec<Name>,
 }
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct FilePath(pub alloc::string::String);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Directory(pub alloc::string::String);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Namespace(pub alloc::string::String);
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]

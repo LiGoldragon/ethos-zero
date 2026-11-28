@@ -42,12 +42,15 @@ use std::marker::PhantomData;
 // The reader errors: declared in error.ethos, generated into error.rs
 // ---------------------------------------------------------------------------
 
+// Public so the names the crate's own shadow -- the `Name` and `Namespace` a
+// refusal carries, beside the crate's `Name` and the given `Namespace` of a
+// Nexus -- are reachable as `error::Name` and `error::Namespace`.
 #[rustfmt::skip]
-mod error;
+pub mod error;
 
 pub use error::{
-    Arity_Data, Column, Conceptual_Data, Error, Form, Line, Location, Misrooted_Data, Problem,
-    Structural_Error, UnknownName_Data, Wrapping_Data,
+    Arity_Data, Column, Conceptual_Data, Error, Field, Form, Line, Location, Misrooted_Data,
+    Problem, Structural_Error, Successor, UnknownName_Data, Wrapping_Data,
 };
 
 // ---------------------------------------------------------------------------
@@ -1252,7 +1255,10 @@ mod behavior {
         match Potential::<File>::from("Sema [] [ Record.{ String } ]").actualize() {
             Err(Error::Conceptual(data)) => {
                 assert_eq!(data.integer_vector, vec![0]);
-                assert_eq!(data.problem, Problem::Renamed("Memory".to_owned()));
+                assert_eq!(
+                    data.problem,
+                    Problem::Renamed(crate::error::Successor("Memory".to_owned()))
+                );
             }
             _ => panic!("a Sema file is refused at its head"),
         }
@@ -1297,7 +1303,10 @@ mod behavior {
                 panic!("legacy vector refused during validation: {source}");
             };
             assert_eq!(error.integer_vector, [1, 1, 0, 1]);
-            assert_eq!(error.problem, Problem::Renamed("⟦ T ⟧".to_owned()));
+            assert_eq!(
+                error.problem,
+                Problem::Renamed(crate::error::Successor("⟦ T ⟧".to_owned()))
+            );
         }
 
         let file = Potential::<File>::from("Library [] [ Alias.⟦ ⟦ String ⟧ ⟧ ] [] []")

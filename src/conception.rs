@@ -44,12 +44,13 @@ trait Naming {
 impl Naming for Symbol {
     fn name(&self) -> Result<Name, Error> {
         Name::try_from(self.0.as_str())
-            .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))
+            .map_err(|text| Error::conceptual(vec![], Problem::Name(crate::error::Name(text))))
     }
 }
 impl Naming for str {
     fn name(&self) -> Result<Name, Error> {
-        Name::try_from(self).map_err(|text| Error::conceptual(vec![], Problem::Name(text)))
+        Name::try_from(self)
+            .map_err(|text| Error::conceptual(vec![], Problem::Name(crate::error::Name(text))))
     }
 }
 trait Reading {
@@ -80,10 +81,10 @@ impl Conceiving<File> for Protos {
             ..
         } = self
         else {
-            return Err(Error::conceptual(vec![], Problem::Root));
+            return Err(Error::conceptual(vec![], Problem::Unrooted));
         };
         if constraints.is_some() || *separator != Separator::Period {
-            return Err(Error::conceptual(vec![], Problem::Root));
+            return Err(Error::conceptual(vec![], Problem::Unrooted));
         };
         match Root::identify(&head.0) {
             Some(Root::Library) => Ok(File::Library(body.conceive().place(1)?)),
@@ -97,9 +98,9 @@ impl Conceiving<File> for Protos {
             None => match Root::successor(&head.0) {
                 Some(successor) => Err(Error::conceptual(
                     vec![0],
-                    Problem::Renamed(successor.name().to_owned()),
+                    Problem::Renamed(crate::error::Successor(successor.name().to_owned())),
                 )),
-                None => Err(Error::conceptual(vec![0], Problem::Root)),
+                None => Err(Error::conceptual(vec![0], Problem::Unrooted)),
             },
         }
     }
@@ -383,7 +384,7 @@ impl Conceiving<Name> for Protos {
     fn conceive(&self) -> Result<Name, Error> {
         match self {
             Protos::Bare { text, .. } => text.as_str().name(),
-            _ => Err(Error::conceptual(vec![], Problem::Expected(Form::Name))),
+            _ => Err(Error::conceptual(vec![], Problem::Expected(Form::Symbol))),
         }
     }
 }
@@ -635,8 +636,9 @@ impl Imports for [Protos] {
                 continue;
             };
             if let Some(source) = text.strip_suffix(':') {
-                let source = Source::try_from(source)
-                    .map_err(|text| Error::conceptual(vec![at], Problem::Name(text)))?;
+                let source = Source::try_from(source).map_err(|text| {
+                    Error::conceptual(vec![at], Problem::Name(crate::error::Name(text)))
+                })?;
                 let Some(children) = self
                     .get(index + 1)
                     .and_then(|beside| beside.children(Enclosure::Bracketed))
@@ -652,8 +654,9 @@ impl Imports for [Protos] {
                 index += 1;
                 continue;
             };
-            let source = Source::try_from(source)
-                .map_err(|text| Error::conceptual(vec![at], Problem::Name(text)))?;
+            let source = Source::try_from(source).map_err(|text| {
+                Error::conceptual(vec![at], Problem::Name(crate::error::Name(text)))
+            })?;
             let imported = match imported.split_once('.') {
                 Some((name, emitted)) => Imported {
                     name: name.name().place(at)?,
@@ -711,7 +714,7 @@ impl Conceiving<Import> for Protos {
             return Err(Error::conceptual(vec![], Problem::Expected(Form::Import)));
         };
         let source = Source::try_from(head.0.as_str())
-            .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?;
+            .map_err(|text| Error::conceptual(vec![0], Problem::Name(crate::error::Name(text))))?;
         if let Protos::Headed {
             constraints: None,
             separator: Separator::Colon,
@@ -751,7 +754,7 @@ impl Nesting for Source {
             text.push_str(&segment.0);
         }
         Source::try_from(text.as_str())
-            .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))
+            .map_err(|text| Error::conceptual(vec![], Problem::Name(crate::error::Name(text))))
     }
 }
 impl Conceiving<Reference> for Protos {
@@ -761,10 +764,9 @@ impl Conceiving<Reference> for Protos {
                 // A rooted reference, `:protos:Error`, names its source in place.
                 Some((source, name)) if text.starts_with(':') => {
                     Ok(Reference::Named(NamedReference {
-                        source: Some(
-                            Source::try_from(source)
-                                .map_err(|text| Error::conceptual(vec![], Problem::Name(text)))?,
-                        ),
+                        source: Some(Source::try_from(source).map_err(|text| {
+                            Error::conceptual(vec![], Problem::Name(crate::error::Name(text)))
+                        })?),
                         name: name.name()?,
                         arguments: vec![],
                     }))
@@ -802,8 +804,9 @@ impl Conceiving<Reference> for Protos {
                         Problem::Expected(Form::Reference),
                     ));
                 }
-                let source = Source::try_from(head.0.as_str())
-                    .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?;
+                let source = Source::try_from(head.0.as_str()).map_err(|text| {
+                    Error::conceptual(vec![0], Problem::Name(crate::error::Name(text)))
+                })?;
                 // A further segment heads the rest: `std:sync:Mutex`.
                 r.source = Some(match &r.source {
                     Some(inner) => inner.beneath(&source).place(1)?,
@@ -852,9 +855,9 @@ impl Rooting for Protos {
             ));
         }
         let name = Name::try_from(text.as_str())
-            .map_err(|text| Error::conceptual(depth, Problem::Name(text)))?;
+            .map_err(|text| Error::conceptual(depth, Problem::Name(crate::error::Name(text))))?;
         let source = Source::try_from(source.as_str())
-            .map_err(|text| Error::conceptual(vec![0], Problem::Name(text)))?;
+            .map_err(|text| Error::conceptual(vec![0], Problem::Name(crate::error::Name(text))))?;
         Ok(Reference::Named(NamedReference {
             source: Some(source),
             name,
