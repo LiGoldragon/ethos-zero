@@ -6,15 +6,13 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Vec {
-    pub string: ::alloc::string::String,
+    pub string: ::std::string::String,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -36,7 +34,7 @@ pub struct Vec {
 )]
 pub struct Tree {
     #[rkyv(omit_bounds)]
-    pub tree_option: ::core::option::Option<::alloc::boxed::Box<Self>>,
+    pub tree_option: ::core::option::Option<::std::boxed::Box<Self>>,
     pub vec_integer_result: ::core::result::Result<Vec, i64>,
 }
 #[rustfmt::skip]

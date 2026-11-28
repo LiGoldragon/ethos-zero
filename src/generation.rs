@@ -13,7 +13,7 @@
 //! cycle, that is where it names, through aliases, `Option` and `Result` but
 //! not through `Vector`, a type declared no later than its owner that reaches
 //! the owner by value. The box sits immediately around the recursive
-//! argument (`::core::option::Option<::alloc::boxed::Box<Tree>>`).
+//! argument (`::core::option::Option<::std::boxed::Box<Tree>>`).
 //!
 //! One rule decides archive bounds: a position that reaches its owner by any
 //! path, `Vector` included, omits its rkyv bounds, and its type
@@ -75,7 +75,7 @@ impl Tokening for Source {
 impl Tokening for Intrinsic {
     fn tokens(&self) -> TokenStream {
         match self {
-            Intrinsic::String => quote! { ::alloc::string::String },
+            Intrinsic::String => quote! { ::std::string::String },
             // Generated contracts must compile without their optional `datom`
             // feature.  The wire-level integer is therefore the ordinary
             // Rust scalar; Datom derives know how to compose it when enabled.
@@ -87,7 +87,7 @@ impl Tokening for Intrinsic {
             Intrinsic::Decimal => quote! { ::datom_codec::Decimal },
             Intrinsic::Boolean => quote! { bool },
             Intrinsic::Meaning => quote! { ::datom_codec::Meaning },
-            Intrinsic::Vector => quote! { ::alloc::vec::Vec },
+            Intrinsic::Vector => quote! { ::std::vec::Vec },
             Intrinsic::Option => quote! { ::core::option::Option },
             Intrinsic::Result => quote! { ::core::result::Result },
             Intrinsic::Stream => quote! { ::signal::Stream },
@@ -572,7 +572,7 @@ impl Positioning for Reference {
             for argument in &reference.arguments {
                 let ty = if argument.boxed(scope, owner) {
                     let inner = argument.emit(scope);
-                    quote! { ::alloc::boxed::Box<#inner> }
+                    quote! { ::std::boxed::Box<#inner> }
                 } else {
                     argument.emit(scope)
                 };
@@ -583,7 +583,7 @@ impl Positioning for Reference {
 
         let ty = self.emit(scope);
         if self.boxed(scope, owner) {
-            quote! { ::alloc::boxed::Box<#ty> }
+            quote! { ::std::boxed::Box<#ty> }
         } else {
             ty
         }
@@ -1490,12 +1490,9 @@ impl Rendering for [TokenStream] {
         let items = self;
         let tokens = quote! {
             #![allow(dead_code, non_camel_case_types, non_snake_case, unused_extern_crates, clippy::type_complexity)]
-            // Every path names core or alloc, so the module builds with and without std,
-            // and every crate path is written from the extern prelude, `::core::…`, so no
-            // declared name shadows it. `::alloc` reaches the crate root's `extern crate
-            // alloc;`: this one where the module is the root, the including crate's otherwise.
-            #[rustfmt::skip]
-            extern crate alloc;
+            // Every crate path is written from the extern prelude, `::core::…` and
+            // `::std::…`, so no declared name shadows it and the module needs no
+            // header: an open enum `Alloc` or `Std` is a module like any other.
             #( #items )*
         };
         let file: syn::File = syn::parse2(tokens).expect("generated tokens are a Rust file");
@@ -1782,7 +1779,8 @@ impl TraitImplying for crate::Signal {
         // refusal is any other `Output`.
         for name in opened {
             let capability = name.0.snake_case().identifier();
-            let module = name.module();
+            let segment = name.module();
+            let module = quote! { self::#segment };
             let variant = name.tokens();
             capabilities.push(quote! {
                 fn #capability(&self, #capability: &#module::Input) -> ::core::result::Result<#module::Output, Output>;
@@ -2059,7 +2057,7 @@ impl OpenImplementing for Identity {
         quote! {
             #[cfg(feature = "datom")]
             #[rustfmt::skip]
-            impl<Registry: #( #modules::Registry )+*> Opening<Registry> for #name {
+            impl<Registry: #( self::#modules::Registry )+*> Opening<Registry> for #name {
                 fn open(
                     datom: &::datom_codec::Datom,
                     budget: &mut ::datom_codec::Budget,
@@ -2096,8 +2094,8 @@ impl StructReading for [Reference] {
                         <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                             datom.path.clone(),
                             ::datom_codec::ErrorKind::Form {
-                                expected: ::alloc::string::String::from("Struct"),
-                                found: ::alloc::string::String::from(::datom_codec::Naming::form_name(found)),
+                                expected: ::std::string::String::from("Struct"),
+                                found: ::std::string::String::from(::datom_codec::Naming::form_name(found)),
                             },
                         ),
                     );
@@ -2155,8 +2153,8 @@ impl EnumReading for [Variant] {
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                     datom.path.clone(),
                     ::datom_codec::ErrorKind::Variant {
-                        expected: ::alloc::string::String::from(#spelled),
-                        found: ::alloc::string::String::from(other),
+                        expected: ::std::string::String::from(#spelled),
+                        found: ::std::string::String::from(other),
                     },
                 ),
             )
@@ -2189,8 +2187,8 @@ impl EnumReading for [Variant] {
                             <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                 datom.path.clone(),
                                 ::datom_codec::ErrorKind::Variant {
-                                    expected: ::alloc::string::String::from(#spelled),
-                                    found: ::alloc::string::String::from(other),
+                                    expected: ::std::string::String::from(#spelled),
+                                    found: ::std::string::String::from(other),
                                 },
                             ),
                         ),
@@ -2291,8 +2289,8 @@ impl Opening for File {
                                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                     datom.path.clone(),
                                     ::datom_codec::ErrorKind::Variant {
-                                        expected: ::alloc::string::String::from("a type the file declares"),
-                                        found: ::alloc::string::String::from(other),
+                                        expected: ::std::string::String::from("a type the file declares"),
+                                        found: ::std::string::String::from(other),
                                     },
                                 ),
                             ),
@@ -2317,7 +2315,7 @@ impl Opening for File {
         items.push(quote! {
             #[cfg(feature = "datom")]
             #[rustfmt::skip]
-            impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::alloc::vec::Vec<Value> {
+            impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::vec::Vec<Value> {
                 fn open(
                     datom: &::datom_codec::Datom,
                     budget: &mut ::datom_codec::Budget,
@@ -2331,14 +2329,14 @@ impl Opening for File {
                                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                     datom.path.clone(),
                                     ::datom_codec::ErrorKind::Form {
-                                        expected: ::alloc::string::String::from("Vector"),
-                                        found: ::alloc::string::String::from(::datom_codec::Naming::form_name(found)),
+                                        expected: ::std::string::String::from("Vector"),
+                                        found: ::std::string::String::from(::datom_codec::Naming::form_name(found)),
                                     },
                                 ),
                             );
                         }
                     };
-                    let mut values = ::alloc::vec::Vec::with_capacity(children.len());
+                    let mut values = ::std::vec::Vec::with_capacity(children.len());
                     for child in children {
                         ::datom_codec::CompositionDepthing::enter_composition(budget, &child.path)?;
                         let read = Value::open(child, budget, registry);
@@ -2367,7 +2365,7 @@ impl Opening for File {
                                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                     datom.path.clone(),
                                     ::datom_codec::ErrorKind::Variant {
-                                        expected: ::alloc::string::String::from("Option"),
+                                        expected: ::std::string::String::from("Option"),
                                         found: head.clone(),
                                     },
                                 ),
@@ -2380,8 +2378,8 @@ impl Opening for File {
                             <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                 datom.path.clone(),
                                 ::datom_codec::ErrorKind::Variant {
-                                    expected: ::alloc::string::String::from("Option"),
-                                    found: ::alloc::string::String::from(head),
+                                    expected: ::std::string::String::from("Option"),
+                                    found: ::std::string::String::from(head),
                                 },
                             ),
                         );
@@ -2396,13 +2394,13 @@ impl Opening for File {
         items.push(quote! {
             #[cfg(feature = "datom")]
             #[rustfmt::skip]
-            impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::alloc::boxed::Box<Value> {
+            impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::boxed::Box<Value> {
                 fn open(
                     datom: &::datom_codec::Datom,
                     budget: &mut ::datom_codec::Budget,
                     registry: &Registry,
                 ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-                    ::core::result::Result::Ok(::alloc::boxed::Box::new(Value::open(datom, budget, registry)?))
+                    ::core::result::Result::Ok(::std::boxed::Box::new(Value::open(datom, budget, registry)?))
                 }
             }
         });
@@ -2441,7 +2439,7 @@ impl Opening for File {
                                 path: at,
                                 form: ::datom_codec::Form::Variant(
                                     ::datom_codec::Symbol(self.name.0.clone()),
-                                    ::alloc::boxed::Box::new(body),
+                                    ::std::boxed::Box::new(body),
                                 ),
                             }
                         }
@@ -2450,7 +2448,8 @@ impl Opening for File {
             )
         };
         for open in opened {
-            let module = open.module();
+            let segment = open.module();
+            let module = quote! { self::#segment };
             let value = open.tokens();
             // The arm that reads a name carrying a type, by the type its
             // entry in the registry names.
@@ -2505,8 +2504,8 @@ impl Opening for File {
                                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                         datom.path.clone(),
                                         ::datom_codec::ErrorKind::Form {
-                                            expected: ::alloc::string::String::from("Variant"),
-                                            found: ::alloc::string::String::from(::datom_codec::Naming::form_name(found)),
+                                            expected: ::std::string::String::from("Variant"),
+                                            found: ::std::string::String::from(::datom_codec::Naming::form_name(found)),
                                         },
                                     ),
                                 );
@@ -2518,7 +2517,7 @@ impl Opening for File {
                                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                     datom.path.clone(),
                                     ::datom_codec::ErrorKind::Variant {
-                                        expected: ::alloc::string::String::from(stringify!(#value)),
+                                        expected: ::std::string::String::from(stringify!(#value)),
                                         found: head.clone(),
                                     },
                                 ),
@@ -2533,7 +2532,7 @@ impl Opening for File {
                                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                     datom.path.clone(),
                                     ::datom_codec::ErrorKind::Value {
-                                        expected: ::alloc::string::String::from("the form of the type its entry names"),
+                                        expected: ::std::string::String::from("the form of the type its entry names"),
                                         value: head.clone(),
                                     },
                                 ),

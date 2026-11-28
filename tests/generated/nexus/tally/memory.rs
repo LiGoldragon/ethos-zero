@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",

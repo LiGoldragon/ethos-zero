@@ -120,7 +120,7 @@ fn the_process_root_of_the_tally_nexus_generates_its_positions_and_its_enums() {
     assert!(rust.contains("pubstructOverflowed{}"));
     // A process born of a call holds its caller and the input; one born of a process, what its root writes.
     assert!(rust.contains(
-        "pubstructSumProcess{pubcaller:::process::Caller,pubinteger_vector:::alloc::vec::Vec<i64>,}"
+        "pubstructSumProcess{pubcaller:::process::Caller,pubinteger_vector:::std::vec::Vec<i64>,}"
     ));
     assert!(rust.contains("pubstructAddendProcess{pubaddend:Addend,}"));
     // R2: where one kind of thing returns, what a process takes is that type, bare.
@@ -401,8 +401,8 @@ fn an_open_enum_named_by_the_files_own_namespace_is_reached_once_for_check_and_g
     let rust = squeezed(&module.rust);
     // Generation reads the same reach: Input and Pair reach Model, so each
     // is read through Opening, and Pair is no variant of Carried.
-    assert!(rust.contains("impl<Registry:model::Registry>Opening<Registry>forInput"));
-    assert!(rust.contains("impl<Registry:model::Registry>Opening<Registry>forPair"));
+    assert!(rust.contains("impl<Registry:self::model::Registry>Opening<Registry>forInput"));
+    assert!(rust.contains("impl<Registry:self::model::Registry>Opening<Registry>forPair"));
     assert!(rust.contains("pubenumCarried{Effort(Effort),}"));
 }
 
@@ -430,7 +430,7 @@ fn an_imported_name_that_declares_its_payload_in_place_is_written_as_the_payload
     let rust = squeezed(&generated(&imported_payloads(), "memory"));
     // A field, a vector and an option each write the payload's derived name.
     assert!(rust.contains(
-        "pubstructHeld{pubchanged:::app::signal::Changed_Data,pubchanged_vector:::alloc::vec::Vec<::app::signal::Changed_Data>,pubchanged_option:::core::option::Option<::app::signal::Changed_Data>,"
+        "pubstructHeld{pubchanged:::app::signal::Changed_Data,pubchanged_vector:::std::vec::Vec<::app::signal::Changed_Data>,pubchanged_option:::core::option::Option<::app::signal::Changed_Data>,"
     ));
     // A newtype too.
     assert!(rust.contains("pubstructLatest(pub::app::signal::Changed_Data);"));

@@ -6,10 +6,8 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 pub trait Mixed {
-    fn inspect(&self) -> ::alloc::string::String;
+    fn inspect(&self) -> ::std::string::String;
     fn factory(&self) -> Self
     where
         Self: Sized;
@@ -18,7 +16,7 @@ pub trait Mixed {
         Self: Sized;
     fn nested(
         &self,
-    ) -> ::core::result::Result<::alloc::vec::Vec<Self>, ::alloc::string::String>
+    ) -> ::core::result::Result<::std::vec::Vec<Self>, ::std::string::String>
     where
         Self: Sized;
     fn qualified(&self) -> crate::Wrapper<Self>

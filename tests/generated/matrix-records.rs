@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -15,7 +13,7 @@ extern crate alloc;
 )]
 pub struct Watch {
     pub flow_id: ::flow::FlowId,
-    pub string: ::alloc::string::String,
+    pub string: ::std::string::String,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

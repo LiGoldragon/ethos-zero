@@ -78,7 +78,7 @@ fn generate_writes_a_named_field_module_and_replies_generated() {
     );
     let written = std::fs::read_to_string(format!("{directory}/record-types.rs")).unwrap();
     assert!(written.contains("pub struct Record"));
-    assert!(written.contains("pub string: ::alloc::string::String"));
+    assert!(written.contains("pub string: ::std::string::String"));
     assert!(written.contains("pub integer: i64"));
 }
 
@@ -612,7 +612,7 @@ fn an_organism_checks_and_generates_its_minimal_module() {
         )
     );
     let written = std::fs::read_to_string(format!("{outputs}/organism.rs")).unwrap();
-    assert!(written.contains("extern crate alloc;"));
+    assert!(written.contains("#![allow("));
     assert!(!written.contains("pub "));
 }
 

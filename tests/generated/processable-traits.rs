@@ -6,11 +6,9 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 pub trait Processable<
     A: ::core::clone::Clone + ::core::marker::Send,
     B: ::serde::Serialize,
 > {
-    fn process(&self) -> ::alloc::string::String;
+    fn process(&self) -> ::std::string::String;
 }

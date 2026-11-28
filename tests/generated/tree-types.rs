@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -27,9 +25,9 @@ extern crate alloc;
 )]
 pub struct Node_Data {
     #[rkyv(omit_bounds)]
-    pub first_tree: ::alloc::boxed::Box<Tree>,
+    pub first_tree: ::std::boxed::Box<Tree>,
     #[rkyv(omit_bounds)]
-    pub second_tree: ::alloc::boxed::Box<Tree>,
+    pub second_tree: ::std::boxed::Box<Tree>,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -52,8 +50,8 @@ pub struct Node_Data {
 pub enum Tree {
     Leaf(i64),
     Node(Node_Data),
-    Many(#[rkyv(omit_bounds)] ::alloc::vec::Vec<Tree>),
-    Maybe(#[rkyv(omit_bounds)] ::core::option::Option<::alloc::boxed::Box<Tree>>),
+    Many(#[rkyv(omit_bounds)] ::std::vec::Vec<Tree>),
+    Maybe(#[rkyv(omit_bounds)] ::core::option::Option<::std::boxed::Box<Tree>>),
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -74,9 +72,9 @@ pub enum Tree {
     )
 )]
 pub struct Chain {
-    pub string: ::alloc::string::String,
+    pub string: ::std::string::String,
     #[rkyv(omit_bounds)]
-    pub chain_option: ::core::option::Option<::alloc::boxed::Box<Chain>>,
+    pub chain_option: ::core::option::Option<::std::boxed::Box<Chain>>,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -122,7 +120,7 @@ pub struct Twin {
 )]
 pub enum Twig {
     Tip,
-    Grow(#[rkyv(omit_bounds)] ::alloc::boxed::Box<Twin>),
+    Grow(#[rkyv(omit_bounds)] ::std::boxed::Box<Twin>),
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -166,7 +164,7 @@ pub enum Knot {
 )]
 pub struct Loop {
     #[rkyv(omit_bounds)]
-    pub knot: ::alloc::boxed::Box<Knot>,
+    pub knot: ::std::boxed::Box<Knot>,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -174,7 +172,7 @@ pub struct Loop {
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Forest(pub ::alloc::vec::Vec<Tree>);
+pub struct Forest(pub ::std::vec::Vec<Tree>);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
@@ -183,9 +181,9 @@ pub struct Forest(pub ::alloc::vec::Vec<Tree>);
 )]
 pub struct Wrapped {
     pub integer_option: ::core::option::Option<i64>,
-    pub string_integer_result: ::core::result::Result<::alloc::string::String, i64>,
-    pub string_option_vector: ::alloc::vec::Vec<
-        ::core::option::Option<::alloc::string::String>,
+    pub string_integer_result: ::core::result::Result<::std::string::String, i64>,
+    pub string_option_vector: ::std::vec::Vec<
+        ::core::option::Option<::std::string::String>,
     >,
 }
 #[rustfmt::skip]
@@ -205,7 +203,7 @@ pub enum A_Data {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct B_Data {
-    pub string: ::alloc::string::String,
+    pub string: ::std::string::String,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -224,11 +222,11 @@ pub enum Nested {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Deep(
-    pub ::alloc::vec::Vec<
-        ::alloc::vec::Vec<
-            ::alloc::vec::Vec<
+    pub ::std::vec::Vec<
+        ::std::vec::Vec<
+            ::std::vec::Vec<
                 ::core::option::Option<
-                    ::core::result::Result<::alloc::string::String, i64>,
+                    ::core::result::Result<::std::string::String, i64>,
                 >,
             >,
         >,

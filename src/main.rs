@@ -1,8 +1,5 @@
 //! The ethos-zero CLI, expressed through its generated Signal contract.
 
-// A generated module writes `::alloc::…`, which reaches the crate root's alloc.
-extern crate alloc;
-
 use std::path::Path as SystemPath;
 use std::process::ExitCode;
 

@@ -6,14 +6,12 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Short(pub ::alloc::string::String);
+pub struct Short(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
@@ -39,8 +37,8 @@ pub struct OptionalSpiritGuardianMaximumOutputTokens(
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Nested(
-    pub ::alloc::vec::Vec<
-        ::core::option::Option<::core::result::Result<::alloc::string::String, i64>>,
+    pub ::std::vec::Vec<
+        ::core::option::Option<::core::result::Result<::std::string::String, i64>>,
     >,
 );
 #[rustfmt::skip]
@@ -49,7 +47,7 @@ pub struct Nested(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct SpiritGuardianProviderName(pub ::alloc::string::String);
+pub struct SpiritGuardianProviderName(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(

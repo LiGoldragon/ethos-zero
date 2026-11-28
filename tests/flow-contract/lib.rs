@@ -8,9 +8,6 @@
 
 extern crate self as flow;
 
-// A generated module writes `::alloc::…`, which reaches the crate root's alloc.
-extern crate alloc;
-
 pub use library::{Event, FlowId, Voice};
 
 #[path = "../generated/flow-library.rs"]
@@ -75,9 +72,10 @@ mod wire {
     }
 
     #[test]
-    fn open_enums_named_core_and_flow_shadow_no_path_beside_an_import_from_flow() {
-        // The contract modules `shadow::core` and `shadow::flow` stand beside
-        // `::core::…` and the `::flow::Voice` the Pair holds.
+    fn open_enums_named_core_flow_alloc_and_std_shadow_no_path_beside_an_import_from_flow() {
+        // The contract modules `shadow::core`, `shadow::flow`, `shadow::alloc`
+        // and `shadow::std` stand beside `::core::…`, `::std::…` and the
+        // `::flow::Voice` the Pair holds.
         crosses(shadow::Input::Launch(shadow::Pair {
             core: shadow::Core {
                 name: shadow::core::Name("Rank".to_owned()),
@@ -87,9 +85,19 @@ mod wire {
                 name: shadow::flow::Name("Voice".to_owned()),
                 carried: Some(shadow::Carried::Mark(shadow::Mark("seal".to_owned()))),
             },
+            alloc: shadow::Alloc {
+                name: shadow::alloc::Name("Heap".to_owned()),
+                carried: None,
+            },
+            std: shadow::Std {
+                name: shadow::std::Name("Library".to_owned()),
+                carried: None,
+            },
             voice: library::Voice::Mind(library::Rank::Primary),
         }));
         crosses(shadow::flow::Input::List);
+        crosses(shadow::alloc::Input::List);
+        crosses(shadow::std::Input::List);
     }
 
     #[cfg(feature = "datom")]

@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -57,7 +55,7 @@ pub struct Overflowed {}
 )]
 pub struct SumProcess {
     pub caller: ::process::Caller,
-    pub integer_vector: ::alloc::vec::Vec<i64>,
+    pub integer_vector: ::std::vec::Vec<i64>,
 }
 #[rustfmt::skip]
 pub type SumTaken = Adding;

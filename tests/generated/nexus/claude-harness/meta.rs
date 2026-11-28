@@ -6,28 +6,26 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct HookName(pub ::alloc::string::String);
+pub struct HookName(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Hooks(pub ::alloc::vec::Vec<HookName>);
+pub struct Hooks(pub ::std::vec::Vec<HookName>);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct HookClient(pub ::alloc::string::String);
+pub struct HookClient(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(

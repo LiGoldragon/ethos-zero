@@ -6,21 +6,19 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Home(pub ::alloc::string::String);
+pub struct Home(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Login(pub ::alloc::vec::Vec<::alloc::string::String>);
+pub struct Login(pub ::std::vec::Vec<::std::string::String>);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
@@ -70,5 +68,5 @@ pub enum Operation {
 pub enum Outcome {
     Started(::flow::FlowId),
     Recorded,
-    Failed(::alloc::string::String),
+    Failed(::std::string::String),
 }

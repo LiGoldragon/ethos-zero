@@ -6,18 +6,21 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(::datom_codec::Datomizable))]
 pub struct Pair {
     pub core: Core,
     pub flow: Flow,
+    pub alloc: Alloc,
+    pub std: Std,
     pub voice: ::flow::Voice,
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl<Registry: core::Registry + flow::Registry> Opening<Registry> for Pair {
+impl<
+    Registry: self::core::Registry + self::flow::Registry + self::alloc::Registry
+        + self::std::Registry,
+> Opening<Registry> for Pair {
     fn open(
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
@@ -31,8 +34,8 @@ impl<Registry: core::Registry + flow::Registry> Opening<Registry> for Pair {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Form {
-                            expected: ::alloc::string::String::from("Struct"),
-                            found: ::alloc::string::String::from(
+                            expected: ::std::string::String::from("Struct"),
+                            found: ::std::string::String::from(
                                 ::datom_codec::Naming::form_name(found),
                             ),
                         },
@@ -40,12 +43,12 @@ impl<Registry: core::Registry + flow::Registry> Opening<Registry> for Pair {
                 );
             }
         };
-        if children.len() != 3 {
+        if children.len() != 5 {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                     datom.path.clone(),
                     ::datom_codec::ErrorKind::Arity {
-                        expected: 3,
+                        expected: 5,
                         found: children.len() as ::datom_codec::Integer,
                     },
                 ),
@@ -72,7 +75,27 @@ impl<Registry: core::Registry + flow::Registry> Opening<Registry> for Pair {
                 ::datom_codec::CompositionDepthing::leave_composition(budget);
                 read?
             },
-            voice: ::datom_codec::Composable::compose(&children[2], budget)?,
+            alloc: {
+                let child = &children[2];
+                ::datom_codec::CompositionDepthing::enter_composition(
+                    budget,
+                    &child.path,
+                )?;
+                let read = Opening::open(child, budget, registry);
+                ::datom_codec::CompositionDepthing::leave_composition(budget);
+                read?
+            },
+            std: {
+                let child = &children[3];
+                ::datom_codec::CompositionDepthing::enter_composition(
+                    budget,
+                    &child.path,
+                )?;
+                let read = Opening::open(child, budget, registry);
+                ::datom_codec::CompositionDepthing::leave_composition(budget);
+                read?
+            },
+            voice: ::datom_codec::Composable::compose(&children[4], budget)?,
         })
     }
 }
@@ -82,7 +105,7 @@ impl<Registry: core::Registry + flow::Registry> Opening<Registry> for Pair {
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Mark(pub ::alloc::string::String);
+pub struct Mark(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
@@ -128,10 +151,10 @@ impl Carrying for Carried {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Variant {
-                            expected: ::alloc::string::String::from(
+                            expected: ::std::string::String::from(
                                 "a type the file declares",
                             ),
-                            found: ::alloc::string::String::from(other),
+                            found: ::std::string::String::from(other),
                         },
                     ),
                 )
@@ -150,7 +173,7 @@ pub trait Opening<Registry>: Sized {
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::alloc::vec::Vec<Value> {
+impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::vec::Vec<Value> {
     fn open(
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
@@ -164,8 +187,8 @@ impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::alloc::vec::Vec
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Form {
-                            expected: ::alloc::string::String::from("Vector"),
-                            found: ::alloc::string::String::from(
+                            expected: ::std::string::String::from("Vector"),
+                            found: ::std::string::String::from(
                                 ::datom_codec::Naming::form_name(found),
                             ),
                         },
@@ -173,7 +196,7 @@ impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::alloc::vec::Vec
                 );
             }
         };
-        let mut values = ::alloc::vec::Vec::with_capacity(children.len());
+        let mut values = ::std::vec::Vec::with_capacity(children.len());
         for child in children {
             ::datom_codec::CompositionDepthing::enter_composition(budget, &child.path)?;
             let read = Value::open(child, budget, registry);
@@ -201,7 +224,7 @@ for ::core::option::Option<Value> {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Variant {
-                            expected: ::alloc::string::String::from("Option"),
+                            expected: ::std::string::String::from("Option"),
                             found: head.clone(),
                         },
                     ),
@@ -218,8 +241,8 @@ for ::core::option::Option<Value> {
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                     datom.path.clone(),
                     ::datom_codec::ErrorKind::Variant {
-                        expected: ::alloc::string::String::from("Option"),
-                        found: ::alloc::string::String::from(head),
+                        expected: ::std::string::String::from("Option"),
+                        found: ::std::string::String::from(head),
                     },
                 ),
             );
@@ -232,15 +255,14 @@ for ::core::option::Option<Value> {
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl<Registry, Value: Opening<Registry>> Opening<Registry>
-for ::alloc::boxed::Box<Value> {
+impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::boxed::Box<Value> {
     fn open(
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
         registry: &Registry,
     ) -> ::core::result::Result<Self, ::datom_codec::Error> {
         ::core::result::Result::Ok(
-            ::alloc::boxed::Box::new(Value::open(datom, budget, registry)?),
+            ::std::boxed::Box::new(Value::open(datom, budget, registry)?),
         )
     }
 }
@@ -263,7 +285,7 @@ pub mod core {
         feature = "datom",
         derive(::datom_codec::Datomizable, ::datom_codec::Composing)
     )]
-    pub struct Name(pub ::alloc::string::String);
+    pub struct Name(pub ::std::string::String);
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -281,7 +303,7 @@ pub mod core {
         feature = "datom",
         derive(::datom_codec::Datomizable, ::datom_codec::Composing)
     )]
-    pub struct Word(pub ::alloc::string::String);
+    pub struct Word(pub ::std::string::String);
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -297,7 +319,7 @@ pub mod core {
         feature = "datom",
         derive(::datom_codec::Datomizable, ::datom_codec::Composing)
     )]
-    pub struct Namespace(pub ::alloc::vec::Vec<Word>);
+    pub struct Namespace(pub ::std::vec::Vec<Word>);
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -315,7 +337,7 @@ pub mod core {
     )]
     pub struct Import {
         pub namespace: Namespace,
-        pub name_vector: ::alloc::vec::Vec<Name>,
+        pub name_vector: ::std::vec::Vec<Name>,
     }
     #[rustfmt::skip]
     #[derive(
@@ -420,7 +442,7 @@ pub mod core {
     pub struct Applied_Data {
         pub name: Name,
         #[rkyv(omit_bounds)]
-        pub type_vector: ::alloc::vec::Vec<Type>,
+        pub type_vector: ::std::vec::Vec<Type>,
     }
     #[rustfmt::skip]
     #[derive(
@@ -455,10 +477,10 @@ pub mod core {
     pub enum Type {
         Name(Name),
         Import(Import),
-        Declaration(#[rkyv(omit_bounds)] ::alloc::boxed::Box<Declaration>),
-        Struct(#[rkyv(omit_bounds)] ::alloc::vec::Vec<Type>),
-        Enum(#[rkyv(omit_bounds)] ::alloc::vec::Vec<Variant>),
-        Vector(#[rkyv(omit_bounds)] ::alloc::boxed::Box<Type>),
+        Declaration(#[rkyv(omit_bounds)] ::std::boxed::Box<Declaration>),
+        Struct(#[rkyv(omit_bounds)] ::std::vec::Vec<Type>),
+        Enum(#[rkyv(omit_bounds)] ::std::vec::Vec<Variant>),
+        Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
         Applied(Applied_Data),
     }
     #[rustfmt::skip]
@@ -499,8 +521,8 @@ pub mod core {
     pub enum Output {
         Added(Variant),
         Removed(Name),
-        Listed(::alloc::vec::Vec<Variant>),
-        Refused(::alloc::string::String),
+        Listed(::std::vec::Vec<Variant>),
+        Refused(::std::string::String),
     }
     pub trait Registry {
         fn variant(&self, name: &Name) -> ::core::option::Option<Variant>;
@@ -509,7 +531,7 @@ pub mod core {
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Core {
-    pub name: core::Name,
+    pub name: self::core::Name,
     pub carried: ::core::option::Option<Carried>,
 }
 #[cfg(feature = "datom")]
@@ -536,7 +558,7 @@ impl ::datom_codec::Datomizable for Core {
                     path: at,
                     form: ::datom_codec::Form::Variant(
                         ::datom_codec::Symbol(self.name.0.clone()),
-                        ::alloc::boxed::Box::new(body),
+                        ::std::boxed::Box::new(body),
                     ),
                 }
             }
@@ -545,7 +567,7 @@ impl ::datom_codec::Datomizable for Core {
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl<Registry: core::Registry> Opening<Registry> for Core {
+impl<Registry: self::core::Registry> Opening<Registry> for Core {
     fn open(
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
@@ -562,8 +584,8 @@ impl<Registry: core::Registry> Opening<Registry> for Core {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Form {
-                            expected: ::alloc::string::String::from("Variant"),
-                            found: ::alloc::string::String::from(
+                            expected: ::std::string::String::from("Variant"),
+                            found: ::std::string::String::from(
                                 ::datom_codec::Naming::form_name(found),
                             ),
                         },
@@ -571,13 +593,13 @@ impl<Registry: core::Registry> Opening<Registry> for Core {
                 );
             }
         };
-        let name = core::Name(head.clone());
+        let name = self::core::Name(head.clone());
         let ::core::option::Option::Some(entry) = registry.variant(&name) else {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                     datom.path.clone(),
                     ::datom_codec::ErrorKind::Variant {
-                        expected: ::alloc::string::String::from(stringify!(Core)),
+                        expected: ::std::string::String::from(stringify!(Core)),
                         found: head.clone(),
                     },
                 ),
@@ -591,7 +613,7 @@ impl<Registry: core::Registry> Opening<Registry> for Core {
                 })
             }
             (
-                ::core::option::Option::Some(core::Type::Name(carried)),
+                ::core::option::Option::Some(self::core::Type::Name(carried)),
                 ::core::option::Option::Some(body),
             ) => {
                 let carried = <Carried as Carrying>::read(
@@ -609,7 +631,7 @@ impl<Registry: core::Registry> Opening<Registry> for Core {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Value {
-                            expected: ::alloc::string::String::from(
+                            expected: ::std::string::String::from(
                                 "the form of the type its entry names",
                             ),
                             value: head.clone(),
@@ -639,7 +661,7 @@ pub mod flow {
         feature = "datom",
         derive(::datom_codec::Datomizable, ::datom_codec::Composing)
     )]
-    pub struct Name(pub ::alloc::string::String);
+    pub struct Name(pub ::std::string::String);
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -657,7 +679,7 @@ pub mod flow {
         feature = "datom",
         derive(::datom_codec::Datomizable, ::datom_codec::Composing)
     )]
-    pub struct Word(pub ::alloc::string::String);
+    pub struct Word(pub ::std::string::String);
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -673,7 +695,7 @@ pub mod flow {
         feature = "datom",
         derive(::datom_codec::Datomizable, ::datom_codec::Composing)
     )]
-    pub struct Namespace(pub ::alloc::vec::Vec<Word>);
+    pub struct Namespace(pub ::std::vec::Vec<Word>);
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -691,7 +713,7 @@ pub mod flow {
     )]
     pub struct Import {
         pub namespace: Namespace,
-        pub name_vector: ::alloc::vec::Vec<Name>,
+        pub name_vector: ::std::vec::Vec<Name>,
     }
     #[rustfmt::skip]
     #[derive(
@@ -796,7 +818,7 @@ pub mod flow {
     pub struct Applied_Data {
         pub name: Name,
         #[rkyv(omit_bounds)]
-        pub type_vector: ::alloc::vec::Vec<Type>,
+        pub type_vector: ::std::vec::Vec<Type>,
     }
     #[rustfmt::skip]
     #[derive(
@@ -831,10 +853,10 @@ pub mod flow {
     pub enum Type {
         Name(Name),
         Import(Import),
-        Declaration(#[rkyv(omit_bounds)] ::alloc::boxed::Box<Declaration>),
-        Struct(#[rkyv(omit_bounds)] ::alloc::vec::Vec<Type>),
-        Enum(#[rkyv(omit_bounds)] ::alloc::vec::Vec<Variant>),
-        Vector(#[rkyv(omit_bounds)] ::alloc::boxed::Box<Type>),
+        Declaration(#[rkyv(omit_bounds)] ::std::boxed::Box<Declaration>),
+        Struct(#[rkyv(omit_bounds)] ::std::vec::Vec<Type>),
+        Enum(#[rkyv(omit_bounds)] ::std::vec::Vec<Variant>),
+        Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
         Applied(Applied_Data),
     }
     #[rustfmt::skip]
@@ -875,8 +897,8 @@ pub mod flow {
     pub enum Output {
         Added(Variant),
         Removed(Name),
-        Listed(::alloc::vec::Vec<Variant>),
-        Refused(::alloc::string::String),
+        Listed(::std::vec::Vec<Variant>),
+        Refused(::std::string::String),
     }
     pub trait Registry {
         fn variant(&self, name: &Name) -> ::core::option::Option<Variant>;
@@ -885,7 +907,7 @@ pub mod flow {
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Flow {
-    pub name: flow::Name,
+    pub name: self::flow::Name,
     pub carried: ::core::option::Option<Carried>,
 }
 #[cfg(feature = "datom")]
@@ -912,7 +934,7 @@ impl ::datom_codec::Datomizable for Flow {
                     path: at,
                     form: ::datom_codec::Form::Variant(
                         ::datom_codec::Symbol(self.name.0.clone()),
-                        ::alloc::boxed::Box::new(body),
+                        ::std::boxed::Box::new(body),
                     ),
                 }
             }
@@ -921,7 +943,7 @@ impl ::datom_codec::Datomizable for Flow {
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl<Registry: flow::Registry> Opening<Registry> for Flow {
+impl<Registry: self::flow::Registry> Opening<Registry> for Flow {
     fn open(
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
@@ -938,8 +960,8 @@ impl<Registry: flow::Registry> Opening<Registry> for Flow {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Form {
-                            expected: ::alloc::string::String::from("Variant"),
-                            found: ::alloc::string::String::from(
+                            expected: ::std::string::String::from("Variant"),
+                            found: ::std::string::String::from(
                                 ::datom_codec::Naming::form_name(found),
                             ),
                         },
@@ -947,13 +969,13 @@ impl<Registry: flow::Registry> Opening<Registry> for Flow {
                 );
             }
         };
-        let name = flow::Name(head.clone());
+        let name = self::flow::Name(head.clone());
         let ::core::option::Option::Some(entry) = registry.variant(&name) else {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                     datom.path.clone(),
                     ::datom_codec::ErrorKind::Variant {
-                        expected: ::alloc::string::String::from(stringify!(Flow)),
+                        expected: ::std::string::String::from(stringify!(Flow)),
                         found: head.clone(),
                     },
                 ),
@@ -967,7 +989,7 @@ impl<Registry: flow::Registry> Opening<Registry> for Flow {
                 })
             }
             (
-                ::core::option::Option::Some(flow::Type::Name(carried)),
+                ::core::option::Option::Some(self::flow::Type::Name(carried)),
                 ::core::option::Option::Some(body),
             ) => {
                 let carried = <Carried as Carrying>::read(
@@ -985,7 +1007,759 @@ impl<Registry: flow::Registry> Opening<Registry> for Flow {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Value {
-                            expected: ::alloc::string::String::from(
+                            expected: ::std::string::String::from(
+                                "the form of the type its entry names",
+                            ),
+                            value: head.clone(),
+                        },
+                    ),
+                )
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+pub mod alloc {
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Name(pub ::std::string::String);
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Word(pub ::std::string::String);
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Namespace(pub ::std::vec::Vec<Word>);
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Import {
+        pub namespace: Namespace,
+        pub name_vector: ::std::vec::Vec<Name>,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub struct Declaration {
+        pub name: Name,
+        #[rkyv(omit_bounds)]
+        pub r#type: Type,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub struct Variant {
+        pub name: Name,
+        #[rkyv(omit_bounds)]
+        pub type_option: ::core::option::Option<Type>,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub struct Applied_Data {
+        pub name: Name,
+        #[rkyv(omit_bounds)]
+        pub type_vector: ::std::vec::Vec<Type>,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub enum Type {
+        Name(Name),
+        Import(Import),
+        Declaration(#[rkyv(omit_bounds)] ::std::boxed::Box<Declaration>),
+        Struct(#[rkyv(omit_bounds)] ::std::vec::Vec<Type>),
+        Enum(#[rkyv(omit_bounds)] ::std::vec::Vec<Variant>),
+        Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
+        Applied(Applied_Data),
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub enum Input {
+        Add(Variant),
+        Remove(Name),
+        List,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub enum Output {
+        Added(Variant),
+        Removed(Name),
+        Listed(::std::vec::Vec<Variant>),
+        Refused(::std::string::String),
+    }
+    pub trait Registry {
+        fn variant(&self, name: &Name) -> ::core::option::Option<Variant>;
+    }
+}
+#[rustfmt::skip]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Alloc {
+    pub name: self::alloc::Name,
+    pub carried: ::core::option::Option<Carried>,
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl ::datom_codec::Datomizable for Alloc {
+    fn datomize(&self, at: ::datom_codec::Path) -> ::datom_codec::Datom {
+        match &self.carried {
+            ::core::option::Option::None => {
+                ::datom_codec::Datom {
+                    path: at,
+                    form: ::datom_codec::Form::Bare(self.name.0.clone()),
+                }
+            }
+            ::core::option::Option::Some(carried) => {
+                let body = match *carried {
+                    Carried::Mark(ref value) => {
+                        ::datom_codec::Datomizable::datomize(
+                            value,
+                            ::datom_codec::Branchable::child(&at, 1),
+                        )
+                    }
+                };
+                ::datom_codec::Datom {
+                    path: at,
+                    form: ::datom_codec::Form::Variant(
+                        ::datom_codec::Symbol(self.name.0.clone()),
+                        ::std::boxed::Box::new(body),
+                    ),
+                }
+            }
+        }
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry: self::alloc::Registry> Opening<Registry> for Alloc {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        ::datom_codec::Budgeted::spend(budget, &datom.path)?;
+        let (head, body) = match &datom.form {
+            ::datom_codec::Form::Bare(head) => (head, ::core::option::Option::None),
+            ::datom_codec::Form::Variant(head, body) => {
+                (&head.0, ::core::option::Option::Some(&**body))
+            }
+            found => {
+                return ::core::result::Result::Err(
+                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        ::datom_codec::ErrorKind::Form {
+                            expected: ::std::string::String::from("Variant"),
+                            found: ::std::string::String::from(
+                                ::datom_codec::Naming::form_name(found),
+                            ),
+                        },
+                    ),
+                );
+            }
+        };
+        let name = self::alloc::Name(head.clone());
+        let ::core::option::Option::Some(entry) = registry.variant(&name) else {
+            return ::core::result::Result::Err(
+                <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                    datom.path.clone(),
+                    ::datom_codec::ErrorKind::Variant {
+                        expected: ::std::string::String::from(stringify!(Alloc)),
+                        found: head.clone(),
+                    },
+                ),
+            );
+        };
+        match (entry.type_option, body) {
+            (::core::option::Option::None, ::core::option::Option::None) => {
+                ::core::result::Result::Ok(Self {
+                    name,
+                    carried: ::core::option::Option::None,
+                })
+            }
+            (
+                ::core::option::Option::Some(self::alloc::Type::Name(carried)),
+                ::core::option::Option::Some(body),
+            ) => {
+                let carried = <Carried as Carrying>::read(
+                    carried.0.as_str(),
+                    body,
+                    budget,
+                )?;
+                ::core::result::Result::Ok(Self {
+                    name,
+                    carried: ::core::option::Option::Some(carried),
+                })
+            }
+            _ => {
+                ::core::result::Result::Err(
+                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        ::datom_codec::ErrorKind::Value {
+                            expected: ::std::string::String::from(
+                                "the form of the type its entry names",
+                            ),
+                            value: head.clone(),
+                        },
+                    ),
+                )
+            }
+        }
+    }
+}
+#[rustfmt::skip]
+pub mod std {
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Name(pub ::std::string::String);
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Word(pub ::std::string::String);
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Namespace(pub ::std::vec::Vec<Word>);
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Import {
+        pub namespace: Namespace,
+        pub name_vector: ::std::vec::Vec<Name>,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub struct Declaration {
+        pub name: Name,
+        #[rkyv(omit_bounds)]
+        pub r#type: Type,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub struct Variant {
+        pub name: Name,
+        #[rkyv(omit_bounds)]
+        pub type_option: ::core::option::Option<Type>,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub struct Applied_Data {
+        pub name: Name,
+        #[rkyv(omit_bounds)]
+        pub type_vector: ::std::vec::Vec<Type>,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub enum Type {
+        Name(Name),
+        Import(Import),
+        Declaration(#[rkyv(omit_bounds)] ::std::boxed::Box<Declaration>),
+        Struct(#[rkyv(omit_bounds)] ::std::vec::Vec<Type>),
+        Enum(#[rkyv(omit_bounds)] ::std::vec::Vec<Variant>),
+        Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
+        Applied(Applied_Data),
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub enum Input {
+        Add(Variant),
+        Remove(Name),
+        List,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub enum Output {
+        Added(Variant),
+        Removed(Name),
+        Listed(::std::vec::Vec<Variant>),
+        Refused(::std::string::String),
+    }
+    pub trait Registry {
+        fn variant(&self, name: &Name) -> ::core::option::Option<Variant>;
+    }
+}
+#[rustfmt::skip]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Std {
+    pub name: self::std::Name,
+    pub carried: ::core::option::Option<Carried>,
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl ::datom_codec::Datomizable for Std {
+    fn datomize(&self, at: ::datom_codec::Path) -> ::datom_codec::Datom {
+        match &self.carried {
+            ::core::option::Option::None => {
+                ::datom_codec::Datom {
+                    path: at,
+                    form: ::datom_codec::Form::Bare(self.name.0.clone()),
+                }
+            }
+            ::core::option::Option::Some(carried) => {
+                let body = match *carried {
+                    Carried::Mark(ref value) => {
+                        ::datom_codec::Datomizable::datomize(
+                            value,
+                            ::datom_codec::Branchable::child(&at, 1),
+                        )
+                    }
+                };
+                ::datom_codec::Datom {
+                    path: at,
+                    form: ::datom_codec::Form::Variant(
+                        ::datom_codec::Symbol(self.name.0.clone()),
+                        ::std::boxed::Box::new(body),
+                    ),
+                }
+            }
+        }
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry: self::std::Registry> Opening<Registry> for Std {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        ::datom_codec::Budgeted::spend(budget, &datom.path)?;
+        let (head, body) = match &datom.form {
+            ::datom_codec::Form::Bare(head) => (head, ::core::option::Option::None),
+            ::datom_codec::Form::Variant(head, body) => {
+                (&head.0, ::core::option::Option::Some(&**body))
+            }
+            found => {
+                return ::core::result::Result::Err(
+                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        ::datom_codec::ErrorKind::Form {
+                            expected: ::std::string::String::from("Variant"),
+                            found: ::std::string::String::from(
+                                ::datom_codec::Naming::form_name(found),
+                            ),
+                        },
+                    ),
+                );
+            }
+        };
+        let name = self::std::Name(head.clone());
+        let ::core::option::Option::Some(entry) = registry.variant(&name) else {
+            return ::core::result::Result::Err(
+                <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                    datom.path.clone(),
+                    ::datom_codec::ErrorKind::Variant {
+                        expected: ::std::string::String::from(stringify!(Std)),
+                        found: head.clone(),
+                    },
+                ),
+            );
+        };
+        match (entry.type_option, body) {
+            (::core::option::Option::None, ::core::option::Option::None) => {
+                ::core::result::Result::Ok(Self {
+                    name,
+                    carried: ::core::option::Option::None,
+                })
+            }
+            (
+                ::core::option::Option::Some(self::std::Type::Name(carried)),
+                ::core::option::Option::Some(body),
+            ) => {
+                let carried = <Carried as Carrying>::read(
+                    carried.0.as_str(),
+                    body,
+                    budget,
+                )?;
+                ::core::result::Result::Ok(Self {
+                    name,
+                    carried: ::core::option::Option::Some(carried),
+                })
+            }
+            _ => {
+                ::core::result::Result::Err(
+                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        ::datom_codec::ErrorKind::Value {
+                            expected: ::std::string::String::from(
                                 "the form of the type its entry names",
                             ),
                             value: head.clone(),
@@ -1004,10 +1778,15 @@ pub enum Input {
     Stop(Mark),
     Core(self::core::Input),
     Flow(self::flow::Input),
+    Alloc(self::alloc::Input),
+    Std(self::std::Input),
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl<Registry: core::Registry + flow::Registry> Opening<Registry> for Input {
+impl<
+    Registry: self::core::Registry + self::flow::Registry + self::alloc::Registry
+        + self::std::Registry,
+> Opening<Registry> for Input {
     fn open(
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
@@ -1021,8 +1800,8 @@ impl<Registry: core::Registry + flow::Registry> Opening<Registry> for Input {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Variant {
-                            expected: ::alloc::string::String::from("Input"),
-                            found: ::alloc::string::String::from(other),
+                            expected: ::std::string::String::from("Input"),
+                            found: ::std::string::String::from(other),
                         },
                     ),
                 )
@@ -1065,13 +1844,25 @@ impl<Registry: core::Registry + flow::Registry> Opening<Registry> for Input {
                             Self::Flow(::datom_codec::Composable::compose(body, budget)?),
                         )
                     }
+                    "Alloc" => {
+                        ::core::result::Result::Ok(
+                            Self::Alloc(
+                                ::datom_codec::Composable::compose(body, budget)?,
+                            ),
+                        )
+                    }
+                    "Std" => {
+                        ::core::result::Result::Ok(
+                            Self::Std(::datom_codec::Composable::compose(body, budget)?),
+                        )
+                    }
                     other => {
                         ::core::result::Result::Err(
                             <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                 datom.path.clone(),
                                 ::datom_codec::ErrorKind::Variant {
-                                    expected: ::alloc::string::String::from("Input"),
-                                    found: ::alloc::string::String::from(other),
+                                    expected: ::std::string::String::from("Input"),
+                                    found: ::std::string::String::from(other),
                                 },
                             ),
                         )
@@ -1089,20 +1880,33 @@ impl<Registry: core::Registry + flow::Registry> Opening<Registry> for Input {
 )]
 pub enum Output {
     Launched,
-    Refused(::alloc::string::String),
+    Refused(::std::string::String),
     Core(self::core::Output),
     Flow(self::flow::Output),
+    Alloc(self::alloc::Output),
+    Std(self::std::Output),
 }
 #[rustfmt::skip]
 #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
     fn launch(&self, pair: &Pair) -> ::core::result::Result<(), Output>;
-    fn stop(
+    fn stop(&self, mark: &Mark) -> ::core::result::Result<::std::string::String, Output>;
+    fn core(
         &self,
-        mark: &Mark,
-    ) -> ::core::result::Result<::alloc::string::String, Output>;
-    fn core(&self, core: &core::Input) -> ::core::result::Result<core::Output, Output>;
-    fn flow(&self, flow: &flow::Input) -> ::core::result::Result<flow::Output, Output>;
+        core: &self::core::Input,
+    ) -> ::core::result::Result<self::core::Output, Output>;
+    fn flow(
+        &self,
+        flow: &self::flow::Input,
+    ) -> ::core::result::Result<self::flow::Output, Output>;
+    fn alloc(
+        &self,
+        alloc: &self::alloc::Input,
+    ) -> ::core::result::Result<self::alloc::Output, Output>;
+    fn std(
+        &self,
+        std: &self::std::Input,
+    ) -> ::core::result::Result<self::std::Output, Output>;
 }
 #[rustfmt::skip]
 pub trait Answerable {
@@ -1127,6 +1931,12 @@ impl Answerable for Input {
             }
             Input::Flow(carried) => {
                 nexus.flow(carried).map_or_else(|refusal| refusal, Output::Flow)
+            }
+            Input::Alloc(carried) => {
+                nexus.alloc(carried).map_or_else(|refusal| refusal, Output::Alloc)
+            }
+            Input::Std(carried) => {
+                nexus.std(carried).map_or_else(|refusal| refusal, Output::Std)
             }
         }
     }

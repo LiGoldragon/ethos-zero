@@ -2,6 +2,25 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 45.0.0: no alloc header; an open enum's own module is written from self
+
+A generated module opens with no `extern crate alloc;`: every standard path
+is written from `::std` or `::core`, `::std::string::String`, `::std::vec::Vec`,
+`::std::boxed::Box`, `::core::option::Option`, `::core::result::Result`, where
+43.0.0 wrote `::alloc::…`. No declared name is refused for the sake of Rust:
+an open enum `Alloc` or `Std` generates `pub mod alloc` or `pub mod std`
+beside `::std::…`, which under 43.0.0 collided with the header. Every path into
+an open enum's own contract module is written from `self`: `self::model::Name`
+in the value, `self::model::Registry` in every `Opening` bound,
+`self::model::Input` and `self::model::Output` in the `Answering` capability,
+`self::model::Type` in the reading, as the `Input` and `Output` variants
+already were.
+
+To deploy: repin to 45.0.0 and regenerate. A crate that declared
+`extern crate alloc;` at its root only for a generated module may drop it; a
+crate built without std cannot include a generated module, which names `::std`.
+No Ethos source changes, and the Rust API of ethos-zero is unchanged.
+
 ## 44.0.0: what a type reaches is decided once
 
 What a type reaches, the open enums it holds, is decided once for a file,

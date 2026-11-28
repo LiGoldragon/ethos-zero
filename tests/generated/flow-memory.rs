@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -27,5 +25,5 @@ pub struct Flow {
     pub flow_id: ::flow::FlowId,
     pub voice: ::flow::Voice,
     pub state: State,
-    pub event_vector: ::alloc::vec::Vec<::flow::Event>,
+    pub event_vector: ::std::vec::Vec<::flow::Event>,
 }

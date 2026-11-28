@@ -6,28 +6,26 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
+pub struct Question(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Question(pub ::alloc::string::String);
+pub struct Reply(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Reply(pub ::alloc::string::String);
-#[rustfmt::skip]
-#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(
-    feature = "datom",
-    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-)]
-pub struct Nexus(pub ::alloc::string::String);
+pub struct Nexus(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(

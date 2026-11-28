@@ -144,7 +144,7 @@ fn an_organism_generates_the_minimal_module() {
     assert_eq!(assembled.len(), 1);
     assert_eq!(assembled[0].stem, "organism");
     assert!(!assembled[0].rust.contains("pub "), "{}", assembled[0].rust);
-    assert!(assembled[0].rust.contains("extern crate alloc;"));
+    assert!(assembled[0].rust.contains("#![allow("));
 }
 
 #[test]

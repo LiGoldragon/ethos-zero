@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -24,7 +22,7 @@ pub struct Structural_Error {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Conceptual_Data {
-    pub integer_vector: ::alloc::vec::Vec<i64>,
+    pub integer_vector: ::std::vec::Vec<i64>,
     pub problem: Problem,
 }
 #[rustfmt::skip]
@@ -54,8 +52,8 @@ pub struct Arity_Data {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Wrapping_Data {
-    pub first_string: ::alloc::string::String,
-    pub second_string: ::alloc::string::String,
+    pub first_string: ::std::string::String,
+    pub second_string: ::std::string::String,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -141,28 +139,28 @@ pub enum Form {
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Name(pub ::alloc::string::String);
+pub struct Name(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Namespace(pub ::alloc::string::String);
+pub struct Namespace(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Successor(pub ::alloc::string::String);
+pub struct Successor(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Field(pub ::alloc::string::String);
+pub struct Field(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(

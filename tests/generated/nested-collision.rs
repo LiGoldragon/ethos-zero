@@ -6,15 +6,13 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct A_Data_X_Data {
-    pub string: ::alloc::string::String,
+    pub string: ::std::string::String,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -62,8 +60,8 @@ pub enum Outer {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct PathOverlap_Data {
-    pub first_string: ::alloc::string::String,
-    pub second_string: ::alloc::string::String,
+    pub first_string: ::std::string::String,
+    pub second_string: ::std::string::String,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

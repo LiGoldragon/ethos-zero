@@ -643,9 +643,8 @@ fn the_sets_open_enum_module_resolves_its_imports_given_or_not() {
     let assembled = inferred.assemble().unwrap();
     let matrix = &assembled[0].rust;
     assert!(
-        matrix.contains(
-            "pub struct Models(pub ::alloc::vec::Vec<::models::signal::model::Variant>);"
-        ),
+        matrix
+            .contains("pub struct Models(pub ::std::vec::Vec<::models::signal::model::Variant>);"),
         "{matrix}"
     );
     let signal = &assembled[1].rust;

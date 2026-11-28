@@ -6,10 +6,8 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 pub trait Summarizable {
-    fn summarize(&self) -> ::alloc::string::String;
+    fn summarize(&self) -> ::std::string::String;
 }
 #[rustfmt::skip]
 pub trait Fillable {
@@ -17,7 +15,7 @@ pub trait Fillable {
         &mut self,
         input: N,
     ) -> ::core::result::Result<i64, super::SinkError>;
-    fn drain(&mut self) -> ::alloc::vec::Vec<::alloc::string::String>;
+    fn drain(&mut self) -> ::std::vec::Vec<::std::string::String>;
     fn create() -> Self
     where
         Self: Sized;

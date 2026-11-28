@@ -6,16 +6,14 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Sink {
-    pub string: ::alloc::string::String,
-    pub string_vector: ::alloc::vec::Vec<::alloc::string::String>,
+    pub string: ::std::string::String,
+    pub string_vector: ::std::vec::Vec<::std::string::String>,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

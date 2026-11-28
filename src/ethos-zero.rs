@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -24,8 +22,8 @@ pub enum Query {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Generated_Data {
-    pub file_path_vector: ::alloc::vec::Vec<FilePath>,
-    pub finding_vector: ::alloc::vec::Vec<Finding>,
+    pub file_path_vector: ::std::vec::Vec<FilePath>,
+    pub finding_vector: ::std::vec::Vec<Finding>,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -34,8 +32,8 @@ pub struct Generated_Data {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Checked_Data {
-    pub file_path_vector: ::alloc::vec::Vec<FilePath>,
-    pub finding_vector: ::alloc::vec::Vec<Finding>,
+    pub file_path_vector: ::std::vec::Vec<FilePath>,
+    pub finding_vector: ::std::vec::Vec<Finding>,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -45,7 +43,7 @@ pub struct Checked_Data {
 )]
 pub struct Unreadable_Data {
     pub file_path: FilePath,
-    pub string: ::alloc::string::String,
+    pub string: ::std::string::String,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -66,7 +64,7 @@ pub struct Rejected_Data {
 )]
 pub struct Unwritable_Data {
     pub file_path: FilePath,
-    pub string: ::alloc::string::String,
+    pub string: ::std::string::String,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -90,8 +88,8 @@ pub enum Response {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Reading {
-    pub file_path_vector: ::alloc::vec::Vec<FilePath>,
-    pub given_namespace_vector: ::alloc::vec::Vec<GivenNamespace>,
+    pub file_path_vector: ::std::vec::Vec<FilePath>,
+    pub given_namespace_vector: ::std::vec::Vec<GivenNamespace>,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -111,7 +109,7 @@ pub struct Generation {
 )]
 pub struct GivenNamespace {
     pub namespace: Namespace,
-    pub file_path_vector: ::alloc::vec::Vec<FilePath>,
+    pub file_path_vector: ::std::vec::Vec<FilePath>,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -142,7 +140,7 @@ pub enum Finding {
 pub struct Unchecked {
     pub file_path: FilePath,
     pub namespace: Namespace,
-    pub name_vector: ::alloc::vec::Vec<Name>,
+    pub name_vector: ::std::vec::Vec<Name>,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -150,28 +148,28 @@ pub struct Unchecked {
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct FilePath(pub ::alloc::string::String);
+pub struct FilePath(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Directory(pub ::alloc::string::String);
+pub struct Directory(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Namespace(pub ::alloc::string::String);
+pub struct Namespace(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Name(pub ::alloc::string::String);
+pub struct Name(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
@@ -179,7 +177,7 @@ pub struct Name(pub ::alloc::string::String);
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Conceptual_Data {
-    pub integer_vector: ::alloc::vec::Vec<i64>,
+    pub integer_vector: ::std::vec::Vec<i64>,
     pub problem: ::ethos_zero::Problem,
 }
 #[rustfmt::skip]

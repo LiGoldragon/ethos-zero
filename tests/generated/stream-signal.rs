@@ -6,15 +6,13 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct LaunchRequest {
-    pub string: ::alloc::string::String,
+    pub string: ::std::string::String,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -40,7 +38,7 @@ pub enum Selection {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Pane {
-    pub string: ::alloc::string::String,
+    pub string: ::std::string::String,
     pub integer: i64,
 }
 #[rustfmt::skip]
@@ -72,15 +70,15 @@ pub enum Input {
 )]
 pub enum Output {
     Launched(FlowId),
-    Watched(::signal::Frame<::alloc::vec::Vec<Pane>, Changed>),
+    Watched(::signal::Frame<::std::vec::Vec<Pane>, Changed>),
     Subscribed(::signal::Frame<FlowId, Changed>),
-    Refused(::alloc::string::String),
+    Refused(::std::string::String),
 }
 #[rustfmt::skip]
 #[allow(clippy::large_enum_variant)]
 pub enum Answer {
     Once(Output),
-    Watched(::signal::Stream<::alloc::vec::Vec<Pane>, Changed>),
+    Watched(::signal::Stream<::std::vec::Vec<Pane>, Changed>),
     Subscribed(::signal::Stream<FlowId, Changed>),
 }
 #[rustfmt::skip]
@@ -94,7 +92,7 @@ pub trait Answering {
         &self,
         selection: &Selection,
     ) -> ::core::result::Result<
-        ::signal::Stream<::alloc::vec::Vec<Pane>, Changed>,
+        ::signal::Stream<::std::vec::Vec<Pane>, Changed>,
         Output,
     >;
     fn subscribe(

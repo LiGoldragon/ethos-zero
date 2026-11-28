@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -33,7 +31,7 @@ pub struct Keep(pub ::claude_harness::meta::Set);
 )]
 pub struct Observe {
     pub flow_id: ::flow::FlowId,
-    pub event_vector: ::alloc::vec::Vec<::harness::Event>,
+    pub event_vector: ::std::vec::Vec<::harness::Event>,
     pub offset_option: ::core::option::Option<::claude_harness::Offset>,
 }
 #[rustfmt::skip]
@@ -50,7 +48,7 @@ pub struct Recall {}
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Observation(
-    pub ::alloc::vec::Vec<::claude_harness::subscription::Changed_Data>,
+    pub ::std::vec::Vec<::claude_harness::subscription::Changed_Data>,
 );
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -58,4 +56,4 @@ pub struct Observation(
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
-pub struct Recollection(pub ::alloc::vec::Vec<::harness::Observed>);
+pub struct Recollection(pub ::std::vec::Vec<::harness::Observed>);

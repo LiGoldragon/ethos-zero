@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -34,7 +32,7 @@ pub struct Changed_Data {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub enum Output {
-    Subscribed(::alloc::vec::Vec<::harness::Observed>),
+    Subscribed(::std::vec::Vec<::harness::Observed>),
     Changed(Changed_Data),
 }
 #[rustfmt::skip]
@@ -42,7 +40,7 @@ pub enum Output {
 pub trait Answering {
     fn subscribe(
         &self,
-    ) -> ::core::result::Result<::alloc::vec::Vec<::harness::Observed>, Output>;
+    ) -> ::core::result::Result<::std::vec::Vec<::harness::Observed>, Output>;
 }
 #[rustfmt::skip]
 pub trait Answerable {

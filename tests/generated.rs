@@ -1,8 +1,5 @@
 //! Every generated fixture compiles with Datom enabled.
 
-// A generated module writes `::alloc::…`, which reaches the crate root's alloc.
-extern crate alloc;
-
 // The Flow Nexus files import `flow:[ FlowId Voice Event ]`; here the crate
 // itself is `flow`, re-exporting the generated Flow Library.
 extern crate self as flow;
@@ -1351,9 +1348,10 @@ fn a_type_that_holds_an_open_enum_is_not_carried_by_it() {
 
 #[test]
 fn an_open_enum_named_for_a_crate_shadows_no_path_the_code_writes() {
-    use open_enum_shadow::{Core, Flow, Pair, core, flow};
-    // `core` and `flow` are the contract modules of `Core` and `Flow`; the
-    // `Voice` imported from flow is still the crate's own.
+    use open_enum_shadow::{Alloc, Core, Flow, Pair, Std, alloc, core, flow, std};
+    // `core`, `flow`, `alloc` and `std` are the contract modules of `Core`,
+    // `Flow`, `Alloc` and `Std`; the `Voice` imported from flow is still the
+    // crate's own, and no name is refused for the sake of Rust.
     let pair = Pair {
         core: Core {
             name: core::Name("Rank".to_owned()),
@@ -1363,10 +1361,22 @@ fn an_open_enum_named_for_a_crate_shadows_no_path_the_code_writes() {
             name: flow::Name("Voice".to_owned()),
             carried: None,
         },
+        alloc: Alloc {
+            name: alloc::Name("Heap".to_owned()),
+            carried: None,
+        },
+        std: Std {
+            name: std::Name("Library".to_owned()),
+            carried: None,
+        },
         voice: flow_library::Voice::Mind(flow_library::Rank::Primary),
     };
     assert_eq!(pair.core.name, core::Name("Rank".to_owned()));
+    assert_eq!(pair.alloc.name, alloc::Name("Heap".to_owned()));
+    assert_eq!(pair.std.name.0, "Library");
     assert_eq!(flow::Input::List, flow::Input::List);
+    assert_eq!(alloc::Input::List, alloc::Input::List);
+    assert_eq!(std::Input::List, std::Input::List);
 }
 
 /// The registry of the Signal that declares no type.

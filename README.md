@@ -173,20 +173,23 @@ carries (`Launch.Fable.High`). From a Signal's open enums the file generates:
   ]` and `Output.[ Added.Variant Removed.Name Listed.⟦Variant⟧ Refused.String
   ]`, with a `Registry` trait whose one capability, `variant`, finds the added
   variant of a name.
-- for each open enum, its value, `pub struct Model { pub name: model::Name,
+- for each open enum, its value, `pub struct Model { pub name: self::model::Name,
   pub carried: Option<Carried> }`, and the Signal's own `Input` and `Output`
   each gain one variant named for the enum, `Model(self::model::Input)` and
   `Model(self::model::Output)`, so the datom is `Model.Add.{ Fable
   Some.Name.QuadrupleEffort }`.
 - in `Answering`, one capability named for the enum, taking the module's
   `Input` and yielding its `Output`, and its arm in the dispatch:
-  `fn model(&self, model: &model::Input) -> Result<model::Output, Output>`. The
+  `fn model(&self, model: &self::model::Input) -> Result<self::model::Output, Output>`. The
   refusal of the capability is any other `Output`; the contract's own `Refused`
   is an answer of it.
 - the module is named for the enum in snake case, and nothing the generated
-  Rust writes from outside the file can be shadowed by it: an open enum `Core`
-  or `Flow`, beside an import from `flow`, generates `pub mod core` and
-  `pub mod flow` next to `::core::option::Option` and `::flow::Voice`.
+  Rust writes from outside the file can be shadowed by it: an open enum `Core`,
+  `Flow`, `Alloc` or `Std`, beside an import from `flow`, generates
+  `pub mod core`, `pub mod flow`, `pub mod alloc` or `pub mod std` next to
+  `::core::option::Option`, `::std::string::String` and `::flow::Voice`. A
+  path into the enum's own module is written from `self` everywhere:
+  `self::model::Name`, `self::model::Registry`, `self::model::Input`.
 
 Only one `Type` is carried at run time, `Name`, naming a type declared in the
 same Signal file; every other form of `Type` reads, so the runtime can answer
@@ -333,7 +336,7 @@ snake case; first and second where they meet). An imported record is a field
 of its imported type and no declaration of the file. `fixtures/matrix-records.ethos`:
 
 ```rust
-pub struct Watch { pub flow_id: ::flow::FlowId, pub string: ::alloc::string::String }
+pub struct Watch { pub flow_id: ::flow::FlowId, pub string: ::std::string::String }
 pub struct Configured(pub ::core::option::Option<Watch>);
 pub struct Memory {
     pub watch: Watch,
@@ -420,8 +423,8 @@ An Organism declares nothing and imports nothing. It has four sections, by
 position the receptor, the emitter, the memory and the organs, each a vector of
 pointers; a file of any other count of sections is `Arity.{ 4 <count> }`. It
 provides nothing to importers yet (`Handle`, `Seed` and `Life` are unruled), and
-generates the minimal module every root writes: the header and `extern crate
-alloc;`, no item.
+generates the minimal module every root writes: the `#![allow(…)]` header, no
+item.
 
 ```
 Organism
@@ -557,7 +560,7 @@ each process's positions, `SumProcess`; what each takes, `SumTaken`; and the enu
 over the Nexus's processes:
 
 ```rust
-pub struct SumProcess { pub caller: ::process::Caller, pub integer_vector: ::alloc::vec::Vec<i64> }
+pub struct SumProcess { pub caller: ::process::Caller, pub integer_vector: ::std::vec::Vec<i64> }
 pub type SumTaken = Adding;
 pub struct AddendProcess { pub addend: Addend }
 pub type AddendTaken = ::core::result::Result<::tally::memory::Addition, ::process::Unremembered>;
@@ -654,16 +657,15 @@ only `Grow` is boxed. Every position that reaches its owner by
 any path, `Vector` included, carries `#[rkyv(omit_bounds)]`, and its type
 states the serializer, deserializer and validator bounds once, so a
 recursive contract archives and restores. The generated Rust writes
-every standard name by its core or alloc path, `::alloc::string::String`,
-`::alloc::vec::Vec`, `::core::option::Option`, `::core::result::Result` and
-`::alloc::boxed::Box`, and every other crate path from the extern prelude
+every standard name by its core or std path, `::std::string::String`,
+`::std::vec::Vec`, `::core::option::Option`, `::core::result::Result` and
+`::std::boxed::Box`, and every other crate path from the extern prelude
 too, `::rkyv::Archive`, `::datom_codec::Datomizable`, `::signal::Stream`,
 `::process::Caller`, so neither a declared type nor a declared module (an
-open enum's) can capture or shadow those names, and the module builds with no
-operating system under it as well as with std: each generated module opens
-with `extern crate alloc;`. `::alloc` is reached through the crate root's
-extern prelude, so a crate that includes a generated module below its root
-declares `extern crate alloc;` at its root. A variant `Name.{ T1 T2 }` carries a generated
+open enum's) can capture or shadow those names. A generated module needs no
+header and declares no extern crate, so no declared name is refused for the
+sake of Rust: an open enum `Alloc` or `Std` generates `pub mod alloc` or
+`pub mod std` beside `::std::…`. A variant `Name.{ T1 T2 }` carries a generated
 struct `Name_Data` with one field per position.
 
 A field is named for its type alone, in snake case, and never for the
@@ -736,7 +738,7 @@ the name `signal`.
 A `Stream` stands in two places. One is the whole payload of a Signal's
 output: `Signal [] [ Subscribe ] [ Subscribed.Stream<⟦ Pane ⟧ Changed> ] [ … ]`.
 The `Output` holds one frame of it,
-`Subscribed(::signal::Frame<::alloc::vec::Vec<Pane>, Changed>)`, with the derives
+`Subscribed(::signal::Frame<::std::vec::Vec<Pane>, Changed>)`, with the derives
 every `Output` bears, so each frame on the wire is one `Output`. The other is a trait capability's yield, where its
 types may be the trait's associated types:
 `Publishing.{ [] [ State Change ] [] [ open.{ [ State ] [ Stream<State Change> ] } ] }`
@@ -760,11 +762,11 @@ that output and holding its stream (`fixtures/stream-signal.ethos`):
 ```rust
 pub enum Answer {
     Once(Output),
-    Subscribed(::signal::Stream<::alloc::vec::Vec<Pane>, Changed>),
+    Subscribed(::signal::Stream<::std::vec::Vec<Pane>, Changed>),
 }
 pub trait Answering {
     fn launch(&self, launch_request: &LaunchRequest) -> ::core::result::Result<FlowId, Output>;
-    fn subscribe(&self) -> ::core::result::Result<::signal::Stream<::alloc::vec::Vec<Pane>, Changed>, Output>;
+    fn subscribe(&self) -> ::core::result::Result<::signal::Stream<::std::vec::Vec<Pane>, Changed>, Output>;
 }
 impl Answerable for Input {
     type Answer = Answer;

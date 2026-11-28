@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -57,7 +55,7 @@ pub enum Emission {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Following_Data {
-    pub row_vector: ::alloc::vec::Vec<Row>,
+    pub row_vector: ::std::vec::Vec<Row>,
     pub offset: ::claude_harness::Offset,
 }
 #[rustfmt::skip]

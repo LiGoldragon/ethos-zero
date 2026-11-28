@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -38,7 +36,7 @@ pub struct SessionStart_Data {
 pub struct Stop_Data {
     pub session_id: ::harness::SessionId,
     pub response_option: ::core::option::Option<::harness::Response>,
-    pub background_work_vector: ::alloc::vec::Vec<::harness::BackgroundWork>,
+    pub background_work_vector: ::std::vec::Vec<::harness::BackgroundWork>,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

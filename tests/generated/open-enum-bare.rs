@@ -5,8 +5,6 @@
     unused_extern_crates,
     clippy::type_complexity
 )]
-#[rustfmt::skip]
-extern crate alloc;
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
 pub trait Opening<Registry>: Sized {
@@ -18,7 +16,7 @@ pub trait Opening<Registry>: Sized {
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::alloc::vec::Vec<Value> {
+impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::vec::Vec<Value> {
     fn open(
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
@@ -32,8 +30,8 @@ impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::alloc::vec::Vec
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Form {
-                            expected: ::alloc::string::String::from("Vector"),
-                            found: ::alloc::string::String::from(
+                            expected: ::std::string::String::from("Vector"),
+                            found: ::std::string::String::from(
                                 ::datom_codec::Naming::form_name(found),
                             ),
                         },
@@ -41,7 +39,7 @@ impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::alloc::vec::Vec
                 );
             }
         };
-        let mut values = ::alloc::vec::Vec::with_capacity(children.len());
+        let mut values = ::std::vec::Vec::with_capacity(children.len());
         for child in children {
             ::datom_codec::CompositionDepthing::enter_composition(budget, &child.path)?;
             let read = Value::open(child, budget, registry);
@@ -69,7 +67,7 @@ for ::core::option::Option<Value> {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Variant {
-                            expected: ::alloc::string::String::from("Option"),
+                            expected: ::std::string::String::from("Option"),
                             found: head.clone(),
                         },
                     ),
@@ -86,8 +84,8 @@ for ::core::option::Option<Value> {
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                     datom.path.clone(),
                     ::datom_codec::ErrorKind::Variant {
-                        expected: ::alloc::string::String::from("Option"),
-                        found: ::alloc::string::String::from(head),
+                        expected: ::std::string::String::from("Option"),
+                        found: ::std::string::String::from(head),
                     },
                 ),
             );
@@ -100,15 +98,14 @@ for ::core::option::Option<Value> {
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl<Registry, Value: Opening<Registry>> Opening<Registry>
-for ::alloc::boxed::Box<Value> {
+impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::boxed::Box<Value> {
     fn open(
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
         registry: &Registry,
     ) -> ::core::result::Result<Self, ::datom_codec::Error> {
         ::core::result::Result::Ok(
-            ::alloc::boxed::Box::new(Value::open(datom, budget, registry)?),
+            ::std::boxed::Box::new(Value::open(datom, budget, registry)?),
         )
     }
 }
@@ -131,7 +128,7 @@ pub mod model {
         feature = "datom",
         derive(::datom_codec::Datomizable, ::datom_codec::Composing)
     )]
-    pub struct Name(pub ::alloc::string::String);
+    pub struct Name(pub ::std::string::String);
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -149,7 +146,7 @@ pub mod model {
         feature = "datom",
         derive(::datom_codec::Datomizable, ::datom_codec::Composing)
     )]
-    pub struct Word(pub ::alloc::string::String);
+    pub struct Word(pub ::std::string::String);
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -165,7 +162,7 @@ pub mod model {
         feature = "datom",
         derive(::datom_codec::Datomizable, ::datom_codec::Composing)
     )]
-    pub struct Namespace(pub ::alloc::vec::Vec<Word>);
+    pub struct Namespace(pub ::std::vec::Vec<Word>);
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -183,7 +180,7 @@ pub mod model {
     )]
     pub struct Import {
         pub namespace: Namespace,
-        pub name_vector: ::alloc::vec::Vec<Name>,
+        pub name_vector: ::std::vec::Vec<Name>,
     }
     #[rustfmt::skip]
     #[derive(
@@ -288,7 +285,7 @@ pub mod model {
     pub struct Applied_Data {
         pub name: Name,
         #[rkyv(omit_bounds)]
-        pub type_vector: ::alloc::vec::Vec<Type>,
+        pub type_vector: ::std::vec::Vec<Type>,
     }
     #[rustfmt::skip]
     #[derive(
@@ -323,10 +320,10 @@ pub mod model {
     pub enum Type {
         Name(Name),
         Import(Import),
-        Declaration(#[rkyv(omit_bounds)] ::alloc::boxed::Box<Declaration>),
-        Struct(#[rkyv(omit_bounds)] ::alloc::vec::Vec<Type>),
-        Enum(#[rkyv(omit_bounds)] ::alloc::vec::Vec<Variant>),
-        Vector(#[rkyv(omit_bounds)] ::alloc::boxed::Box<Type>),
+        Declaration(#[rkyv(omit_bounds)] ::std::boxed::Box<Declaration>),
+        Struct(#[rkyv(omit_bounds)] ::std::vec::Vec<Type>),
+        Enum(#[rkyv(omit_bounds)] ::std::vec::Vec<Variant>),
+        Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
         Applied(Applied_Data),
     }
     #[rustfmt::skip]
@@ -367,8 +364,8 @@ pub mod model {
     pub enum Output {
         Added(Variant),
         Removed(Name),
-        Listed(::alloc::vec::Vec<Variant>),
-        Refused(::alloc::string::String),
+        Listed(::std::vec::Vec<Variant>),
+        Refused(::std::string::String),
     }
     pub trait Registry {
         fn variant(&self, name: &Name) -> ::core::option::Option<Variant>;
@@ -377,7 +374,7 @@ pub mod model {
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Model {
-    pub name: model::Name,
+    pub name: self::model::Name,
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
@@ -391,7 +388,7 @@ impl ::datom_codec::Datomizable for Model {
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
-impl<Registry: model::Registry> Opening<Registry> for Model {
+impl<Registry: self::model::Registry> Opening<Registry> for Model {
     fn open(
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
@@ -408,8 +405,8 @@ impl<Registry: model::Registry> Opening<Registry> for Model {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Form {
-                            expected: ::alloc::string::String::from("Variant"),
-                            found: ::alloc::string::String::from(
+                            expected: ::std::string::String::from("Variant"),
+                            found: ::std::string::String::from(
                                 ::datom_codec::Naming::form_name(found),
                             ),
                         },
@@ -417,13 +414,13 @@ impl<Registry: model::Registry> Opening<Registry> for Model {
                 );
             }
         };
-        let name = model::Name(head.clone());
+        let name = self::model::Name(head.clone());
         let ::core::option::Option::Some(entry) = registry.variant(&name) else {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                     datom.path.clone(),
                     ::datom_codec::ErrorKind::Variant {
-                        expected: ::alloc::string::String::from(stringify!(Model)),
+                        expected: ::std::string::String::from(stringify!(Model)),
                         found: head.clone(),
                     },
                 ),
@@ -438,7 +435,7 @@ impl<Registry: model::Registry> Opening<Registry> for Model {
                     <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                         datom.path.clone(),
                         ::datom_codec::ErrorKind::Value {
-                            expected: ::alloc::string::String::from(
+                            expected: ::std::string::String::from(
                                 "the form of the type its entry names",
                             ),
                             value: head.clone(),
@@ -472,8 +469,8 @@ pub enum Output {
 pub trait Answering {
     fn model(
         &self,
-        model: &model::Input,
-    ) -> ::core::result::Result<model::Output, Output>;
+        model: &self::model::Input,
+    ) -> ::core::result::Result<self::model::Output, Output>;
 }
 #[rustfmt::skip]
 pub trait Answerable {

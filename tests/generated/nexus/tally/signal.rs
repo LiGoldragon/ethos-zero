@@ -6,8 +6,6 @@
     clippy::type_complexity
 )]
 #[rustfmt::skip]
-extern crate alloc;
-#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -21,7 +19,7 @@ pub struct Total(pub i64);
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub enum Input {
-    Sum(::alloc::vec::Vec<i64>),
+    Sum(::std::vec::Vec<i64>),
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -38,7 +36,7 @@ pub enum Output {
 pub trait Answering {
     fn sum(
         &self,
-        integer_vector: &::alloc::vec::Vec<i64>,
+        integer_vector: &::std::vec::Vec<i64>,
     ) -> ::core::result::Result<Total, Output>;
 }
 #[rustfmt::skip]
