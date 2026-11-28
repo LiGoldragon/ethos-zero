@@ -10,14 +10,16 @@
 use datom_codec::{Integer, Path};
 
 use crate::generation::{FieldNaming, Identifying, SnakeCasing};
+use crate::nexus::{Export, Exporting, Spelling};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Entry, Error, File, Identifiable, Identity, Import, Intrinsic, Memory,
     Name, NamedReference, Operation, Placing, Position, Problem, Process, ProcessDeclaration,
-    Reference, ReferenceAccess, Resolution, Resolving, Role, Scope, Signal, Signature, Spelled,
-    TraitBody, TraitDeclaration, TypeDeclaration, Validating, Variant, Wrapping_Data,
+    Reference, ReferenceAccess, Resolution, Resolving, Role, Scope, Signal, Signature, Source,
+    Spelled, TraitBody, TraitDeclaration, TypeDeclaration, UnknownName_Data, Validating, Variant,
+    Wrapping_Data,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -825,8 +827,8 @@ impl<C: Checkable + Spanning> Checking for [C] {
 impl Checkable for Import {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         let checked = match self {
-            Import::One(_, imported) => imported.check(scope),
-            Import::Many(_, imported) => imported.check_children(scope),
+            Import::One(source, imported) => imported.import(source, scope),
+            Import::Many(source, imported) => imported.import_each(source, scope),
         };
         self.held()
             .into_iter()
@@ -840,6 +842,56 @@ impl Checkable for crate::Imported {
         self.name.define()?;
         self.emitted.define()?;
         Ok(())
+    }
+}
+
+/// The trait whose capability checks a name an import takes from its source:
+/// a name that may be declared, and, where the source names a module of a
+/// namespace given, one that module provides (`UnknownName` otherwise).
+trait Importing {
+    fn import(&self, source: &Source, scope: &Scope) -> Result<(), Error>;
+}
+
+impl Importing for crate::Imported {
+    fn import(&self, source: &Source, scope: &Scope) -> Result<(), Error> {
+        self.check(scope)?;
+        source.supply(&self.emitted, scope)
+    }
+}
+
+/// The trait whose capability checks each name of a grouped import, each at its place.
+trait ImportingEach {
+    fn import_each(&self, source: &Source, scope: &Scope) -> Result<(), Error>;
+}
+
+impl ImportingEach for [crate::Imported] {
+    fn import_each(&self, source: &Source, scope: &Scope) -> Result<(), Error> {
+        for (index, imported) in self.iter().enumerate() {
+            imported.import(source, scope).place(index as Integer)?;
+        }
+        Ok(())
+    }
+}
+
+/// The trait whose capability refuses a name a source does not provide: where
+/// the source names a module of a namespace given and no such module provides
+/// the name, it is `UnknownName.{ <namespace as written> <name> }`, here.
+trait Supplying {
+    fn supply(&self, name: &Name, scope: &Scope) -> Result<(), Error>;
+}
+
+impl Supplying for Source {
+    fn supply(&self, name: &Name, scope: &Scope) -> Result<(), Error> {
+        match scope.namespaces.export(self, name) {
+            Export::Unprovided => Err(Error::conceptual(
+                vec![],
+                Problem::UnknownName(UnknownName_Data {
+                    first_string: self.spelling(),
+                    second_string: name.0.clone(),
+                }),
+            )),
+            Export::Provided | Export::Ungiven => Ok(()),
+        }
     }
 }
 
@@ -1583,23 +1635,35 @@ pub(crate) trait ResolvingReference {
 impl ResolvingReference for NamedReference {
     fn resolve_reference(&self, scope: &Scope) -> Resolution {
         if let Some(source) = &self.source {
-            if source.as_ref() == "protos"
-                && let Some(intrinsic) = Intrinsic::identify(self.name.as_ref())
-            {
+            if let Some(intrinsic) = source.intrinsic(&self.name) {
                 return Resolution::Intrinsic(intrinsic);
             }
             return Resolution::Imported(source.clone(), self.name.clone());
         }
         match scope.resolve(&self.name) {
-            Resolution::Imported(source, emitted)
-                if source.as_ref() == "protos" && emitted == self.name =>
-            {
-                match Intrinsic::identify(self.name.as_ref()) {
+            Resolution::Imported(source, emitted) if emitted == self.name => {
+                match source.intrinsic(&emitted) {
                     Some(intrinsic) => Resolution::Intrinsic(intrinsic),
                     None => Resolution::Imported(source, emitted),
                 }
             }
             resolution => resolution,
+        }
+    }
+}
+
+/// The trait whose capability says which intrinsic a name taken from a source
+/// is: `protos` supplies the intrinsics, each by its own name.
+pub(crate) trait Supplied {
+    fn intrinsic(&self, name: &Name) -> Option<Intrinsic>;
+}
+
+impl Supplied for Source {
+    fn intrinsic(&self, name: &Name) -> Option<Intrinsic> {
+        if self.as_ref() == "protos" {
+            Intrinsic::identify(name.as_ref())
+        } else {
+            None
         }
     }
 }
@@ -1652,7 +1716,12 @@ impl ReferringParts for Reference {
                 Problem::Name(reference.name.0.clone()),
             ));
         }
-        let requirement = match reference.resolve_reference(scope) {
+        let resolution = reference.resolve_reference(scope);
+        // An inline import: its source is written where the name stands.
+        if let (Some(_), Resolution::Imported(source, name)) = (&reference.source, &resolution) {
+            source.supply(name, scope)?;
+        }
+        let requirement = match resolution {
             Resolution::Ambiguous(name) => {
                 return Err(Error::conceptual(vec![], Problem::Duplicate(name.0)));
             }
@@ -1806,6 +1875,7 @@ impl Checkable for Position {
                 file: scope.file,
                 identity: None,
                 associated: &[],
+                namespaces: scope.namespaces,
             }),
         }
     }
@@ -2029,6 +2099,7 @@ impl Checkable for TypeDeclaration {
             file: scope.file,
             identity: Some(identity),
             associated: scope.associated,
+            namespaces: scope.namespaces,
         };
         match self {
             TypeDeclaration::Struct(_, positions) => positions.check_children(&inner).place(1),
@@ -2253,6 +2324,7 @@ impl Checkable for TraitDeclaration {
                 TraitBody::Simple(_) => &[],
                 TraitBody::Complex { types, .. } => types,
             },
+            namespaces: scope.namespaces,
         };
         match &self.body {
             TraitBody::Simple(capabilities) => {
@@ -2387,6 +2459,7 @@ impl Validating for File {
             file: self,
             identity: None,
             associated: &[],
+            namespaces: &[],
         })
     }
 }

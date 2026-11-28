@@ -27,7 +27,8 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::checking::{
-    Carrying, Declaring, Identified, Inlining, Payloading, Spanning, Titled, Uniting,
+    Carrying, Checkable, Declaring, Identified, Inlining, Payloading, Spanning, Streaming,
+    Supplied, Titled, Uniting,
 };
 use crate::generation::{
     DatomDeriving, Emitting, FieldNaming, Identifying, Itemizing, Rendering, SnakeCasing,
@@ -35,9 +36,10 @@ use crate::generation::{
 };
 use crate::sectioning::{ReferencingEach, Sectioning};
 use crate::{
-    ConceptualErroring, Entry, Error, File, Generating, Identity, Import, Imported, Name,
-    NamedReference, Problem, Reference, ReferenceAccess, Resolution, Resolving, Scope, Source,
-    Spelled, TypeDeclaration, Validating, Variant,
+    AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring, Constraint,
+    Entry, Error, File, Generating, Identity, Import, Imported, Name, NamedReference, Position,
+    Problem, ProcessDeclaration, Reference, ReferenceAccess, Resolution, Resolving, Scope,
+    Signature, Source, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 /// One root file of a Nexus and the name its module bears: the file's stem.
@@ -49,11 +51,41 @@ pub struct Module {
     pub file: File,
 }
 
-/// The roots of one namespace, read together.
+/// The roots of one namespace, read together, and the namespaces their imports
+/// are resolved against.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Nexus {
     /// The roots, in the order they were given.
     pub modules: Vec<Module>,
+    /// The namespaces the caller gave, in the order given.
+    pub namespaces: Vec<Namespace>,
+}
+
+/// A namespace the caller gives, read as a Nexus is whose namespace is given
+/// rather than inferred: its name, as an import writes its first segment
+/// (`protos`, `signal_flow`), and its files, each a module named for its stem.
+/// `name:[ X ]` names its root, the Library and the file named for the crate
+/// (`protos.ethos` of `protos`, `datom-codec.ethos` of `datom_codec`), and
+/// `name:stem:[ X ]` the module of the file of that stem, a Library's aside.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Namespace {
+    /// The namespace, as an import writes its first segment.
+    pub name: String,
+    /// Its files, each a module named for its stem, in the order given.
+    pub modules: Vec<Module>,
+}
+
+/// What a root of a Nexus imports from where nothing given checks it: a
+/// namespace the caller gave no files for, or a path below a given namespace
+/// that names none of its modules.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Unchecked {
+    /// The place of the root in the Nexus.
+    pub module: usize,
+    /// The source as written, its segments joined by colons: `flow_nexus:generated:memory`.
+    pub namespace: String,
+    /// The names taken from it, each once, in the order the root first takes them.
+    pub names: Vec<Name>,
 }
 
 /// An error and the module of the Nexus it lies in, by its place in the set.
@@ -85,6 +117,14 @@ pub trait Verifying {
 pub trait Assembling {
     /// Each module's Rust, or the refusal that prevents generation.
     fn assemble(&self) -> Result<Vec<Assembled>, Refusal>;
+}
+
+/// The trait whose capability lists what a Nexus's roots import that nothing
+/// given checks, root by root in the order given, each source in the order a
+/// root first takes from it.
+pub trait Trusting {
+    /// The imports trusted unchecked.
+    fn unchecked(&self) -> Vec<Unchecked>;
 }
 
 // ---------------------------------------------------------------------------
@@ -410,6 +450,407 @@ impl Finding for Nexus {
 }
 
 // ---------------------------------------------------------------------------
+// The namespaces given, and what their modules export
+// ---------------------------------------------------------------------------
+
+/// The trait whose capability names the names a root generates beyond those it
+/// declares: each enum it implies that has variants (a Signal's `Input` and
+/// `Output`, an Operation's `Operation` and `Outcome`, an Emission's `Emission`
+/// and `Outcome`), the traits it generates (a Signal's `Answering` and
+/// `Answerable`, and `Answer` where a stream answers an input; an Emission's
+/// `Emitted` and `Emittable`), and the enums a Process root holds over its
+/// processes (`Process`, `Gift`, `Taken`, `Outcome`).
+trait Generated {
+    fn generated(&self) -> Vec<Name>;
+}
+
+impl Generated for File {
+    fn generated(&self) -> Vec<Name> {
+        let mut names = Vec::new();
+        for implied in self.implied_enums() {
+            if !implied.variants.is_empty() {
+                names.push(implied.name);
+            }
+        }
+        let traits: &[&str] = match self {
+            File::Signal(signal) if !signal.inputs.is_empty() => {
+                let scope = Scope {
+                    file: self,
+                    identity: None,
+                    associated: &[],
+                    namespaces: &[],
+                };
+                let mut streaming = false;
+                for output in signal.outputs.iter().take(signal.inputs.len()) {
+                    if output.stream(&scope).is_some() {
+                        streaming = true;
+                    }
+                }
+                if streaming {
+                    &["Answering", "Answerable", "Answer"]
+                } else {
+                    &["Answering", "Answerable"]
+                }
+            }
+            File::Emission(emission) if !emission.emissions.is_empty() => &["Emitted", "Emittable"],
+            File::Process(process) if !process.processes.is_empty() => {
+                &["Process", "Gift", "Taken", "Outcome"]
+            }
+            File::Library(_)
+            | File::Signal(_)
+            | File::Operation(_)
+            | File::Memory(_)
+            | File::Emission(_)
+            | File::Process(_) => &[],
+        };
+        for name in traits {
+            names.push(Name::try_from(*name).expect("a generated name is an identifier"));
+        }
+        names
+    }
+}
+
+/// The trait whose capability says whether a root exports a name: one it
+/// declares ([`Providing`]) or one it generates ([`Generated`]).
+trait Exported {
+    fn exports(&self, name: &Name) -> bool;
+}
+
+impl Exported for File {
+    fn exports(&self, name: &Name) -> bool {
+        self.provides(name) || self.generated().contains(name)
+    }
+}
+
+/// The trait whose capability lists the modules of a namespace given that a
+/// source names: for the namespace alone, its root, every Library and the file
+/// named for the crate (a hyphen of the stem read as an underscore); for the
+/// namespace and a stem, the file of that stem that is no Library; for any
+/// other source, none.
+trait Addressing {
+    fn addressed(&self, source: &Source) -> Vec<&Module>;
+}
+
+impl Addressing for Namespace {
+    fn addressed(&self, source: &Source) -> Vec<&Module> {
+        let mut addressed = Vec::new();
+        match source.segments() {
+            [crate_name] if crate_name.0 == self.name => {
+                for module in &self.modules {
+                    if matches!(module.file, File::Library(_))
+                        || module.stem.replace('-', "_") == self.name
+                    {
+                        addressed.push(module);
+                    }
+                }
+            }
+            [crate_name, stem] if crate_name.0 == self.name => {
+                for module in &self.modules {
+                    if module.stem == stem.0 && !matches!(module.file, File::Library(_)) {
+                        addressed.push(module);
+                    }
+                }
+            }
+            _ => {}
+        }
+        addressed
+    }
+}
+
+/// What the namespaces given say of a name taken from a source.
+pub(crate) enum Export {
+    /// A module the source names exports it, or it is an intrinsic `protos` supplies.
+    Provided,
+    /// The source names a module of a namespace given, and none it names exports it.
+    Unprovided,
+    /// The source names no module of a namespace given: the name is trusted.
+    Ungiven,
+}
+
+/// The trait whose capability resolves a name taken from a source against the namespaces given.
+pub(crate) trait Exporting {
+    fn export(&self, source: &Source, name: &Name) -> Export;
+}
+
+impl Exporting for [Namespace] {
+    fn export(&self, source: &Source, name: &Name) -> Export {
+        if source.intrinsic(name).is_some() {
+            return Export::Provided;
+        }
+        let mut named = false;
+        for namespace in self {
+            for module in namespace.addressed(source) {
+                if module.file.exports(name) {
+                    return Export::Provided;
+                }
+                named = true;
+            }
+        }
+        if named {
+            Export::Unprovided
+        } else {
+            Export::Ungiven
+        }
+    }
+}
+
+/// The trait whose capability writes a source as an import writes its
+/// namespace: its segments joined by colons, `flow_nexus:generated:memory`.
+pub(crate) trait Spelling {
+    fn spelling(&self) -> String;
+}
+
+impl Spelling for Source {
+    fn spelling(&self) -> String {
+        let mut segments = Vec::with_capacity(self.segments().len());
+        for segment in self.segments() {
+            segments.push(segment.0.as_str());
+        }
+        segments.join(":")
+    }
+}
+
+/// The trait whose capability lists every name a value takes from a source, in
+/// the order it is written: each name an import takes (the source's own name for
+/// it), and each reference that carries its source where it stands, the
+/// reference's arguments after it.
+trait Mentioning {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>);
+}
+
+impl Mentioning for File {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        for import in self.imports() {
+            for imported in import.imported() {
+                mentioned.push((import.source(), &imported.emitted));
+            }
+        }
+        match self {
+            File::Library(library) => {
+                library.types.mention(mentioned);
+                library.traits.mention(mentioned);
+                library.associations.mention(mentioned);
+            }
+            File::Signal(signal) => {
+                signal.inputs.mention(mentioned);
+                signal.outputs.mention(mentioned);
+                signal.types.mention(mentioned);
+            }
+            File::Operation(operation) => {
+                operation.operations.mention(mentioned);
+                operation.outcomes.mention(mentioned);
+                operation.types.mention(mentioned);
+            }
+            File::Memory(memory) => {
+                memory.records.mention(mentioned);
+                memory.changes.mention(mentioned);
+                memory.answers.mention(mentioned);
+                memory.types.mention(mentioned);
+            }
+            File::Emission(emission) => {
+                emission.emissions.mention(mentioned);
+                emission.outcomes.mention(mentioned);
+                emission.types.mention(mentioned);
+            }
+            File::Process(process) => {
+                process.processes.mention(mentioned);
+                process.types.mention(mentioned);
+            }
+        }
+    }
+}
+
+impl<M: Mentioning> Mentioning for [M] {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        for element in self {
+            element.mention(mentioned);
+        }
+    }
+}
+
+impl<M: Mentioning> Mentioning for Option<M> {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        if let Some(element) = self {
+            element.mention(mentioned);
+        }
+    }
+}
+
+impl Mentioning for Reference {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        match self {
+            Reference::Vector(element) => element.mention(mentioned),
+            Reference::Named(reference) => {
+                if let Some(source) = &reference.source {
+                    mentioned.push((source, &reference.name));
+                }
+                reference.arguments.mention(mentioned);
+            }
+        }
+    }
+}
+
+impl Mentioning for Constraint {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        match self {
+            Constraint::One(reference) => reference.mention(mentioned),
+            Constraint::Many(references) => references.mention(mentioned),
+        }
+    }
+}
+
+impl Mentioning for Identity {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        self.constraints.mention(mentioned);
+    }
+}
+
+impl Mentioning for TypeDeclaration {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        self.identity().mention(mentioned);
+        match self {
+            TypeDeclaration::Struct(_, positions) => positions.mention(mentioned),
+            TypeDeclaration::Enum(_, variants) => variants.mention(mentioned),
+            TypeDeclaration::Alias(_, aliased) => aliased.mention(mentioned),
+        }
+    }
+}
+
+impl Mentioning for Position {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        match self {
+            Position::Referenced(reference) => reference.mention(mentioned),
+            Position::Declared(declaration) => declaration.mention(mentioned),
+        }
+    }
+}
+
+impl Mentioning for Variant {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        match self {
+            Variant::Bare(_) => {}
+            Variant::Typed(_, reference) => reference.mention(mentioned),
+            Variant::Struct(_, positions) => positions.mention(mentioned),
+            Variant::Enum(_, variants) => variants.mention(mentioned),
+        }
+    }
+}
+
+impl Mentioning for Entry {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        match self {
+            Entry::Declared(declaration) => declaration.mention(mentioned),
+            Entry::Named(_) => {}
+        }
+    }
+}
+
+impl Mentioning for TraitDeclaration {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        self.identity.mention(mentioned);
+        match &self.body {
+            TraitBody::Simple(capabilities) => capabilities.mention(mentioned),
+            TraitBody::Complex {
+                supertraits,
+                types,
+                constants,
+                capabilities,
+            } => {
+                supertraits.mention(mentioned);
+                types.mention(mentioned);
+                constants.mention(mentioned);
+                capabilities.mention(mentioned);
+            }
+        }
+    }
+}
+
+impl Mentioning for AssociatedType {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        self.bounds.mention(mentioned);
+    }
+}
+
+impl Mentioning for AssociatedConstant {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        self.ty.mention(mentioned);
+    }
+}
+
+impl Mentioning for Capability {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        match &self.signature {
+            Signature::Yielding(yields) => yields.mention(mentioned),
+            Signature::Taking(inputs, yields) => {
+                inputs.mention(mentioned);
+                yields.mention(mentioned);
+            }
+        }
+    }
+}
+
+impl Mentioning for Association {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        self.identity.mention(mentioned);
+        self.traits.mention(mentioned);
+    }
+}
+
+impl Mentioning for ProcessDeclaration {
+    fn mention<'a>(&'a self, mentioned: &mut Vec<(&'a Source, &'a Name)>) {
+        self.configured.mention(mentioned);
+        self.gifts.mention(mentioned);
+        self.outcome.mention(mentioned);
+    }
+}
+
+impl Trusting for Nexus {
+    fn unchecked(&self) -> Vec<Unchecked> {
+        let inferred = self.namespace().ok().flatten();
+        let mut unchecked: Vec<Unchecked> = Vec::new();
+        for (index, module) in self.modules.iter().enumerate() {
+            let mut mentioned = Vec::new();
+            module.file.mention(&mut mentioned);
+            let first = unchecked.len();
+            for (source, name) in mentioned {
+                if !matches!(self.namespaces.export(source, name), Export::Ungiven) {
+                    continue;
+                }
+                // A name the set's own namespace resolves, in the root it lands on.
+                if let Some(namespace) = &inferred
+                    && let Some(target) = self.module(source, namespace)
+                    && self.modules[target].file.exports(name)
+                {
+                    continue;
+                }
+                let spelled = source.spelling();
+                let mut entry = None;
+                for (at, held) in unchecked[first..].iter().enumerate() {
+                    if held.namespace == spelled {
+                        entry = Some(first + at);
+                    }
+                }
+                let entry = match entry {
+                    Some(entry) => entry,
+                    None => {
+                        unchecked.push(Unchecked {
+                            module: index,
+                            namespace: spelled,
+                            names: vec![],
+                        });
+                        unchecked.len() - 1
+                    }
+                };
+                if !unchecked[entry].names.contains(name) {
+                    unchecked[entry].names.push(name.clone());
+                }
+            }
+        }
+        unchecked
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Types of another root, written from the Process root
 // ---------------------------------------------------------------------------
 
@@ -486,6 +927,7 @@ impl Carriage for Variant {
             file,
             identity: None,
             associated: &[],
+            namespaces: &[],
         };
         let owner = Name::try_from(owner).expect("a root's implied enum is named");
         match self {
@@ -635,6 +1077,7 @@ impl Describing for Nexus {
             file: &written,
             identity: None,
             associated: &[],
+            namespaces: &[],
         };
         // A process this root declares, born of the process that gives it.
         if scope.file.declaration(name).is_some() {
@@ -798,6 +1241,7 @@ impl Describing for Nexus {
             file: &written,
             identity: None,
             associated: &[],
+            namespaces: &[],
         };
         let mut described: Vec<Described> = Vec::new();
         for (at, declaration) in file.processes.iter().enumerate() {
@@ -1375,7 +1819,13 @@ impl Verifying for Nexus {
                     });
                 }
             }
-            if let Err(error) = module.file.validate() {
+            let scope = Scope {
+                file: &module.file,
+                identity: None,
+                associated: &[],
+                namespaces: &self.namespaces,
+            };
+            if let Err(error) = module.file.check(&scope) {
                 return Err(Refusal {
                     module: index,
                     error,
@@ -1418,6 +1868,7 @@ impl Assembling for Nexus {
                         file: &stripped,
                         identity: None,
                         associated: &[],
+                        namespaces: &[],
                     };
                     let mut items = stripped.items(&scope);
                     if !described.is_empty() {

@@ -9,7 +9,7 @@ if [ -n "${nexus:-}" ]; then
   roots=""
   for file in "$fixtures/$nexus"/*.ethos; do roots="$roots «$file»"; done
   status=0
-  reply="$("$package/bin/ethos-zero" "Generate.{ [$roots ] «$out/generated/$nexus» }" 2>&1)" || status=$?
+  reply="$("$package/bin/ethos-zero" "Generate.{ { [$roots ] [] } «$out/generated/$nexus» }" 2>&1)" || status=$?
   case "$status:$reply" in
     0:Generated.*) echo "$reply" ;;
     *) echo "$nexus (exit $status): $reply" >&2; exit 1 ;;
@@ -17,7 +17,7 @@ if [ -n "${nexus:-}" ]; then
 fi
 for declaration in $declarations; do
   status=0
-  reply="$("$package/bin/ethos-zero" "Generate.{ [ «$fixtures/$declaration» ] «$out/generated» }" 2>&1)" || status=$?
+  reply="$("$package/bin/ethos-zero" "Generate.{ { [ «$fixtures/$declaration» ] [] } «$out/generated» }" 2>&1)" || status=$?
   case "$status:$reply" in
     0:Generated.*) echo "$reply" ;;
     *) echo "$declaration (exit $status): $reply" >&2; exit 1 ;;

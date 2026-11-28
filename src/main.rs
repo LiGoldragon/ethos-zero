@@ -5,8 +5,8 @@ use std::process::ExitCode;
 
 use datom_codec::{Actualizing as _, Budget, Datomizable as _, Path, Potential};
 use ethos_zero::{
-    Actualizing as _, Assembling as _, File, Locating as _, Module, Nexus,
-    Potential as EthosPotential, Printable as _, Refusal, Verifying as _,
+    Actualizing as _, Assembling as _, File, Locating as _, Module, Namespace as GivenNamespace,
+    Nexus, Potential as EthosPotential, Printable as _, Refusal, Trusting as _, Verifying as _,
 };
 use protos::{Compactable, Protosizable};
 
@@ -15,8 +15,8 @@ use protos::{Compactable, Protosizable};
 mod contract;
 
 use contract::{
-    Conceptual_Data as Generation_Conceptual_Data, Generation, Generation_Error, Query,
-    Rejected_Data, Response, Unreadable_Data, Unwritable_Data,
+    Checked_Data, Conceptual_Data as Generation_Conceptual_Data, Generation, Generation_Error,
+    Query, Reading, Rejected_Data, Response, Unchecked, Unreadable_Data, Unwritable_Data,
 };
 
 const ETHOS: &str = include_str!("../ethos-zero.ethos");
@@ -42,9 +42,15 @@ type Read = (EthosPotential<File>, File);
 trait Sourcing {
     fn source(&self) -> Result<Read, Response>;
 }
-/// The trait whose capability reads the root files of a Nexus, together.
+/// The trait whose capability reads ethos files, each a module named for its file's stem.
 trait Gathering {
-    fn gather(&self) -> Result<(Nexus, Vec<EthosPotential<File>>), Response>;
+    fn gather(&self) -> Result<(Vec<Module>, Vec<EthosPotential<File>>), Response>;
+}
+/// The trait whose capability reads the root files of a Nexus together, and the
+/// files of each namespace given: a file of either that does not read is the
+/// rejection, naming it.
+trait Opening {
+    fn open(&self) -> Result<(Nexus, Vec<EthosPotential<File>>), Response>;
 }
 /// The trait whose capability turns an error in a read source into a located rejection.
 trait Rejecting {
@@ -99,7 +105,7 @@ impl Sourcing for String {
 }
 
 impl Gathering for [String] {
-    fn gather(&self) -> Result<(Nexus, Vec<EthosPotential<File>>), Response> {
+    fn gather(&self) -> Result<(Vec<Module>, Vec<EthosPotential<File>>), Response> {
         let mut modules = Vec::with_capacity(self.len());
         let mut texts = Vec::with_capacity(self.len());
         for source in self {
@@ -112,7 +118,28 @@ impl Gathering for [String] {
             modules.push(Module { stem, file });
             texts.push(potential);
         }
-        Ok((Nexus { modules }, texts))
+        Ok((modules, texts))
+    }
+}
+
+impl Opening for Reading {
+    fn open(&self) -> Result<(Nexus, Vec<EthosPotential<File>>), Response> {
+        let (modules, texts) = self.string_vector.gather()?;
+        let mut namespaces = Vec::with_capacity(self.namespace_vector.len());
+        for namespace in &self.namespace_vector {
+            let (modules, _) = namespace.string_vector.gather()?;
+            namespaces.push(GivenNamespace {
+                name: namespace.string.clone(),
+                modules,
+            });
+        }
+        Ok((
+            Nexus {
+                modules,
+                namespaces,
+            },
+            texts,
+        ))
     }
 }
 
@@ -134,9 +161,9 @@ impl Rejecting for String {
 
 impl Serving for Generation {
     fn serve(&mut self) -> Response {
-        let sources = &self.string_vector;
+        let sources = &self.reading.string_vector;
         let directory = &self.string;
-        let (nexus, texts) = match sources.gather() {
+        let (nexus, texts) = match self.reading.open() {
             Ok(read) => read,
             Err(response) => return response,
         };
@@ -165,16 +192,31 @@ impl Serving for Generation {
     }
 }
 
-impl Serving for Vec<String> {
+impl Serving for Reading {
     fn serve(&mut self) -> Response {
-        let (nexus, texts) = match self.gather() {
+        let (nexus, texts) = match self.open() {
             Ok(read) => read,
             Err(response) => return response,
         };
-        match nexus.verify() {
-            Ok(()) => Response::Checked(self.clone()),
-            Err(refusal) => refusal.refuse(self, &texts),
+        if let Err(refusal) = nexus.verify() {
+            return refusal.refuse(&self.string_vector, &texts);
         }
+        let mut unchecked = Vec::new();
+        for trusted in nexus.unchecked() {
+            let mut names = Vec::with_capacity(trusted.names.len());
+            for name in &trusted.names {
+                names.push(name.as_ref().to_owned());
+            }
+            unchecked.push(Unchecked {
+                first_string: self.string_vector[trusted.module].clone(),
+                second_string: trusted.namespace,
+                string_vector: names,
+            });
+        }
+        Response::Checked(Checked_Data {
+            string_vector: self.string_vector.clone(),
+            unchecked_vector: unchecked,
+        })
     }
 }
 
@@ -182,7 +224,7 @@ impl Serving for Query {
     fn serve(&mut self) -> Response {
         match self {
             Self::Generate(generation) => generation.serve(),
-            Self::Check(sources) => sources.serve(),
+            Self::Check(reading) => reading.serve(),
         }
     }
 }

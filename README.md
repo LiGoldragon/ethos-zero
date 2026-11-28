@@ -235,9 +235,39 @@ of the Library, at the crate's root. The namespace is written nowhere: it is the
 one first segment of an import whose imports, those that name a module of the set, all land on one
 that declares what it takes (a type, a trait, a variant of an input, an output, an
 emission or an outcome, or a record named). Two that land are `Namespace.<second>`;
-none, and a Process root that names something is `Foreign.<name>` for it. What is
-imported from outside the Nexus, a contract it serves beside its own, is
-declared in a root of the Nexus until imports resolve across crates.
+none, and a Process root that names something is `Foreign.<name>` for it.
+
+## Namespaces given
+
+A file is its own namespace, named for the file: everything `signal.ethos` of
+the crate `flow` declares or generates is in `:flow:signal:`, and a file named
+for its crate (`protos.ethos`, hyphens read as underscores) or the Library is the
+crate's own namespace, `:protos:`. That is the naming of a Nexus read together,
+and the one naming for every crate.
+
+The caller names every namespace beyond the files it reads, and the ethos files
+of each, in the query; ethos-zero reads no manifest and searches no directory:
+
+```
+ethos-zero 'Check.{ [ /a/signal.ethos ] [ { protos [ /p/protos.ethos /p/protos-kinds.ethos ] } ] }'
+ethos-zero 'Generate.{ { [ /a/signal.ethos ] [] } /out }'
+```
+
+Every import, in the imports section or written where its type stands, whose
+source names a module of a namespace given must find each name it takes there:
+a type or trait the file declares, a unit, a record named, a variant of an
+implied enum, or a name the file generates (a Signal's `Input` and `Output`,
+`Answering`, `Answerable` and `Answer`; an Emission's `Emission`, `Outcome`,
+`Emitted` and `Emittable`; an Operation's enums; a Process root's `Process`,
+`Gift`, `Taken` and `Outcome`). One that does not is refused as
+`UnknownName.{ <namespace> <name> }` at the name, before any Rust exists, and
+Generate refuses the same. An import whose source names no module of a
+namespace given, `serde_json:Value` or `flow_nexus:generated:memory:[ … ]`
+with only `flow_nexus` given, is trusted as before, and `Checked` lists it, one
+entry per file and namespace with the names taken:
+`Checked.{ [ /a/signal.ethos ] [ { /a/signal.ethos serde_json [ Value ] } ] }`.
+A caller may give the set's own namespace with the set's files, and its imports
+are then checked like any other.
 
 A process is born of a **call**, a **record** or a **process that gives it**:
 

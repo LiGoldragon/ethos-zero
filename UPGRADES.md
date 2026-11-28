@@ -2,6 +2,18 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 33.0.0: the caller names the namespaces; imports resolve against them
+
+`Check` takes a `Reading`, `{ [ files ] [ namespaces ] }`, and `Generate` a
+`Generation`, `{ Reading directory }`; each namespace is `{ name [ files ] }`.
+`Check.[ /a.ethos ]` becomes `Check.{ [ /a.ethos ] [] }` and
+`Generate.{ [ /a.ethos ] /out }` becomes `Generate.{ { [ /a.ethos ] [] } /out }`.
+`Checked` answers `{ [ files ] [ unchecked ] }`, each unchecked entry
+`{ file namespace [ names ] }`. An import naming a module of a namespace given
+that does not provide the name is refused as `UnknownName.{ namespace name }`.
+The generated Rust is unchanged. Repin, rewrite each invocation, and give the
+namespaces whose ethos the crate's dependencies carry.
+
 ## 31.1.1: imports of inline Nexus payloads name the generated type
 
 When the roots of a Nexus are generated together, an import of a variant's

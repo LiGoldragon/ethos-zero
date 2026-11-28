@@ -190,6 +190,11 @@
                 "${datom-codec}/datom-codec.ethos"
                 "${datom-codec}/datom-codec-kinds.ethos"
               ];
+              # The protos namespace the declarations' imports of protos resolve against.
+              protos_namespace = [
+                "${protos}/protos.ethos"
+                "${protos}/protos-kinds.ethos"
+              ];
             }
             ''
               ${resourcePolicy}

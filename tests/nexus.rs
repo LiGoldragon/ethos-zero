@@ -27,7 +27,10 @@ fn fixture(name: &str) -> Nexus {
         };
         modules.push(Module { stem, file });
     }
-    Nexus { modules }
+    Nexus {
+        modules,
+        namespaces: vec![],
+    }
 }
 
 /// A Nexus written in place: each module as its stem and its text.
@@ -43,7 +46,10 @@ fn nexus(modules: &[(&str, &str)]) -> Nexus {
             file,
         });
     }
-    Nexus { modules: read }
+    Nexus {
+        modules: read,
+        namespaces: vec![],
+    }
 }
 
 /// What a Nexus is refused as: the place of the module, the path and the problem.
@@ -97,6 +103,7 @@ fn every_module_of_a_nexus_is_generated_under_its_file_name() {
 fn a_root_alone_generates_as_it_always_did() {
     let alone = Nexus {
         modules: vec![fixture("tally").modules.remove(2)],
+        namespaces: vec![],
     };
     assert_eq!(alone.modules[0].stem, "signal");
     let rust = generated(&alone, "signal");

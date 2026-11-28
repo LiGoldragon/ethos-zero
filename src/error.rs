@@ -45,6 +45,13 @@ pub struct Wrapping_Data {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct UnknownName_Data {
+    pub first_string: alloc::string::String,
+    pub second_string: alloc::string::String,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Problem {
     Root,
     Arity(Arity_Data),
@@ -70,6 +77,7 @@ pub enum Problem {
     Unborn(alloc::string::String),
     Ungivable(alloc::string::String),
     Namespace(alloc::string::String),
+    UnknownName(UnknownName_Data),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

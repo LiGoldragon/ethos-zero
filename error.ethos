@@ -29,7 +29,8 @@ Library
             Foreign.String
             Unborn.String
             Ungivable.String
-            Namespace.String ]
+            Namespace.String
+            UnknownName.{ String String } ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association Process ]
   Location.{ Line Column }
   Line.Integer

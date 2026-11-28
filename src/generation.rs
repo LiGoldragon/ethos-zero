@@ -259,6 +259,7 @@ impl Parametrizing for Identity {
             file: scope.file,
             identity: None,
             associated: scope.associated,
+            namespaces: scope.namespaces,
         };
         let mut parameters = Vec::with_capacity(self.constraints.len());
         for (index, constraint) in self.constraints.iter().enumerate() {
@@ -938,6 +939,7 @@ impl Structuring for [Position] {
             file: scope.file,
             identity: None,
             associated: &[],
+            namespaces: scope.namespaces,
         };
         let mut declared = Vec::new();
         for position in self {
@@ -1019,6 +1021,7 @@ impl Emitting for TypeDeclaration {
                     file: scope.file,
                     identity: Some(identity),
                     associated: scope.associated,
+                    namespaces: scope.namespaces,
                 };
                 positions.structure(&inner, &identity.name, identity)
             }
@@ -1027,6 +1030,7 @@ impl Emitting for TypeDeclaration {
                     file: scope.file,
                     identity: Some(identity),
                     associated: scope.associated,
+                    namespaces: scope.namespaces,
                 };
                 variants.enumeration(&inner, &identity.name, identity)
             }
@@ -1035,6 +1039,7 @@ impl Emitting for TypeDeclaration {
                     file: scope.file,
                     identity: Some(identity),
                     associated: scope.associated,
+                    namespaces: scope.namespaces,
                 };
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
@@ -1232,6 +1237,7 @@ impl Emitting for TraitDeclaration {
             file: scope.file,
             identity: Some(&self.identity),
             associated: types,
+            namespaces: scope.namespaces,
         };
         let name = self.identity.name.tokens();
         let parameters = self.identity.parameters(&inner);
@@ -1267,6 +1273,7 @@ impl Emitting for Association {
             file: scope.file,
             identity: Some(&self.identity),
             associated: scope.associated,
+            namespaces: scope.namespaces,
         };
         let subject = Reference::Named(NamedReference {
             source: None,
@@ -1760,6 +1767,7 @@ impl Generating for File {
             file: self,
             identity: None,
             associated: &[],
+            namespaces: &[],
         };
         Ok(self.items(&scope).render())
     }

@@ -47,7 +47,7 @@ mod error;
 
 pub use error::{
     Arity_Data, Column, Conceptual_Data, Error, Form, Line, Location, Problem, Structural_Error,
-    Wrapping_Data,
+    UnknownName_Data, Wrapping_Data,
 };
 
 // ---------------------------------------------------------------------------
@@ -637,7 +637,9 @@ pub enum Role {
     Trait,
 }
 
-/// The scope a reference resolves in: the file, and the identity and associated types of the enclosing declaration.
+/// The scope a reference resolves in: the file, the identity and associated
+/// types of the enclosing declaration, and the namespaces the caller gave, which
+/// an import naming one of their modules resolves against.
 #[derive(Clone, Copy, Debug)]
 pub struct Scope<'a> {
     /// The file whose imports and declarations are in scope.
@@ -646,6 +648,9 @@ pub struct Scope<'a> {
     pub identity: Option<&'a Identity>,
     /// The enclosing trait's associated types.
     pub associated: &'a [AssociatedType],
+    /// The namespaces given: an import of one of their modules must find what
+    /// it takes there; an import of any other is trusted.
+    pub namespaces: &'a [Namespace],
 }
 
 // ---------------------------------------------------------------------------
@@ -917,7 +922,9 @@ impl Identifiable for Intrinsic {
     }
 }
 
-pub use nexus::{Assembled, Assembling, Module, Nexus, Refusal, Verifying};
+pub use nexus::{
+    Assembled, Assembling, Module, Namespace, Nexus, Refusal, Trusting, Unchecked, Verifying,
+};
 
 // ---------------------------------------------------------------------------
 // Passes: implementation below, each module named for its pass
@@ -1281,6 +1288,7 @@ mod behavior {
             file: &file,
             identity: None,
             associated: &[],
+            namespaces: &[],
         };
         assert!(matches!(file.check(&scope), Err(Error::Conceptual(_))));
     }

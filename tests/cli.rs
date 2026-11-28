@@ -44,7 +44,7 @@ fn opaque(text: &str) -> String {
 
 fn generate(source: &str, directory: &str) -> String {
     format!(
-        "Generate.{{ [ {} ] {} }}",
+        "Generate.{{ {{ [ {} ] [] }} {} }}",
         opaque(source),
         opaque(directory)
     )
@@ -61,7 +61,7 @@ fn no_argument_prints_the_crates_own_ethos_ending_with_a_newline() {
     assert_eq!(output, file.print());
     assert!(output.ends_with('\n'));
     assert!(output.contains("Generate.Generation"));
-    assert!(output.contains("Check.⟦String⟧"));
+    assert!(output.contains("Check.Reading"));
     assert!(!output.contains("Vector<"));
 }
 
@@ -126,7 +126,7 @@ fn the_roots_of_a_nexus_are_generated_together_each_into_a_module_of_its_files_n
     let directory = "nexus".scratch();
     let root = format!("{}/fixtures/nexus/tally", env!("CARGO_MANIFEST_DIR"));
     let argument = format!(
-        "Generate.{{ [ {} {} {} ] {} }}",
+        "Generate.{{ {{ [ {} {} {} ] [] }} {} }}",
         opaque(&format!("{root}/signal.ethos")),
         opaque(&format!("{root}/memory.ethos")),
         opaque(&format!("{root}/process.ethos")),
@@ -144,7 +144,7 @@ fn the_roots_of_a_nexus_are_generated_together_each_into_a_module_of_its_files_n
     assert!(process.contains("pub enum Process"));
     assert!(process.contains("pub struct SumProcess"));
     let checked = format!(
-        "Check.[ {} {} ]",
+        "Check.{{ [ {} {} ] [] }}",
         opaque(&format!("{root}/signal.ethos")),
         opaque(&format!("{root}/process.ethos"))
     );
@@ -203,11 +203,11 @@ fn check_all(sources: &[&str]) -> String {
     for source in sources {
         written.push(opaque(source));
     }
-    format!("Check.[ {} ]", written.join(" "))
+    format!("Check.{{ [ {} ] [] }}", written.join(" "))
 }
 
 fn check(source: &str) -> String {
-    format!("Check.[ {} ]", opaque(source))
+    format!("Check.{{ [ {} ] [] }}", opaque(source))
 }
 
 #[test]
@@ -236,7 +236,7 @@ fn check_validates_a_good_file_without_writing() {
     let argument = check(source);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(output, format!("Checked.[ {source} ]\n"));
+    assert_eq!(output, format!("Checked.{{ [ {source} ] [] }}\n"));
 }
 
 #[test]
@@ -360,7 +360,7 @@ fn check_takes_a_variant_named_as_a_defined_type_declaring_a_payload() {
     let argument = check(&taken);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(output, format!("Checked.[ {taken} ]\n"));
+    assert_eq!(output, format!("Checked.{{ [ {taken} ] [] }}\n"));
 }
 
 #[test]
@@ -409,7 +409,7 @@ fn check_takes_a_trait_and_a_concrete_type_in_an_input() {
     let argument = check(&taken);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(output, format!("Checked.[ {taken} ]\n"));
+    assert_eq!(output, format!("Checked.{{ [ {taken} ] [] }}\n"));
 
     let typed = directory.write_source(
         "typed",
@@ -418,7 +418,7 @@ fn check_takes_a_trait_and_a_concrete_type_in_an_input() {
     let argument = check(&typed);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
-    assert_eq!(output, format!("Checked.[ {typed} ]\n"));
+    assert_eq!(output, format!("Checked.{{ [ {typed} ] [] }}\n"));
 }
 
 #[test]
@@ -435,17 +435,108 @@ fn a_file_headed_sema_is_rejected_naming_memory() {
 }
 
 #[test]
-fn the_four_flow_nexus_files_check() {
+fn the_four_flow_nexus_files_check_trusting_flow_until_it_is_given() {
+    let root = format!("{}/fixtures/print", env!("CARGO_MANIFEST_DIR"));
+    let library = format!("{root}/flow-library.ethos");
     for name in [
         "flow-library",
         "flow-signal",
         "flow-operation",
         "flow-memory",
     ] {
-        let source = format!("{}/fixtures/print/{name}.ethos", env!("CARGO_MANIFEST_DIR"));
+        let source = format!("{root}/{name}.ethos");
         let argument = check(&source);
         let (success, output) = [argument.as_str()].invoke();
         assert!(success, "{output}");
-        assert_eq!(output, format!("Checked.[ {source} ]\n"));
+        // Without the flow namespace, what the file imports from it is unchecked.
+        let unchecked = if name == "flow-library" {
+            "[]".to_owned()
+        } else {
+            format!("[ {{ {source} flow [ FlowId Voice Event ] }} ]")
+        };
+        assert_eq!(output, format!("Checked.{{ [ {source} ] {unchecked} }}\n"));
+        // Given, the flow Library is the crate's root, and every import is checked there.
+        let argument = format!(
+            "Check.{{ [ {} ] [ {{ flow [ {} ] }} ] }}",
+            opaque(&source),
+            opaque(&library)
+        );
+        let (success, output) = [argument.as_str()].invoke();
+        assert!(success, "{output}");
+        assert_eq!(output, format!("Checked.{{ [ {source} ] [] }}\n"));
     }
+}
+
+#[test]
+fn an_import_a_given_namespace_does_not_provide_is_rejected_at_its_line_and_column() {
+    let directory = "unknown-name".scratch();
+    let given = directory.write_source("protos", "Library\n[]\n[ Extent.String ]\n[]\n[]\n");
+    let importing = directory.write_source(
+        "importing",
+        "Library\n[ :protos:[ Extent\n             Ghost ] ]\n[ Holder.{ :elsewhere:Thing } ]\n[]\n[]\n",
+    );
+    let checked = format!(
+        "Check.{{ [ {} ] [ {{ protos [ {} ] }} ] }}",
+        opaque(&importing),
+        opaque(&given)
+    );
+    let expected = format!(
+        "Rejected.{{ {importing} {{ 3 14 }} Conceptual.{{ [ 1 0 1 1 ] UnknownName.{{ protos Ghost }} }} }}\n"
+    );
+    assert_eq!([checked.as_str()].invoke(), (false, expected.clone()));
+    let outputs = format!("{directory}/unwritten");
+    let generate = format!(
+        "Generate.{{ {{ [ {} ] [ {{ protos [ {} ] }} ] }} {} }}",
+        opaque(&importing),
+        opaque(&given),
+        opaque(&outputs)
+    );
+    assert_eq!([generate.as_str()].invoke(), (false, expected));
+    assert!(!std::path::Path::new(&outputs).exists());
+
+    // What the namespace provides checks; what names no namespace given is listed unchecked.
+    let resolved = directory.write_source(
+        "resolved",
+        "Library\n[ :protos:[ Extent ] ]\n[ Holder.{ Extent :elsewhere:sub:Thing } ]\n[]\n[]\n",
+    );
+    let argument = format!(
+        "Check.{{ [ {} ] [ {{ protos [ {} ] }} ] }}",
+        opaque(&resolved),
+        opaque(&given)
+    );
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(success, "{output}");
+    assert_eq!(
+        output,
+        format!("Checked.{{ [ {resolved} ] [ {{ {resolved} elsewhere:sub [ Thing ] }} ] }}\n")
+    );
+}
+
+#[test]
+fn a_namespace_file_that_does_not_read_is_rejected_naming_it() {
+    let directory = "unreadable-namespace".scratch();
+    let broken = directory.write_source("protos", "Library\n[]\n[ Record.{ String ]\n[]\n[]\n");
+    let importing = directory.write_source("importing", "Library [ protos:[ Extent ] ] [] [] []");
+    let argument = format!(
+        "Check.{{ [ {} ] [ {{ protos [ {} ] }} ] }}",
+        opaque(&importing),
+        opaque(&broken)
+    );
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert!(
+        output.starts_with(&format!("Rejected.{{ {broken} {{ 3 19 }} Structural.")),
+        "{output}"
+    );
+    let argument = format!(
+        "Check.{{ [ {} ] [ {{ protos [ {} ] }} ] }}",
+        opaque(&importing),
+        opaque("/nowhere/protos.ethos")
+    );
+    let (success, output) = [argument.as_str()].invoke();
+    assert!(!success);
+    assert!(
+        output.starts_with("Unreadable.{ /nowhere/protos.ethos "),
+        "{output}"
+    );
 }
