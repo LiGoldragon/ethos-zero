@@ -509,7 +509,8 @@ impl Generated for File {
                     &["Answering", "Answerable"]
                 }
             }
-            File::Matrix(_) => &["Memory", "Memorizable"],
+            File::Matrix(matrix) if !matrix.records.is_empty() => &["Memory", "Memorizable"],
+            File::Matrix(_) => &["Memory"],
             File::Emission(emission) if !emission.emissions.is_empty() => &["Emitted", "Emittable"],
             File::Process(process) if !process.processes.is_empty() => {
                 &["Process", "Gift", "Taken", "Outcome"]

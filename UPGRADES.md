@@ -2,6 +2,13 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 37.0.1: a Matrix of no records generates no Memorizable
+
+A Matrix with no record generates neither the trait `Memorizable` nor provides
+it, as an empty Emission generates no `Emitted`; its empty `Memory` stays.
+Repin to 37.0.1. A crate that named the trait of an empty Matrix, which no
+record bore, removes the name. A Matrix with records generates as in 37.0.0.
+
 ## 37.0.0: every record of a Matrix bears Memorizable
 
 A Matrix generates, beside its records and `Memory`, the trait `Memorizable`,

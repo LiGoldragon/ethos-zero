@@ -119,9 +119,9 @@ fn a_matrix_of_one_imported_record_generates() {
     assert!(!generated.contains("pub struct Observed"));
     let empty = generates("Matrix [] []");
     assert!(empty.contains("pub struct Memory {"));
-    // A Matrix of no record generates Memorizable, borne by none.
-    assert!(empty.contains("pub trait Memorizable {"));
-    assert!(!empty.contains("impl Memorizable"));
+    // A Matrix of no record generates no Memorizable, as an empty Emission
+    // generates no Emitted; its empty Memory stays.
+    assert!(!empty.contains("Memorizable"));
 }
 
 #[test]

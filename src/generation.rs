@@ -1600,14 +1600,19 @@ impl TraitImplying for crate::Emission {
 /// yet, so the trait is generated into the module of each Matrix file.
 impl TraitImplying for crate::Matrix {
     fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream> {
+        let Some(TypeDeclaration::Struct(identity, positions)) = scope.file.matrix_memory() else {
+            return vec![];
+        };
+        let references = positions.references();
+        // A Matrix of no records generates no trait, as an empty Emission
+        // generates none; its empty Memory stays.
+        if references.is_empty() {
+            return vec![];
+        }
         let mut items = vec![quote! {
             pub trait Memorizable { type Memory; fn recall(memory: &Self::Memory) -> &Self; }
         }];
-        let Some(TypeDeclaration::Struct(identity, positions)) = scope.file.matrix_memory() else {
-            return items;
-        };
         let memory = identity.name.tokens();
-        let references = positions.references();
         let fields = references.field_names(&identity.name);
         for (reference, field) in references.iter().zip(fields) {
             let record = reference.position(scope, &identity.name);

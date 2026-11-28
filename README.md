@@ -303,7 +303,9 @@ Every record bears `Memorizable`, generated in the module of each Matrix file
 until a standard library holds it once: the trait names the Memory the record
 is held in and reads the record out of it, from the Memory's field for that
 record. One impl per record, the declared and the imported alike; a Matrix of
-no record generates the trait and no impl. It says nothing of change.
+no record generates no trait, as an empty Emission generates none, and its
+empty Memory stays. It says nothing of change. Another file imports the trait
+by name, as a type, `:lock:matrix:Memorizable`.
 
 ```rust
 pub trait Memorizable {
@@ -334,7 +336,8 @@ impl Memorizable for flow::Event {
 declare or import either: `Duplicate.Memory` or `Duplicate.Memorizable` at the
 later of the two, as `Input` in a Signal. No Change is generated. A Matrix
 provides to the roots read with it, or to a namespace given, its records (a
-declared one and a named one), `Memory` and `Memorizable`. A
+declared one and a named one), `Memory`, and `Memorizable` where it has a
+record. A
 file of another count of sections is `Arity`, as for the others; a duplicate
 record, an undeclared name and the other refusals are the Memory root's. A
 Matrix prints back as written.
