@@ -117,6 +117,224 @@ impl<Registry> Opening<Registry> for Mark {
     }
 }
 #[rustfmt::skip]
+pub mod open {
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Name(pub ::std::string::String);
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Word(pub ::std::string::String);
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Namespace(pub ::std::vec::Vec<Word>);
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    pub struct Import {
+        pub namespace: Namespace,
+        pub name_vector: ::std::vec::Vec<Name>,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub struct Declaration {
+        pub name: Name,
+        #[rkyv(omit_bounds)]
+        pub r#type: Type,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub struct Variant {
+        pub name: Name,
+        #[rkyv(omit_bounds)]
+        pub type_option: ::core::option::Option<Type>,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub struct Applied_Data {
+        pub name: Name,
+        #[rkyv(omit_bounds)]
+        pub type_vector: ::std::vec::Vec<Type>,
+    }
+    #[rustfmt::skip]
+    #[derive(
+        ::rkyv::Archive,
+        ::rkyv::Serialize,
+        ::rkyv::Deserialize,
+        Clone,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash
+    )]
+    #[cfg_attr(
+        feature = "datom",
+        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+    )]
+    #[rkyv(
+        serialize_bounds(
+            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
+            __S::Error: ::rkyv::rancor::Source
+        )
+    )]
+    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+    #[rkyv(
+        bytecheck(
+            bounds(
+                __C: ::rkyv::validation::ArchiveContext,
+                __C::Error: ::rkyv::rancor::Source
+            )
+        )
+    )]
+    pub enum Type {
+        Name(Name),
+        Import(Import),
+        Declaration(#[rkyv(omit_bounds)] ::std::boxed::Box<Declaration>),
+        Struct(#[rkyv(omit_bounds)] ::std::vec::Vec<Type>),
+        Enum(#[rkyv(omit_bounds)] ::std::vec::Vec<Variant>),
+        Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
+        Applied(Applied_Data),
+    }
+}
+#[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "datom",
@@ -138,30 +356,36 @@ impl<Registry> Opening<Registry> for Carried {
 }
 #[rustfmt::skip]
 pub trait Carrying: Sized {
-    const NAMES: &'static [&'static str];
-    fn name(&self) -> &'static str;
+    fn names() -> ::std::vec::Vec<self::open::Name>;
+    fn name(&self) -> self::open::Name;
     #[cfg(feature = "datom")]
     fn read(
-        name: &str,
+        name: &self::open::Name,
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
     ) -> ::core::result::Result<Self, ::datom_codec::Error>;
 }
 #[rustfmt::skip]
 impl Carrying for Carried {
-    const NAMES: &'static [&'static str] = &["Mark"];
-    fn name(&self) -> &'static str {
-        match self {
-            Carried::Mark(_) => "Mark",
-        }
+    fn names() -> ::std::vec::Vec<self::open::Name> {
+        ::std::vec![self::open::Name(::std::string::String::from("Mark"))]
+    }
+    fn name(&self) -> self::open::Name {
+        self::open::Name(
+            ::std::string::String::from(
+                match self {
+                    Carried::Mark(_) => "Mark",
+                },
+            ),
+        )
     }
     #[cfg(feature = "datom")]
     fn read(
-        name: &str,
+        name: &self::open::Name,
         datom: &::datom_codec::Datom,
         budget: &mut ::datom_codec::Budget,
     ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-        match name {
+        match name.0.as_str() {
             "Mark" => {
                 ::core::result::Result::Ok(
                     Carried::Mark(::datom_codec::Composing::compose(datom, budget)?),
@@ -383,221 +607,7 @@ impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::boxed::Box
 }
 #[rustfmt::skip]
 pub mod core {
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Name(pub ::std::string::String);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Word(pub ::std::string::String);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Namespace(pub ::std::vec::Vec<Word>);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Import {
-        pub namespace: Namespace,
-        pub name_vector: ::std::vec::Vec<Name>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Declaration {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub r#type: Type,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Variant {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub type_option: ::core::option::Option<Type>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Applied_Data {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub type_vector: ::std::vec::Vec<Type>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub enum Type {
-        Name(Name),
-        Import(Import),
-        Declaration(#[rkyv(omit_bounds)] ::std::boxed::Box<Declaration>),
-        Struct(#[rkyv(omit_bounds)] ::std::vec::Vec<Type>),
-        Enum(#[rkyv(omit_bounds)] ::std::vec::Vec<Variant>),
-        Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
-        Applied(Applied_Data),
-    }
+    pub use super::open::*;
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -646,7 +656,7 @@ pub mod core {
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Core {
-    pub name: self::core::Name,
+    pub name: self::open::Name,
     pub carried: ::core::option::Option<Carried>,
 }
 #[cfg(feature = "datom")]
@@ -708,7 +718,7 @@ impl<Registry: self::core::Registry> Opening<Registry> for Core {
                 );
             }
         };
-        let name = self::core::Name(head.clone());
+        let name = self::open::Name(head.clone());
         let ::core::option::Option::Some(entry) = registry.variant(&name) else {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
@@ -728,14 +738,10 @@ impl<Registry: self::core::Registry> Opening<Registry> for Core {
                 })
             }
             (
-                ::core::option::Option::Some(self::core::Type::Name(carried)),
+                ::core::option::Option::Some(self::open::Type::Name(carried)),
                 ::core::option::Option::Some(body),
             ) => {
-                let carried = <Carried as Carrying>::read(
-                    carried.0.as_str(),
-                    body,
-                    budget,
-                )?;
+                let carried = <Carried as Carrying>::read(&carried, body, budget)?;
                 ::core::result::Result::Ok(Self {
                     name,
                     carried: ::core::option::Option::Some(carried),
@@ -759,221 +765,7 @@ impl<Registry: self::core::Registry> Opening<Registry> for Core {
 }
 #[rustfmt::skip]
 pub mod flow {
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Name(pub ::std::string::String);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Word(pub ::std::string::String);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Namespace(pub ::std::vec::Vec<Word>);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Import {
-        pub namespace: Namespace,
-        pub name_vector: ::std::vec::Vec<Name>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Declaration {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub r#type: Type,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Variant {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub type_option: ::core::option::Option<Type>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Applied_Data {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub type_vector: ::std::vec::Vec<Type>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub enum Type {
-        Name(Name),
-        Import(Import),
-        Declaration(#[rkyv(omit_bounds)] ::std::boxed::Box<Declaration>),
-        Struct(#[rkyv(omit_bounds)] ::std::vec::Vec<Type>),
-        Enum(#[rkyv(omit_bounds)] ::std::vec::Vec<Variant>),
-        Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
-        Applied(Applied_Data),
-    }
+    pub use super::open::*;
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -1022,7 +814,7 @@ pub mod flow {
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Flow {
-    pub name: self::flow::Name,
+    pub name: self::open::Name,
     pub carried: ::core::option::Option<Carried>,
 }
 #[cfg(feature = "datom")]
@@ -1084,7 +876,7 @@ impl<Registry: self::flow::Registry> Opening<Registry> for Flow {
                 );
             }
         };
-        let name = self::flow::Name(head.clone());
+        let name = self::open::Name(head.clone());
         let ::core::option::Option::Some(entry) = registry.variant(&name) else {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
@@ -1104,14 +896,10 @@ impl<Registry: self::flow::Registry> Opening<Registry> for Flow {
                 })
             }
             (
-                ::core::option::Option::Some(self::flow::Type::Name(carried)),
+                ::core::option::Option::Some(self::open::Type::Name(carried)),
                 ::core::option::Option::Some(body),
             ) => {
-                let carried = <Carried as Carrying>::read(
-                    carried.0.as_str(),
-                    body,
-                    budget,
-                )?;
+                let carried = <Carried as Carrying>::read(&carried, body, budget)?;
                 ::core::result::Result::Ok(Self {
                     name,
                     carried: ::core::option::Option::Some(carried),
@@ -1135,221 +923,7 @@ impl<Registry: self::flow::Registry> Opening<Registry> for Flow {
 }
 #[rustfmt::skip]
 pub mod alloc {
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Name(pub ::std::string::String);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Word(pub ::std::string::String);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Namespace(pub ::std::vec::Vec<Word>);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Import {
-        pub namespace: Namespace,
-        pub name_vector: ::std::vec::Vec<Name>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Declaration {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub r#type: Type,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Variant {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub type_option: ::core::option::Option<Type>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Applied_Data {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub type_vector: ::std::vec::Vec<Type>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub enum Type {
-        Name(Name),
-        Import(Import),
-        Declaration(#[rkyv(omit_bounds)] ::std::boxed::Box<Declaration>),
-        Struct(#[rkyv(omit_bounds)] ::std::vec::Vec<Type>),
-        Enum(#[rkyv(omit_bounds)] ::std::vec::Vec<Variant>),
-        Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
-        Applied(Applied_Data),
-    }
+    pub use super::open::*;
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -1398,7 +972,7 @@ pub mod alloc {
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Alloc {
-    pub name: self::alloc::Name,
+    pub name: self::open::Name,
     pub carried: ::core::option::Option<Carried>,
 }
 #[cfg(feature = "datom")]
@@ -1460,7 +1034,7 @@ impl<Registry: self::alloc::Registry> Opening<Registry> for Alloc {
                 );
             }
         };
-        let name = self::alloc::Name(head.clone());
+        let name = self::open::Name(head.clone());
         let ::core::option::Option::Some(entry) = registry.variant(&name) else {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
@@ -1480,14 +1054,10 @@ impl<Registry: self::alloc::Registry> Opening<Registry> for Alloc {
                 })
             }
             (
-                ::core::option::Option::Some(self::alloc::Type::Name(carried)),
+                ::core::option::Option::Some(self::open::Type::Name(carried)),
                 ::core::option::Option::Some(body),
             ) => {
-                let carried = <Carried as Carrying>::read(
-                    carried.0.as_str(),
-                    body,
-                    budget,
-                )?;
+                let carried = <Carried as Carrying>::read(&carried, body, budget)?;
                 ::core::result::Result::Ok(Self {
                     name,
                     carried: ::core::option::Option::Some(carried),
@@ -1511,221 +1081,7 @@ impl<Registry: self::alloc::Registry> Opening<Registry> for Alloc {
 }
 #[rustfmt::skip]
 pub mod std {
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Name(pub ::std::string::String);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Word(pub ::std::string::String);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Namespace(pub ::std::vec::Vec<Word>);
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    pub struct Import {
-        pub namespace: Namespace,
-        pub name_vector: ::std::vec::Vec<Name>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Declaration {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub r#type: Type,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Variant {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub type_option: ::core::option::Option<Type>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub struct Applied_Data {
-        pub name: Name,
-        #[rkyv(omit_bounds)]
-        pub type_vector: ::std::vec::Vec<Type>,
-    }
-    #[rustfmt::skip]
-    #[derive(
-        ::rkyv::Archive,
-        ::rkyv::Serialize,
-        ::rkyv::Deserialize,
-        Clone,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash
-    )]
-    #[cfg_attr(
-        feature = "datom",
-        derive(::datom_codec::Datomizable, ::datom_codec::Composing)
-    )]
-    #[rkyv(
-        serialize_bounds(
-            __S: ::rkyv::ser::Writer+::rkyv::ser::Allocator,
-            __S::Error: ::rkyv::rancor::Source
-        )
-    )]
-    #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
-    #[rkyv(
-        bytecheck(
-            bounds(
-                __C: ::rkyv::validation::ArchiveContext,
-                __C::Error: ::rkyv::rancor::Source
-            )
-        )
-    )]
-    pub enum Type {
-        Name(Name),
-        Import(Import),
-        Declaration(#[rkyv(omit_bounds)] ::std::boxed::Box<Declaration>),
-        Struct(#[rkyv(omit_bounds)] ::std::vec::Vec<Type>),
-        Enum(#[rkyv(omit_bounds)] ::std::vec::Vec<Variant>),
-        Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
-        Applied(Applied_Data),
-    }
+    pub use super::open::*;
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -1774,7 +1130,7 @@ pub mod std {
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Std {
-    pub name: self::std::Name,
+    pub name: self::open::Name,
     pub carried: ::core::option::Option<Carried>,
 }
 #[cfg(feature = "datom")]
@@ -1836,7 +1192,7 @@ impl<Registry: self::std::Registry> Opening<Registry> for Std {
                 );
             }
         };
-        let name = self::std::Name(head.clone());
+        let name = self::open::Name(head.clone());
         let ::core::option::Option::Some(entry) = registry.variant(&name) else {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
@@ -1856,14 +1212,10 @@ impl<Registry: self::std::Registry> Opening<Registry> for Std {
                 })
             }
             (
-                ::core::option::Option::Some(self::std::Type::Name(carried)),
+                ::core::option::Option::Some(self::open::Type::Name(carried)),
                 ::core::option::Option::Some(body),
             ) => {
-                let carried = <Carried as Carrying>::read(
-                    carried.0.as_str(),
-                    body,
-                    budget,
-                )?;
+                let carried = <Carried as Carrying>::read(&carried, body, budget)?;
                 ::core::result::Result::Ok(Self {
                     name,
                     carried: ::core::option::Option::Some(carried),

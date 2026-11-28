@@ -4,206 +4,8 @@
     non_snake_case,
     clippy::type_complexity
 )]
-#[cfg(feature = "datom")]
 #[rustfmt::skip]
-pub trait Opening<Registry>: Sized {
-    fn open(
-        datom: &::datom_codec::Datom,
-        budget: &mut ::datom_codec::Budget,
-        registry: &Registry,
-    ) -> ::core::result::Result<Self, ::datom_codec::Error>;
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
-impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::vec::Vec<Value> {
-    fn open(
-        datom: &::datom_codec::Datom,
-        budget: &mut ::datom_codec::Budget,
-        registry: &Registry,
-    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-        ::datom_codec::Budgeted::spend(budget, &datom.path)?;
-        let children = match &datom.form {
-            ::datom_codec::Form::Vector(children) => children,
-            found => {
-                return ::core::result::Result::Err(
-                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
-                        datom.path.clone(),
-                        ::datom_codec::ErrorKind::Form {
-                            expected: ::std::string::String::from("Vector"),
-                            found: ::std::string::String::from(
-                                ::datom_codec::Naming::form_name(found),
-                            ),
-                        },
-                    ),
-                );
-            }
-        };
-        let mut values = ::std::vec::Vec::with_capacity(children.len());
-        for child in children {
-            ::datom_codec::CompositionDepthing::enter_composition(budget, &child.path)?;
-            let read = Value::open(child, budget, registry);
-            ::datom_codec::CompositionDepthing::leave_composition(budget);
-            values.push(read?);
-        }
-        ::core::result::Result::Ok(values)
-    }
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
-impl<Registry, Value: Opening<Registry>> Opening<Registry>
-for ::core::option::Option<Value> {
-    fn open(
-        datom: &::datom_codec::Datom,
-        budget: &mut ::datom_codec::Budget,
-        registry: &Registry,
-    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-        if let ::datom_codec::Form::Bare(head) = &datom.form {
-            ::datom_codec::Budgeted::spend(budget, &datom.path)?;
-            return if head == "None" {
-                ::core::result::Result::Ok(::core::option::Option::None)
-            } else {
-                ::core::result::Result::Err(
-                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
-                        datom.path.clone(),
-                        ::datom_codec::ErrorKind::Variant {
-                            expected: ::std::string::String::from("Option"),
-                            found: head.clone(),
-                        },
-                    ),
-                )
-            };
-        }
-        let (head, body) = ::datom_codec::Variantizing::variant(
-            datom,
-            budget,
-            "Variant",
-        )?;
-        if head != "Some" {
-            return ::core::result::Result::Err(
-                <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
-                    datom.path.clone(),
-                    ::datom_codec::ErrorKind::Variant {
-                        expected: ::std::string::String::from("Option"),
-                        found: ::std::string::String::from(head),
-                    },
-                ),
-            );
-        }
-        ::datom_codec::CompositionDepthing::enter_composition(budget, &body.path)?;
-        let read = Value::open(body, budget, registry);
-        ::datom_codec::CompositionDepthing::leave_composition(budget);
-        ::core::result::Result::Ok(::core::option::Option::Some(read?))
-    }
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
-impl<Registry, Value: Opening<Registry>, Failure: Opening<Registry>> Opening<Registry>
-for ::core::result::Result<Value, Failure> {
-    fn open(
-        datom: &::datom_codec::Datom,
-        budget: &mut ::datom_codec::Budget,
-        registry: &Registry,
-    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-        let (head, body) = ::datom_codec::Variantizing::variant(
-            datom,
-            budget,
-            "Variant",
-        )?;
-        let ok = match head {
-            "Ok" => true,
-            "Err" => false,
-            found => {
-                return ::core::result::Result::Err(
-                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
-                        datom.path.clone(),
-                        ::datom_codec::ErrorKind::Variant {
-                            expected: ::std::string::String::from("Result"),
-                            found: ::std::string::String::from(found),
-                        },
-                    ),
-                );
-            }
-        };
-        ::datom_codec::CompositionDepthing::enter_composition(budget, &body.path)?;
-        let read = if ok {
-            Value::open(body, budget, registry).map(::core::result::Result::Ok)
-        } else {
-            Failure::open(body, budget, registry).map(::core::result::Result::Err)
-        };
-        ::datom_codec::CompositionDepthing::leave_composition(budget);
-        read
-    }
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
-impl<Registry> Opening<Registry> for ::std::string::String {
-    fn open(
-        datom: &::datom_codec::Datom,
-        budget: &mut ::datom_codec::Budget,
-        _registry: &Registry,
-    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-        <Self as ::datom_codec::Composing>::compose(datom, budget)
-    }
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
-impl<Registry> Opening<Registry> for i64 {
-    fn open(
-        datom: &::datom_codec::Datom,
-        budget: &mut ::datom_codec::Budget,
-        _registry: &Registry,
-    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-        <Self as ::datom_codec::Composing>::compose(datom, budget)
-    }
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
-impl<Registry> Opening<Registry> for ::datom_codec::Decimal {
-    fn open(
-        datom: &::datom_codec::Datom,
-        budget: &mut ::datom_codec::Budget,
-        _registry: &Registry,
-    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-        <Self as ::datom_codec::Composing>::compose(datom, budget)
-    }
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
-impl<Registry> Opening<Registry> for bool {
-    fn open(
-        datom: &::datom_codec::Datom,
-        budget: &mut ::datom_codec::Budget,
-        _registry: &Registry,
-    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-        <Self as ::datom_codec::Composing>::compose(datom, budget)
-    }
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
-impl<Registry> Opening<Registry> for ::datom_codec::Meaning {
-    fn open(
-        datom: &::datom_codec::Datom,
-        budget: &mut ::datom_codec::Budget,
-        _registry: &Registry,
-    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-        <Self as ::datom_codec::Composing>::compose(datom, budget)
-    }
-}
-#[cfg(feature = "datom")]
-#[rustfmt::skip]
-impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::boxed::Box<Value> {
-    fn open(
-        datom: &::datom_codec::Datom,
-        budget: &mut ::datom_codec::Budget,
-        registry: &Registry,
-    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
-        ::core::result::Result::Ok(
-            ::std::boxed::Box::new(Value::open(datom, budget, registry)?),
-        )
-    }
-}
-#[rustfmt::skip]
-pub mod model {
+pub mod open {
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -419,6 +221,208 @@ pub mod model {
         Vector(#[rkyv(omit_bounds)] ::std::boxed::Box<Type>),
         Applied(Applied_Data),
     }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+pub trait Opening<Registry>: Sized {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error>;
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::vec::Vec<Value> {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        ::datom_codec::Budgeted::spend(budget, &datom.path)?;
+        let children = match &datom.form {
+            ::datom_codec::Form::Vector(children) => children,
+            found => {
+                return ::core::result::Result::Err(
+                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        ::datom_codec::ErrorKind::Form {
+                            expected: ::std::string::String::from("Vector"),
+                            found: ::std::string::String::from(
+                                ::datom_codec::Naming::form_name(found),
+                            ),
+                        },
+                    ),
+                );
+            }
+        };
+        let mut values = ::std::vec::Vec::with_capacity(children.len());
+        for child in children {
+            ::datom_codec::CompositionDepthing::enter_composition(budget, &child.path)?;
+            let read = Value::open(child, budget, registry);
+            ::datom_codec::CompositionDepthing::leave_composition(budget);
+            values.push(read?);
+        }
+        ::core::result::Result::Ok(values)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry, Value: Opening<Registry>> Opening<Registry>
+for ::core::option::Option<Value> {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        if let ::datom_codec::Form::Bare(head) = &datom.form {
+            ::datom_codec::Budgeted::spend(budget, &datom.path)?;
+            return if head == "None" {
+                ::core::result::Result::Ok(::core::option::Option::None)
+            } else {
+                ::core::result::Result::Err(
+                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        ::datom_codec::ErrorKind::Variant {
+                            expected: ::std::string::String::from("Option"),
+                            found: head.clone(),
+                        },
+                    ),
+                )
+            };
+        }
+        let (head, body) = ::datom_codec::Variantizing::variant(
+            datom,
+            budget,
+            "Variant",
+        )?;
+        if head != "Some" {
+            return ::core::result::Result::Err(
+                <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                    datom.path.clone(),
+                    ::datom_codec::ErrorKind::Variant {
+                        expected: ::std::string::String::from("Option"),
+                        found: ::std::string::String::from(head),
+                    },
+                ),
+            );
+        }
+        ::datom_codec::CompositionDepthing::enter_composition(budget, &body.path)?;
+        let read = Value::open(body, budget, registry);
+        ::datom_codec::CompositionDepthing::leave_composition(budget);
+        ::core::result::Result::Ok(::core::option::Option::Some(read?))
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry, Value: Opening<Registry>, Failure: Opening<Registry>> Opening<Registry>
+for ::core::result::Result<Value, Failure> {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        let (head, body) = ::datom_codec::Variantizing::variant(
+            datom,
+            budget,
+            "Variant",
+        )?;
+        let ok = match head {
+            "Ok" => true,
+            "Err" => false,
+            found => {
+                return ::core::result::Result::Err(
+                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
+                        datom.path.clone(),
+                        ::datom_codec::ErrorKind::Variant {
+                            expected: ::std::string::String::from("Result"),
+                            found: ::std::string::String::from(found),
+                        },
+                    ),
+                );
+            }
+        };
+        ::datom_codec::CompositionDepthing::enter_composition(budget, &body.path)?;
+        let read = if ok {
+            Value::open(body, budget, registry).map(::core::result::Result::Ok)
+        } else {
+            Failure::open(body, budget, registry).map(::core::result::Result::Err)
+        };
+        ::datom_codec::CompositionDepthing::leave_composition(budget);
+        read
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for ::std::string::String {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for i64 {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for ::datom_codec::Decimal {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for bool {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry> Opening<Registry> for ::datom_codec::Meaning {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        _registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        <Self as ::datom_codec::Composing>::compose(datom, budget)
+    }
+}
+#[cfg(feature = "datom")]
+#[rustfmt::skip]
+impl<Registry, Value: Opening<Registry>> Opening<Registry> for ::std::boxed::Box<Value> {
+    fn open(
+        datom: &::datom_codec::Datom,
+        budget: &mut ::datom_codec::Budget,
+        registry: &Registry,
+    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+        ::core::result::Result::Ok(
+            ::std::boxed::Box::new(Value::open(datom, budget, registry)?),
+        )
+    }
+}
+#[rustfmt::skip]
+pub mod model {
+    pub use super::open::*;
     #[rustfmt::skip]
     #[derive(
         ::rkyv::Archive,
@@ -467,7 +471,7 @@ pub mod model {
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Model {
-    pub name: self::model::Name,
+    pub name: self::open::Name,
 }
 #[cfg(feature = "datom")]
 #[rustfmt::skip]
@@ -507,7 +511,7 @@ impl<Registry: self::model::Registry> Opening<Registry> for Model {
                 );
             }
         };
-        let name = self::model::Name(head.clone());
+        let name = self::open::Name(head.clone());
         let ::core::option::Option::Some(entry) = registry.variant(&name) else {
             return ::core::result::Result::Err(
                 <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(

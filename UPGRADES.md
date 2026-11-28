@@ -2,6 +2,39 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 50.0.0: one Name per file, shared by its open enums
+
+A Signal of open enums generates the contract's syntax once, into a module
+`open` of the file: `Name`, `Word`, `Namespace`, `Import`, `Declaration`,
+`Variant`, `Applied_Data` and `Type` (a `Variant` holds a `Type`, which holds
+an `Import` and a `Declaration`, so they stand together). Each open enum's
+module (`model`) holds what is its own, `Input`, `Output` and `Registry`, and
+`pub use super::open::*;`, so `model::Name` and `effort::Name` are one type,
+`open::Name`, where 49.0.0 generated one per module. Every path a caller wrote
+still resolves: `signal::model::Variant`, `signal::model::Name`, and an Ethos
+import `models:signal:model:[ Variant ]`. The value's field is written
+`pub name: self::open::Name`.
+
+`Carrying` speaks in `Name`, as a `String` makes no constant:
+
+```rust
+pub trait Carrying: Sized {
+    fn names() -> ::std::vec::Vec<self::open::Name>;
+    fn name(&self) -> self::open::Name;
+    #[cfg(feature = "datom")]
+    fn read(name: &self::open::Name, datom: &Datom, budget: &mut Budget) -> Result<Self, Error>;
+}
+```
+
+To deploy: repin to 50.0.0 and regenerate. A Rust caller replaces
+`Carried::NAMES` with `Carried::names()`, compares `value.name()` with an
+`open::Name` (`Name("Fable".to_owned())`) where it compared a `&str`, and
+passes `&Name` to `Carried::read`; a caller that implemented `Registry` for
+two open enums of one file, or converted one's `Name` into the other's, may
+drop the conversion. No Ethos source changes, and nothing that checked is
+refused. An open enum named `Open` would collide with the shared module and is
+owed to design.
+
 ## 49.0.0: Opening is borne by every scalar and every declared type
 
 In a Signal of open enums, `Opening` is generated for every scalar Ethos knows,

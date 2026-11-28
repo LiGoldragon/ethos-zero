@@ -1,7 +1,9 @@
 ; The contract of an open enum: its variants are data, each a name and the
-; type it carries, and a Signal that names an open enum generates this as a
-; module of its own, named for the enum, with the syntax module's Name,
-; Variant and Type written where the syntax module is not yet imported from.
+; type it carries. A Signal that names open enums generates Name, Word,
+; Variant and the Type, Import and Declaration they hold once, as the module
+; `open` its open enums share, written where the syntax module is not yet
+; imported from; each open enum's module, named for the enum, re-exports it
+; and holds its own Input and Output.
 Library
 []
 [ Name.String

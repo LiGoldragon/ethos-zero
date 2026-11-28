@@ -1194,17 +1194,23 @@ fn a_whole_input_is_read_through_opening_with_its_registry() {
 
 #[test]
 fn a_body_reads_what_carried_holds_by_the_name_of_its_type() {
+    use open_enum_signal::open::Name;
     use open_enum_signal::{Carried, Carrying, QuadrupleEffort, TripleEffort};
-    assert_eq!(Carried::NAMES, ["TripleEffort", "QuadrupleEffort"]);
-    let high = Carried::read("QuadrupleEffort", &formed("High"), &mut budget()).expect("reads");
+    let named = |name: &str| Name(name.to_owned());
+    assert_eq!(
+        Carried::names(),
+        [named("TripleEffort"), named("QuadrupleEffort")]
+    );
+    let high =
+        Carried::read(&named("QuadrupleEffort"), &formed("High"), &mut budget()).expect("reads");
     assert_eq!(high, Carried::QuadrupleEffort(QuadrupleEffort::High));
-    assert_eq!(high.name(), "QuadrupleEffort");
+    assert_eq!(high.name(), named("QuadrupleEffort"));
     assert_eq!(
         Carried::TripleEffort(TripleEffort::Low).name(),
-        "TripleEffort"
+        named("TripleEffort")
     );
-    assert!(Carried::read("Missing", &formed("High"), &mut budget()).is_err());
-    assert!(Carried::read("TripleEffort", &formed("Maximum"), &mut budget()).is_err());
+    assert!(Carried::read(&named("Missing"), &formed("High"), &mut budget()).is_err());
+    assert!(Carried::read(&named("TripleEffort"), &formed("Maximum"), &mut budget()).is_err());
 }
 
 /// A registry of both open enums of the held Signal: Fable a Model, High an
@@ -1483,7 +1489,10 @@ fn a_recursive_type_that_holds_no_open_enum_keeps_composing() {
             integer: 2,
         }
     );
-    assert_eq!(<Carried as open_enum_recursive::Carrying>::NAMES, &["Tree"]);
+    assert_eq!(
+        <Carried as open_enum_recursive::Carrying>::names(),
+        [open_enum_recursive::open::Name("Tree".to_owned())]
+    );
 }
 
 /// The Result Signal's registry: Fable, carrying an Effort.
@@ -1594,4 +1603,17 @@ fn a_result_whose_failure_is_a_scalar_is_read_through_opening() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn the_open_enums_of_a_file_share_one_name_and_one_variant() {
+    // Each enum's module re-exports what the file shares, so a variant made
+    // through one module is a variant of the other.
+    let name: open_enum_held::model::Name = open_enum_held::effort::Name("High".to_owned());
+    let variant: open_enum_held::effort::Variant = open_enum_held::model::Variant {
+        name: name.clone(),
+        type_option: None,
+    };
+    let shared: open_enum_held::open::Variant = variant;
+    assert_eq!(shared.name, open_enum_held::open::Name("High".to_owned()));
 }
