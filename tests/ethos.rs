@@ -887,7 +887,7 @@ fn a_chained_import_refuses_a_capitalized_segment_and_places_its_names_below_eve
             Err(Error::Conceptual(data)) => {
                 assert_eq!(
                     data.problem,
-                    Problem::Name(ethos_zero::error::Name(name.to_owned())),
+                    Problem::Name(ethos_zero::error::Spelling(name.to_owned())),
                     "{source}"
                 );
                 assert_eq!(data.integer_vector, path, "{source}");
@@ -971,7 +971,7 @@ fn a_rooted_namespace_segment_is_uncapitalized_and_a_name_seen_twice_is_placed_b
         match Potential::<File>::from(source).actualize() {
             Err(Error::Conceptual(data)) => {
                 assert!(
-                    matches!(data.problem, Problem::Name(ethos_zero::error::Name(_))),
+                    matches!(data.problem, Problem::Name(ethos_zero::error::Spelling(_))),
                     "{source}: {:?}",
                     data.problem
                 );
@@ -1059,8 +1059,8 @@ impl Refusing for str {
 /// The wrapping problem carrying the head and the structural type it wrapped.
 fn wrapping(head: &str, wrapped: &str) -> Problem {
     Problem::Wrapping(Wrapping_Data {
-        first_string: head.to_owned(),
-        second_string: wrapped.to_owned(),
+        first_name: ethos_zero::error::Name(head.to_owned()),
+        second_name: ethos_zero::error::Name(wrapped.to_owned()),
     })
 }
 

@@ -2,6 +2,27 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 47.0.0: the last strings of a refusal are typed
+
+Repin to 47.0.0. No ethos file is rewritten, and every datom text a refusal
+prints is the same but one: Generate's `Unwritable` names what could not be
+written as the file or the directory it is,
+`Unwritable.{ Target.[ FilePath Directory ] String }`:
+`Unwritable.{ Directory./out «File exists (os error 17)» }` where the
+directory could not be made, `Unwritable.{ FilePath./out/signal.rs «…» }`
+where a module's file could not be written, where both were
+`Unwritable.{ /out «…» }`. A datom reader matches the head of its first
+position. The reason stays a `String`.
+
+A Rust caller of the crate's `Problem` (`error.ethos`): `Problem::Name`
+carries `error::Spelling`, the text that is no name, where it carried
+`error::Name` (`Problem::Name(Spelling(text))`; `Spelling` is exported at the
+crate root); `Wrapping_Data` is `{ first_name: error::Name, second_name:
+error::Name }`, where it was `{ first_string, second_string }`; `Duplicate`
+carries `error::Name` as before. A caller of the CLI contract's Rust reads
+`Unwritable_Data { target: Target, string }`, `Target::FilePath(FilePath)` or
+`Target::Directory(Directory)`, where it read `file_path`.
+
 ## 46.0.0: Opening for Result; Carried and Carrying taken only where generated
 
 A Signal of open enums generates `Opening` for `::core::result::Result<Value,

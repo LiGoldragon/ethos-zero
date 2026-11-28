@@ -715,7 +715,7 @@ impl Defining for Name {
         if self.0 == "Self" {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Name(crate::error::Name(self.0.clone())),
+                Problem::Name(crate::error::Spelling(self.0.clone())),
             ));
         }
         Ok(())
@@ -1947,7 +1947,7 @@ impl ReferringParts for Reference {
         if reference.source.is_some() && reference.name.0 == "Self" {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Name(crate::error::Name(reference.name.0.clone())),
+                Problem::Name(crate::error::Spelling(reference.name.0.clone())),
             ));
         }
         let resolution = reference.resolve_reference(scope);
@@ -2070,8 +2070,8 @@ impl Wrapping for TypeDeclaration {
             return Err(Error::conceptual(
                 vec![1],
                 Problem::Wrapping(Wrapping_Data {
-                    first_string: identity.name.0.clone(),
-                    second_string: wrapped.name.0.clone(),
+                    first_name: crate::error::Name(identity.name.0.clone()),
+                    second_name: crate::error::Name(wrapped.name.0.clone()),
                 }),
             ));
         }
@@ -2653,7 +2653,7 @@ impl Checkable for AssociatedConstant {
         if self.name.0 != self.name.0.to_uppercase() {
             return Err(Error::conceptual(
                 vec![],
-                Problem::Name(crate::error::Name(self.name.0.clone())),
+                Problem::Name(crate::error::Spelling(self.name.0.clone())),
             ));
         }
         self.ty.check(scope).lifted(1)

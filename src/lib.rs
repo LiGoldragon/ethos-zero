@@ -50,7 +50,7 @@ pub mod error;
 
 pub use error::{
     Arity_Data, Column, Conceptual_Data, Error, Field, Form, Line, Location, Misrooted_Data,
-    Problem, Structural_Error, Successor, UnknownName_Data, Wrapping_Data,
+    Problem, Spelling, Structural_Error, Successor, UnknownName_Data, Wrapping_Data,
 };
 
 // ---------------------------------------------------------------------------

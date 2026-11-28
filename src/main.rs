@@ -18,7 +18,7 @@ mod contract;
 use contract::{
     Checked_Data, Conceptual_Data as Generation_Conceptual_Data, Directory, FilePath, Finding,
     Generated_Data, Generation, Generation_Error, Name, Namespace, Query, Reading, Rejected_Data,
-    Response, Unchecked, Unreadable_Data, Unused_Data, Unwritable_Data,
+    Response, Target, Unchecked, Unreadable_Data, Unused_Data, Unwritable_Data,
 };
 
 const ETHOS: &str = include_str!("../ethos-zero.ethos");
@@ -218,7 +218,7 @@ impl Serving for Generation {
         };
         if let Err(error) = std::fs::create_dir_all(directory) {
             return Response::Unwritable(Unwritable_Data {
-                file_path: FilePath(directory.clone()),
+                target: Target::Directory(Directory(directory.clone())),
                 string: error.to_string(),
             });
         }
@@ -227,7 +227,7 @@ impl Serving for Generation {
             let target = SystemPath::new(directory).join(format!("{}.rs", module.stem));
             if let Err(error) = std::fs::write(&target, module.rust) {
                 return Response::Unwritable(Unwritable_Data {
-                    file_path: FilePath(target.to_string_lossy().into_owned()),
+                    target: Target::FilePath(FilePath(target.to_string_lossy().into_owned())),
                     string: error.to_string(),
                 });
             }

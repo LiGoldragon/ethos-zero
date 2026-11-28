@@ -10,7 +10,7 @@ Library
             Arity.{ Integer Integer }
             Expected.Form
             Separator
-            Name
+            Name.Spelling
             Duplicate.Name
             Undeclared.Name
             Cycle.Name
@@ -21,7 +21,7 @@ Library
             Intrinsic.Name
             Case.Name
             Renamed.Successor
-            Wrapping.{ String String }
+            Wrapping.{ Name Name }
             DuplicateField.Field
             Unpaired.Name
             TooFewVariants.Name
@@ -36,6 +36,7 @@ Library
             Ambiguous.Name ]
   Form.[ File Section Import Symbol Declaration Variant Reference Constraint Trait Capability Constant Association Process Pointer ]
   Name.String
+  Spelling.String
   Namespace.String
   Successor.String
   Field.String

@@ -62,8 +62,18 @@ pub struct Rejected_Data {
     feature = "datom",
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
+pub enum Target {
+    FilePath(FilePath),
+    Directory(Directory),
+}
+#[rustfmt::skip]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub struct Unwritable_Data {
-    pub file_path: FilePath,
+    pub target: Target,
     pub string: ::std::string::String,
 }
 #[rustfmt::skip]

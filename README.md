@@ -527,13 +527,17 @@ Each string a refusal or a finding carries is a type for what it holds, each
 `X.String`, so its text is the string. In `error.ethos`, a declared name is
 `Name`, so `UnknownName.{ Namespace Name }`, `Misrooted.{ Namespace Name }` (the
 name of the root the pointed file bears) and every one-name refusal,
-`Duplicate.Name`, `Undeclared.Name`, `Cycle.Name`, a bare `Name` and their like;
-a namespace is `Namespace` (a bare `Namespace`, `Unpointed.Namespace`); the
-successor of a renamed spelling is `Renamed.Successor`; a field is
-`DuplicateField.Field`. A file headed by no root is `Unrooted`, and an entry that
-is no bare name `Expected.Symbol`. In `ethos-zero.ethos`, a file is `FilePath`
-(the files read, written, checked, unreadable, rejected or unwritable, and the
-file of each finding), Generate's directory is `Directory`, an unchecked import
+`Duplicate.Name`, `Undeclared.Name`, `Cycle.Name` and their like, and the head
+and the type it wraps, `Wrapping.{ Name Name }`; a text that is no name is
+`Name.Spelling`, its `Spelling` the text as written (`Name.9a`); a namespace is
+`Namespace` (a bare `Namespace`, `Unpointed.Namespace`); the successor of a
+renamed spelling is `Renamed.Successor`; a field is `DuplicateField.Field`. A
+file headed by no root is `Unrooted`, and an entry that is no bare name
+`Expected.Symbol`. In `ethos-zero.ethos`, a file is `FilePath` (the files read,
+written, checked, unreadable or rejected, and the file of each finding),
+Generate's directory is `Directory`, what could not be written is the one or the
+other, `Unwritable.{ Target.[ FilePath Directory ] String }`
+(`Unwritable.{ Directory./out «File exists (os error 17)» }`), an unchecked import
 is `Unchecked.{ FilePath Namespace ⟦ Name ⟧ }`, an unused open enum
 `Unused.{ FilePath Name }`, and a namespace the caller gives is
 `GivenNamespace.{ Namespace ⟦ FilePath ⟧ }`; each file declares its own.

@@ -52,8 +52,8 @@ pub struct Arity_Data {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Wrapping_Data {
-    pub first_string: ::std::string::String,
-    pub second_string: ::std::string::String,
+    pub first_name: Name,
+    pub second_name: Name,
 }
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -86,7 +86,7 @@ pub enum Problem {
     Arity(Arity_Data),
     Expected(Form),
     Separator(::protos::Separator),
-    Name(Name),
+    Name(Spelling),
     Duplicate(Name),
     Undeclared(Name),
     Cycle(Name),
@@ -140,6 +140,13 @@ pub enum Form {
     derive(::datom_codec::Datomizable, ::datom_codec::Composing)
 )]
 pub struct Name(pub ::std::string::String);
+#[rustfmt::skip]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
+pub struct Spelling(pub ::std::string::String);
 #[rustfmt::skip]
 #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(

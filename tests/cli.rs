@@ -1025,3 +1025,28 @@ fn a_file_headed_by_no_root_is_unrooted_and_an_entry_that_is_no_bare_name_expect
         "{output}"
     );
 }
+
+#[test]
+fn what_could_not_be_written_is_named_as_the_directory_or_the_file_it_is() {
+    let directory = "unwritable".scratch();
+    let source = directory.write_source("signal", "Signal [] [] [] []");
+    // The directory written into is a file: it is the Directory that could not be made.
+    let blocked = format!("{directory}/blocked");
+    std::fs::write(&blocked, "").unwrap();
+    let (succeeded, answer) = [generate(&source, &blocked).as_str()].invoke();
+    assert!(!succeeded);
+    assert!(
+        answer.starts_with(&format!("Unwritable.{{ Directory.{blocked} «")),
+        "{answer}"
+    );
+    // The module's file is a directory: it is the FilePath that could not be written.
+    let out = format!("{directory}/out");
+    std::fs::create_dir_all(format!("{out}/signal.rs")).unwrap();
+    let (succeeded, answer) = [generate(&source, &out).as_str()].invoke();
+    assert!(!succeeded);
+    assert!(
+        answer.starts_with(&format!("Unwritable.{{ FilePath.{out}/signal.rs «")),
+        "{answer}"
+    );
+    std::fs::remove_dir_all(&directory).unwrap();
+}

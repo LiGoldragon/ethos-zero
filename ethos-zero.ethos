@@ -14,8 +14,9 @@
 ; each file's in the order of its text. A rejection names the file, the line
 ; and column of the error in it, and the error. Each string is a type for what
 ; it holds: a file is a FilePath, the directory written into a Directory, a
-; namespace a Namespace, a name a Name; the reason a file is unreadable or
-; unwritable, a message a person reads, stays a String.
+; namespace a Namespace, a name a Name; what could not be written is the file
+; or the directory it names; the reason a file is unreadable or unwritable, a
+; message a person reads, stays a String.
 ; The files read are of eight roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
 ;   Signal     [ imports ] [ inputs ] [ outputs ] [ types ] ; or with a fifth, [ open enums ], each generated with its contract module
@@ -37,7 +38,7 @@ Library
              Malformed.Error
              Unreadable.{ FilePath String }
              Rejected.{ FilePath Location Generation_Error }
-             Unwritable.{ FilePath String } ]
+             Unwritable.{ Target.[ FilePath Directory ] String } ]
   Reading.{ ⟦ FilePath ⟧ ⟦ GivenNamespace ⟧ }
   Generation.{ Reading Directory }
   GivenNamespace.{ Namespace ⟦ FilePath ⟧ }

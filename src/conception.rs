@@ -44,13 +44,13 @@ trait Naming {
 impl Naming for Symbol {
     fn name(&self) -> Result<Name, Error> {
         Name::try_from(self.0.as_str())
-            .map_err(|text| Error::conceptual(vec![], Problem::Name(crate::error::Name(text))))
+            .map_err(|text| Error::conceptual(vec![], Problem::Name(crate::error::Spelling(text))))
     }
 }
 impl Naming for str {
     fn name(&self) -> Result<Name, Error> {
         Name::try_from(self)
-            .map_err(|text| Error::conceptual(vec![], Problem::Name(crate::error::Name(text))))
+            .map_err(|text| Error::conceptual(vec![], Problem::Name(crate::error::Spelling(text))))
     }
 }
 trait Reading {
@@ -637,7 +637,7 @@ impl Imports for [Protos] {
             };
             if let Some(source) = text.strip_suffix(':') {
                 let source = Source::try_from(source).map_err(|text| {
-                    Error::conceptual(vec![at], Problem::Name(crate::error::Name(text)))
+                    Error::conceptual(vec![at], Problem::Name(crate::error::Spelling(text)))
                 })?;
                 let Some(children) = self
                     .get(index + 1)
@@ -655,7 +655,7 @@ impl Imports for [Protos] {
                 continue;
             };
             let source = Source::try_from(source).map_err(|text| {
-                Error::conceptual(vec![at], Problem::Name(crate::error::Name(text)))
+                Error::conceptual(vec![at], Problem::Name(crate::error::Spelling(text)))
             })?;
             let imported = match imported.split_once('.') {
                 Some((name, emitted)) => Imported {
@@ -713,8 +713,9 @@ impl Conceiving<Import> for Protos {
         else {
             return Err(Error::conceptual(vec![], Problem::Expected(Form::Import)));
         };
-        let source = Source::try_from(head.0.as_str())
-            .map_err(|text| Error::conceptual(vec![0], Problem::Name(crate::error::Name(text))))?;
+        let source = Source::try_from(head.0.as_str()).map_err(|text| {
+            Error::conceptual(vec![0], Problem::Name(crate::error::Spelling(text)))
+        })?;
         if let Protos::Headed {
             constraints: None,
             separator: Separator::Colon,
@@ -754,7 +755,7 @@ impl Nesting for Source {
             text.push_str(&segment.0);
         }
         Source::try_from(text.as_str())
-            .map_err(|text| Error::conceptual(vec![], Problem::Name(crate::error::Name(text))))
+            .map_err(|text| Error::conceptual(vec![], Problem::Name(crate::error::Spelling(text))))
     }
 }
 impl Conceiving<Reference> for Protos {
@@ -765,7 +766,7 @@ impl Conceiving<Reference> for Protos {
                 Some((source, name)) if text.starts_with(':') => {
                     Ok(Reference::Named(NamedReference {
                         source: Some(Source::try_from(source).map_err(|text| {
-                            Error::conceptual(vec![], Problem::Name(crate::error::Name(text)))
+                            Error::conceptual(vec![], Problem::Name(crate::error::Spelling(text)))
                         })?),
                         name: name.name()?,
                         arguments: vec![],
@@ -805,7 +806,7 @@ impl Conceiving<Reference> for Protos {
                     ));
                 }
                 let source = Source::try_from(head.0.as_str()).map_err(|text| {
-                    Error::conceptual(vec![0], Problem::Name(crate::error::Name(text)))
+                    Error::conceptual(vec![0], Problem::Name(crate::error::Spelling(text)))
                 })?;
                 // A further segment heads the rest: `std:sync:Mutex`.
                 r.source = Some(match &r.source {
@@ -854,10 +855,12 @@ impl Rooting for Protos {
                 Problem::Expected(Form::Reference),
             ));
         }
-        let name = Name::try_from(text.as_str())
-            .map_err(|text| Error::conceptual(depth, Problem::Name(crate::error::Name(text))))?;
-        let source = Source::try_from(source.as_str())
-            .map_err(|text| Error::conceptual(vec![0], Problem::Name(crate::error::Name(text))))?;
+        let name = Name::try_from(text.as_str()).map_err(|text| {
+            Error::conceptual(depth, Problem::Name(crate::error::Spelling(text)))
+        })?;
+        let source = Source::try_from(source.as_str()).map_err(|text| {
+            Error::conceptual(vec![0], Problem::Name(crate::error::Spelling(text)))
+        })?;
         Ok(Reference::Named(NamedReference {
             source: Some(source),
             name,
