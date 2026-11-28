@@ -452,7 +452,7 @@ fn the_four_flow_nexus_files_check_trusting_flow_until_it_is_given() {
         let unchecked = if name == "flow-library" {
             "[]".to_owned()
         } else {
-            format!("[ {{ {source} flow [ FlowId Voice Event ] }} ]")
+            format!("[ Unchecked.{{ {source} flow [ FlowId Voice Event ] }} ]")
         };
         assert_eq!(output, format!("Checked.{{ [ {source} ] {unchecked} }}\n"));
         // Given, the flow Library is the crate's root, and every import is checked there.
@@ -508,7 +508,9 @@ fn an_import_a_given_namespace_does_not_provide_is_rejected_at_its_line_and_colu
     assert!(success, "{output}");
     assert_eq!(
         output,
-        format!("Checked.{{ [ {resolved} ] [ {{ {resolved} elsewhere:sub [ Thing ] }} ] }}\n")
+        format!(
+            "Checked.{{ [ {resolved} ] [ Unchecked.{{ {resolved} elsewhere:sub [ Thing ] }} ] }}\n"
+        )
     );
 }
 
@@ -675,6 +677,108 @@ fn generate_writes_a_signal_with_an_open_enum_and_its_contract() {
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");
+}
+
+#[test]
+fn check_reports_an_open_enum_no_input_or_output_carries_and_generate_answers_as_before() {
+    let directory = "unused-open-enum".scratch();
+    let unused = directory.write_source(
+        "unused",
+        "Signal [] [ Launch.String ] [ Launched ] [ TripleEffort.[ Low Medium High ] ] [ Model ]",
+    );
+    assert_eq!(
+        [check(&unused).as_str()].invoke(),
+        (
+            true,
+            format!("Checked.{{ [ {unused} ] [ Unused.{{ {unused} Model }} ] }}\n")
+        )
+    );
+    let target = format!("{directory}/out");
+    assert_eq!(
+        [generate(&unused, &target).as_str()].invoke(),
+        (true, format!("Generated.[ {target}/unused.rs ]\n"))
+    );
+    let used = directory.write_source(
+        "used",
+        "Signal [] [ Launch.Model ] [ Launched ] [ TripleEffort.[ Low Medium High ] ] [ Model ]",
+    );
+    assert_eq!(
+        [check(&used).as_str()].invoke(),
+        (true, format!("Checked.{{ [ {used} ] [] }}\n"))
+    );
+    // An unchecked import is a finding beside it, listed first.
+    let both = directory.write_source(
+        "both",
+        "Signal [ serde_json:[ Value ] ] [ Launch.Value ] [ Launched ] [] [ Model ]",
+    );
+    assert_eq!(
+        [check(&both).as_str()].invoke(),
+        (
+            true,
+            format!(
+                "Checked.{{ [ {both} ] [ Unchecked.{{ {both} serde_json [ Value ] }} Unused.{{ {both} Model }} ] }}\n"
+            )
+        )
+    );
+}
+
+#[test]
+fn check_reports_no_open_enum_a_type_the_file_declares_carries() {
+    let held = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/open-enum-held.ethos");
+    assert_eq!(
+        [check(held).as_str()].invoke(),
+        (true, format!("Checked.{{ [ {held} ] [] }}\n"))
+    );
+}
+
+#[test]
+fn check_reads_the_qualified_name_of_the_files_own_open_enum_as_carrying_it() {
+    let directory = "qualified-open-enum".scratch();
+    let signal = format!("{directory}/flow").write_source(
+        "signal",
+        "Signal [] [ Launch.:flow:signal:Model ] [ Launched ] [] [ Model ]",
+    );
+    let argument = format!(
+        "Check.{{ [ {} ] [ {{ flow [ {} ] }} ] }}",
+        opaque(&signal),
+        opaque(&signal)
+    );
+    assert_eq!(
+        [argument.as_str()].invoke(),
+        (true, format!("Checked.{{ [ {signal} ] [] }}\n"))
+    );
+    // Its namespace not given, the name is trusted, and nothing says it is the file's own.
+    assert_eq!(
+        [check(&signal).as_str()].invoke(),
+        (
+            true,
+            format!(
+                "Checked.{{ [ {signal} ] [ Unchecked.{{ {signal} flow:signal [ Model ] }} Unused.{{ {signal} Model }} ] }}\n"
+            )
+        )
+    );
+}
+
+#[test]
+fn check_lists_findings_file_by_file_in_the_order_given_each_in_the_order_of_its_text() {
+    let directory = "findings-order".scratch();
+    let first = directory.write_source(
+        "first",
+        "Signal [ serde_json:[ Value ] ] [ Launch.Value ] [ Launched ] [] [ Model ]",
+    );
+    let second = directory.write_source(
+        "second",
+        "Signal [ elsewhere:[ Thing ] ] [ Go.Thing ] [ Gone ] [] [ Spare ]",
+    );
+    assert_eq!(
+        [check_all(&[&second, &first]).as_str()].invoke(),
+        (
+            true,
+            format!(
+                "Checked.{{ [ {second} {first} ] [ Unchecked.{{ {second} elsewhere [ Thing ] }} Unused.{{ {second} Spare }} Unchecked.{{ {first} serde_json [ Value ] }} Unused.{{ {first} Model }} ] }}\n"
+            )
+        )
+    );
 }
 
 /// The namespace `flow` of two Signals, `signal` and `meta`, each of one input

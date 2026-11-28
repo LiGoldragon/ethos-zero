@@ -2,6 +2,29 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 39.0.0: Check's findings, the unused open enum among them
+
+The second position of `Checked` is every finding, no longer the unchecked
+imports alone: `Checked.{ ⟦ String ⟧ ⟦ Finding ⟧ }`, with
+`Finding.[ Unchecked Unused.{ String Name } ]`. Repin to 39.0.0; no file is
+rewritten, and Generate answers as before. A caller reading `Checked` reads
+each entry of its second position by its head: an unchecked import, which was
+written `{ /a/signal.ethos serde_json [ Value ] }`, is now
+`Unchecked.{ /a/signal.ethos serde_json [ Value ] }`, its fields unchanged; and
+an open enum a Signal names in its last section that no input or output
+carries is `Unused.{ /a/signal.ethos Model }`. An input or output carries an
+open enum it reaches: named bare (`Launch.Model`) or by the file's own
+namespace (`Launch.:flow:signal:Model`, `signal` given as the namespace
+`flow`), or held through any type the file declares, transitively
+(`Launch.Pair` with `Pair.{ Model Effort }`). The findings go file by file in
+the order the files were given, each file's in the order of its text, so its
+unchecked imports come before its unused open enums. Such a Signal checks as it
+did; only the finding is new. A caller that reads the
+contract's Rust reads `Checked_Data.finding_vector`, of `Finding`, where it read
+`unchecked_vector`, of `Unchecked`. The library gains `Unused { module, name }`
+and the trait `Using`, whose `unused` lists them for a `Nexus`; nothing else of
+its Rust API changes.
+
 ## 38.0.0: a name imported from two namespaces, Ambiguous where it is bare
 
 One name may be imported from two namespaces. Repin to 38.0.0; no file is

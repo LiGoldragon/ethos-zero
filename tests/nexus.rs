@@ -3,7 +3,8 @@
 //! them, read from the roots it names.
 
 use ethos_zero::{
-    Actualizing, Assembling, Error, File, Module, Nexus, Potential, Problem, Verifying,
+    Actualizing, Assembling, Error, File, Module, Name, Namespace, Nexus, Potential, Problem,
+    Unused, Using, Verifying,
 };
 
 /// The root files of a fixture Nexus, as the CLI reads them: each module named for its file.
@@ -405,4 +406,86 @@ fn a_signal_with_an_open_enum_generates_in_a_nexus_and_exports_what_it_generates
     let rust = generated(&both, "signal");
     assert!(rust.contains("pub struct Model {"));
     assert!(rust.contains("pub enum Carried {"));
+}
+
+#[test]
+fn an_open_enum_no_input_or_output_carries_is_listed_unused_and_still_verifies() {
+    let unused = nexus(&[
+        (
+            "signal",
+            "Signal [] [ Launch.String ] [ Launched ] [ TripleEffort.[ Low Medium High ] ] [ Model ]",
+        ),
+        ("library", "Library [] [ Thing.String ] [] []"),
+        (
+            "other",
+            "Signal [] [ Launch.Effort ] [ Launched Held.Model ] [] [ Model Effort Spare ]",
+        ),
+    ]);
+    assert_eq!(unused.verify(), Ok(()));
+    assert_eq!(
+        unused.unused(),
+        vec![
+            Unused {
+                module: 0,
+                name: Name::try_from("Model").unwrap(),
+            },
+            Unused {
+                module: 2,
+                name: Name::try_from("Spare").unwrap(),
+            },
+        ]
+    );
+    let used = nexus(&[(
+        "signal",
+        "Signal [] [ Launch.Model ] [ Launched ] [ TripleEffort.[ Low Medium High ] ] [ Model ]",
+    )]);
+    assert_eq!(used.unused(), vec![]);
+}
+
+#[test]
+fn an_open_enum_reached_through_any_type_the_root_declares_is_carried() {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let held = std::fs::read_to_string(format!("{root}/fixtures/open-enum-held.ethos")).unwrap();
+    let held = nexus(&[("held", held.as_str())]);
+    assert_eq!(held.verify(), Ok(()));
+    assert_eq!(held.unused(), vec![]);
+    // Through a vector, an option, a variant's payload, a position declared in
+    // place and a cycle of declared types; Spare is reached by none.
+    let deep = nexus(&[(
+        "signal",
+        "Signal [] [ Launch.Outer ] [ Launched Kept.⟦ Option<Tally> ⟧ ] \
+         [ Outer.{ ⟦ Inner ⟧ } Inner.[ Leaf Node.Outer Held.Option<Model> ] \
+           Tally.{ Count.[ One Many.Effort ] } ] \
+         [ Model Effort Spare ]",
+    )]);
+    assert_eq!(deep.verify(), Ok(()));
+    assert_eq!(
+        deep.unused(),
+        vec![Unused {
+            module: 0,
+            name: Name::try_from("Spare").unwrap(),
+        }]
+    );
+}
+
+#[test]
+fn the_qualified_name_of_the_roots_own_open_enum_carries_it_where_its_namespace_is_given() {
+    let text = "Signal [] [ Launch.:flow:signal:Model ] [ Launched ] [] [ Model ]";
+    let alone = nexus(&[("signal", text)]);
+    assert_eq!(
+        alone.unused(),
+        vec![Unused {
+            module: 0,
+            name: Name::try_from("Model").unwrap(),
+        }]
+    );
+    let given = Nexus {
+        namespaces: vec![Namespace {
+            name: "flow".to_owned(),
+            modules: alone.modules.clone(),
+        }],
+        ..alone
+    };
+    assert_eq!(given.verify(), Ok(()));
+    assert_eq!(given.unused(), vec![]);
 }

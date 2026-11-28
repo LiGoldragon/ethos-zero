@@ -135,6 +135,18 @@ occurrence, and a lowercase or intrinsic name is refused as `Case` or
 `Intrinsic` as a declared type's is. A section that is no bracket is
 `Expected.Section` and an entry that is no bare name `Expected.Name`, each at
 its path. An open enum is read, checked and printed back as written, and generated.
+An input or output carries an open enum that it reaches: it names it, bare
+(`Launch.Model`) or by the file's own namespace (`Launch.:flow:signal:Model`,
+the file `signal` given as the namespace `flow`, or of the namespace the set's
+imports name it by), or holds a type the file declares that carries it, through
+struct positions, variant payloads, vectors, options and any type argument, a
+cycle of types walked once (`Launch.Pair` with `Pair.{ Model Effort }` carries
+both). One that no input or output carries is not refused: Check lists it as an
+`Unused` finding,
+`Checked.{ [ /a/signal.ethos ] [ Unused.{ /a/signal.ethos Model } ] }`
+for `Signal [] [ Launch.String ] [ Launched ] [ TripleEffort.[ Low Medium High ] ] [ Model ]`
+naming `Model`, and Generate generates it as before (`Nexus::unused`, trait
+`Using`, gives the same as `Unused { module, name }`).
 Its variants are data, added while the system runs: each is a name and the type
 it carries, and the datom of a value is the name and, after it, what it
 carries (`Launch.Fable.High`). From a Signal's open enums the file generates:
@@ -458,8 +470,13 @@ implied enum, or a name the file generates (a Signal's `Input` and `Output`,
 Generate refuses the same. An import whose source names no module of a
 namespace given, `serde_json:Value` or `flow_nexus:generated:memory:[ … ]`
 with only `flow_nexus` given, is trusted as before, and `Checked` lists it, one
-entry per file and namespace with the names taken:
-`Checked.{ [ /a/signal.ethos ] [ { /a/signal.ethos serde_json [ Value ] } ] }`.
+`Unchecked` finding per file and namespace with the names taken:
+`Checked.{ [ /a/signal.ethos ] [ Unchecked.{ /a/signal.ethos serde_json [ Value ] } ] }`.
+The second position of `Checked` is every finding, `Finding.[ Unchecked
+Unused.{ String Name } ]`, file by file in the order the files were given, and
+within a file in the order of its text: an `Unchecked` finding where its source
+is first written, an `Unused` one where its open enum stands in the last
+section, so a file's unchecked imports come before its unused open enums.
 A caller may give the set's own namespace with the set's files, and its imports
 are then checked like any other.
 
@@ -793,8 +810,8 @@ structure; it does not textualize and parse the result again.
 ```
 ethos-zero 'Generate.{ [ /abs/signal.ethos /abs/memory.ethos /abs/process.ethos ] /abs/out-dir }'
 # -> Generated.[ /abs/out-dir/signal.rs /abs/out-dir/memory.rs /abs/out-dir/process.rs ]
-ethos-zero 'Check.[ /abs/file.ethos ]'
-# -> Checked.[ /abs/file.ethos ]
+ethos-zero 'Check.{ [ /abs/file.ethos ] [] }'
+# -> Checked.{ [ /abs/file.ethos ] [] }
 # -> Rejected.{ /abs/file.ethos { { 4 } { 19 } } Conceptual.{ [ 1 1 0 1 1 ] Undeclared.Bogus } }
 ```
 

@@ -5,8 +5,13 @@
 ; namespaces the caller gives, each as an import writes its first segment and
 ; its ethos files: an import that names a module of one must find each name it
 ; takes there, and is refused as UnknownName otherwise; an import of any other
-; is trusted, and Checked lists it, by file, as unchecked. A rejection names
-; the file, the line and column of the error in it, and the error.
+; is trusted, and Checked lists it as an Unchecked finding. An open enum a
+; Signal names in its last section that no input or output carries is not
+; refused: Checked lists it as an Unused finding. An input or output carries an
+; open enum it reaches, named bare or by the file's own namespace, or held
+; through any type the file declares. The findings go file by file in the
+; order given, each file's in the order of its text. A rejection names the
+; file, the line and column of the error in it, and the error.
 ; The files read are of eight roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
 ;   Signal     [ imports ] [ inputs ] [ outputs ] [ types ] ; or with a fifth, [ open enums ], each generated with its contract module
@@ -23,7 +28,7 @@ Library
 [ Query.[ Generate.Generation
           Check.Reading ]
   Response.[ Generated.⟦ String ⟧
-             Checked.{ ⟦ String ⟧ ⟦ Unchecked ⟧ }
+             Checked.{ ⟦ String ⟧ ⟦ Finding ⟧ }
              Arguments.Integer
              Malformed.Error
              Unreadable.{ String String }
@@ -32,7 +37,10 @@ Library
   Reading.{ ⟦ String ⟧ ⟦ Namespace ⟧ }
   Generation.{ Reading String }
   Namespace.{ String ⟦ String ⟧ }
+  Finding.[ Unchecked
+            Unused.{ String Name } ]
   Unchecked.{ String String ⟦ String ⟧ }
+  Name.String
   Generation_Error.[ Structural.protos:Error
                      Conceptual.{ ⟦ Integer ⟧
                                   ethos_zero:Problem } ] ]

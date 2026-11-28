@@ -89,6 +89,19 @@ pub struct Unchecked {
     pub names: Vec<Name>,
 }
 
+/// An open enum a Signal root names in its last section that none of its
+/// inputs or outputs carries: no variant of either reaches it, named bare
+/// (`Launch.Model`) or by the root's own namespace (`Launch.:flow:signal:Model`),
+/// directly or through any type the root declares (`Launch.Pair` with
+/// `Pair.{ Model Effort }`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Unused {
+    /// The place of the root in the Nexus.
+    pub module: usize,
+    /// The open enum, as the last section names it.
+    pub name: Name,
+}
+
 /// An error and the module of the Nexus it lies in, by its place in the set.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Refusal {
@@ -126,6 +139,14 @@ pub trait Assembling {
 pub trait Trusting {
     /// The imports trusted unchecked.
     fn unchecked(&self) -> Vec<Unchecked>;
+}
+
+/// The trait whose capability lists the open enums the Nexus's Signal roots
+/// name and no input or output of theirs carries, root by root in the order
+/// given, each in the order its last section names them.
+pub trait Using {
+    /// The open enums named and carried by no input or output.
+    fn unused(&self) -> Vec<Unused>;
 }
 
 // ---------------------------------------------------------------------------
@@ -887,6 +908,153 @@ impl Trusting for Nexus {
             }
         }
         unchecked
+    }
+}
+
+/// One Signal root of the Nexus as what it carries is read: the Nexus, the
+/// root's place in it, and the namespace the set names its roots by, if any.
+struct Bearer<'a> {
+    nexus: &'a Nexus,
+    module: usize,
+    inferred: Option<&'a str>,
+}
+
+/// The trait whose capability says whether a source names a root of the Nexus
+/// itself: by the namespace the set names its roots by, or by a namespace
+/// given, one of whose modules it names is that root, `:flow:signal` of the
+/// root `signal` given as the namespace `flow`.
+trait Homing {
+    fn names_root(&self, source: &Source, module: usize, inferred: Option<&str>) -> bool;
+}
+
+impl Homing for Nexus {
+    fn names_root(&self, source: &Source, module: usize, inferred: Option<&str>) -> bool {
+        if let Some(namespace) = inferred
+            && self.module(source, namespace) == Some(module)
+        {
+            return true;
+        }
+        for namespace in &self.namespaces {
+            for addressed in namespace.addressed(source) {
+                if *addressed == self.modules[module] {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+}
+
+/// The trait whose capability says whether a value carries an open enum of
+/// its root: it names it, bare or by the root's own namespace
+/// (`:flow:signal:Model`), or holds a type the root declares that carries it,
+/// through struct positions, variant payloads, vectors, options and any type
+/// argument, each declared type walked once.
+trait Bearing {
+    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool;
+}
+
+impl Bearing for Reference {
+    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool {
+        let reference = match self {
+            Reference::Vector(element) => return element.bears(open, bearer, visited),
+            Reference::Named(reference) => reference,
+        };
+        let home = match &reference.source {
+            None => true,
+            Some(source) => bearer
+                .nexus
+                .names_root(source, bearer.module, bearer.inferred),
+        };
+        if home {
+            if &reference.name == open {
+                return true;
+            }
+            let file = &bearer.nexus.modules[bearer.module].file;
+            if !visited.contains(&reference.name)
+                && let Some(declaration) = file.declaration(&reference.name)
+            {
+                visited.push(reference.name.clone());
+                if declaration.bears(open, bearer, visited) {
+                    return true;
+                }
+            }
+        }
+        reference.arguments.bears(open, bearer, visited)
+    }
+}
+
+impl Bearing for TypeDeclaration {
+    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool {
+        match self {
+            TypeDeclaration::Struct(_, positions) => positions.bears(open, bearer, visited),
+            TypeDeclaration::Enum(_, variants) => variants.bears(open, bearer, visited),
+            TypeDeclaration::Alias(_, aliased) => aliased.bears(open, bearer, visited),
+        }
+    }
+}
+
+impl Bearing for Position {
+    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool {
+        match self {
+            Position::Referenced(reference) => reference.bears(open, bearer, visited),
+            Position::Declared(declaration) => declaration.bears(open, bearer, visited),
+        }
+    }
+}
+
+/// A bare variant carries the type the root declares of its name, if any.
+impl Bearing for Variant {
+    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool {
+        match self {
+            Variant::Bare(name) => {
+                let file = &bearer.nexus.modules[bearer.module].file;
+                file.declaration(name).is_some() && name.referring().bears(open, bearer, visited)
+            }
+            Variant::Typed(_, reference) => reference.bears(open, bearer, visited),
+            Variant::Struct(_, positions) => positions.bears(open, bearer, visited),
+            Variant::Enum(_, variants) => variants.bears(open, bearer, visited),
+        }
+    }
+}
+
+impl<B: Bearing> Bearing for [B] {
+    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool {
+        for element in self {
+            if element.bears(open, bearer, visited) {
+                return true;
+            }
+        }
+        false
+    }
+}
+
+impl Using for Nexus {
+    fn unused(&self) -> Vec<Unused> {
+        let inferred = self.namespace().ok().flatten();
+        let mut unused = Vec::new();
+        for (index, module) in self.modules.iter().enumerate() {
+            let File::Signal(signal) = &module.file else {
+                continue;
+            };
+            let bearer = Bearer {
+                nexus: self,
+                module: index,
+                inferred: inferred.as_deref(),
+            };
+            for name in signal.open.iter().flatten() {
+                if signal.inputs.bears(name, &bearer, &mut vec![])
+                    || signal.outputs.bears(name, &bearer, &mut vec![])
+                {
+                    continue;
+                }
+                unused.push(Unused {
+                    module: index,
+                    name: name.clone(),
+                });
+            }
+        }
+        unused
     }
 }
 

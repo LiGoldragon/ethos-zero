@@ -6,7 +6,8 @@ use std::process::ExitCode;
 use datom_codec::{Actualizing as _, Budget, Datomizable as _, Path, Potential};
 use ethos_zero::{
     Actualizing as _, Assembling as _, File, Locating as _, Module, Namespace as GivenNamespace,
-    Nexus, Potential as EthosPotential, Printable as _, Refusal, Trusting as _, Verifying as _,
+    Nexus, Potential as EthosPotential, Printable as _, Refusal, Trusting as _, Using as _,
+    Verifying as _,
 };
 use protos::{Compactable, Protosizable};
 
@@ -15,8 +16,9 @@ use protos::{Compactable, Protosizable};
 mod contract;
 
 use contract::{
-    Checked_Data, Conceptual_Data as Generation_Conceptual_Data, Generation, Generation_Error,
-    Query, Reading, Rejected_Data, Response, Unchecked, Unreadable_Data, Unwritable_Data,
+    Checked_Data, Conceptual_Data as Generation_Conceptual_Data, Finding, Generation,
+    Generation_Error, Name, Query, Reading, Rejected_Data, Response, Unchecked, Unreadable_Data,
+    Unused_Data, Unwritable_Data,
 };
 
 const ETHOS: &str = include_str!("../ethos-zero.ethos");
@@ -201,21 +203,40 @@ impl Serving for Reading {
         if let Err(refusal) = nexus.verify() {
             return refusal.refuse(&self.string_vector, &texts);
         }
-        let mut unchecked = Vec::new();
-        for trusted in nexus.unchecked() {
-            let mut names = Vec::with_capacity(trusted.names.len());
-            for name in &trusted.names {
-                names.push(name.as_ref().to_owned());
+        // What Check finds amiss and passes, file by file in the order given,
+        // and within a file in the order of its text: every source it takes
+        // from unchecked is first written in its imports or its inputs,
+        // outputs and types, before the open enums of its last section.
+        let unchecked = nexus.unchecked();
+        let unused = nexus.unused();
+        let mut findings = Vec::with_capacity(unchecked.len() + unused.len());
+        for (module, source) in self.string_vector.iter().enumerate() {
+            for trusted in &unchecked {
+                if trusted.module != module {
+                    continue;
+                }
+                let mut names = Vec::with_capacity(trusted.names.len());
+                for name in &trusted.names {
+                    names.push(name.as_ref().to_owned());
+                }
+                findings.push(Finding::Unchecked(Unchecked {
+                    first_string: source.clone(),
+                    second_string: trusted.namespace.clone(),
+                    string_vector: names,
+                }));
             }
-            unchecked.push(Unchecked {
-                first_string: self.string_vector[trusted.module].clone(),
-                second_string: trusted.namespace,
-                string_vector: names,
-            });
+            for open in &unused {
+                if open.module == module {
+                    findings.push(Finding::Unused(Unused_Data {
+                        string: source.clone(),
+                        name: Name(open.name.as_ref().to_owned()),
+                    }));
+                }
+            }
         }
         Response::Checked(Checked_Data {
             string_vector: self.string_vector.clone(),
-            unchecked_vector: unchecked,
+            finding_vector: findings,
         })
     }
 }

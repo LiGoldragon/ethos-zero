@@ -988,7 +988,8 @@ impl Identifiable for Intrinsic {
 }
 
 pub use nexus::{
-    Assembled, Assembling, Module, Namespace, Nexus, Refusal, Trusting, Unchecked, Verifying,
+    Assembled, Assembling, Module, Namespace, Nexus, Refusal, Trusting, Unchecked, Unused, Using,
+    Verifying,
 };
 
 // ---------------------------------------------------------------------------
