@@ -11,5 +11,5 @@ extern crate alloc;
 pub trait Publishing {
     type State;
     type Change;
-    fn open(&self, input: Self::State) -> signal::Stream<Self::State, Self::Change>;
+    fn open(&self, input: Self::State) -> ::signal::Stream<Self::State, Self::Change>;
 }

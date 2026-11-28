@@ -512,15 +512,15 @@ fn a_qualified_use_of_an_ambiguous_name_generates_its_namespace_path() {
         Ok(rust) => rust,
         Err(error) => panic!("{text} does not generate: {error:?}"),
     };
-    assert!(rust.contains("pub input: flow::signal::Input,"), "{rust}");
+    assert!(rust.contains("pub input: ::flow::signal::Input,"), "{rust}");
     // Two positions of one name from two namespaces are named first and
     // second, as `Errors.{ :a:Error :b:Error }` is.
     assert!(
-        rust.contains("pub first_input: flow::signal::Input,"),
+        rust.contains("pub first_input: ::flow::signal::Input,"),
         "{rust}"
     );
     assert!(
-        rust.contains("pub second_input: flow::meta::Input,"),
+        rust.contains("pub second_input: ::flow::meta::Input,"),
         "{rust}"
     );
 }

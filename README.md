@@ -15,7 +15,7 @@ types. Each pass is a module named for it.
 | conception | `Ethosizable<File>` | `protos::Protos` | `File`, checked whole |
 | checking | `Resolving`, `Checkable` | `File` | names resolved, duplicates and undeclared names refused |
 | generation | `Generating` | `File` | Rust text, or a whole-file error |
-| datomization | | each declared type | its `datom_codec::Datomizable` and `datom_codec::Composing` derives |
+| datomization | | each declared type | its `::datom_codec::Datomizable` and `::datom_codec::Composing` derives |
 | nexus | `Verifying`, `Assembling` | the `File`s of one namespace, each named for its file | each module's Rust, a Process root's with the enums over its processes, or a refusal naming the file |
 | ascent | `Protosizable`, `Textualizable` | `File` | canonical text on one line (cannot err) |
 | printing | `Printable` | `File` or `protos::Protos` | the sweet form, each section in protos' vertical print (cannot err) |
@@ -91,8 +91,8 @@ The dispatch lends each capability the payload it matched, bound as
 
 ```rust
 pub trait Answering {
-    fn launch(&self, launch_request: &LaunchRequest) -> core::result::Result<FlowId, Output>;
-    fn report(&self, report: &Report_Data) -> core::result::Result<(), Output>;
+    fn launch(&self, launch_request: &LaunchRequest) -> ::core::result::Result<FlowId, Output>;
+    fn report(&self, report: &Report_Data) -> ::core::result::Result<(), Output>;
 }
 pub trait Answerable {
     type Answer;
@@ -155,14 +155,18 @@ carries (`Launch.Fable.High`). From a Signal's open enums the file generates:
   variant of a name.
 - for each open enum, its value, `pub struct Model { pub name: model::Name,
   pub carried: Option<Carried> }`, and the Signal's own `Input` and `Output`
-  each gain one variant named for the enum, `Model(model::Input)` and
-  `Model(model::Output)`, so the datom is `Model.Add.{ Fable
+  each gain one variant named for the enum, `Model(self::model::Input)` and
+  `Model(self::model::Output)`, so the datom is `Model.Add.{ Fable
   Some.Name.QuadrupleEffort }`.
 - in `Answering`, one capability named for the enum, taking the module's
   `Input` and yielding its `Output`, and its arm in the dispatch:
   `fn model(&self, model: &model::Input) -> Result<model::Output, Output>`. The
   refusal of the capability is any other `Output`; the contract's own `Refused`
   is an answer of it.
+- the module is named for the enum in snake case, and nothing the generated
+  Rust writes from outside the file can be shadowed by it: an open enum `Core`
+  or `Flow`, beside an import from `flow`, generates `pub mod core` and
+  `pub mod flow` next to `::core::option::Option` and `::flow::Voice`.
 
 Only one `Type` is carried at run time, `Name`, naming a type declared in the
 same Signal file; every other form of `Type` reads, so the runtime can answer
@@ -170,8 +174,8 @@ same Signal file; every other form of `Type` reads, so the runtime can answer
 the open enum is read from the datom `Fable.High` by finding `Fable` among the
 added variants and reading `High` as the type its entry names, so reading needs
 the registry: written, the value needs none. Under the `datom` feature `Model`
-is `datom_codec::Datomizable`, writing `Fable.High` or the bare `Fable`; it is
-`datom_codec::Composing` for a name that carries nothing alone, refusing any
+is `::datom_codec::Datomizable`, writing `Fable.High` or the bare `Fable`; it is
+`::datom_codec::Composing` for a name that carries nothing alone, refusing any
 other form (a `Datom` of `Fable.High` is no value without its registry); and
 the generated `Opening<Registry>` reads them all: `Model::open(&datom, &mut
 budget, &registry)`, with the `Registry` the runtime implements. A head never
@@ -290,12 +294,12 @@ snake case; first and second where they meet). An imported record is a field
 of its imported type and no declaration of the file. `fixtures/matrix-records.ethos`:
 
 ```rust
-pub struct Watch { pub flow_id: flow::FlowId, pub string: alloc::string::String }
-pub struct Configured(pub core::option::Option<Watch>);
+pub struct Watch { pub flow_id: ::flow::FlowId, pub string: ::alloc::string::String }
+pub struct Configured(pub ::core::option::Option<Watch>);
 pub struct Memory {
     pub watch: Watch,
     pub configured: Configured,
-    pub event: flow::Event,
+    pub event: ::flow::Event,
 }
 ```
 
@@ -324,7 +328,7 @@ impl Memorizable for Configured {
         &memory.configured
     }
 }
-impl Memorizable for flow::Event {
+impl Memorizable for ::flow::Event {
     type Memory = Memory;
     fn recall(memory: &Memory) -> &Self {
         &memory.event
@@ -467,7 +471,7 @@ A process is born of a **call**, a **record** or a **process that gives it**:
 
 | born of | named for | holds | owned by |
 |---|---|---|---|
-| a call | an input of a Signal, the Nexus's or its meta | `caller: process::Caller`, the input's payload (a struct variant's positions spread), the configured values | the signal process |
+| a call | an input of a Signal, the Nexus's or its meta | `caller: ::process::Caller`, the input's payload (a struct variant's positions spread), the configured values | the signal process |
 | a record | a record of the Memory | the record's positions spread, or the record as it is where it is not a struct, then the configured values | the memory process |
 | a process | a type the Process root declares in its types | that type's positions spread, or the type, then the configured values | the signal process, below its giver |
 
@@ -481,9 +485,9 @@ for it is its `Returned`:
 | given | its type | returns |
 |---|---|---|
 | an output | a type the Process module makes: a newtype over what it carries, `pub struct Summed(pub Total)`, or a struct of no fields where it carries nothing; the payload an output declares in place is its own | nothing |
-| a record | the record's type | `process::Answer` |
-| a change | the change's type | `Result<its answer, process::Unremembered>` |
-| an emission | the type it carries (`Follow_Data`, a unit of its own, a carried type) | `Result<its outcome, process::Unobserved>` |
+| a record | the record's type | `::process::Answer` |
+| a change | the change's type | `Result<its answer, ::process::Unremembered>` |
+| an emission | the type it carries (`Follow_Data`, a unit of its own, a carried type) | `Result<its outcome, ::process::Unobserved>` |
 | a process | the type its root declares | its outcome at its end, nothing where it declares none |
 
 The Process root's module then holds, beyond the types it declares: the struct of
@@ -491,14 +495,14 @@ each process's positions, `SumProcess`; what each takes, `SumTaken`; and the enu
 over the Nexus's processes:
 
 ```rust
-pub struct SumProcess { pub caller: process::Caller, pub integer_vector: alloc::vec::Vec<i64> }
+pub struct SumProcess { pub caller: ::process::Caller, pub integer_vector: ::alloc::vec::Vec<i64> }
 pub type SumTaken = Adding;
 pub struct AddendProcess { pub addend: Addend }
-pub type AddendTaken = core::result::Result<tally::memory::Addition, process::Unremembered>;
+pub type AddendTaken = ::core::result::Result<::tally::memory::Addition, ::process::Unremembered>;
 pub enum Process { Sum(SumProcess), Addend(AddendProcess) }
 pub enum Outcome { Sum(Summing), Addend(Adding), Unwound }
-pub enum Gift { Addend(Addend), Summed(Summed), Overflowed, Add(tally::memory::Add) }
-pub enum Taken { Adding(Adding), Addition(core::result::Result<tally::memory::Addition, process::Unremembered>) }
+pub enum Gift { Addend(Addend), Summed(Summed), Overflowed, Add(::tally::memory::Add) }
+pub enum Taken { Adding(Adding), Addition(::core::result::Result<::tally::memory::Addition, ::process::Unremembered>) }
 ```
 
 Where one kind of thing returns to a process, what it takes is that type, bare
@@ -521,10 +525,10 @@ A Process root generated as a module named `process` cannot stand at a crate's r
 beside the dependency named `process`, so the crate includes it under another name:
 `#[path = "generated/process.rs"] pub mod processes;`.
 
-The standard names the module writes are `process::Caller`, `process::Answer`,
-`process::Unremembered`, `process::Unobserved`, and the traits `process::Processable`,
-`process::Giving`, `process::Givable`, `process::Unwindable` and `process::Ownable`
-with `process::Owner`: the process library holds them (no_std and alloc), and a
+The standard names the module writes are `::process::Caller`, `::process::Answer`,
+`::process::Unremembered`, `::process::Unobserved`, and the traits `::process::Processable`,
+`::process::Giving`, `::process::Givable`, `::process::Unwindable` and `::process::Ownable`
+with `::process::Owner`: the process library holds them (no_std and alloc), and a
 Nexus's processes crate depends on it under the name `process`.
 
 Every root's types archive (rkyv) and gate their datom derives behind the
@@ -555,8 +559,10 @@ segments, each followed by a colon, then the capitalized name:
 `:flow_ethos:message:Type` imports one name, `:protos:[ String Integer ]`
 a group (the bare `:protos:` and the bracket beside it), and
 `:std:clone:Clonable.Clone` names it `Clonable` where the source calls it
-`Clone`. The generated Rust writes the name fully qualified,
-`flow_ethos::message::Type`. The chained form, without the leading
+`Clone`. The generated Rust writes the name fully qualified, from the
+extern prelude, `::flow_ethos::message::Type`, so no name the file declares
+shadows it; a source headed by `crate`, `super` or `self` is written as it is,
+`super::Fillable`. The chained form, without the leading
 colon, reads the same: `protos:String`, `protos:[ String ]`, and
 `signal_capsule:signal:[ Input Output ]` as
 `:signal_capsule:signal:[ Input Output ]`.
@@ -568,7 +574,7 @@ checks. In such a file the name written bare says neither, and is refused
 where it is used, in a position, a payload or as a bare variant, as
 `Ambiguous.<name>`: `Holder.{ Input }` is `Conceptual.{ [ 1 1 0 1 0 ]
 Ambiguous.Input }`. Each use is written where it stands with its namespace,
-`Holder.{ :flow:signal:Input }`, which generates `flow::signal::Input`. A
+`Holder.{ :flow:signal:Input }`, which generates `::flow::signal::Input`. A
 name imported twice from one namespace, or imported and also declared, is
 still a `Duplicate` at the later of the two.
 
@@ -586,11 +592,16 @@ only `Grow` is boxed. Every position that reaches its owner by
 any path, `Vector` included, carries `#[rkyv(omit_bounds)]`, and its type
 states the serializer, deserializer and validator bounds once, so a
 recursive contract archives and restores. The generated Rust writes
-every standard name by its core or alloc path, `alloc::string::String`,
-`alloc::vec::Vec`, `core::option::Option`, `core::result::Result` and
-`alloc::boxed::Box`, so a declaration cannot capture those names and the
-module builds with no operating system under it as well as with std: each
-generated module opens with `extern crate alloc;`. A variant `Name.{ T1 T2 }` carries a generated
+every standard name by its core or alloc path, `::alloc::string::String`,
+`::alloc::vec::Vec`, `::core::option::Option`, `::core::result::Result` and
+`::alloc::boxed::Box`, and every other crate path from the extern prelude
+too, `::rkyv::Archive`, `::datom_codec::Datomizable`, `::signal::Stream`,
+`::process::Caller`, so neither a declared type nor a declared module (an
+open enum's) can capture or shadow those names, and the module builds with no
+operating system under it as well as with std: each generated module opens
+with `extern crate alloc;`. `::alloc` is reached through the crate root's
+extern prelude, so a crate that includes a generated module below its root
+declares `extern crate alloc;` at its root. A variant `Name.{ T1 T2 }` carries a generated
 struct `Name_Data` with one field per position.
 
 A field is named for its type alone, in snake case, and never for the
@@ -654,20 +665,20 @@ when one would capture an authored type reference.
 exactly two types: the state a stream opens with and the change it then
 carries, `Stream<⟦ Pane ⟧ Changed>`. It is answered as a stream: one
 subscription, then frames. The signal library holds its two Rust types,
-`signal::Frame<State, Change>`, an archived and datomizable enum
+`::signal::Frame<State, Change>`, an archived and datomizable enum
 `Opened(State) | Changed(Change) | Lagged(State) | Ended(Ending)`, and
-`signal::Stream<State, Change>`, the live stream of frames, never archived.
+`::signal::Stream<State, Change>`, the live stream of frames, never archived.
 A crate holding a Signal with a stream output depends on that library under
 the name `signal`.
 
 A `Stream` stands in two places. One is the whole payload of a Signal's
 output: `Signal [] [ Subscribe ] [ Subscribed.Stream<⟦ Pane ⟧ Changed> ] [ … ]`.
 The `Output` holds one frame of it,
-`Subscribed(signal::Frame<alloc::vec::Vec<Pane>, Changed>)`, with the derives
+`Subscribed(::signal::Frame<::alloc::vec::Vec<Pane>, Changed>)`, with the derives
 every `Output` bears, so each frame on the wire is one `Output`. The other is a trait capability's yield, where its
 types may be the trait's associated types:
 `Publishing.{ [] [ State Change ] [] [ open.{ [ State ] [ Stream<State Change> ] } ] }`
-gives `fn open(&self, input: Self::State) -> signal::Stream<Self::State, Self::Change>`
+gives `fn open(&self, input: Self::State) -> ::signal::Stream<Self::State, Self::Change>`
 (`fixtures/publishing-trait.ethos`). A `Stream` anywhere else is refused as
 `Placement.Stream` at its path: in a field, an alias, a variant's payload in
 any root's types or in an Operation's or Emission's sections, a Signal's
@@ -687,11 +698,11 @@ that output and holding its stream (`fixtures/stream-signal.ethos`):
 ```rust
 pub enum Answer {
     Once(Output),
-    Subscribed(signal::Stream<alloc::vec::Vec<Pane>, Changed>),
+    Subscribed(::signal::Stream<::alloc::vec::Vec<Pane>, Changed>),
 }
 pub trait Answering {
-    fn launch(&self, launch_request: &LaunchRequest) -> core::result::Result<FlowId, Output>;
-    fn subscribe(&self) -> core::result::Result<signal::Stream<alloc::vec::Vec<Pane>, Changed>, Output>;
+    fn launch(&self, launch_request: &LaunchRequest) -> ::core::result::Result<FlowId, Output>;
+    fn subscribe(&self) -> ::core::result::Result<::signal::Stream<::alloc::vec::Vec<Pane>, Changed>, Output>;
 }
 impl Answerable for Input {
     type Answer = Answer;

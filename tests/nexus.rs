@@ -115,44 +115,44 @@ fn a_root_alone_generates_as_it_always_did() {
 fn the_process_root_of_the_tally_nexus_generates_its_positions_and_its_enums() {
     let rust = squeezed(&generated(&fixture("tally"), "process"));
     // The things given that the module makes: an output over what it carries, and an output that carries nothing.
-    assert!(rust.contains("pubstructSummed(pubtally::signal::Total);"));
+    assert!(rust.contains("pubstructSummed(pub::tally::signal::Total);"));
     assert!(rust.contains("pubstructOverflowed{}"));
     // A process born of a call holds its caller and the input; one born of a process, what its root writes.
     assert!(rust.contains(
-        "pubstructSumProcess{pubcaller:process::Caller,pubinteger_vector:alloc::vec::Vec<i64>,}"
+        "pubstructSumProcess{pubcaller:::process::Caller,pubinteger_vector:::alloc::vec::Vec<i64>,}"
     ));
     assert!(rust.contains("pubstructAddendProcess{pubaddend:Addend,}"));
     // R2: where one kind of thing returns, what a process takes is that type, bare.
     assert!(rust.contains("pubtypeSumTaken=Adding;"));
     assert!(rust.contains(
-        "pubtypeAddendTaken=core::result::Result<tally::memory::Addition,process::Unremembered>;"
+        "pubtypeAddendTaken=::core::result::Result<::tally::memory::Addition,::process::Unremembered>;"
     ));
-    assert!(rust.contains("pubenumTaken{Adding(Adding),Addition(core::result::Result<tally::memory::Addition,process::Unremembered>),}"));
+    assert!(rust.contains("pubenumTaken{Adding(Adding),Addition(::core::result::Result<::tally::memory::Addition,::process::Unremembered>),}"));
     // The enums over the processes; an output that carries nothing is a bare variant of Gift.
     assert!(rust.contains("pubenumProcess{Sum(SumProcess),Addend(AddendProcess),}"));
     assert!(rust.contains("pubenumOutcome{Sum(Summing),Addend(Adding),Unwound,}"));
     assert!(rust.contains(
-        "pubenumGift{Addend(Addend),Summed(Summed),Overflowed,Add(tally::memory::Add),}"
+        "pubenumGift{Addend(Addend),Summed(Summed),Overflowed,Add(::tally::memory::Add),}"
     ));
     // Each thing given says what returns for it.
-    assert!(rust.contains("implprocess::GivableforAddend{typeReturned=Adding;}"));
+    assert!(rust.contains("impl::process::GivableforAddend{typeReturned=Adding;}"));
     assert!(rust.contains(
-        "implprocess::Givablefortally::memory::Add{typeReturned=core::result::Result<tally::memory::Addition,process::Unremembered>;}"
+        "impl::process::Givablefor::tally::memory::Add{typeReturned=::core::result::Result<::tally::memory::Addition,::process::Unremembered>;}"
     ));
-    assert!(rust.contains("implprocess::GivableforOverflowed{typeReturned=();}"));
+    assert!(rust.contains("impl::process::GivableforOverflowed{typeReturned=();}"));
     assert!(rust.contains(
-        "implcore::convert::From<Overflowed>forGift{fnfrom(_:Overflowed)->Gift{Gift::Overflowed}}"
+        "impl::core::convert::From<Overflowed>forGift{fnfrom(_:Overflowed)->Gift{Gift::Overflowed}}"
     ));
-    assert!(rust.contains("implprocess::UnwindableforOutcome"));
+    assert!(rust.contains("impl::process::UnwindableforOutcome"));
 }
 
 #[test]
 fn a_process_born_of_a_call_is_owned_by_the_signal_process_and_one_born_of_a_record_by_the_memory_process()
  {
     let rust = squeezed(&generated(&fixture("claude-harness"), "process"));
-    assert!(rust.contains("Process::Watch(_)=>process::Owner::Memory,"));
+    assert!(rust.contains("Process::Watch(_)=>::process::Owner::Memory,"));
     assert!(rust.contains(
-        "Process::Report(_)|Process::Subscribe(_)|Process::Configure(_)|Process::Prepare(_)=>process::Owner::Signal,"
+        "Process::Report(_)|Process::Subscribe(_)|Process::Configure(_)|Process::Prepare(_)=>::process::Owner::Signal,"
     ));
 }
 
@@ -161,30 +161,30 @@ fn a_record_of_an_imported_type_is_a_record_and_a_change_returns_its_answer_or_u
     let rust = squeezed(&generated(&fixture("claude-harness"), "process"));
     // A record kept returns the standard Answer.
     assert!(rust.contains(
-        "implprocess::Givableforclaude_harness::memory::Watch{typeReturned=process::Answer;}"
+        "impl::process::Givablefor::claude_harness::memory::Watch{typeReturned=::process::Answer;}"
     ));
     // A change returns the Result of its answer or Unremembered, as an emission returns the Result of its outcome or Unobserved.
     assert!(rust.contains(
-        "implprocess::Givableforclaude_harness::memory::Observe{typeReturned=core::result::Result<claude_harness::memory::Observation,process::Unremembered>;}"
+        "impl::process::Givablefor::claude_harness::memory::Observe{typeReturned=::core::result::Result<::claude_harness::memory::Observation,::process::Unremembered>;}"
     ));
     assert!(rust.contains(
-        "implprocess::Givableforclaude_harness::emission::Follow_Data{typeReturned=core::result::Result<claude_harness::emission::Following_Data,process::Unobserved>;}"
+        "impl::process::Givablefor::claude_harness::emission::Follow_Data{typeReturned=::core::result::Result<::claude_harness::emission::Following_Data,::process::Unobserved>;}"
     ));
     // Where two kinds return to a process, its Taken is an enum of them, named for what each returns.
     assert!(rust.contains(
-        "pubenumReportTaken{Answer(process::Answer),Observation(core::result::Result<claude_harness::memory::Observation,process::Unremembered>),}"
+        "pubenumReportTaken{Answer(::process::Answer),Observation(::core::result::Result<::claude_harness::memory::Observation,::process::Unremembered>),}"
     ));
     // Where one kind returns, bare.
     assert!(rust.contains(
-        "pubtypeSubscribeTaken=core::result::Result<claude_harness::memory::Recollection,process::Unremembered>;"
+        "pubtypeSubscribeTaken=::core::result::Result<::claude_harness::memory::Recollection,::process::Unremembered>;"
     ));
-    assert!(rust.contains("pubtypeConfigureTaken=process::Answer;"));
+    assert!(rust.contains("pubtypeConfigureTaken=::process::Answer;"));
     // A process born of a record holds the record's fields and what is configured into it.
     assert!(rust.contains(
-        "pubstructWatchProcess{pubflow_id:flow::FlowId,pubfile_path:harness::FilePath,pubread_from:claude_harness::ReadFrom,pubrow_count:claude_harness::RowCount,}"
+        "pubstructWatchProcess{pubflow_id:::flow::FlowId,pubfile_path:::harness::FilePath,pubread_from:::claude_harness::ReadFrom,pubrow_count:::claude_harness::RowCount,}"
     ));
     assert!(rust.contains(
-        "pubstructPrepareProcess{pubcaller:process::Caller,pubhook_client_option:core::option::Option<claude_harness::meta::HookClient>,pubhooks:claude_harness::meta::Hooks,}"
+        "pubstructPrepareProcess{pubcaller:::process::Caller,pubhook_client_option:::core::option::Option<::claude_harness::meta::HookClient>,pubhooks:::claude_harness::meta::Hooks,}"
     ));
 }
 
@@ -192,17 +192,19 @@ fn a_record_of_an_imported_type_is_a_record_and_a_change_returns_its_answer_or_u
 fn the_process_enum_dispatches_each_begin_and_take_to_the_body_of_its_process() {
     let rust = squeezed(&generated(&fixture("claude-harness"), "process"));
     assert!(rust.contains(
-        "Process::Report(report)=>{process::Processable::begin(report,giving).map(Outcome::Report)}"
+        "Process::Report(report)=>{::process::Processable::begin(report,giving).map(Outcome::Report)}"
     ));
     assert!(
-        rust.contains("process::Processable::begin(subscribe,giving).map(|()|Outcome::Subscribe)")
+        rust.contains(
+            "::process::Processable::begin(subscribe,giving).map(|()|Outcome::Subscribe)"
+        )
     );
     // Where a process takes two kinds, the thing taken is handed over as the process's own Taken.
-    assert!(rust.contains("(Process::Watch(watch),Taken::Following(carried))=>{process::Processable::take(watch,WatchTaken::Following(carried),giving).map(Outcome::Watch)}"));
+    assert!(rust.contains("(Process::Watch(watch),Taken::Following(carried))=>{::process::Processable::take(watch,WatchTaken::Following(carried),giving).map(Outcome::Watch)}"));
     // Where it takes one kind, as that kind, bare.
-    assert!(rust.contains("(Process::Configure(configure),Taken::Answer(carried))=>{process::Processable::take(configure,carried,giving).map(Outcome::Configure)}"));
+    assert!(rust.contains("(Process::Configure(configure),Taken::Answer(carried))=>{::process::Processable::take(configure,carried,giving).map(Outcome::Configure)}"));
     // A thing taken that no process takes is let go.
-    assert!(rust.contains("_=>core::option::Option::None,"));
+    assert!(rust.contains("_=>::core::option::Option::None,"));
 }
 
 #[test]
@@ -307,10 +309,12 @@ fn a_matrix_provides_its_records_and_memory_to_the_roots_read_with_it() {
     ]);
     assert!(nexus.verify().is_ok());
     let rust = squeezed(&generated(&nexus, "library"));
-    assert!(rust.contains("pubwatch:app::matrix::Watch,"));
-    assert!(rust.contains("pubmemory:app::matrix::Memory,"));
+    assert!(rust.contains("pubwatch:::app::matrix::Watch,"));
+    assert!(rust.contains("pubmemory:::app::matrix::Memory,"));
     let matrix = squeezed(&generated(&nexus, "matrix"));
-    assert!(matrix.contains("pubstructMemory{pubwatch:Watch,pubobserved:app::signal::Observed,}"));
+    assert!(
+        matrix.contains("pubstructMemory{pubwatch:Watch,pubobserved:::app::signal::Observed,}")
+    );
 }
 
 #[test]
@@ -368,25 +372,25 @@ fn an_imported_name_that_declares_its_payload_in_place_is_written_as_the_payload
     let rust = squeezed(&generated(&imported_payloads(), "memory"));
     // A field, a vector and an option each write the payload's derived name.
     assert!(rust.contains(
-        "pubstructHeld{pubchanged:app::signal::Changed_Data,pubchanged_vector:alloc::vec::Vec<app::signal::Changed_Data>,pubchanged_option:core::option::Option<app::signal::Changed_Data>,"
+        "pubstructHeld{pubchanged:::app::signal::Changed_Data,pubchanged_vector:::alloc::vec::Vec<::app::signal::Changed_Data>,pubchanged_option:::core::option::Option<::app::signal::Changed_Data>,"
     ));
     // A newtype too.
-    assert!(rust.contains("pubstructLatest(pubapp::signal::Changed_Data);"));
+    assert!(rust.contains("pubstructLatest(pub::app::signal::Changed_Data);"));
     // An aliased enum keeps the authored field name, and a declared type keeps its Rust name.
-    assert!(rust.contains("pubnoted:app::signal::Marked_Data,pubplain:app::signal::Plain,"));
-    assert!(!rust.contains("app::signal::Changed,"));
-    assert!(!rust.contains("app::signal::Changed>"));
+    assert!(rust.contains("pubnoted:::app::signal::Marked_Data,pubplain:::app::signal::Plain,"));
+    assert!(!rust.contains("::app::signal::Changed,"));
+    assert!(!rust.contains("::app::signal::Changed>"));
 }
 
 #[test]
 fn a_record_held_from_the_process_root_writes_the_payload_its_name_resolved_to() {
     let rust = squeezed(&generated(&imported_payloads(), "process"));
-    assert!(rust.contains("pubstructHeldProcess{pubchanged:app::signal::Changed_Data,"));
+    assert!(rust.contains("pubstructHeldProcess{pubchanged:::app::signal::Changed_Data,"));
     assert!(rust.contains(
-        "pubstructAskProcess{pubcaller:process::Caller,pubchanged:app::signal::Changed_Data,"
+        "pubstructAskProcess{pubcaller:::process::Caller,pubchanged:::app::signal::Changed_Data,"
     ));
-    assert!(rust.contains("Changed(app::signal::Changed_Data)"));
-    assert!(!rust.contains("app::signal::Changed,"));
+    assert!(rust.contains("Changed(::app::signal::Changed_Data)"));
+    assert!(!rust.contains("::app::signal::Changed,"));
 }
 
 #[test]

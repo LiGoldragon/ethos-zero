@@ -8,46 +8,67 @@
 #[rustfmt::skip]
 extern crate alloc;
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct Home(pub alloc::string::String);
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
+pub struct Home(pub ::alloc::string::String);
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
-pub struct Login(pub alloc::vec::Vec<alloc::string::String>);
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
+pub struct Login(pub ::alloc::vec::Vec<::alloc::string::String>);
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub struct Capsule {
     pub home: Home,
     pub login: Login,
 }
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub struct Start_Data {
-    pub voice: flow::Voice,
+    pub voice: ::flow::Voice,
     pub capsule: Capsule,
 }
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub struct Record_Data {
-    pub flow_id: flow::FlowId,
-    pub event: flow::Event,
+    pub flow_id: ::flow::FlowId,
+    pub event: ::flow::Event,
 }
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub enum Operation {
     Start(Start_Data),
     Record(Record_Data),
 }
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub enum Outcome {
-    Started(flow::FlowId),
+    Started(::flow::FlowId),
     Recorded,
-    Failed(alloc::string::String),
+    Failed(::alloc::string::String),
 }

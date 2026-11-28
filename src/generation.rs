@@ -5,13 +5,15 @@
 //! machinery, a trait declaration its trait, an association its
 //! assertion; the file emits by walking its variant's sections. Names
 //! are resolved through the scope, never a table; the generated Rust
-//! carries no `use` and writes every foreign name fully qualified.
+//! carries no `use` and writes every foreign name fully qualified, each path
+//! into another crate from the extern prelude (`::core::…`, `::flow::…`), so
+//! no name the file declares, an open enum's module among them, shadows it.
 //!
 //! One rule decides boxing: a position is boxed where it closes a by-value
 //! cycle, that is where it names, through aliases, `Option` and `Result` but
 //! not through `Vector`, a type declared no later than its owner that reaches
 //! the owner by value. The box sits immediately around the recursive
-//! argument (`core::option::Option<alloc::boxed::Box<Tree>>`).
+//! argument (`::core::option::Option<::alloc::boxed::Box<Tree>>`).
 //!
 //! One rule decides archive bounds: a position that reaches its owner by any
 //! path, `Vector` included, omits its rkyv bounds, and its type
@@ -48,10 +50,23 @@ impl Tokening for Name {
     }
 }
 
+/// A source is written from the extern prelude, `::flow::library`, so a
+/// module the file declares under the same name, an open enum's, never
+/// shadows it; a source headed by `crate`, `super` or `self` is a path of the
+/// including crate, which no declared name can shadow, and is written as it is.
 impl Tokening for Source {
     fn tokens(&self) -> TokenStream {
-        let path: syn::Path =
+        let mut path: syn::Path =
             syn::parse_str(self.as_ref()).expect("a source was validated as a path");
+        // `crate`, `super` and `self` are the keywords a path segment may be;
+        // a keyword is no identifier to syn.
+        let relative = path
+            .segments
+            .first()
+            .is_some_and(|head| syn::parse_str::<Ident>(&head.ident.to_string()).is_err());
+        if !relative {
+            path.leading_colon = Some(Default::default());
+        }
         quote! { #path }
     }
 }
@@ -59,22 +74,22 @@ impl Tokening for Source {
 impl Tokening for Intrinsic {
     fn tokens(&self) -> TokenStream {
         match self {
-            Intrinsic::String => quote! { alloc::string::String },
+            Intrinsic::String => quote! { ::alloc::string::String },
             // Generated contracts must compile without their optional `datom`
             // feature.  The wire-level integer is therefore the ordinary
             // Rust scalar; Datom derives know how to compose it when enabled.
             Intrinsic::Integer => quote! { i64 },
             // A datom decimal is finite and point-mandatory. `f64` is neither,
-            // so it has no datom text; `datom_codec::Decimal` admits only a
+            // so it has no datom text; `::datom_codec::Decimal` admits only a
             // finite value, which is also what makes a type reaching one Eq
             // and Hash.
-            Intrinsic::Decimal => quote! { datom_codec::Decimal },
+            Intrinsic::Decimal => quote! { ::datom_codec::Decimal },
             Intrinsic::Boolean => quote! { bool },
-            Intrinsic::Meaning => quote! { datom_codec::Meaning },
-            Intrinsic::Vector => quote! { alloc::vec::Vec },
-            Intrinsic::Option => quote! { core::option::Option },
-            Intrinsic::Result => quote! { core::result::Result },
-            Intrinsic::Stream => quote! { signal::Stream },
+            Intrinsic::Meaning => quote! { ::datom_codec::Meaning },
+            Intrinsic::Vector => quote! { ::alloc::vec::Vec },
+            Intrinsic::Option => quote! { ::core::option::Option },
+            Intrinsic::Result => quote! { ::core::result::Result },
+            Intrinsic::Stream => quote! { ::signal::Stream },
             Intrinsic::Itself => quote! { Self },
             Intrinsic::Sized => quote! { Sized },
         }
@@ -83,9 +98,9 @@ impl Tokening for Intrinsic {
 
 /// The trait whose capability yields the Rust type a position holds of an
 /// intrinsic: a stream's position, the whole payload of a Signal's output,
-/// holds one frame of it, `signal::Frame`, which archives as every position
+/// holds one frame of it, `::signal::Frame`, which archives as every position
 /// does, and each frame on the wire is one output; the live
-/// `signal::Stream` is never archived. Every other intrinsic is held as it
+/// `::signal::Stream` is never archived. Every other intrinsic is held as it
 /// is written.
 trait Holding {
     fn held(&self) -> TokenStream;
@@ -94,7 +109,7 @@ trait Holding {
 impl Holding for Intrinsic {
     fn held(&self) -> TokenStream {
         match self {
-            Intrinsic::Stream => quote! { signal::Frame },
+            Intrinsic::Stream => quote! { ::signal::Frame },
             Intrinsic::String
             | Intrinsic::Integer
             | Intrinsic::Decimal
@@ -190,10 +205,10 @@ impl Emitting for Reference {
             Resolution::Imported(source, emitted) => {
                 if source.as_ref() == "std" {
                     if emitted.0 == "Clone" {
-                        return quote! { core::clone::Clone #applied };
+                        return quote! { ::core::clone::Clone #applied };
                     }
                     if emitted.0 == "Send" {
-                        return quote! { core::marker::Send #applied };
+                        return quote! { ::core::marker::Send #applied };
                     }
                 }
                 let source = source.tokens();
@@ -555,7 +570,7 @@ impl Positioning for Reference {
             for argument in &reference.arguments {
                 let ty = if argument.boxed(scope, owner) {
                     let inner = argument.emit(scope);
-                    quote! { alloc::boxed::Box<#inner> }
+                    quote! { ::alloc::boxed::Box<#inner> }
                 } else {
                     argument.emit(scope)
                 };
@@ -566,7 +581,7 @@ impl Positioning for Reference {
 
         let ty = self.emit(scope);
         if self.boxed(scope, owner) {
-            quote! { alloc::boxed::Box<#ty> }
+            quote! { ::alloc::boxed::Box<#ty> }
         } else {
             ty
         }
@@ -597,9 +612,9 @@ trait Recursing {
 impl Recursing for Identity {
     fn recursion_bounds(&self) -> TokenStream {
         quote! {
-            #[rkyv(serialize_bounds(__S: rkyv::ser::Writer + rkyv::ser::Allocator, __S::Error: rkyv::rancor::Source))]
-            #[rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source))]
-            #[rkyv(bytecheck(bounds(__C: rkyv::validation::ArchiveContext, __C::Error: rkyv::rancor::Source)))]
+            #[rkyv(serialize_bounds(__S: ::rkyv::ser::Writer + ::rkyv::ser::Allocator, __S::Error: ::rkyv::rancor::Source))]
+            #[rkyv(deserialize_bounds(__D::Error: ::rkyv::rancor::Source))]
+            #[rkyv(bytecheck(bounds(__C: ::rkyv::validation::ArchiveContext, __C::Error: ::rkyv::rancor::Source)))]
         }
     }
 }
@@ -853,8 +868,8 @@ impl DatomDeriving for Identity {
     fn datom_derives(&self) -> TokenStream {
         quote! {
             #[rustfmt::skip]
-            #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-            #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+            #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+            #[cfg_attr(feature = "datom", derive(::datom_codec::Datomizable, ::datom_codec::Composing))]
         }
     }
 
@@ -864,13 +879,13 @@ impl DatomDeriving for Identity {
         match scalar {
             Scalar::Copyable => quote! {
                 #[rustfmt::skip]
-                #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-                #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+                #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+                #[cfg_attr(feature = "datom", derive(::datom_codec::Datomizable, ::datom_codec::Composing))]
             },
             Scalar::Ordered => quote! {
                 #[rustfmt::skip]
-                #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-                #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+                #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+                #[cfg_attr(feature = "datom", derive(::datom_codec::Datomizable, ::datom_codec::Composing))]
             },
         }
     }
@@ -1427,7 +1442,10 @@ impl Rendering for [TokenStream] {
         let items = self;
         let tokens = quote! {
             #![allow(dead_code, non_camel_case_types, non_snake_case, unused_extern_crates, clippy::type_complexity)]
-            // Every path names core or alloc, so the module builds with and without std.
+            // Every path names core or alloc, so the module builds with and without std,
+            // and every crate path is written from the extern prelude, `::core::…`, so no
+            // declared name shadows it. `::alloc` reaches the crate root's `extern crate
+            // alloc;`: this one where the module is the root, the including crate's otherwise.
             #[rustfmt::skip]
             extern crate alloc;
             #( #items )*
@@ -1436,6 +1454,7 @@ impl Rendering for [TokenStream] {
         prettyplease::unparse(&file)
             .collapse_derives()
             .format_allow()
+            .space_colons()
     }
 }
 
@@ -1644,7 +1663,7 @@ impl TraitImplying for crate::Matrix {
 /// `Answerable` names what an answer is, its `Answer`. A Signal none of whose
 /// inputs is answered by a stream answers each input once, with an `Output`.
 /// Where an output answering an input is a `Stream`, its capability yields
-/// the live `signal::Stream` or the refusal, and the file generates `Answer`:
+/// the live `::signal::Stream` or the refusal, and the file generates `Answer`:
 /// `Once(Output)` for every answer given once, a refusal among them, and one
 /// variant per stream output, named as that output, holding its stream. The
 /// stream is live and never archived, so `Answer` derives nothing.
@@ -1700,7 +1719,7 @@ impl TraitImplying for crate::Signal {
                 ),
             };
             capabilities.push(quote! {
-                fn #capability #signature -> core::result::Result<#yields, Output>;
+                fn #capability #signature -> ::core::result::Result<#yields, Output>;
             });
             let answered_once = streaming && output.stream(scope).is_none();
             arms.push(if answered_once {
@@ -1718,7 +1737,7 @@ impl TraitImplying for crate::Signal {
             let module = name.module();
             let variant = name.tokens();
             capabilities.push(quote! {
-                fn #capability(&self, #capability: &#module::Input) -> core::result::Result<#module::Output, Output>;
+                fn #capability(&self, #capability: &#module::Input) -> ::core::result::Result<#module::Output, Output>;
             });
             let call = quote! {
                 nexus.#capability(carried).map_or_else(|refusal| refusal, Output::#variant)
@@ -1820,6 +1839,22 @@ impl DeriveCollapsing for String {
     }
 }
 
+/// The trait whose capability parts a bound's colon from the path after it.
+///
+/// prettyplease prints the tokens of an attribute it does not parse, an rkyv
+/// bound `__S: ::rkyv::ser::Writer`, with no space between the colon and the
+/// leading `::`, and `:::` lexes as `::` and `:`. No Rust is written `:::`, so
+/// every one is the bound's colon followed by a leading `::`.
+trait ColonSpacing {
+    fn space_colons(&self) -> String;
+}
+
+impl ColonSpacing for String {
+    fn space_colons(&self) -> String {
+        self.replace(":::", ": ::")
+    }
+}
+
 impl AllowFormatting for String {
     fn format_allow(&self) -> String {
         self.replacen(
@@ -1865,7 +1900,9 @@ impl Contracting for [Name] {
     fn contract_variants(&self, implied: &Name) -> Vec<Variant> {
         let mut variants = Vec::with_capacity(self.len());
         for name in self {
-            let module = name.module().to_string();
+            // The contract module is the file's own, reached by `self::`, not
+            // from the extern prelude every other source is written from.
+            let module = format!("self:{}", name.module());
             variants.push(Variant::Typed(
                 name.clone(),
                 Reference::Named(NamedReference {
@@ -1902,10 +1939,9 @@ impl Contracted for Name {
         quote! {
             #[rustfmt::skip]
             pub mod #module {
-                extern crate alloc;
                 #( #items )*
                 pub trait Registry {
-                    fn variant(&self, name: &Name) -> core::option::Option<Variant>;
+                    fn variant(&self, name: &Name) -> ::core::option::Option<Variant>;
                 }
             }
         }
@@ -1978,10 +2014,10 @@ impl Opening for File {
             #[rustfmt::skip]
             pub trait Opening<Registry>: Sized {
                 fn open(
-                    datom: &datom_codec::Datom,
-                    budget: &mut datom_codec::Budget,
+                    datom: &::datom_codec::Datom,
+                    budget: &mut ::datom_codec::Budget,
                     registry: &Registry,
-                ) -> core::result::Result<Self, datom_codec::Error>;
+                ) -> ::core::result::Result<Self, ::datom_codec::Error>;
             }
         });
         // The value's field of what it carries, its absence, and what its
@@ -1992,34 +2028,34 @@ impl Opening for File {
                 TokenStream::new(),
                 TokenStream::new(),
                 quote! {
-                    datom_codec::Datom {
+                    ::datom_codec::Datom {
                         path: at,
-                        form: datom_codec::Form::Bare(self.name.0.clone()),
+                        form: ::datom_codec::Form::Bare(self.name.0.clone()),
                     }
                 },
             )
         } else {
             (
-                quote! { pub carried: core::option::Option<Carried>, },
-                quote! { carried: core::option::Option::None, },
+                quote! { pub carried: ::core::option::Option<Carried>, },
+                quote! { carried: ::core::option::Option::None, },
                 quote! {
                     match &self.carried {
-                        core::option::Option::None => datom_codec::Datom {
+                        ::core::option::Option::None => ::datom_codec::Datom {
                             path: at,
-                            form: datom_codec::Form::Bare(self.name.0.clone()),
+                            form: ::datom_codec::Form::Bare(self.name.0.clone()),
                         },
-                        core::option::Option::Some(carried) => {
+                        ::core::option::Option::Some(carried) => {
                             let body = match *carried {
-                                #( Carried::#names(ref value) => datom_codec::Datomizable::datomize(
+                                #( Carried::#names(ref value) => ::datom_codec::Datomizable::datomize(
                                     value,
-                                    datom_codec::Branchable::child(&at, 1),
+                                    ::datom_codec::Branchable::child(&at, 1),
                                 ), )*
                             };
-                            datom_codec::Datom {
+                            ::datom_codec::Datom {
                                 path: at,
-                                form: datom_codec::Form::Variant(
-                                    datom_codec::Symbol(self.name.0.clone()),
-                                    alloc::boxed::Box::new(body),
+                                form: ::datom_codec::Form::Variant(
+                                    ::datom_codec::Symbol(self.name.0.clone()),
+                                    ::alloc::boxed::Box::new(body),
                                 ),
                             }
                         }
@@ -2037,31 +2073,31 @@ impl Opening for File {
             } else {
                 quote! {
                     (
-                        core::option::Option::Some(#module::Type::Name(carried)),
-                        core::option::Option::Some(body),
+                        ::core::option::Option::Some(#module::Type::Name(carried)),
+                        ::core::option::Option::Some(body),
                     ) => {
                         let carried = match carried.0.as_str() {
-                            #( #spellings => Carried::#names(datom_codec::Composing::compose(body, budget)?), )*
+                            #( #spellings => Carried::#names(::datom_codec::Composing::compose(body, budget)?), )*
                             other => {
-                                return core::result::Result::Err(
-                                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                return ::core::result::Result::Err(
+                                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                         datom.path.clone(),
-                                        datom_codec::ErrorKind::Variant {
-                                            expected: alloc::string::String::from("a type the file declares"),
-                                            found: alloc::string::String::from(other),
+                                        ::datom_codec::ErrorKind::Variant {
+                                            expected: ::alloc::string::String::from("a type the file declares"),
+                                            found: ::alloc::string::String::from(other),
                                         },
                                     ),
                                 );
                             }
                         };
-                        core::result::Result::Ok(Self { name, carried: core::option::Option::Some(carried) })
+                        ::core::result::Result::Ok(Self { name, carried: ::core::option::Option::Some(carried) })
                     }
                 }
             };
             items.push(open.contract());
             items.push(quote! {
                 #[rustfmt::skip]
-                #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+                #[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
                 pub struct #value {
                     pub name: #module::Name,
                     #field
@@ -2070,8 +2106,8 @@ impl Opening for File {
             items.push(quote! {
                 #[cfg(feature = "datom")]
                 #[rustfmt::skip]
-                impl datom_codec::Datomizable for #value {
-                    fn datomize(&self, at: datom_codec::Path) -> datom_codec::Datom {
+                impl ::datom_codec::Datomizable for #value {
+                    fn datomize(&self, at: ::datom_codec::Path) -> ::datom_codec::Datom {
                         #datomizing
                     }
                 }
@@ -2079,23 +2115,23 @@ impl Opening for File {
             items.push(quote! {
                 #[cfg(feature = "datom")]
                 #[rustfmt::skip]
-                impl datom_codec::Composing for #value {
+                impl ::datom_codec::Composing for #value {
                     fn compose(
-                        datom: &datom_codec::Datom,
-                        budget: &mut datom_codec::Budget,
-                    ) -> core::result::Result<Self, datom_codec::Error> {
-                        datom_codec::Budgeted::spend(budget, &datom.path)?;
+                        datom: &::datom_codec::Datom,
+                        budget: &mut ::datom_codec::Budget,
+                    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+                        ::datom_codec::Budgeted::spend(budget, &datom.path)?;
                         match &datom.form {
-                            datom_codec::Form::Bare(head) => core::result::Result::Ok(Self {
+                            ::datom_codec::Form::Bare(head) => ::core::result::Result::Ok(Self {
                                 name: #module::Name(head.clone()),
                                 #absent
                             }),
-                            found => core::result::Result::Err(
-                                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                            found => ::core::result::Result::Err(
+                                <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                     datom.path.clone(),
-                                    datom_codec::ErrorKind::Form {
-                                        expected: alloc::string::String::from("Bare; a name that carries a type is read with its registry, by Opening"),
-                                        found: alloc::string::String::from(datom_codec::Naming::form_name(found)),
+                                    ::datom_codec::ErrorKind::Form {
+                                        expected: ::alloc::string::String::from("Bare; a name that carries a type is read with its registry, by Opening"),
+                                        found: ::alloc::string::String::from(::datom_codec::Naming::form_name(found)),
                                     },
                                 ),
                             ),
@@ -2108,50 +2144,50 @@ impl Opening for File {
                 #[rustfmt::skip]
                 impl<Registry: #module::Registry> Opening<Registry> for #value {
                     fn open(
-                        datom: &datom_codec::Datom,
-                        budget: &mut datom_codec::Budget,
+                        datom: &::datom_codec::Datom,
+                        budget: &mut ::datom_codec::Budget,
                         registry: &Registry,
-                    ) -> core::result::Result<Self, datom_codec::Error> {
-                        datom_codec::Budgeted::spend(budget, &datom.path)?;
+                    ) -> ::core::result::Result<Self, ::datom_codec::Error> {
+                        ::datom_codec::Budgeted::spend(budget, &datom.path)?;
                         let (head, body) = match &datom.form {
-                            datom_codec::Form::Bare(head) => (head, core::option::Option::None),
-                            datom_codec::Form::Variant(head, body) => {
-                                (&head.0, core::option::Option::Some(&**body))
+                            ::datom_codec::Form::Bare(head) => (head, ::core::option::Option::None),
+                            ::datom_codec::Form::Variant(head, body) => {
+                                (&head.0, ::core::option::Option::Some(&**body))
                             }
                             found => {
-                                return core::result::Result::Err(
-                                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                return ::core::result::Result::Err(
+                                    <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                         datom.path.clone(),
-                                        datom_codec::ErrorKind::Form {
-                                            expected: alloc::string::String::from("Variant"),
-                                            found: alloc::string::String::from(datom_codec::Naming::form_name(found)),
+                                        ::datom_codec::ErrorKind::Form {
+                                            expected: ::alloc::string::String::from("Variant"),
+                                            found: ::alloc::string::String::from(::datom_codec::Naming::form_name(found)),
                                         },
                                     ),
                                 );
                             }
                         };
                         let name = #module::Name(head.clone());
-                        let core::option::Option::Some(entry) = registry.variant(&name) else {
-                            return core::result::Result::Err(
-                                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                        let ::core::option::Option::Some(entry) = registry.variant(&name) else {
+                            return ::core::result::Result::Err(
+                                <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                     datom.path.clone(),
-                                    datom_codec::ErrorKind::Variant {
-                                        expected: alloc::string::String::from(stringify!(#value)),
+                                    ::datom_codec::ErrorKind::Variant {
+                                        expected: ::alloc::string::String::from(stringify!(#value)),
                                         found: head.clone(),
                                     },
                                 ),
                             );
                         };
                         match (entry.type_option, body) {
-                            (core::option::Option::None, core::option::Option::None) => {
-                                core::result::Result::Ok(Self { name, #absent })
+                            (::core::option::Option::None, ::core::option::Option::None) => {
+                                ::core::result::Result::Ok(Self { name, #absent })
                             }
                             #middle
-                            _ => core::result::Result::Err(
-                                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                            _ => ::core::result::Result::Err(
+                                <::datom_codec::Error as ::datom_codec::ErrorRaising>::composition(
                                     datom.path.clone(),
-                                    datom_codec::ErrorKind::Value {
-                                        expected: alloc::string::String::from("the form of the type its entry names"),
+                                    ::datom_codec::ErrorKind::Value {
+                                        expected: ::alloc::string::String::from("the form of the type its entry names"),
                                         value: head.clone(),
                                     },
                                 ),

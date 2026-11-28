@@ -8,23 +8,29 @@
 #[rustfmt::skip]
 extern crate alloc;
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub enum Input {
     Prepare,
 }
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub enum Output {
-    Prepared(core::option::Option<harness::FilePath>),
+    Prepared(::core::option::Option<::harness::FilePath>),
 }
 #[rustfmt::skip]
 #[allow(clippy::result_large_err, clippy::ptr_arg, clippy::borrowed_box)]
 pub trait Answering {
     fn prepare(
         &self,
-    ) -> core::result::Result<core::option::Option<harness::FilePath>, Output>;
+    ) -> ::core::result::Result<::core::option::Option<::harness::FilePath>, Output>;
 }
 #[rustfmt::skip]
 pub trait Answerable {

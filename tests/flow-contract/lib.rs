@@ -3,9 +3,13 @@
 //! compiled as a crate of its own: once with no `datom-codec` at all, as a
 //! Nexus builds it, and once with its `datom` feature, as a CLI builds it.
 //! In both, a value of each root crosses the wire: it archives with rkyv and
-//! restores equal.
+//! restores equal. Beside them, open enums named Core and Flow, whose
+//! contract modules shadow no path the generated code writes.
 
 extern crate self as flow;
+
+// A generated module writes `::alloc::…`, which reaches the crate root's alloc.
+extern crate alloc;
 
 pub use library::{Event, FlowId, Voice};
 
@@ -15,12 +19,14 @@ pub mod library;
 pub mod memory;
 #[path = "../generated/flow-operation.rs"]
 pub mod operation;
+#[path = "../generated/open-enum-shadow.rs"]
+pub mod shadow;
 #[path = "../generated/flow-signal.rs"]
 pub mod signal;
 
 #[cfg(test)]
 mod wire {
-    use super::{library, memory, operation, signal};
+    use super::{library, memory, operation, shadow, signal};
 
     fn crosses<T>(value: T)
     where
@@ -66,6 +72,24 @@ mod wire {
             state: memory::State::Ended,
             event_vector: vec![library::Event::Started, library::Event::Stopped],
         });
+    }
+
+    #[test]
+    fn open_enums_named_core_and_flow_shadow_no_path_beside_an_import_from_flow() {
+        // The contract modules `shadow::core` and `shadow::flow` stand beside
+        // `::core::…` and the `::flow::Voice` the Pair holds.
+        crosses(shadow::Input::Launch(shadow::Pair {
+            core: shadow::Core {
+                name: shadow::core::Name("Rank".to_owned()),
+                carried: None,
+            },
+            flow: shadow::Flow {
+                name: shadow::flow::Name("Voice".to_owned()),
+                carried: Some(shadow::Carried::Mark(shadow::Mark("seal".to_owned()))),
+            },
+            voice: library::Voice::Mind(library::Rank::Primary),
+        }));
+        crosses(shadow::flow::Input::List);
     }
 
     #[cfg(feature = "datom")]

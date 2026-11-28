@@ -78,7 +78,7 @@ fn generate_writes_a_named_field_module_and_replies_generated() {
     );
     let written = std::fs::read_to_string(format!("{directory}/record-types.rs")).unwrap();
     assert!(written.contains("pub struct Record"));
-    assert!(written.contains("pub string: alloc::string::String"));
+    assert!(written.contains("pub string: ::alloc::string::String"));
     assert!(written.contains("pub integer: i64"));
 }
 
@@ -735,7 +735,7 @@ fn a_name_imported_from_two_namespaces_is_ambiguous_only_where_it_is_written_bar
     );
     let written = std::fs::read_to_string(format!("{outputs}/qualified.rs")).unwrap();
     assert!(
-        written.contains("pub input: flow::signal::Input,"),
+        written.contains("pub input: ::flow::signal::Input,"),
         "{written}"
     );
 }

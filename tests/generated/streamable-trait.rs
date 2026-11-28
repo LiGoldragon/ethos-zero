@@ -11,5 +11,5 @@ extern crate alloc;
 pub trait Streamable: super::Fillable {
     type Item: super::Serializable;
     const CAPACITY: i64;
-    fn next(&mut self) -> core::option::Option<Self::Item>;
+    fn next(&mut self) -> ::core::option::Option<Self::Item>;
 }

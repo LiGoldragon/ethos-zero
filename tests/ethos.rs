@@ -24,8 +24,8 @@ fn full_library_round_trips_and_generates_named_types_and_traits() {
         Err(_) => panic!("checked Library generates"),
     };
     assert!(rust.contains("pub struct Sink"));
-    assert!(rust.contains("pub string: alloc::string::String"));
-    assert!(rust.contains("core::result::Result<i64, SinkError>"));
+    assert!(rust.contains("pub string: ::alloc::string::String"));
+    assert!(rust.contains("::core::result::Result<i64, SinkError>"));
     assert!(rust.contains("pub trait Streamable"));
     assert!(rust.contains("pub trait Processable"));
 }
@@ -40,7 +40,7 @@ fn signal_generates_input_output_and_optional_datom_derives() {
     assert!(rust.contains("pub enum Input"));
     assert!(rust.contains("pub enum Output"));
     assert!(rust.contains("feature = \"datom\""));
-    assert!(rust.contains("datom_codec::Datomizable, datom_codec::Composing"));
+    assert!(rust.contains("::datom_codec::Datomizable, ::datom_codec::Composing"));
     assert!(rust.contains("pub struct LockId(pub i64)"));
 }
 
@@ -84,14 +84,14 @@ fn matrix_generates_its_records_and_a_memory_over_them() {
         "Matrix [ crate:[ Observed ] ] [ Watch.{ Integer String } Configured.Option<Watch> Observed ]",
     );
     assert!(generated.contains("pub struct Watch"));
-    assert!(generated.contains("pub struct Configured(pub core::option::Option<Watch>);"));
+    assert!(generated.contains("pub struct Configured(pub ::core::option::Option<Watch>);"));
     assert!(generated.contains("pub struct Memory"));
     assert!(generated.contains("pub watch: Watch"));
     assert!(generated.contains("pub configured: Configured"));
     assert!(generated.contains("pub observed: crate::Observed"));
     // The Memory bears the derives of every declaration.
-    assert!(generated.contains("rkyv::Archive"));
-    assert!(generated.contains("datom_codec::Datomizable"));
+    assert!(generated.contains("::rkyv::Archive"));
+    assert!(generated.contains("::datom_codec::Datomizable"));
     // Every record bears Memorizable, recalled from its field of the Memory.
     assert!(generated.contains(
         "pub trait Memorizable {\n    type Memory;\n    fn recall(memory: &Self::Memory) -> &Self;\n}"
@@ -177,7 +177,7 @@ fn operation_generates_its_operation_and_outcome_enums_with_their_payloads() {
     assert!(rust.contains("Started(i64)"), "{rust}");
     assert!(rust.contains("Failed(Failed_Data)"), "{rust}");
     assert!(rust.contains("pub enum Failed_Data {"), "{rust}");
-    assert!(rust.contains("rkyv::Archive"), "{rust}");
+    assert!(rust.contains("::rkyv::Archive"), "{rust}");
 }
 
 #[test]
@@ -202,7 +202,7 @@ fn emission_generates_its_enums_and_binds_each_emission_to_its_outcome() {
     assert_eq!(file, read(&file.protosize().textualize()));
     let rust = source.compact();
     for expected in [
-        "pubstructCommand_Data{pubverb:Verb,pubargument_vector:alloc::vec::Vec<Argument>,}",
+        "pubstructCommand_Data{pubverb:Verb,pubargument_vector:::alloc::vec::Vec<Argument>,}",
         "pubenumEmission{Command(Command_Data),}",
         "pubenumOutcome_Data{Done,Refused(i64),}",
         "pubenumOutcome{Outcome(Outcome_Data),}",
@@ -221,7 +221,7 @@ fn emission_generates_its_enums_and_binds_each_emission_to_its_outcome() {
 fn an_outcome_past_the_last_emission_pairs_with_none_and_a_bare_outcome_binds_unit() {
     let rust = "Emission [] [ Go.⟦ String ⟧ Stop Ask.Question ] [ Gone Stopped.Integer Answer Extra.String ] [ Question.String Answer.Integer ]".compact();
     assert!(
-        rust.contains("implEmittedforalloc::vec::Vec<alloc::string::String>{typeOutcome=();}"),
+        rust.contains("implEmittedfor::alloc::vec::Vec<::alloc::string::String>{typeOutcome=();}"),
         "{rust}"
     );
     assert!(
@@ -271,7 +271,7 @@ fn a_bare_emission_is_a_unit_of_its_own_its_variant_bare_and_binds_its_outcome()
     // A bare emission naming an imported type carries the import.
     let rust = "Emission [ :herdr:Pane ] [ Pane ] [ Shown ] []".compact();
     assert!(
-        rust.contains("pubenumEmission{Pane(herdr::Pane),}"),
+        rust.contains("pubenumEmission{Pane(::herdr::Pane),}"),
         "{rust}"
     );
     assert!(!rust.contains("pubstructPane"), "{rust}");
@@ -300,7 +300,7 @@ fn a_bare_emission_whose_unit_a_type_may_not_take_is_refused() {
 fn self_in_an_emission_or_outcome_is_bound_as_the_enum_it_stands_for() {
     let rust = "Emission [] [ Go.⟦ Self ⟧ ] [ Gone.Option<Self> ] []".compact();
     assert!(
-        rust.contains("implEmittedforalloc::vec::Vec<Emission>{typeOutcome=core::option::Option<alloc::boxed::Box<Outcome>>;}"),
+        rust.contains("implEmittedfor::alloc::vec::Vec<Emission>{typeOutcome=::core::option::Option<::alloc::boxed::Box<Outcome>>;}"),
         "{rust}"
     );
 }
@@ -425,12 +425,12 @@ fn an_emission_declaring_an_implied_enum_or_trait_name_is_refused() {
 #[test]
 fn a_signal_generates_answering_with_one_capability_per_input_and_the_input_answerable_by_it() {
     let rust = "Signal [] [ Launch.LaunchRequest Report.{ String } Ping ] [ Launched.FlowId Reported Pong Refused.String ] [ LaunchRequest.{ String } FlowId.Integer ]".compact();
-    // prettyplease ends a parameter list it wraps with a comma.
-    let rust = rust.replace(",)", ")");
+    // prettyplease ends a parameter or argument list it wraps with a comma.
+    let rust = rust.replace(",)", ")").replace(",>", ">");
     for expected in [
-        "pubtraitAnswering{fnlaunch(&self,launch_request:&LaunchRequest)->core::result::Result<FlowId,Output>;",
-        "fnreport(&self,report:&Report_Data)->core::result::Result<(),Output>;",
-        "fnping(&self)->core::result::Result<(),Output>;}",
+        "pubtraitAnswering{fnlaunch(&self,launch_request:&LaunchRequest)->::core::result::Result<FlowId,Output>;",
+        "fnreport(&self,report:&Report_Data)->::core::result::Result<(),Output>;",
+        "fnping(&self)->::core::result::Result<(),Output>;}",
         "pubtraitAnswerable{typeAnswer;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Self::Answer;}",
         "implAnswerableforInput{typeAnswer=Output;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Output{matchself{",
         "Input::Launch(carried)=>",
@@ -451,11 +451,11 @@ fn an_input_s_capability_borrows_self_as_the_input_and_a_keyword_raw() {
     let rust =
         "Signal [] [ Again.⟦ Self ⟧ Match.Type ] [ Done.Option<Self> Matched ] [ Type.String ]"
             .compact();
-    // prettyplease ends a parameter list it wraps with a comma.
-    let rust = rust.replace(",)", ")");
+    // prettyplease ends a parameter or argument list it wraps with a comma.
+    let rust = rust.replace(",)", ")").replace(",>", ">");
     for expected in [
-        "fnagain(&self,input_vector:&alloc::vec::Vec<Input>)->core::result::Result<core::option::Option<alloc::boxed::Box<Output>>,Output>;",
-        "fnr#match(&self,r#type:&Type)->core::result::Result<(),Output>;",
+        "fnagain(&self,input_vector:&::alloc::vec::Vec<Input>)->::core::result::Result<::core::option::Option<::alloc::boxed::Box<Output>>,Output>;",
+        "fnr#match(&self,r#type:&Type)->::core::result::Result<(),Output>;",
     ] {
         assert!(rust.contains(expected), "{expected} in {rust}");
     }
@@ -472,7 +472,7 @@ fn a_signal_without_inputs_generates_no_answering() {
 fn an_input_named_answer_has_the_capability_answer() {
     let rust = "Signal [] [ Answer ] [ Answered ] []".compact();
     for expected in [
-        "pubtraitAnswering{fnanswer(&self)->core::result::Result<(),Output>;}",
+        "pubtraitAnswering{fnanswer(&self)->::core::result::Result<(),Output>;}",
         "Input::Answer=>",
         "nexus.answer().map_or_else(|refusal|refusal,|()|Output::Answered)",
     ] {
@@ -513,13 +513,13 @@ fn a_named_position_declares_its_type_in_place() {
         Err(_) => panic!("a struct with named positions generates"),
     };
     assert!(
-        rust.contains("pub struct Brief(pub alloc::string::String);"),
+        rust.contains("pub struct Brief(pub ::alloc::string::String);"),
         "{rust}"
     );
     assert!(rust.contains("pub enum State {"), "{rust}");
     assert!(rust.contains("pub struct Capsule {"), "{rust}");
     assert!(
-        rust.contains("pub struct Login(pub alloc::vec::Vec<alloc::string::String>);"),
+        rust.contains("pub struct Login(pub ::alloc::vec::Vec<::alloc::string::String>);"),
         "{rust}"
     );
     assert!(rust.contains("pub home: Home"), "{rust}");
@@ -551,7 +551,7 @@ fn a_variant_payload_declares_named_positions_in_place() {
             Err(_) => panic!("a payload with a named position generates"),
         };
     assert!(
-        rust.contains("pub struct Brief(pub alloc::string::String);"),
+        rust.contains("pub struct Brief(pub ::alloc::string::String);"),
         "{rust}"
     );
     assert!(rust.contains("pub brief: Brief"), "{rust}");
@@ -619,7 +619,7 @@ fn memory_generates_a_record_type_named_record() {
         Err(_) => panic!("a Memory record named Record generates"),
     };
     assert!(generated.contains("pub struct Record"));
-    assert!(generated.contains("pub string: alloc::string::String"));
+    assert!(generated.contains("pub string: ::alloc::string::String"));
     assert!(generated.contains("pub integer: i64"));
 }
 
@@ -632,7 +632,7 @@ fn memory_generates_every_declared_record_and_refuses_a_duplicate() {
         Err(_) => panic!("a two-record Memory generates"),
     };
     assert!(generated.contains("pub struct Entry"));
-    assert!(generated.contains("pub entry_vector: alloc::vec::Vec<Entry>"));
+    assert!(generated.contains("pub entry_vector: ::alloc::vec::Vec<Entry>"));
     assert!(
         read("Memory [] [ Entry.{ String } Entry.{ Integer } ] [] [] []")
             .generate()
@@ -648,7 +648,9 @@ fn self_in_a_data_position_is_named_for_the_enclosing_type() {
         Ok(generated) => generated,
         Err(_) => panic!("Self in a data position generates"),
     };
-    assert!(generated.contains("pub node_option: core::option::Option<alloc::boxed::Box<Self>>"));
+    assert!(
+        generated.contains("pub node_option: ::core::option::Option<::alloc::boxed::Box<Self>>")
+    );
 }
 
 #[test]
@@ -661,7 +663,7 @@ fn a_sourced_generic_in_a_data_position_reads_and_reprints() {
         Ok(generated) => generated,
         Err(_) => panic!("a sourced generic position generates"),
     };
-    assert!(generated.contains("pub string_vector: external::Vector<alloc::string::String>"));
+    assert!(generated.contains("pub string_vector: ::external::Vector<::alloc::string::String>"));
 }
 
 #[test]
@@ -671,21 +673,21 @@ fn inline_imports_use_the_lowercase_source_in_type_and_struct_positions() {
         Ok(generated) => generated,
         Err(_) => panic!("a lowercase inline source in a type declaration generates"),
     };
-    assert!(generated.contains("custom::Name"));
+    assert!(generated.contains("::custom::Name"));
 
     let struct_position = read("Library [] [ Holder.{ Topic.custom:Name String } ] [] []");
     let generated = match struct_position.generate() {
         Ok(generated) => generated,
         Err(_) => panic!("a lowercase inline source in a struct position generates"),
     };
-    assert!(generated.contains("custom::Name"));
+    assert!(generated.contains("::custom::Name"));
 
     let memory_record = read("Memory [] [ Holder.{ Topic.custom:Name String } ] [] [] []");
     let generated = match memory_record.generate() {
         Ok(generated) => generated,
         Err(_) => panic!("a lowercase inline source in a record field generates"),
     };
-    assert!(generated.contains("custom::Name"));
+    assert!(generated.contains("::custom::Name"));
 }
 
 #[test]
@@ -721,15 +723,15 @@ fn rooted_imports_in_the_imports_section_take_every_namespace_segment() {
     let source = "Library [ :flow_ethos:message:Type :flow_ethos:signal:[ Input Output ] :protos:[ Textualizable ] ] [ Record.{ Type Input ⟦ Output ⟧ } ] [] [ Record.[ Textualizable ] ]";
     let generated = generates(source);
     assert!(
-        generated.contains(": flow_ethos::message::Type"),
+        generated.contains(": ::flow_ethos::message::Type"),
         "{generated}"
     );
     assert!(
-        generated.contains(": flow_ethos::signal::Input"),
+        generated.contains(": ::flow_ethos::signal::Input"),
         "{generated}"
     );
     assert!(
-        generated.contains("alloc::vec::Vec<flow_ethos::signal::Output>"),
+        generated.contains("::alloc::vec::Vec<::flow_ethos::signal::Output>"),
         "{generated}"
     );
 
@@ -776,11 +778,11 @@ fn a_chained_import_of_several_segments_generates_as_its_rooted_spelling() {
         "Library [ signal_capsule:signal:[ Input Output ] ] [ Record.{ Input ⟦ Output ⟧ } ] [] []",
     );
     assert!(
-        generated.contains(": signal_capsule::signal::Input"),
+        generated.contains(": ::signal_capsule::signal::Input"),
         "{generated}"
     );
     assert!(
-        generated.contains("alloc::vec::Vec<signal_capsule::signal::Output>"),
+        generated.contains("::alloc::vec::Vec<::signal_capsule::signal::Output>"),
         "{generated}"
     );
 }
@@ -791,7 +793,7 @@ fn a_chained_import_of_one_segment_still_reads() {
         "Library [ protos:[ Textualizable ] external:Handle ] [ Record.{ Handle } ] [] [ Record.[ Textualizable ] ]",
     );
     assert!(
-        chained.contains("pub handle: external::Handle"),
+        chained.contains("pub handle: ::external::Handle"),
         "{chained}"
     );
     assert_eq!(
@@ -844,22 +846,23 @@ fn a_rooted_import_inline_in_an_alias_puts_the_colon_where_the_period_was() {
         "Library [] [ Topic:custom:Name Nested:flow_ethos:message:Type Listed:external:sub:Vector<String> ] [] []",
     );
     assert!(
-        generated.contains("pub struct Topic(pub custom::Name);"),
+        generated.contains("pub struct Topic(pub ::custom::Name);"),
         "{generated}"
     );
     assert!(
-        generated.contains("pub struct Nested(pub flow_ethos::message::Type);"),
+        generated.contains("pub struct Nested(pub ::flow_ethos::message::Type);"),
         "{generated}"
     );
     assert!(
-        generated.contains("pub struct Listed(pub external::sub::Vector<alloc::string::String>);"),
+        generated
+            .contains("pub struct Listed(pub ::external::sub::Vector<::alloc::string::String>);"),
         "{generated}"
     );
 
     let in_place =
         generates("Library [] [ Holder.{ Topic:flow_ethos:message:Type String } ] [] []");
     assert!(
-        in_place.contains("pub struct Topic(pub flow_ethos::message::Type);"),
+        in_place.contains("pub struct Topic(pub ::flow_ethos::message::Type);"),
         "{in_place}"
     );
     assert!(in_place.contains("pub topic: Topic"), "{in_place}");
@@ -871,20 +874,20 @@ fn a_rooted_import_inline_in_a_field_takes_its_leading_colon() {
         "Library [] [ Failure.{ :protos:Error String } Carrier.{ :flow_ethos:message:Type :external:sub:Vector<String> } ] [] []",
     );
     assert!(
-        generated.contains("pub error: protos::Error"),
+        generated.contains("pub error: ::protos::Error"),
         "{generated}"
     );
     assert!(
-        generated.contains("flow_ethos::message::Type"),
+        generated.contains("::flow_ethos::message::Type"),
         "{generated}"
     );
     assert!(
-        generated.contains("external::sub::Vector<alloc::string::String>"),
+        generated.contains("::external::sub::Vector<::alloc::string::String>"),
         "{generated}"
     );
 
     let record = generates("Memory [] [ Holder.{ :flow_ethos:message:Type String } ] [] [] []");
-    assert!(record.contains("flow_ethos::message::Type"), "{record}");
+    assert!(record.contains("::flow_ethos::message::Type"), "{record}");
 }
 
 #[test]
@@ -1009,11 +1012,11 @@ fn a_variant_named_as_a_defined_type_declaring_a_payload_carries_that_payload() 
     for (source, carried) in [
         (
             "Library [] [ Code.String TextPart.[ Plain.String Code.String ] ] [] []",
-            "pubenumTextPart{Plain(alloc::string::String),Code(alloc::string::String),}",
+            "pubenumTextPart{Plain(::alloc::string::String),Code(::alloc::string::String),}",
         ),
         (
             "Library [] [ Code.String TextPart.[ Plain.String Code.Code ] ] [] []",
-            "pubenumTextPart{Plain(alloc::string::String),Code(Code),}",
+            "pubenumTextPart{Plain(::alloc::string::String),Code(Code),}",
         ),
         (
             "Library [] [ Code.String TextPart.[ Plain Code.{ String Integer } ] ] [] []",
@@ -1031,7 +1034,7 @@ fn a_variant_named_as_a_defined_type_declaring_a_payload_carries_that_payload() 
         let rust = source.compact();
         assert!(rust.contains(carried), "{source}: {rust}");
         assert!(
-            rust.contains("pubstructCode(puballoc::string::String);"),
+            rust.contains("pubstructCode(pub::alloc::string::String);"),
             "{source}: {rust}"
         );
     }
@@ -1079,7 +1082,7 @@ fn the_vision_lock_signal_takes_lock_beside_a_declared_lock() {
     );
     assert!(
         rust.contains(
-            "fnlock(&self,lock_request:&LockRequest)->core::result::Result<Lock,Output>;"
+            "fnlock(&self,lock_request:&LockRequest)->::core::result::Result<Lock,Output>;"
         ),
         "{rust}"
     );
@@ -1088,10 +1091,10 @@ fn the_vision_lock_signal_takes_lock_beside_a_declared_lock() {
 #[test]
 fn a_bare_variant_named_as_an_imported_type_carries_it() {
     let rust = "Library [ :sema:Block ] [ Part.[ Plain.String Block ] ] [] []".compact();
-    assert!(rust.contains("Block(sema::Block)"), "{rust}");
+    assert!(rust.contains("Block(::sema::Block)"), "{rust}");
     let rust = "Library [ :sema:Block ] [ Part.[ Plain Block.Block ] ] [] []".compact();
     assert!(
-        rust.contains("pubenumPart{Plain,Block(sema::Block),}"),
+        rust.contains("pubenumPart{Plain,Block(::sema::Block),}"),
         "{rust}"
     );
 }
@@ -1100,15 +1103,17 @@ fn a_bare_variant_named_as_an_imported_type_carries_it() {
 fn a_field_is_named_for_its_type_alone_never_its_namespace() {
     let rust = "Library [ nexus:[ ConfigurationState ] signal_orchestrate:[ OrchestrateNexusConfiguration ] ] [ StoredMetadata.{ ConfigurationState<OrchestrateNexusConfiguration> } Errors.{ :a:Error :b:sub:Error } Sourced.{ :flow_ethos:message:Type external:Vector<String> } ] [] []".compact();
     assert!(
-        rust.contains("puborchestrate_nexus_configuration_configuration_state:nexus::ConfigurationState<signal_orchestrate::OrchestrateNexusConfiguration,>"),
+        rust.contains("puborchestrate_nexus_configuration_configuration_state:::nexus::ConfigurationState<::signal_orchestrate::OrchestrateNexusConfiguration,>"),
         "{rust}"
     );
     assert!(
-        rust.contains("pubstructErrors{pubfirst_error:a::Error,pubsecond_error:b::sub::Error,}"),
+        rust.contains(
+            "pubstructErrors{pubfirst_error:::a::Error,pubsecond_error:::b::sub::Error,}"
+        ),
         "{rust}"
     );
     assert!(
-        rust.contains("pubstructSourced{pubr#type:flow_ethos::message::Type,pubstring_vector:external::Vector<alloc::string::String>,}"),
+        rust.contains("pubstructSourced{pubr#type:::flow_ethos::message::Type,pubstring_vector:::external::Vector<::alloc::string::String>,}"),
         "{rust}"
     );
 }
@@ -1257,11 +1262,11 @@ fn an_enum_of_two_variants_is_accepted_declared_and_inline() {
 fn a_repeated_type_is_told_apart_as_first_and_second() {
     let rust = "Library [] [ Pair.{ String String } StringVector.String Both.{ ⟦ String ⟧ StringVector } ] [] []".compact();
     assert!(
-        rust.contains("pubstructPair{pubfirst_string:alloc::string::String,pubsecond_string:alloc::string::String,}"),
+        rust.contains("pubstructPair{pubfirst_string:::alloc::string::String,pubsecond_string:::alloc::string::String,}"),
         "{rust}"
     );
     assert!(
-        rust.contains("pubstructBoth{pubfirst_string_vector:alloc::vec::Vec<alloc::string::String>,pubsecond_string_vector:StringVector,}"),
+        rust.contains("pubstructBoth{pubfirst_string_vector:::alloc::vec::Vec<::alloc::string::String>,pubsecond_string_vector:StringVector,}"),
         "{rust}"
     );
 }
@@ -1276,7 +1281,7 @@ fn a_variant_named_as_an_implied_type_carries_nothing_and_takes_a_payload() {
 fn a_variant_named_as_a_defined_type_and_written_bare_carries_it() {
     let rust = "Library [] [ Code.String TextPart.[ Plain.String Code ] ] [] []".compact();
     assert!(
-        rust.contains("pubenumTextPart{Plain(alloc::string::String),Code(Code),}"),
+        rust.contains("pubenumTextPart{Plain(::alloc::string::String),Code(Code),}"),
         "{rust}"
     );
     let rust = "Signal [] [ Acquire.Request ] [ Lock ] [ Request.String Lock.String ]".compact();
@@ -1381,13 +1386,11 @@ fn outer_option_and_result_are_written_fully_qualified() {
         Ok(generated) => generated,
         Err(_) => panic!("outer containers generate"),
     };
-    assert!(generated.contains("pub integer_option: core::option::Option<i64>"));
-    assert!(
-        generated.contains(
-            "pub string_integer_result: core::result::Result<alloc::string::String, i64>"
-        )
-    );
-    assert!(generated.contains("core::option::Option<alloc::boxed::Box<Chain>>"));
+    assert!(generated.contains("pub integer_option: ::core::option::Option<i64>"));
+    assert!(generated.contains(
+        "pub string_integer_result: ::core::result::Result<::alloc::string::String, i64>"
+    ));
+    assert!(generated.contains("::core::option::Option<::alloc::boxed::Box<Chain>>"));
     assert!(!generated.contains(" Option<"));
     assert!(!generated.contains(" Result<"));
 }
@@ -1506,7 +1509,7 @@ fn an_empty_yield_takes_a_trait_input_as_a_parameter() {
     let rust =
         "Library [ harness:Event ] [] [ Transitionable.[ after!{ [ Event ] [] } ] ] []".compact();
     assert!(
-        rust.contains("pubtraitTransitionable{fnafter<N:harness::Event>(&mutself,input:N);}"),
+        rust.contains("pubtraitTransitionable{fnafter<N:::harness::Event>(&mutself,input:N);}"),
         "{rust}"
     );
     // An input of Self still asks a sized receiver.
@@ -1553,7 +1556,7 @@ fn a_trait_in_an_input_becomes_a_parameter_bounded_by_it() {
 fn each_trait_in_the_inputs_takes_its_own_parameter() {
     let rust = "Library [ protos:Textualizable ] [] [ Joinable.[ join!{ [ Textualizable Textualizable Self ] [ Integer ] } ] ] []".compact();
     assert!(
-        rust.contains("fnjoin<N:protos::Textualizable,O:protos::Textualizable>(&mutself,input_0:N,input_1:O,input_2:Self,)->i64whereSelf:Sized;"),
+        rust.contains("fnjoin<N:::protos::Textualizable,O:::protos::Textualizable>(&mutself,input_0:N,input_1:O,input_2:Self,)->i64whereSelf:Sized;"),
         "{rust}"
     );
 }
@@ -1592,14 +1595,14 @@ fn a_concrete_type_in_an_input_is_written_as_that_type() {
     );
     let rust = "Library [] [] [ Resolvable.[ resolve.{ [ String ] [ Self ] } ] ] []".compact();
     assert!(
-        rust.contains("fnresolve(&self,input:alloc::string::String)->SelfwhereSelf:Sized;"),
+        rust.contains("fnresolve(&self,input:::alloc::string::String)->SelfwhereSelf:Sized;"),
         "{rust}"
     );
     let rust =
         "Library [] [ Outline.String ] [ Outlined.[ outline.{ [ ⟦ Outline ⟧ ] [ Self ] } ] ] []"
             .compact();
     assert!(
-        rust.contains("fnoutline(&self,input:alloc::vec::Vec<Outline>)->SelfwhereSelf:Sized;"),
+        rust.contains("fnoutline(&self,input:::alloc::vec::Vec<Outline>)->SelfwhereSelf:Sized;"),
         "{rust}"
     );
 }
@@ -1732,7 +1735,7 @@ fn a_stream_is_refused_wherever_it_is_not_a_whole_output_or_a_capability_s_yield
 fn a_capability_yields_a_stream_of_its_associated_types() {
     let rust = include_str!("../fixtures/publishing-trait.ethos").compact();
     assert!(
-        rust.contains("pubtraitPublishing{typeState;typeChange;fnopen(&self,input:Self::State)->signal::Stream<Self::State,Self::Change>;}"),
+        rust.contains("pubtraitPublishing{typeState;typeChange;fnopen(&self,input:Self::State)->::signal::Stream<Self::State,Self::Change>;}"),
         "{rust}"
     );
 }
@@ -1740,14 +1743,14 @@ fn a_capability_yields_a_stream_of_its_associated_types() {
 #[test]
 fn a_stream_output_holds_one_frame_and_its_input_is_answered_with_the_stream() {
     let rust = include_str!("../fixtures/stream-signal.ethos").compact();
-    // prettyplease ends a parameter list it wraps with a comma.
-    let rust = rust.replace(",)", ")");
+    // prettyplease ends a parameter or argument list it wraps with a comma.
+    let rust = rust.replace(",)", ")").replace(",>", ">");
     for expected in [
-        "pubenumOutput{Launched(FlowId),Watched(signal::Frame<alloc::vec::Vec<Pane>,Changed>),Subscribed(signal::Frame<FlowId,Changed>),Refused(alloc::string::String),}",
-        "pubenumAnswer{Once(Output),Watched(signal::Stream<alloc::vec::Vec<Pane>,Changed>),Subscribed(signal::Stream<FlowId,Changed>),}",
-        "fnlaunch(&self,launch_request:&LaunchRequest)->core::result::Result<FlowId,Output>;",
-        "fnwatch(&self,selection:&Selection)->core::result::Result<signal::Stream<alloc::vec::Vec<Pane>,Changed>,Output>;",
-        "fnsubscribe(&self)->core::result::Result<signal::Stream<FlowId,Changed>,Output>;",
+        "pubenumOutput{Launched(FlowId),Watched(::signal::Frame<::alloc::vec::Vec<Pane>,Changed>),Subscribed(::signal::Frame<FlowId,Changed>),Refused(::alloc::string::String),}",
+        "pubenumAnswer{Once(Output),Watched(::signal::Stream<::alloc::vec::Vec<Pane>,Changed>),Subscribed(::signal::Stream<FlowId,Changed>),}",
+        "fnlaunch(&self,launch_request:&LaunchRequest)->::core::result::Result<FlowId,Output>;",
+        "fnwatch(&self,selection:&Selection)->::core::result::Result<::signal::Stream<::alloc::vec::Vec<Pane>,Changed>,Output>;",
+        "fnsubscribe(&self)->::core::result::Result<::signal::Stream<FlowId,Changed>,Output>;",
         "pubtraitAnswerable{typeAnswer;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Self::Answer;}",
         "implAnswerableforInput{typeAnswer=Answer;fnanswer<Nexus:Answering>(&self,nexus:&Nexus)->Answer{matchself{",
         "Answer::Once(nexus.launch(carried).map_or_else(|refusal|refusal,Output::Launched))",
@@ -1779,7 +1782,7 @@ fn a_signal_with_no_stream_answers_with_its_output() {
     // Output, and no input is answered with it.
     let rust = "Signal [] [ Ask ] [ Told Pushed.Stream<String Integer> ] []".compact();
     assert!(
-        rust.contains("Pushed(signal::Frame<alloc::string::String,i64>)"),
+        rust.contains("Pushed(::signal::Frame<::alloc::string::String,i64>)"),
         "{rust}"
     );
     assert!(rust.contains("typeAnswer=Output;"), "{rust}");
@@ -1794,10 +1797,10 @@ fn a_stream_output_named_once_is_refused_and_one_named_answer_is_answered() {
     );
     // An output answered once may be named Once, and a stream Answer.
     let rust = "Signal [] [ Ask Watch ] [ Once Answer.Stream<String Integer> ] []".compact();
-    // prettyplease ends a parameter list it wraps with a comma.
-    let rust = rust.replace(",)", ")");
+    // prettyplease ends a parameter or argument list it wraps with a comma.
+    let rust = rust.replace(",)", ")").replace(",>", ">");
     for expected in [
-        "pubenumAnswer{Once(Output),Answer(signal::Stream<alloc::string::String,i64>),}",
+        "pubenumAnswer{Once(Output),Answer(::signal::Stream<::alloc::string::String,i64>),}",
         "Answer::Once(nexus.ask().map_or_else(|refusal|refusal,|()|Output::Once))",
         "nexus.watch().map_or_else(Answer::Once,Answer::Answer)",
     ] {
@@ -1842,16 +1845,16 @@ fn white_vectors_generate_nested_rust_vectors_and_legacy_spelling_is_refused() {
     let white = "Library [] [ FilePath.String SyntaxError.⟦ FilePath ⟧ Table.{ ⟦ ⟦ Option<String> ⟧ ⟧ } Tree.{ ⟦ Self ⟧ } Reply.[ Many.⟦ FilePath ⟧ Empty ] ] [ Listing.[ list![ ⟦ FilePath ⟧ ] ] ] []";
     let rust = white.compact();
     assert!(
-        rust.contains("pubstructSyntaxError(puballoc::vec::Vec<FilePath>)"),
+        rust.contains("pubstructSyntaxError(pub::alloc::vec::Vec<FilePath>)"),
         "{rust}"
     );
     assert!(
         rust.replace(",>", ">").contains(
-            "alloc::vec::Vec<alloc::vec::Vec<core::option::Option<alloc::string::String>>>"
+            "::alloc::vec::Vec<::alloc::vec::Vec<::core::option::Option<::alloc::string::String>>>"
         ),
         "{rust}"
     );
-    assert!(rust.contains("Many(alloc::vec::Vec<FilePath>)"), "{rust}");
+    assert!(rust.contains("Many(::alloc::vec::Vec<FilePath>)"), "{rust}");
 }
 
 #[test]
@@ -1874,11 +1877,11 @@ fn white_vectors_keep_their_meaning_when_the_legacy_name_is_imported() {
     let rust = "Library [ external:Vector ] [ External.Vector<String> BuiltIn.⟦ String ⟧ ] [] []"
         .compact();
     assert!(
-        rust.contains("pubstructExternal(pubexternal::Vector<alloc::string::String>)"),
+        rust.contains("pubstructExternal(pub::external::Vector<::alloc::string::String>)"),
         "{rust}"
     );
     assert!(
-        rust.contains("pubstructBuiltIn(puballoc::vec::Vec<alloc::string::String>)"),
+        rust.contains("pubstructBuiltIn(pub::alloc::vec::Vec<::alloc::string::String>)"),
         "{rust}"
     );
 }
@@ -2114,27 +2117,27 @@ fn a_signal_with_open_enums_generates_the_types_the_contract_and_the_dispatch() 
     // The enum of every type the file declares, and the value of the open enum.
     assert!(rust.contains("pub enum Carried {\n    TripleEffort(TripleEffort),\n    QuadrupleEffort(QuadrupleEffort),\n}"));
     assert!(rust.contains(
-        "pub struct Model {\n    pub name: model::Name,\n    pub carried: core::option::Option<Carried>,\n}"
+        "pub struct Model {\n    pub name: model::Name,\n    pub carried: ::core::option::Option<Carried>,\n}"
     ));
     // The contract, in a module named for the enum, holding the syntax's
     // Name, Variant and Type and its own Input and Output.
     assert!(rust.contains("pub mod model {"));
     for expected in [
-        "pub struct Name(pub alloc::string::String);",
+        "pub struct Name(pub ::alloc::string::String);",
         "pub struct Variant {",
         "pub enum Type {",
         "pub enum Input {\n        Add(Variant),\n        Remove(Name),\n        List,\n    }",
-        "Listed(alloc::vec::Vec<Variant>),",
+        "Listed(::alloc::vec::Vec<Variant>),",
         "pub trait Registry {",
     ] {
         assert!(rust.contains(expected), "{expected}");
     }
     // The Signal's own Input and Output gain one variant named for the enum,
     // and one capability takes the contract's Input and yields its Output.
-    assert!(rust.contains("    Model(model::Input),\n}"));
-    assert!(rust.contains("    Model(model::Output),\n}"));
+    assert!(rust.contains("    Model(self::model::Input),\n}"));
+    assert!(rust.contains("    Model(self::model::Output),\n}"));
     assert!(rust.contains(
-        "fn model(&self, model: &model::Input) -> core::result::Result<model::Output, Output>;"
+        "fn model(\n        &self,\n        model: &model::Input,\n    ) -> ::core::result::Result<model::Output, Output>;"
     ));
     assert!(rust.contains("Input::Model(carried) => {"));
     // Two open enums share one Carried, each with its own module.
@@ -2157,8 +2160,8 @@ fn an_open_enum_alone_generates_its_input_output_and_capability() {
     let rust = generates("Signal [] [] [] [] [ Model ]");
     assert!(!rust.contains("Carried"));
     assert!(rust.contains("pub struct Model {\n    pub name: model::Name,\n}"));
-    assert!(rust.contains("pub enum Input {\n    Model(model::Input),\n}"));
-    assert!(rust.contains("fn model(&self, model: &model::Input)"));
+    assert!(rust.contains("pub enum Input {\n    Model(self::model::Input),\n}"));
+    assert!(rust.contains("model: &model::Input,"));
 }
 
 #[test]

@@ -8,6 +8,9 @@
 extern crate self as process;
 extern crate self as tally;
 
+// A generated module writes `::alloc::…`, which reaches the crate root's alloc.
+extern crate alloc;
+
 macro_rules! standard {
     ($($item:item)*) => { $(
         #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

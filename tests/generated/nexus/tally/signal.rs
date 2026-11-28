@@ -8,18 +8,27 @@
 #[rustfmt::skip]
 extern crate alloc;
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub struct Total(pub i64);
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub enum Input {
-    Sum(alloc::vec::Vec<i64>),
+    Sum(::alloc::vec::Vec<i64>),
 }
 #[rustfmt::skip]
-#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[derive(::rkyv::Archive, ::rkyv::Serialize, ::rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "datom",
+    derive(::datom_codec::Datomizable, ::datom_codec::Composing)
+)]
 pub enum Output {
     Summed(Total),
     Overflowed,
@@ -29,8 +38,8 @@ pub enum Output {
 pub trait Answering {
     fn sum(
         &self,
-        integer_vector: &alloc::vec::Vec<i64>,
-    ) -> core::result::Result<Total, Output>;
+        integer_vector: &::alloc::vec::Vec<i64>,
+    ) -> ::core::result::Result<Total, Output>;
 }
 #[rustfmt::skip]
 pub trait Answerable {
