@@ -168,6 +168,9 @@
           );
           signal-without-datom = withoutDatom "signal-without-datom" "orchestrate.ethos";
           operation-free-signal-without-datom = withoutDatom "operation-free-signal-without-datom" "empty-signal.ethos";
+          open-enum-signal-without-datom = withoutDatom "open-enum-signal-without-datom" "open-enum-signal.ethos";
+          open-enum-bare-without-datom = withoutDatom "open-enum-bare-without-datom" "open-enum-bare.ethos";
+          open-enum-held-without-datom = withoutDatom "open-enum-held-without-datom" "open-enum-held.ethos";
           flow-contract = runTests "flow-contract" (flowContract [ ] [ rkyv ]);
           flow-contract-datom = runTests "flow-contract-datom" (
             flowContract [ "datom" ] [

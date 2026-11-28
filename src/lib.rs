@@ -249,7 +249,7 @@ pub struct Signal {
     pub types: Vec<TypeDeclaration>,
     /// The open enums the Signal names, each declared by being named there:
     /// `None` of a Signal of four sections, `Some` of one of five. Read and
-    /// checked, not yet generated.
+    /// checked and generated.
     pub open: Option<Vec<Name>>,
 }
 

@@ -2,6 +2,27 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 36.0.0: the open enum, generated
+
+A Signal's fifth section, read and checked in 35.0.0, is generated. Repin to
+36.0.0. A Signal of four sections, or of five naming none, generates as before,
+and no file is rewritten. `Problem` loses `Ungenerated(String)`, so a crate that
+names the arm removes it; nothing else of the Rust API changes. A Signal that names open enums now generates, beside its
+types: `Carried`, an enum of every non-generic type the file declares that does
+not reach an open enum; `Opening<Registry>`, behind the `datom` feature; and for
+each open enum `Model`, a module `model` (the syntax's `Name`, `Variant` and
+`Type`, the contract's `Input` and `Output`, and a `Registry` trait) and the
+value `Model { name, carried }`. The Signal's `Input` and `Output` each gain a
+variant `Model`, carrying `model::Input` and `model::Output`, and `Answering`
+gains the capability `model`, so a crate that implements `Answering` for such a
+Signal adds it. `Carried` and `Opening` become names a Signal that names an open
+enum may not declare (`Duplicate`), and an input or output named as an open enum
+is a `Duplicate`. A Signal that names an open enum and declares no type
+generates no `Carried`, and its values are names alone. Reading the value of an
+open enum from datom needs the runtime's registry: `Composing` reads a name that
+carries nothing and refuses the rest, and `Opening::open` reads it with a
+`Registry`.
+
 ## 35.0.0: the open enum, read and checked
 
 A Signal may have a fifth section, a bracket of names: the open enums the Signal

@@ -388,3 +388,21 @@ fn a_record_held_from_the_process_root_writes_the_payload_its_name_resolved_to()
     assert!(rust.contains("Changed(app::signal::Changed_Data)"));
     assert!(!rust.contains("app::signal::Changed,"));
 }
+
+#[test]
+fn a_signal_with_an_open_enum_generates_in_a_nexus_and_exports_what_it_generates() {
+    let both = nexus(&[
+        (
+            "signal",
+            "Signal [] [ Ask ] [ Told ] [ Mark.String ] [ Model ]",
+        ),
+        (
+            "library",
+            "Library [ signal:[ Model Carried Opening Input Output Answering ] ] [ Held.{ Model } ] [] []",
+        ),
+    ]);
+    assert_eq!(both.verify(), Ok(()));
+    let rust = generated(&both, "signal");
+    assert!(rust.contains("pub struct Model {"));
+    assert!(rust.contains("pub enum Carried {"));
+}
