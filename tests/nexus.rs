@@ -327,7 +327,7 @@ fn two_roots_of_one_name_are_refused() {
 #[test]
 fn the_committed_modules_are_what_the_nexus_generates() {
     let root = env!("CARGO_MANIFEST_DIR");
-    for name in ["tally", "claude-harness"] {
+    for name in ["tally", "claude-harness", "models"] {
         let nexus = fixture(name);
         for module in nexus.assemble().expect("the fixture Nexus generates") {
             let committed = std::fs::read_to_string(format!(

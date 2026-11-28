@@ -1,0 +1,12 @@
+; The Models Nexus's own contract, the Signal of notion:ethos:1, "The open
+; enum": a model is launched or stopped by its name and what it carries, and
+; its variants are data the Nexus adds, removes and lists while it runs.
+Signal
+[]
+[ Launch.Model
+  Stop.Model ]
+[ Launched
+  Refused.String ]
+[ TripleEffort.[ Low Medium High ]
+  QuadrupleEffort.[ Low Medium High Maximum ] ]
+[ Model ]

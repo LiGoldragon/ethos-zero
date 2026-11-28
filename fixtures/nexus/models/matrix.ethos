@@ -1,0 +1,5 @@
+; What the Models Nexus remembers: the variants of its open enum Model, added
+; while it runs.
+Matrix
+[ models:signal:model:[ Variant ] ]
+[ Models.⟦Variant⟧ ]
