@@ -26,10 +26,10 @@ use crate::checking::{Carrying, Declaring, Inlining, Spanning, Streaming, Titled
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
-    AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring, Constraint,
-    File, Generating, Identity, Intrinsic, Name, NamedReference, Position, Receiver, Reference,
-    ReferenceAccess, Resolution, Resolving, Scope, Signature, Source, TraitBody, TraitDeclaration,
-    TypeDeclaration, Variant,
+    Actualizing, AssociatedConstant, AssociatedType, Association, Capability, Constraint, File,
+    Generating, Identity, Intrinsic, Name, NamedReference, Position, Potential, Receiver,
+    Reference, ReferenceAccess, Resolution, Resolving, Scope, Signature, Source, TraitBody,
+    TraitDeclaration, TypeDeclaration, Variant,
 };
 
 // ---------------------------------------------------------------------------
@@ -1363,6 +1363,8 @@ impl Itemizing for File {
                 for declaration in self.listed_declarations() {
                     items.push(declaration.emit(scope));
                 }
+                // A Signal's open enums: what each is, its contract, and how it is read.
+                items.extend(self.open_items(scope));
                 // A Matrix's `Memory`: one field per record.
                 if let Some(memory) = self.matrix_memory() {
                     items.push(memory.emit(scope));
@@ -1384,7 +1386,11 @@ impl Itemizing for File {
                 // `Operation` and `Outcome`: each an enum of its section's
                 // variants, emitted when it has any.
                 for implied in self.implied_enums() {
-                    if implied.variants.is_empty() {
+                    // A Signal's open enums each add one variant, carrying the
+                    // contract module's own enum of the same name.
+                    let mut variants = implied.variants.to_vec();
+                    variants.extend(self.opened().contract_variants(&implied.name));
+                    if variants.is_empty() {
                         continue;
                     }
                     let enumeration = TypeDeclaration::Enum(
@@ -1392,7 +1398,7 @@ impl Itemizing for File {
                             name: implied.name,
                             constraints: vec![],
                         },
-                        implied.variants.to_vec(),
+                        variants,
                     );
                     items.push(enumeration.emit(scope));
                 }
@@ -1610,7 +1616,8 @@ impl TraitImplying for crate::Emission {
 /// stream is live and never archived, so `Answer` derives nothing.
 impl TraitImplying for crate::Signal {
     fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream> {
-        if self.inputs.is_empty() {
+        let opened = scope.file.opened();
+        if self.inputs.is_empty() && opened.is_empty() {
             return vec![];
         }
         let asked = Name::try_from("Input").expect("static identifier");
@@ -1666,6 +1673,26 @@ impl TraitImplying for crate::Signal {
                 quote! { #pattern => Answer::Once(#call), }
             } else {
                 quote! { #pattern => #call, }
+            });
+        }
+        // An open enum's input is answered by one capability of its own, taking
+        // the contract's `Input` and yielding its `Output`: an answer of the
+        // contract itself, a refusal of it among them, so the capability's
+        // refusal is any other `Output`.
+        for name in opened {
+            let capability = name.0.snake_case().identifier();
+            let module = name.module();
+            let variant = name.tokens();
+            capabilities.push(quote! {
+                fn #capability(&self, #capability: &#module::Input) -> core::result::Result<#module::Output, Output>;
+            });
+            let call = quote! {
+                nexus.#capability(carried).map_or_else(|refusal| refusal, Output::#variant)
+            };
+            arms.push(if streaming {
+                quote! { Input::#variant(carried) => Answer::Once(#call), }
+            } else {
+                quote! { Input::#variant(carried) => #call, }
             });
         }
         let answer = if streaming {
@@ -1769,28 +1796,344 @@ impl AllowFormatting for String {
     }
 }
 
-/// The trait whose capability refuses a file that names what is not yet
-/// generated: a Signal's open enums, at its fifth section, naming the first.
-trait Ungenerating {
-    fn ungenerated(&self) -> Result<(), crate::Error>;
+// ---------------------------------------------------------------------------
+// Open enums: the types a Signal's fifth section generates
+// ---------------------------------------------------------------------------
+
+/// The contract each open enum generates as a module of its own, written in
+/// Ethos and generated by the same pass as every other file: the syntax
+/// module's `Name`, `Variant` and `Type` (an open enum's variants are data, a
+/// name and the type it carries), and the `Input` and `Output` that add,
+/// remove and list them. It is generated into each contract module, as the
+/// module the syntax would be imported from is not yet declared.
+const OPEN_CONTRACT: &str = include_str!("open-enum.ethos");
+
+/// The trait whose capability names the module an open enum's contract is
+/// generated into: its name in snake case.
+trait Modulating {
+    fn module(&self) -> Ident;
 }
 
-impl Ungenerating for File {
-    fn ungenerated(&self) -> Result<(), crate::Error> {
-        match self.opened().first() {
-            Some(open) => Err(crate::Error::conceptual(
-                vec![1, 4],
-                crate::Problem::Ungenerated(open.as_ref().to_owned()),
-            )),
-            None => Ok(()),
+impl Modulating for Name {
+    fn module(&self) -> Ident {
+        self.0.snake_case().identifier()
+    }
+}
+
+/// The trait whose capability yields the variant each open enum adds to a
+/// Signal's `Input` or `Output`: named for the enum, carrying the enum of
+/// that name in the contract's module.
+trait Contracting {
+    fn contract_variants(&self, implied: &Name) -> Vec<Variant>;
+}
+
+impl Contracting for [Name] {
+    fn contract_variants(&self, implied: &Name) -> Vec<Variant> {
+        let mut variants = Vec::with_capacity(self.len());
+        for name in self {
+            let module = name.module().to_string();
+            variants.push(Variant::Typed(
+                name.clone(),
+                Reference::Named(NamedReference {
+                    source: Some(Source::try_from(module.as_str()).expect("a module is a source")),
+                    name: implied.clone(),
+                    arguments: vec![],
+                }),
+            ));
         }
+        variants
+    }
+}
+
+/// The trait whose capability yields the module an open enum's contract is:
+/// the items the contract's Ethos generates, and the `Registry` a runtime
+/// implements to say which variants have been added.
+trait Contracted {
+    fn contract(&self) -> TokenStream;
+}
+
+impl Contracted for Name {
+    fn contract(&self) -> TokenStream {
+        let file = Potential::<File>::from(OPEN_CONTRACT.to_owned())
+            .actualize()
+            .expect("the contract of an open enum is Ethos");
+        let scope = Scope {
+            file: &file,
+            identity: None,
+            associated: &[],
+            namespaces: &[],
+        };
+        let items = file.items(&scope);
+        let module = self.module();
+        quote! {
+            #[rustfmt::skip]
+            pub mod #module {
+                extern crate alloc;
+                #( #items )*
+                pub trait Registry {
+                    fn variant(&self, name: &Name) -> core::option::Option<Variant>;
+                }
+            }
+        }
+    }
+}
+
+/// The trait whose capability yields the items a Signal's open enums
+/// generate. Once for the file, `Carried`, an enum of every type the file
+/// declares, one variant each, and `Opening`, by which a datom is read with
+/// the registry of added variants. For each open enum, its contract module
+/// and its value: the variant's name with an `Option` of what it carries.
+///
+/// A type the file declares is carried unless it is generic, or reaches an
+/// open enum, which would make the value hold itself. The value's datom is
+/// the name, and after it what the entry of that name in the registry says it
+/// carries, read as that type: `Fable.High`. Written, the value needs no
+/// registry; read, it does, so `Composing` reads a name that carries nothing
+/// and refuses any other form, and `Opening` reads them all with a registry.
+trait Opening {
+    fn open_items(&self, scope: &Scope) -> Vec<TokenStream>;
+}
+
+impl Opening for File {
+    fn open_items(&self, scope: &Scope) -> Vec<TokenStream> {
+        let opened = self.opened();
+        if opened.is_empty() {
+            return vec![];
+        }
+        let mut variants = Vec::new();
+        let mut names = Vec::new();
+        let mut spellings = Vec::new();
+        for declaration in self.types() {
+            let identity = crate::checking::Identified::identity(declaration);
+            if !identity.constraints.is_empty() {
+                continue;
+            }
+            let mut holding = false;
+            for open in opened {
+                holding |= declaration.reaches(open, Passage::Any, self, &mut vec![]);
+            }
+            if holding {
+                continue;
+            }
+            variants.push(Variant::Typed(
+                identity.name.clone(),
+                identity.name.carried(),
+            ));
+            names.push(identity.name.tokens());
+            spellings.push(identity.name.0.clone());
+        }
+        // A Signal that declares nothing to carry has no `Carried`, and its
+        // open enums' values are names alone: an enum of no variants cannot
+        // be archived.
+        let empty = names.is_empty();
+        let mut items = Vec::new();
+        if !empty {
+            items.push(
+                TypeDeclaration::Enum(
+                    Identity {
+                        name: Name::try_from("Carried").expect("static identifier"),
+                        constraints: vec![],
+                    },
+                    variants,
+                )
+                .emit(scope),
+            );
+        }
+        items.push(quote! {
+            #[cfg(feature = "datom")]
+            #[rustfmt::skip]
+            pub trait Opening<Registry>: Sized {
+                fn open(
+                    datom: &datom_codec::Datom,
+                    budget: &mut datom_codec::Budget,
+                    registry: &Registry,
+                ) -> core::result::Result<Self, datom_codec::Error>;
+            }
+        });
+        // The value's field of what it carries, its absence, and what its
+        // datom is: the name, and after it the carried value as the type it
+        // is, whose own enum variant is not written.
+        let (field, absent, datomizing) = if empty {
+            (
+                TokenStream::new(),
+                TokenStream::new(),
+                quote! {
+                    datom_codec::Datom {
+                        path: at,
+                        form: datom_codec::Form::Bare(self.name.0.clone()),
+                    }
+                },
+            )
+        } else {
+            (
+                quote! { pub carried: core::option::Option<Carried>, },
+                quote! { carried: core::option::Option::None, },
+                quote! {
+                    match &self.carried {
+                        core::option::Option::None => datom_codec::Datom {
+                            path: at,
+                            form: datom_codec::Form::Bare(self.name.0.clone()),
+                        },
+                        core::option::Option::Some(carried) => {
+                            let body = match *carried {
+                                #( Carried::#names(ref value) => datom_codec::Datomizable::datomize(
+                                    value,
+                                    datom_codec::Branchable::child(&at, 1),
+                                ), )*
+                            };
+                            datom_codec::Datom {
+                                path: at,
+                                form: datom_codec::Form::Variant(
+                                    datom_codec::Symbol(self.name.0.clone()),
+                                    alloc::boxed::Box::new(body),
+                                ),
+                            }
+                        }
+                    }
+                },
+            )
+        };
+        for open in opened {
+            let module = open.module();
+            let value = open.tokens();
+            // The arm that reads a name carrying a type, by the type its
+            // entry in the registry names.
+            let middle = if empty {
+                TokenStream::new()
+            } else {
+                quote! {
+                    (
+                        core::option::Option::Some(#module::Type::Name(carried)),
+                        core::option::Option::Some(body),
+                    ) => {
+                        let carried = match carried.0.as_str() {
+                            #( #spellings => Carried::#names(datom_codec::Composing::compose(body, budget)?), )*
+                            other => {
+                                return core::result::Result::Err(
+                                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                        datom.path.clone(),
+                                        datom_codec::ErrorKind::Variant {
+                                            expected: alloc::string::String::from("a type the file declares"),
+                                            found: alloc::string::String::from(other),
+                                        },
+                                    ),
+                                );
+                            }
+                        };
+                        core::result::Result::Ok(Self { name, carried: core::option::Option::Some(carried) })
+                    }
+                }
+            };
+            items.push(open.contract());
+            items.push(quote! {
+                #[rustfmt::skip]
+                #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+                pub struct #value {
+                    pub name: #module::Name,
+                    #field
+                }
+            });
+            items.push(quote! {
+                #[cfg(feature = "datom")]
+                #[rustfmt::skip]
+                impl datom_codec::Datomizable for #value {
+                    fn datomize(&self, at: datom_codec::Path) -> datom_codec::Datom {
+                        #datomizing
+                    }
+                }
+            });
+            items.push(quote! {
+                #[cfg(feature = "datom")]
+                #[rustfmt::skip]
+                impl datom_codec::Composing for #value {
+                    fn compose(
+                        datom: &datom_codec::Datom,
+                        budget: &mut datom_codec::Budget,
+                    ) -> core::result::Result<Self, datom_codec::Error> {
+                        datom_codec::Budgeted::spend(budget, &datom.path)?;
+                        match &datom.form {
+                            datom_codec::Form::Bare(head) => core::result::Result::Ok(Self {
+                                name: #module::Name(head.clone()),
+                                #absent
+                            }),
+                            found => core::result::Result::Err(
+                                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                    datom.path.clone(),
+                                    datom_codec::ErrorKind::Form {
+                                        expected: alloc::string::String::from("Bare; a name that carries a type is read with its registry, by Opening"),
+                                        found: alloc::string::String::from(datom_codec::Naming::form_name(found)),
+                                    },
+                                ),
+                            ),
+                        }
+                    }
+                }
+            });
+            items.push(quote! {
+                #[cfg(feature = "datom")]
+                #[rustfmt::skip]
+                impl<Registry: #module::Registry> Opening<Registry> for #value {
+                    fn open(
+                        datom: &datom_codec::Datom,
+                        budget: &mut datom_codec::Budget,
+                        registry: &Registry,
+                    ) -> core::result::Result<Self, datom_codec::Error> {
+                        datom_codec::Budgeted::spend(budget, &datom.path)?;
+                        let (head, body) = match &datom.form {
+                            datom_codec::Form::Bare(head) => (head, core::option::Option::None),
+                            datom_codec::Form::Variant(head, body) => {
+                                (&head.0, core::option::Option::Some(&**body))
+                            }
+                            found => {
+                                return core::result::Result::Err(
+                                    <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                        datom.path.clone(),
+                                        datom_codec::ErrorKind::Form {
+                                            expected: alloc::string::String::from("Variant"),
+                                            found: alloc::string::String::from(datom_codec::Naming::form_name(found)),
+                                        },
+                                    ),
+                                );
+                            }
+                        };
+                        let name = #module::Name(head.clone());
+                        let core::option::Option::Some(entry) = registry.variant(&name) else {
+                            return core::result::Result::Err(
+                                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                    datom.path.clone(),
+                                    datom_codec::ErrorKind::Variant {
+                                        expected: alloc::string::String::from(stringify!(#value)),
+                                        found: head.clone(),
+                                    },
+                                ),
+                            );
+                        };
+                        match (entry.type_option, body) {
+                            (core::option::Option::None, core::option::Option::None) => {
+                                core::result::Result::Ok(Self { name, #absent })
+                            }
+                            #middle
+                            _ => core::result::Result::Err(
+                                <datom_codec::Error as datom_codec::ErrorRaising>::composition(
+                                    datom.path.clone(),
+                                    datom_codec::ErrorKind::Value {
+                                        expected: alloc::string::String::from("the form of the type its entry names"),
+                                        value: head.clone(),
+                                    },
+                                ),
+                            ),
+                        }
+                    }
+                }
+            });
+        }
+        items
     }
 }
 
 impl Generating for File {
     fn generate(&self) -> Result<String, crate::Error> {
         crate::Validating::validate(self)?;
-        self.ungenerated()?;
         let scope = Scope {
             file: self,
             identity: None,

@@ -1,0 +1,7 @@
+; A Signal that declares no type: its open enum can only carry nothing.
+Signal
+[]
+[]
+[]
+[]
+[ Model ]

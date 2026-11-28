@@ -106,6 +106,12 @@ mod matrix_records;
 mod multi_types;
 #[path = "generated/nested-collision.rs"]
 mod nested_collision;
+#[path = "generated/open-enum-bare.rs"]
+mod open_enum_bare;
+#[path = "generated/open-enum-held.rs"]
+mod open_enum_held;
+#[path = "generated/open-enum-signal.rs"]
+mod open_enum_signal;
 #[path = "generated/orchestrate.rs"]
 mod orchestrate;
 #[path = "generated/placed-types.rs"]
@@ -924,5 +930,341 @@ fn a_capability_yields_a_stream_of_its_associated_types() {
     assert_ne!(
         Frame::<i64, i64>::Ended(Ending::Refused),
         Frame::Ended(Ending::Closed)
+    );
+}
+
+/// The budget a datom is read against.
+fn budget() -> datom_codec::Budget {
+    datom_codec::Budget {
+        remaining: 1024,
+        reader: protos::ReaderBudget::try_from(1024).unwrap(),
+        depth: 0,
+        maximum_depth: 1024,
+    }
+}
+
+/// The datom a text is, formed but not composed into any type: what a
+/// runtime holds before it knows which type a name carries.
+fn formed(text: &str) -> datom_codec::Datom {
+    use datom_codec::DatomForming;
+    use protos::Protosizable;
+    text.to_owned()
+        .protosize()
+        .expect("text reads")
+        .datom_form(vec![])
+        .expect("text forms a datom")
+}
+
+#[test]
+fn an_open_enums_contract_round_trips_as_datom_text() {
+    use datom_codec::{Actualizing, Datomizable, Potential};
+    use open_enum_signal::{Input, Output, model};
+    use protos::{Compactable, Protosizable};
+
+    let written = "Model.Add.{ Fable Some.Name.QuadrupleEffort }";
+    let added = Input::Model(model::Input::Add(model::Variant {
+        name: model::Name("Fable".to_owned()),
+        type_option: Some(model::Type::Name(model::Name("QuadrupleEffort".to_owned()))),
+    }));
+    assert_eq!(
+        Potential::<Input>::from(written)
+            .actualize(&mut budget())
+            .expect("the notion's datom reads"),
+        added
+    );
+    assert_eq!(added.datomize(vec![]).protosize().compact(), written);
+    for (text, input) in [
+        ("Model.List", Input::Model(model::Input::List)),
+        (
+            "Model.Remove.Fable",
+            Input::Model(model::Input::Remove(model::Name("Fable".to_owned()))),
+        ),
+        (
+            "Model.Add.{ Plain None }",
+            Input::Model(model::Input::Add(model::Variant {
+                name: model::Name("Plain".to_owned()),
+                type_option: None,
+            })),
+        ),
+    ] {
+        let read = Potential::<Input>::from(text)
+            .actualize(&mut budget())
+            .expect("reads");
+        assert_eq!(read, input, "{text}");
+        assert_eq!(input.datomize(vec![]).protosize().compact(), text);
+    }
+    let output = Output::Model(model::Output::Listed(vec![]));
+    let text = output.datomize(vec![]).protosize().compact();
+    assert_eq!(
+        Potential::<Output>::from(text)
+            .actualize(&mut budget())
+            .expect("an output reads"),
+        output
+    );
+}
+
+#[test]
+fn an_open_enums_type_is_any_type_of_the_syntax_which_the_runtime_refuses() {
+    use datom_codec::{Actualizing, Potential};
+    use open_enum_signal::{Input, model};
+    // Only a name is carried at run time, but every form of a type reads, so
+    // the runtime can answer Refused to the others.
+    let read = Potential::<Input>::from("Model.Add.{ Fable Some.Vector.Name.Low }")
+        .actualize(&mut budget())
+        .expect("a vector of a type reads");
+    let Input::Model(model::Input::Add(variant)) = read else {
+        panic!("an add")
+    };
+    assert!(matches!(variant.type_option, Some(model::Type::Vector(_))));
+}
+
+/// A runtime's registry: the variants added so far.
+struct Added(Vec<open_enum_signal::model::Variant>);
+
+impl open_enum_signal::model::Registry for Added {
+    fn variant(
+        &self,
+        name: &open_enum_signal::model::Name,
+    ) -> Option<open_enum_signal::model::Variant> {
+        self.0.iter().find(|variant| &variant.name == name).cloned()
+    }
+}
+
+impl Added {
+    fn entry(name: &str, carried: Option<open_enum_signal::model::Type>) -> Self {
+        Added(vec![open_enum_signal::model::Variant {
+            name: open_enum_signal::model::Name(name.to_owned()),
+            type_option: carried,
+        }])
+    }
+
+    fn naming(name: &str, carried: &str) -> Self {
+        Self::entry(
+            name,
+            Some(open_enum_signal::model::Type::Name(
+                open_enum_signal::model::Name(carried.to_owned()),
+            )),
+        )
+    }
+}
+
+#[test]
+fn an_open_enums_value_is_read_with_the_registry_of_added_variants() {
+    use datom_codec::{Datomizable, ErrorKind};
+    use open_enum_signal::{Carried, Model, Opening, QuadrupleEffort, TripleEffort, model};
+    use protos::{Compactable, Protosizable};
+
+    let registry = Added::naming("Fable", "QuadrupleEffort");
+    let value = Model::open(&formed("Fable.High"), &mut budget(), &registry).expect("reads");
+    assert_eq!(
+        value,
+        Model {
+            name: model::Name("Fable".to_owned()),
+            carried: Some(Carried::QuadrupleEffort(QuadrupleEffort::High)),
+        }
+    );
+    assert_eq!(value.datomize(vec![]).protosize().compact(), "Fable.High");
+    // The same head reads as the other type once the registry says so.
+    let triple = Added::naming("Fable", "TripleEffort");
+    assert_eq!(
+        Model::open(&formed("Fable.High"), &mut budget(), &triple)
+            .expect("reads")
+            .carried,
+        Some(Carried::TripleEffort(TripleEffort::High))
+    );
+    // `Maximum` is a QuadrupleEffort and no TripleEffort.
+    assert!(Model::open(&formed("Fable.Maximum"), &mut budget(), &triple).is_err());
+    assert!(Model::open(&formed("Fable.Maximum"), &mut budget(), &registry).is_ok());
+
+    // A name that carries nothing is read bare, with or without a registry.
+    let plain = Added::entry("Plain", None);
+    let bare = Model::open(&formed("Plain"), &mut budget(), &plain).expect("reads");
+    assert_eq!(bare.carried, None);
+    assert_eq!(bare.datomize(vec![]).protosize().compact(), "Plain");
+    assert_eq!(
+        <Model as datom_codec::Composing>::compose(&formed("Plain"), &mut budget()),
+        Ok(bare)
+    );
+
+    // A head that was never added is refused where it is read.
+    let kind = |text: &str, registry: &Added| {
+        Model::open(&formed(text), &mut budget(), registry)
+            .expect_err(text)
+            .kind
+    };
+    assert_eq!(
+        kind("Ghost.High", &registry),
+        ErrorKind::Variant {
+            expected: "Model".to_owned(),
+            found: "Ghost".to_owned(),
+        }
+    );
+    // A name that carries nothing is no head of a value, and one that carries
+    // a type is no bare name.
+    assert!(matches!(
+        kind("Plain.High", &plain),
+        ErrorKind::Value { .. }
+    ));
+    assert!(matches!(kind("Fable", &registry), ErrorKind::Value { .. }));
+    // A type the file does not declare, or any form of type but a name.
+    assert_eq!(
+        kind("Fable.High", &Added::naming("Fable", "Missing")),
+        ErrorKind::Variant {
+            expected: "a type the file declares".to_owned(),
+            found: "Missing".to_owned(),
+        }
+    );
+    let vector = Added::entry(
+        "Fable",
+        Some(model::Type::Vector(Box::new(model::Type::Name(
+            model::Name("TripleEffort".to_owned()),
+        )))),
+    );
+    assert!(matches!(
+        kind("Fable.High", &vector),
+        ErrorKind::Value { .. }
+    ));
+}
+
+#[test]
+fn an_open_enums_value_that_carries_a_type_is_not_read_without_its_registry() {
+    use datom_codec::{Actualizing, ErrorKind, Potential};
+    use open_enum_signal::Input;
+    let refused = Potential::<Input>::from("Launch.Fable.High").actualize(&mut budget());
+    assert!(matches!(
+        refused.expect_err("needs a registry").kind,
+        ErrorKind::Form { .. }
+    ));
+    assert_eq!(
+        Potential::<Input>::from("Launch.Plain")
+            .actualize(&mut budget())
+            .expect("a bare name reads"),
+        Input::Launch(open_enum_signal::Model {
+            name: open_enum_signal::model::Name("Plain".to_owned()),
+            carried: None,
+        })
+    );
+}
+
+/// A Nexus of the open-enum Signal: it launches, and answers the contract of
+/// the open enum by a capability of its own.
+struct Roster;
+
+impl open_enum_signal::Answering for Roster {
+    fn launch(&self, model: &open_enum_signal::Model) -> Result<(), open_enum_signal::Output> {
+        if model.carried.is_some() {
+            return Err(open_enum_signal::Output::Refused("carried".to_owned()));
+        }
+        Ok(())
+    }
+
+    fn stop(&self, model: &open_enum_signal::Model) -> Result<String, open_enum_signal::Output> {
+        Ok(model.name.0.clone())
+    }
+
+    fn model(
+        &self,
+        model: &open_enum_signal::model::Input,
+    ) -> Result<open_enum_signal::model::Output, open_enum_signal::Output> {
+        use open_enum_signal::model::{Input, Output};
+        Ok(match model {
+            Input::Add(variant) => Output::Added(variant.clone()),
+            Input::Remove(name) => Output::Removed(name.clone()),
+            Input::List => Output::Refused("empty".to_owned()),
+        })
+    }
+}
+
+#[test]
+fn an_input_of_an_open_enum_is_answered_by_the_capability_named_for_it() {
+    use open_enum_signal::{Answerable, Input, Model, Output, model};
+    let name = model::Name("Fable".to_owned());
+    let variant = model::Variant {
+        name: name.clone(),
+        type_option: None,
+    };
+    assert_eq!(
+        Input::Model(model::Input::Add(variant.clone())).answer(&Roster),
+        Output::Model(model::Output::Added(variant))
+    );
+    assert_eq!(
+        Input::Model(model::Input::Remove(name.clone())).answer(&Roster),
+        Output::Model(model::Output::Removed(name.clone()))
+    );
+    assert_eq!(
+        Input::Model(model::Input::List).answer(&Roster),
+        Output::Model(model::Output::Refused("empty".to_owned()))
+    );
+    let value = Model {
+        name,
+        carried: None,
+    };
+    assert_eq!(
+        Input::Launch(value.clone()).answer(&Roster),
+        Output::Launched
+    );
+    assert_eq!(
+        Input::Stop(value).answer(&Roster),
+        Output::Refused("Fable".to_owned())
+    );
+}
+
+#[test]
+fn a_type_that_holds_an_open_enum_is_not_carried_by_it() {
+    use open_enum_held::{Carried, Effort, Mark, Model, effort, model};
+    // `Carried` holds `Mark` alone: `Pair` holds both open enums, so would
+    // make the value hold itself.
+    let carried = Carried::Mark(Mark("seal".to_owned()));
+    let Carried::Mark(mark) = &carried;
+    assert_eq!(mark.0, "seal");
+    let model = Model {
+        name: model::Name("Fable".to_owned()),
+        carried: Some(carried.clone()),
+    };
+    let effort = Effort {
+        name: effort::Name("High".to_owned()),
+        carried: Some(carried),
+    };
+    assert_eq!(
+        open_enum_held::Pair { model, effort }.model.name,
+        model::Name("Fable".to_owned())
+    );
+    assert_eq!(effort::Input::List, effort::Input::List);
+}
+
+/// The registry of the Signal that declares no type.
+struct Bare(Vec<open_enum_bare::model::Variant>);
+
+impl open_enum_bare::model::Registry for Bare {
+    fn variant(
+        &self,
+        name: &open_enum_bare::model::Name,
+    ) -> Option<open_enum_bare::model::Variant> {
+        self.0.iter().find(|variant| &variant.name == name).cloned()
+    }
+}
+
+#[test]
+fn an_open_enum_of_a_signal_that_declares_no_type_carries_nothing() {
+    use datom_codec::Datomizable;
+    use open_enum_bare::{Input, Model, Opening, model};
+    use protos::{Compactable, Protosizable};
+    // There is no `Carried`, and the value is its name alone.
+    let value = Model {
+        name: model::Name("Plain".to_owned()),
+    };
+    assert_eq!(value.datomize(vec![]).protosize().compact(), "Plain");
+    let registry = Bare(vec![model::Variant {
+        name: model::Name("Plain".to_owned()),
+        type_option: None,
+    }]);
+    assert_eq!(
+        Model::open(&formed("Plain"), &mut budget(), &registry).expect("reads"),
+        value
+    );
+    assert!(Model::open(&formed("Plain.High"), &mut budget(), &registry).is_err());
+    assert_eq!(
+        Input::Model(model::Input::List),
+        Input::Model(model::Input::List)
     );
 }

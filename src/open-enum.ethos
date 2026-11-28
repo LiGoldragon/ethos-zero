@@ -1,0 +1,28 @@
+; The contract of an open enum: its variants are data, each a name and the
+; type it carries, and a Signal that names an open enum generates this as a
+; module of its own, named for the enum, with the syntax module's Name,
+; Variant and Type written where the syntax module is not yet imported from.
+Library
+[]
+[ Name.String
+  Word.String
+  Import.{ Namespace.⟦Word⟧
+           ⟦Name⟧ }
+  Declaration.{ Name Type }
+  Variant.{ Name Option<Type> }
+  Type.[ Name
+         Import
+         Declaration
+         Struct.⟦Type⟧
+         Enum.⟦Variant⟧
+         Vector.Type
+         Applied.{ Name ⟦Type⟧ } ]
+  Input.[ Add.Variant
+          Remove.Name
+          List ]
+  Output.[ Added.Variant
+           Removed.Name
+           Listed.⟦Variant⟧
+           Refused.String ] ]
+[]
+[]

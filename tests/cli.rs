@@ -658,21 +658,20 @@ fn an_organism_points_its_memory_at_a_matrix_file() {
 }
 
 #[test]
-fn generate_rejects_an_open_enum_at_its_section_with_line_and_column() {
-    let directory = "ungenerated".scratch();
+fn generate_writes_a_signal_with_an_open_enum_and_its_contract() {
+    let directory = "open-enum".scratch();
     let source = directory.write_source(
-        "ungenerated",
+        "open-enum",
         "Signal\n[]\n[ Launch.Model ]\n[ Launched ]\n[]\n[ Model ]\n",
     );
     let target = format!("{directory}/out");
     let argument = generate(&source, &target);
     let (success, output) = [argument.as_str()].invoke();
-    assert!(!success);
-    assert_eq!(
-        output,
-        format!("Rejected.{{ {source} {{ 6 1 }} Conceptual.{{ [ 1 4 ] Ungenerated.Model }} }}\n")
-    );
-    assert!(!std::path::Path::new(&target).exists());
+    assert!(success, "{output}");
+    assert_eq!(output, format!("Generated.[ {target}/open-enum.rs ]\n"));
+    let rust = std::fs::read_to_string(format!("{target}/open-enum.rs")).expect("written");
+    assert!(rust.contains("pub mod model {"));
+    assert!(rust.contains("pub struct Model {"));
     let argument = check(&source);
     let (success, output) = [argument.as_str()].invoke();
     assert!(success, "{output}");

@@ -1244,6 +1244,15 @@ impl Declared for Signal {
                 path: vec![1],
             },
         ];
+        // What the open enums generate beside them, once for the file.
+        if self.open.as_ref().is_some_and(|open| !open.is_empty()) {
+            for generated in ["Carried", "Opening"] {
+                names.push(DeclarationSite {
+                    name: Name::try_from(generated).expect("static identifier"),
+                    path: vec![4],
+                });
+            }
+        }
         names.extend(self.imports.names_in(0));
         names.extend(self.types.names_in(3));
         if let Some(open) = &self.open {
@@ -1361,8 +1370,15 @@ impl Checkable for Signal {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.declared().distinct()?;
         self.imports.check_each(scope, 0)?;
-        self.inputs.names_in(1).distinct()?;
-        self.outputs.names_in(2).distinct()?;
+        // Each open enum adds one input and one output of its own name, so
+        // no input or output may be named as one is.
+        let open = self.open.as_deref().unwrap_or(&[]);
+        let mut inputs = self.inputs.names_in(1);
+        inputs.extend(open.names_in(4));
+        inputs.distinct()?;
+        let mut outputs = self.outputs.names_in(2);
+        outputs.extend(open.names_in(4));
+        outputs.distinct()?;
         self.inputs.check_each(scope, 1)?;
         self.outputs.check_answers(scope).place(2)?;
         self.types.check_each(scope, 3)?;

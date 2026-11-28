@@ -183,7 +183,7 @@ impl Providing for File {
                 return true;
             }
         }
-        false
+        self.opened().contains(name)
     }
 }
 
@@ -484,12 +484,12 @@ impl Generated for File {
     fn generated(&self) -> Vec<Name> {
         let mut names = Vec::new();
         for implied in self.implied_enums() {
-            if !implied.variants.is_empty() {
+            if !implied.variants.is_empty() || !self.opened().is_empty() {
                 names.push(implied.name);
             }
         }
         let traits: &[&str] = match self {
-            File::Signal(signal) if !signal.inputs.is_empty() => {
+            File::Signal(signal) if !signal.inputs.is_empty() || !self.opened().is_empty() => {
                 let scope = Scope {
                     file: self,
                     identity: None,
@@ -523,6 +523,12 @@ impl Generated for File {
         };
         for name in traits {
             names.push(Name::try_from(*name).expect("a generated name is an identifier"));
+        }
+        // What a Signal's open enums generate beside them, once for the file.
+        if !self.opened().is_empty() {
+            for name in ["Carried", "Opening"] {
+                names.push(Name::try_from(name).expect("a generated name is an identifier"));
+            }
         }
         names
     }

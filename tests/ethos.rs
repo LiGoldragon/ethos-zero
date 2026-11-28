@@ -1402,6 +1402,8 @@ fn every_generated_item_carries_rustfmt_skip() {
                 syn::Item::Const(item) => &item.attrs,
                 syn::Item::Impl(item) => &item.attrs,
                 syn::Item::ExternCrate(item) => &item.attrs,
+                // An open enum's contract, a module of its own.
+                syn::Item::Mod(item) => &item.attrs,
                 _ => panic!("{path} holds an item generation does not emit"),
             };
             assert!(
@@ -2080,18 +2082,93 @@ fn an_open_enum_is_named_as_a_type_is() {
 }
 
 #[test]
-fn generate_refuses_a_signal_with_an_open_enum_at_the_fifth_section() {
-    assert_eq!(
-        OPEN.refusal(),
-        (vec![1, 4], Problem::Ungenerated("Model".to_owned()))
-    );
-    assert_eq!(
-        "Signal [] [] [] [] [ Model Other ]".refusal(),
-        (vec![1, 4], Problem::Ungenerated("Model".to_owned()))
-    );
+fn a_signal_with_open_enums_generates_the_types_the_contract_and_the_dispatch() {
+    let rust = generates(OPEN);
+    // The enum of every type the file declares, and the value of the open enum.
+    assert!(rust.contains("pub enum Carried {\n    TripleEffort(TripleEffort),\n    QuadrupleEffort(QuadrupleEffort),\n}"));
+    assert!(rust.contains(
+        "pub struct Model {\n    pub name: model::Name,\n    pub carried: core::option::Option<Carried>,\n}"
+    ));
+    // The contract, in a module named for the enum, holding the syntax's
+    // Name, Variant and Type and its own Input and Output.
+    assert!(rust.contains("pub mod model {"));
+    for expected in [
+        "pub struct Name(pub alloc::string::String);",
+        "pub struct Variant {",
+        "pub enum Type {",
+        "pub enum Input {\n        Add(Variant),\n        Remove(Name),\n        List,\n    }",
+        "Listed(alloc::vec::Vec<Variant>),",
+        "pub trait Registry {",
+    ] {
+        assert!(rust.contains(expected), "{expected}");
+    }
+    // The Signal's own Input and Output gain one variant named for the enum,
+    // and one capability takes the contract's Input and yields its Output.
+    assert!(rust.contains("    Model(model::Input),\n}"));
+    assert!(rust.contains("    Model(model::Output),\n}"));
+    assert!(rust.contains(
+        "fn model(&self, model: &model::Input) -> core::result::Result<model::Output, Output>;"
+    ));
+    assert!(rust.contains("Input::Model(carried) => {"));
+    // Two open enums share one Carried, each with its own module.
+    let two = generates("Signal [] [ Ask ] [ Told ] [ Mark.String ] [ Model Effort ]");
+    assert_eq!(two.matches("pub enum Carried {").count(), 1);
+    assert!(two.contains("pub mod model {") && two.contains("pub mod effort {"));
+    // A type that holds an open enum is left out of Carried.
+    let held =
+        generates("Signal [] [ Ask ] [ Told ] [ Pair.{ Model Model } Mark.String ] [ Model ]");
+    assert!(held.contains("pub enum Carried {\n    Mark(Mark),\n}"));
     // A Signal of five sections naming none, and one of four, generate as before.
     assert_eq!(
         generates("Signal [] [ Ask ] [ Told ] [] []"),
         generates("Signal [] [ Ask ] [ Told ] []")
+    );
+}
+
+#[test]
+fn an_open_enum_alone_generates_its_input_output_and_capability() {
+    let rust = generates("Signal [] [] [] [] [ Model ]");
+    assert!(!rust.contains("Carried"));
+    assert!(rust.contains("pub struct Model {\n    pub name: model::Name,\n}"));
+    assert!(rust.contains("pub enum Input {\n    Model(model::Input),\n}"));
+    assert!(rust.contains("fn model(&self, model: &model::Input)"));
+}
+
+#[test]
+fn an_input_an_output_or_a_type_named_as_an_open_enum_generates_is_a_duplicate() {
+    for (source, path, name) in [
+        (
+            "Signal [] [ Model ] [ Told ] [] [ Model ]",
+            vec![1, 4, 0],
+            "Model",
+        ),
+        (
+            "Signal [] [ Ask ] [ Model ] [] [ Model ]",
+            vec![1, 4, 0],
+            "Model",
+        ),
+        (
+            "Signal [] [] [] [ Carried.String ] [ Model ]",
+            vec![1, 3, 0, 0],
+            "Carried",
+        ),
+        (
+            "Signal [] [] [] [ Opening.String ] [ Model ]",
+            vec![1, 3, 0, 0],
+            "Opening",
+        ),
+    ] {
+        assert_eq!(
+            source.checking_refusal(),
+            (path, Problem::Duplicate(name.to_owned())),
+            "{source}"
+        );
+    }
+    // A Signal naming no open enum reserves neither.
+    assert_eq!(
+        ethos_zero::Validating::validate(&read(
+            "Signal [] [ Model ] [ Told ] [ Carried.String Opening.String ]"
+        )),
+        Ok(())
     );
 }

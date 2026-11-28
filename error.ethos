@@ -32,8 +32,7 @@ Library
             Namespace.String
             UnknownName.{ String String }
             Unpointed.String
-            Misrooted.{ String String }
-            Ungenerated.String ]
+            Misrooted.{ String String } ]
   Form.[ File Section Import Name Declaration Variant Reference Constraint Trait Capability Constant Association Process Pointer ]
   Location.{ Line Column }
   Line.Integer

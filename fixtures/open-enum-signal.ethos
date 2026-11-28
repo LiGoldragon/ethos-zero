@@ -1,0 +1,12 @@
+; A Signal that names an open enum in its fifth section: Model, whose variants
+; are data added while the system runs, each carrying nothing or one of the
+; types this file declares, here TripleEffort and QuadrupleEffort.
+Signal
+[]
+[ Launch.Model
+  Stop.Model ]
+[ Launched
+  Refused.String ]
+[ TripleEffort.[ Low Medium High ]
+  QuadrupleEffort.[ Low Medium High Maximum ] ]
+[ Model ]

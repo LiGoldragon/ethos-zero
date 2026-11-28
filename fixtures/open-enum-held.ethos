@@ -1,0 +1,12 @@
+; A type that holds an open enum is not carried by it, or the value would hold
+; itself: Pair is left out of Carried, Mark is in. Two open enums share one
+; Carried, each with its own contract module.
+Signal
+[]
+[ Launch.Pair
+  Stop.Mark ]
+[ Launched
+  Refused.String ]
+[ Pair.{ Model Effort }
+  Mark.String ]
+[ Model Effort ]
