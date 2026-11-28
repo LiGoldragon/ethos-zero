@@ -2,6 +2,21 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 34.0.0: the Organism root
+
+A file headed `Organism` is read: four sections, the receptor, the emitter, the
+memory and the organs, each a vector of pointers, a pointer being a namespace
+with no name after it, `:flow:signal`, with a head where one file stands twice,
+`Codex:harness:signal`. Check refuses an empty receptor (`Empty`), more than one
+memory pointer (`Arity.{ 1 n }`), a pointer repeated in a position with no head
+or the same head (`Duplicate`), a pointer that names no file given
+(`Unpointed.<pointer>`) and one to a file of the wrong root
+(`Misrooted.{ <pointer> <root> }`). Generate writes the minimal module and
+provides nothing to importers. `Problem` gains `Unpointed` and `Misrooted`, and
+`Form` gains `Pointer`, so a consumer that matches them exhaustively adds the
+arms; `File` and `Root` gain `Organism`. Repin to 34.0.0; nothing else changes
+for a crate that holds no Organism file.
+
 ## 33.0.0: the caller names the namespaces; imports resolve against them
 
 `Check` takes a `Reading`, `{ [ files ] [ namespaces ] }`, and `Generate` a

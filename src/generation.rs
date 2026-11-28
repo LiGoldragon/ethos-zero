@@ -1357,7 +1357,8 @@ impl Itemizing for File {
             | File::Operation(_)
             | File::Memory(_)
             | File::Emission(_)
-            | File::Process(_) => {
+            | File::Process(_)
+            | File::Organism(_) => {
                 for declaration in self.listed_declarations() {
                     items.push(declaration.emit(scope));
                 }
@@ -1393,9 +1394,11 @@ impl Itemizing for File {
                 let implied = match self {
                     File::Signal(signal) => signal.implied_traits(scope),
                     File::Emission(emission) => emission.implied_traits(scope),
-                    File::Library(_) | File::Operation(_) | File::Memory(_) | File::Process(_) => {
-                        vec![]
-                    }
+                    File::Library(_)
+                    | File::Operation(_)
+                    | File::Memory(_)
+                    | File::Process(_)
+                    | File::Organism(_) => vec![],
                 };
                 for item in implied {
                     items.push(quote! { #[rustfmt::skip] #item });

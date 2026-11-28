@@ -229,3 +229,30 @@ fn unchecked_printing_does_not_repair_legacy_or_malformed_vectors() {
     assert_eq!(reread.print(), printed);
     assert_eq!(reread.generate().unwrap_err(), file.generate().unwrap_err());
 }
+
+#[test]
+fn an_organism_prints_back_as_written() {
+    let sketch =
+        "Organism\n[ :flow:signal ]\n[ :harness:signal ]\n[ :flow:matrix ]\n[ :lock:organism ]\n";
+    assert_eq!(sketch.reprint(), sketch);
+    // A one-line layout expands to the same print.
+    assert_eq!(
+        "Organism [ :flow:signal ] [ :harness:signal ] [ :flow:matrix ] [ :lock:organism ]"
+            .reprint(),
+        sketch
+    );
+    // A chained pointer stays chained, and a head stays at the pointer.
+    for written in [
+        "Organism\n[ flow:signal ]\n[]\n[]\n[]\n",
+        "Organism\n[ Codex:harness:signal\n  Claude:harness:signal ]\n[ :flow:signal ]\n[]\n[]\n",
+        "Organism\n[ :flow:signal ]\n[]\n[]\n[]\n",
+        "Organism\n[]\n[]\n[]\n[]\n",
+    ] {
+        assert_eq!(written.reprint(), written);
+        let reread = Potential::<File>::from(written).actualize().unwrap();
+        assert_eq!(
+            Potential::<File>::from(reread.print()).actualize().unwrap(),
+            reread
+        );
+    }
+}

@@ -52,6 +52,13 @@ pub struct UnknownName_Data {
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Misrooted_Data {
+    pub first_string: alloc::string::String,
+    pub second_string: alloc::string::String,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Problem {
     Root,
     Arity(Arity_Data),
@@ -78,6 +85,8 @@ pub enum Problem {
     Ungivable(alloc::string::String),
     Namespace(alloc::string::String),
     UnknownName(UnknownName_Data),
+    Unpointed(alloc::string::String),
+    Misrooted(Misrooted_Data),
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -96,6 +105,7 @@ pub enum Form {
     Constant,
     Association,
     Process,
+    Pointer,
 }
 #[rustfmt::skip]
 #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

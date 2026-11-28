@@ -7,13 +7,14 @@
 ; takes there, and is refused as UnknownName otherwise; an import of any other
 ; is trusted, and Checked lists it, by file, as unchecked. A rejection names
 ; the file, the line and column of the error in it, and the error.
-; The files read are of six roots, each section in this order:
+; The files read are of seven roots, each section in this order:
 ;   Library    [ imports ] [ types ] [ traits ] [ associations ]
 ;   Signal     [ imports ] [ inputs ] [ outputs ] [ types ]
 ;   Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; proposed, pending the living's word
 ;   Memory     [ imports ] [ records ] [ changes ] [ answers ] [ types ]
 ;   Emission   [ imports ] [ emissions ] [ outcomes ] [ types ]
 ;   Process    [ imports ] [ processes ] [ types ]
+;   Organism   [ receptor ] [ emitter ] [ memory ] [ organs ]   ; pointers, no imports
 ; A file headed Sema is refused as Renamed.Memory.
 Library
 [ datom_codec:[ Error ]

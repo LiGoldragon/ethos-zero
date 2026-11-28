@@ -540,3 +540,120 @@ fn a_namespace_file_that_does_not_read_is_rejected_naming_it() {
         "{output}"
     );
 }
+
+/// The namespaces `flow` and `harness` of one Signal each, and `lock` of an Organism, given with a query.
+fn organism_namespaces(directory: &str) -> (String, String) {
+    let flow = format!("{directory}/flow").write_source("signal", "Signal [] [] [] []");
+    let harness = format!("{directory}/harness").write_source("signal", "Signal [] [] [] []");
+    let lock = format!("{directory}/lock")
+        .write_source("organism", "Organism\n[ :flow:signal ]\n[]\n[]\n[]\n");
+    let namespaces = format!(
+        "[ {{ flow [ {} ] }} {{ harness [ {} ] }} {{ lock [ {} ] }} ]",
+        opaque(&flow),
+        opaque(&harness),
+        opaque(&lock)
+    );
+    (namespaces, lock)
+}
+
+#[test]
+fn an_organism_checks_and_generates_its_minimal_module() {
+    let directory = "organism-checks".scratch();
+    let (namespaces, lock) = organism_namespaces(&directory);
+    let organism = directory.write_source(
+        "organism",
+        "Organism\n[ :flow:signal ]\n[ :harness:signal ]\n[]\n[ :lock:organism ]\n",
+    );
+    let argument = format!("Check.{{ [ {} ] {namespaces} }}", opaque(&organism));
+    assert_eq!(
+        [argument.as_str()].invoke(),
+        (true, format!("Checked.{{ [ {organism} ] [] }}\n"))
+    );
+    // A headed pair to one file checks.
+    let headed = directory.write_source(
+        "headed",
+        "Organism\n[ Codex:harness:signal\n  Claude:harness:signal ]\n[]\n[]\n[]\n",
+    );
+    let argument = format!("Check.{{ [ {} ] {namespaces} }}", opaque(&headed));
+    assert_eq!(
+        [argument.as_str()].invoke(),
+        (true, format!("Checked.{{ [ {headed} ] [] }}\n"))
+    );
+    let outputs = format!("{directory}/generated");
+    let argument = format!(
+        "Generate.{{ {{ [ {} ] {namespaces} }} {} }}",
+        opaque(&lock),
+        opaque(&outputs)
+    );
+    assert_eq!(
+        [argument.as_str()].invoke(),
+        (true, format!("Generated.[ {outputs}/organism.rs ]\n"))
+    );
+    let written = std::fs::read_to_string(format!("{outputs}/organism.rs")).unwrap();
+    assert!(written.contains("extern crate alloc;"));
+    assert!(!written.contains("pub "));
+}
+
+#[test]
+fn an_organism_is_rejected_at_the_line_and_column_of_what_is_amiss() {
+    let directory = "organism-rejects".scratch();
+    let (namespaces, _) = organism_namespaces(&directory);
+    for (name, text, expected) in [
+        (
+            "empty",
+            "Organism\n[]\n[ :harness:signal ]\n[]\n[]\n",
+            "{ 2 1 } Conceptual.{ [ 1 0 ] Empty }",
+        ),
+        (
+            "memories",
+            "Organism\n[ :flow:signal ]\n[]\n[ :flow:signal :harness:signal ]\n[]\n",
+            "{ 4 1 } Conceptual.{ [ 1 2 ] Arity.{ 1 2 } }",
+        ),
+        (
+            "unpointed",
+            "Organism\n[ :flow:signal ]\n[ :harness:signal\n  :harness:ghost ]\n[]\n[]\n",
+            "{ 4 3 } Conceptual.{ [ 1 1 1 ] Unpointed.harness:ghost }",
+        ),
+        (
+            "misrooted",
+            "Organism\n[ :flow:signal ]\n[]\n[]\n[ :flow:signal ]\n",
+            "{ 5 3 } Conceptual.{ [ 1 3 0 ] Misrooted.{ flow:signal Signal } }",
+        ),
+        (
+            "duplicate",
+            "Organism\n[ :harness:signal\n  harness:signal ]\n[]\n[]\n[]\n",
+            "{ 3 3 } Conceptual.{ [ 1 0 1 ] Duplicate.harness:signal }",
+        ),
+    ] {
+        let source = directory.write_source(name, text);
+        let argument = format!("Check.{{ [ {} ] {namespaces} }}", opaque(&source));
+        assert_eq!(
+            [argument.as_str()].invoke(),
+            (false, format!("Rejected.{{ {source} {expected} }}\n")),
+            "{name}"
+        );
+    }
+}
+
+/// Enabled once the Matrix root is merged: a memory pointing at a Matrix file checks.
+#[test]
+#[ignore = "enable after the merge with the Matrix root, which this branch does not read"]
+fn an_organism_points_its_memory_at_a_matrix_file() {
+    let directory = "organism-matrix".scratch();
+    let (namespaces, _) = organism_namespaces(&directory);
+    let matrix = format!("{directory}/memory").write_source("matrix", "Matrix\n[]\n[]\n");
+    let organism = directory.write_source(
+        "organism",
+        "Organism\n[ :flow:signal ]\n[]\n[ :memory:matrix ]\n[]\n",
+    );
+    let namespaces = format!(
+        "{} {{ memory [ {} ] }} ]",
+        namespaces.strip_suffix(" ]").unwrap(),
+        opaque(&matrix)
+    );
+    let argument = format!("Check.{{ [ {} ] {namespaces} }}", opaque(&organism));
+    assert_eq!(
+        [argument.as_str()].invoke(),
+        (true, format!("Checked.{{ [ {organism} ] [] }}\n"))
+    );
+}
