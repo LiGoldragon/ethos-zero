@@ -558,6 +558,30 @@ fn an_emission_yields_the_outcome_its_position_binds() {
     ));
 }
 
+/// Every record of a Matrix bears `Memorizable`: it names the `Memory` it is
+/// held in and recalls itself from that Memory's field for it, a declared
+/// record and an imported one alike.
+#[test]
+fn every_record_of_a_matrix_recalls_itself_from_the_memory() {
+    use matrix_records::{Configured, Memorizable, Memory, Watch};
+    let memory = Memory {
+        watch: Watch {
+            flow_id: flow::FlowId(7),
+            string: "pane".to_owned(),
+        },
+        configured: Configured(None),
+        event: flow::Event::Started,
+    };
+    let watch: &Watch = <Watch as Memorizable>::recall(&memory);
+    assert!(std::ptr::eq(watch, &memory.watch));
+    let configured: &Configured = Configured::recall(&memory);
+    assert!(std::ptr::eq(configured, &memory.configured));
+    let event: &flow::Event = <flow::Event as Memorizable>::recall(&memory);
+    assert!(std::ptr::eq(event, &memory.event));
+    let held: <Watch as Memorizable>::Memory = memory.clone();
+    assert_eq!(held, memory);
+}
+
 /// A translator that observes what it was set to observe, for the emissions
 /// written bare.
 struct Prober(bare_emission::Probed_Data);

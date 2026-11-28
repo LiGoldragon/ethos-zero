@@ -1314,11 +1314,15 @@ impl Declared for Memory {
 
 impl Declared for Matrix {
     fn declared(&self) -> Vec<DeclarationSite> {
-        // The struct generated over the records, held at the records.
-        let mut names = vec![DeclarationSite {
-            name: Name::try_from("Memory").expect("static identifier"),
-            path: vec![1],
-        }];
+        // The struct generated over the records, and the trait every record
+        // bears, each held at the records.
+        let mut names = Vec::new();
+        for generated in ["Memory", "Memorizable"] {
+            names.push(DeclarationSite {
+                name: Name::try_from(generated).expect("static identifier"),
+                path: vec![1],
+            });
+        }
         names.extend(self.imports.names_in(0));
         names.extend(self.records.names_in(1));
         names
@@ -1574,8 +1578,8 @@ impl Checkable for Memory {
     }
 }
 
-/// A Matrix: its records. `Memory`, the struct generated over them, is a name
-/// the file may not declare.
+/// A Matrix: its records. `Memory`, the struct generated over them, and
+/// `Memorizable`, the trait each bears, are names the file may not declare.
 impl Checkable for Matrix {
     fn check(&self, scope: &Scope) -> Result<(), Error> {
         self.declared().distinct()?;

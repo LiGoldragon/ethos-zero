@@ -299,10 +299,42 @@ pub struct Memory {
 }
 ```
 
-`Memory` is a name the Matrix generates, so a Matrix may not declare or import
-it: `Duplicate.Memory` at the later of the two, as `Input` in a Signal. No
-Change is generated. A Matrix provides to the roots read with it, or to a
-namespace given, its records (a declared one and a named one) and `Memory`. A
+Every record bears `Memorizable`, generated in the module of each Matrix file
+until a standard library holds it once: the trait names the Memory the record
+is held in and reads the record out of it, from the Memory's field for that
+record. One impl per record, the declared and the imported alike; a Matrix of
+no record generates the trait and no impl. It says nothing of change.
+
+```rust
+pub trait Memorizable {
+    type Memory;
+    fn recall(memory: &Self::Memory) -> &Self;
+}
+impl Memorizable for Watch {
+    type Memory = Memory;
+    fn recall(memory: &Memory) -> &Self {
+        &memory.watch
+    }
+}
+impl Memorizable for Configured {
+    type Memory = Memory;
+    fn recall(memory: &Memory) -> &Self {
+        &memory.configured
+    }
+}
+impl Memorizable for flow::Event {
+    type Memory = Memory;
+    fn recall(memory: &Memory) -> &Self {
+        &memory.event
+    }
+}
+```
+
+`Memory` and `Memorizable` are names the Matrix generates, so a Matrix may not
+declare or import either: `Duplicate.Memory` or `Duplicate.Memorizable` at the
+later of the two, as `Input` in a Signal. No Change is generated. A Matrix
+provides to the roots read with it, or to a namespace given, its records (a
+declared one and a named one), `Memory` and `Memorizable`. A
 file of another count of sections is `Arity`, as for the others; a duplicate
 record, an undeclared name and the other refusals are the Memory root's. A
 Matrix prints back as written.

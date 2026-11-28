@@ -92,6 +92,22 @@ fn matrix_generates_its_records_and_a_memory_over_them() {
     // The Memory bears the derives of every declaration.
     assert!(generated.contains("rkyv::Archive"));
     assert!(generated.contains("datom_codec::Datomizable"));
+    // Every record bears Memorizable, recalled from its field of the Memory.
+    assert!(generated.contains(
+        "pub trait Memorizable {\n    type Memory;\n    fn recall(memory: &Self::Memory) -> &Self;\n}"
+    ));
+    for (record, field) in [
+        ("Watch", "watch"),
+        ("Configured", "configured"),
+        ("crate::Observed", "observed"),
+    ] {
+        assert!(
+            generated.contains(&format!(
+                "impl Memorizable for {record} {{\n    type Memory = Memory;\n    fn recall(memory: &Memory) -> &Self {{\n        &memory.{field}\n    }}\n}}"
+            )),
+            "{record}"
+        );
+    }
     // A Matrix generates no Change.
     assert!(!generated.contains("Change"));
 }
@@ -103,6 +119,9 @@ fn a_matrix_of_one_imported_record_generates() {
     assert!(!generated.contains("pub struct Observed"));
     let empty = generates("Matrix [] []");
     assert!(empty.contains("pub struct Memory {"));
+    // A Matrix of no record generates Memorizable, borne by none.
+    assert!(empty.contains("pub trait Memorizable {"));
+    assert!(!empty.contains("impl Memorizable"));
 }
 
 #[test]
@@ -112,6 +131,12 @@ fn a_matrix_may_not_declare_memory() {
     assert_eq!(path, vec![1, 1, 0, 0]);
     let (_, problem) = "Matrix [ crate:[ Memory ] ] [ Memory ]".refusal();
     assert_eq!(problem, Problem::Duplicate("Memory".to_owned()));
+    // Memorizable, the trait every record bears, is a name the Matrix generates.
+    let (path, problem) = "Matrix [] [ Memorizable.{ String } ]".refusal();
+    assert_eq!(problem, Problem::Duplicate("Memorizable".to_owned()));
+    assert_eq!(path, vec![1, 1, 0, 0]);
+    let (_, problem) = "Matrix [ crate:[ Memorizable ] ] [ Memorizable ]".refusal();
+    assert_eq!(problem, Problem::Duplicate("Memorizable".to_owned()));
     let (_, problem) = "Matrix [] [ Watch.String Watch.Integer ]".refusal();
     assert_eq!(problem, Problem::Duplicate("Watch".to_owned()));
     let (_, problem) = "Matrix [] [ Watch.{ Bogus } ]".refusal();

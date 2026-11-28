@@ -1405,10 +1405,10 @@ impl Itemizing for File {
                 let implied = match self {
                     File::Signal(signal) => signal.implied_traits(scope),
                     File::Emission(emission) => emission.implied_traits(scope),
+                    File::Matrix(matrix) => matrix.implied_traits(scope),
                     File::Library(_)
                     | File::Operation(_)
                     | File::Memory(_)
-                    | File::Matrix(_)
                     | File::Process(_)
                     | File::Organism(_) => vec![],
                 };
@@ -1589,6 +1589,34 @@ impl TraitImplying for crate::Emission {
                 None => quote! { () },
             };
             items.push(quote! { impl Emitted for #carried { type Outcome = #outcome; } });
+        }
+        items
+    }
+}
+
+/// A Matrix's `Memorizable`: every record bears it, naming the `Memory` it is
+/// held in and recalling itself from that Memory's field for it. The trait
+/// says nothing of change. No standard library holds the root-implied traits
+/// yet, so the trait is generated into the module of each Matrix file.
+impl TraitImplying for crate::Matrix {
+    fn implied_traits(&self, scope: &Scope) -> Vec<TokenStream> {
+        let mut items = vec![quote! {
+            pub trait Memorizable { type Memory; fn recall(memory: &Self::Memory) -> &Self; }
+        }];
+        let Some(TypeDeclaration::Struct(identity, positions)) = scope.file.matrix_memory() else {
+            return items;
+        };
+        let memory = identity.name.tokens();
+        let references = positions.references();
+        let fields = references.field_names(&identity.name);
+        for (reference, field) in references.iter().zip(fields) {
+            let record = reference.position(scope, &identity.name);
+            items.push(quote! {
+                impl Memorizable for #record {
+                    type Memory = #memory;
+                    fn recall(memory: &#memory) -> &Self { &memory.#field }
+                }
+            });
         }
         items
     }

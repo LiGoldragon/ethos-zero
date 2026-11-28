@@ -474,8 +474,9 @@ impl Finding for Nexus {
 /// `Output`, an Operation's `Operation` and `Outcome`, an Emission's `Emission`
 /// and `Outcome`), the traits it generates (a Signal's `Answering` and
 /// `Answerable`, and `Answer` where a stream answers an input; an Emission's
-/// `Emitted` and `Emittable`), and the enums a Process root holds over its
-/// processes (`Process`, `Gift`, `Taken`, `Outcome`).
+/// `Emitted` and `Emittable`; a Matrix's `Memory` and `Memorizable`), and the
+/// enums a Process root holds over its processes (`Process`, `Gift`, `Taken`,
+/// `Outcome`).
 trait Generated {
     fn generated(&self) -> Vec<Name>;
 }
@@ -508,7 +509,7 @@ impl Generated for File {
                     &["Answering", "Answerable"]
                 }
             }
-            File::Matrix(_) => &["Memory"],
+            File::Matrix(_) => &["Memory", "Memorizable"],
             File::Emission(emission) if !emission.emissions.is_empty() => &["Emitted", "Emittable"],
             File::Process(process) if !process.processes.is_empty() => {
                 &["Process", "Gift", "Taken", "Outcome"]

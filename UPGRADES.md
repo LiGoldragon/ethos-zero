@@ -2,6 +2,18 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 37.0.0: every record of a Matrix bears Memorizable
+
+A Matrix generates, beside its records and `Memory`, the trait `Memorizable`,
+and one impl of it for every record, the declared and the imported alike:
+`type Memory = Memory`, and `recall` reads the record out of the Memory's field
+for it. Repin to 37.0.0; no file is rewritten, and no other root changes. The
+trait says nothing of change, and no Change is generated. `Memorizable` becomes
+a name a Matrix may not declare or import (`Duplicate`, at the later of the
+two, as `Memory`), and a Matrix provides it to the roots read with it. A crate
+that implements a trait of its own named `Memorizable` for a record's type, in
+the module of the generated Matrix, renames it.
+
 ## 36.0.0: the open enum, generated
 
 A Signal's fifth section, read and checked in 35.0.0, is generated. Repin to

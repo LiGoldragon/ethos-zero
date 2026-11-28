@@ -26,3 +26,29 @@ pub struct Memory {
     pub configured: Configured,
     pub event: flow::Event,
 }
+#[rustfmt::skip]
+pub trait Memorizable {
+    type Memory;
+    fn recall(memory: &Self::Memory) -> &Self;
+}
+#[rustfmt::skip]
+impl Memorizable for Watch {
+    type Memory = Memory;
+    fn recall(memory: &Memory) -> &Self {
+        &memory.watch
+    }
+}
+#[rustfmt::skip]
+impl Memorizable for Configured {
+    type Memory = Memory;
+    fn recall(memory: &Memory) -> &Self {
+        &memory.configured
+    }
+}
+#[rustfmt::skip]
+impl Memorizable for flow::Event {
+    type Memory = Memory;
+    fn recall(memory: &Memory) -> &Self {
+        &memory.event
+    }
+}
