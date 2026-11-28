@@ -73,6 +73,7 @@
               library.dependencies;
           rkyv = linked "rkyv";
           datomCodec = linked "datom-codec";
+          protosCrate = linked "protos";
           generatedCrate =
             {
               name,
@@ -80,6 +81,7 @@
               nexus ? "",
               libPath ? "src/lib.rs",
               root ? "",
+              crate ? "",
               features ? [ ],
               dependencies,
               buildTests ? false,
@@ -89,7 +91,7 @@
               version = "0.1.0";
               edition = manifest.package.edition;
               src = pkgs.runCommand "${name}-source" {
-                inherit package fixtures root declarations nexus;
+                inherit package fixtures root crate declarations nexus;
               } (builtins.readFile ./checks/generated-source.sh);
               inherit
                 libPath
@@ -157,8 +159,43 @@
               inherit features dependencies;
               buildTests = true;
             };
+          # The Models Nexus of the open enum: its roots generated together,
+          # its bodies, binaries and beat from tests/models-nexus.
+          modelsNexus =
+            buildTests:
+            generatedCrate {
+              name = "models-nexus";
+              nexus = "nexus/models";
+              root = ./tests/models-nexus/lib.rs;
+              crate = ./tests/models-nexus;
+              features = [ "datom" ];
+              dependencies = [
+                rkyv
+                datomCodec
+                protosCrate
+              ];
+              inherit buildTests;
+            };
         in
         {
+          # The beat: the Nexus binary started on a socket, the client asked
+          # one datom at a time. The test build's binaries live in its build
+          # directory alone, so the beat is pointed at the built ones.
+          models-nexus =
+            let
+              built = modelsNexus false;
+              tested = modelsNexus true;
+            in
+            pkgs.runCommand "models-nexus" { } ''
+              ${resourcePolicy}
+              export MODELS_NEXUS_BIN=${built}/bin/models-nexus
+              export MODELS_BIN=${built}/bin/models
+              for binary in ${tested}/tests/*; do
+                echo "running $(basename "$binary")"
+                "$binary" --nocapture
+              done
+              touch "$out"
+            '';
           nexus-contract = runTests "nexus-contract" (nexusContract [ ] [ rkyv ]);
           nexus-contract-datom = runTests "nexus-contract-datom" (
             nexusContract [ "datom" ] [

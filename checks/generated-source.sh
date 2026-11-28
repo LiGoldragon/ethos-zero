@@ -1,7 +1,8 @@
 # The source of a crate made of what the built tool generates: every
 # declaration, and the roots of a Nexus together, generated into generated/, and the crate root, when one is
-# given, as src/lib.rs, which reaches them as ../generated/<stem>.rs. A
-# refusal is printed before the build fails.
+# given, as src/lib.rs, which reaches them as ../generated/<stem>.rs, and,
+# when a crate directory is given, its bin/ as src/bin/ and its tests/ as
+# tests/. A refusal is printed before the build fails.
 set -eu
 mkdir -p "$out/generated" "$out/src"
 # A Nexus's roots are generated together, whatever order they are listed in.
@@ -25,4 +26,8 @@ for declaration in $declarations; do
 done
 if [ -n "$root" ]; then
   cp "$root" "$out/src/lib.rs"
+fi
+if [ -n "${crate:-}" ]; then
+  if [ -d "$crate/bin" ]; then cp -r "$crate/bin" "$out/src/bin"; fi
+  if [ -d "$crate/tests" ]; then cp -r "$crate/tests" "$out/tests"; fi
 fi
