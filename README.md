@@ -139,9 +139,17 @@ An input or output carries an open enum that it reaches: it names it, bare
 (`Launch.Model`) or by the file's own namespace (`Launch.:flow:signal:Model`,
 the file `signal` given as the namespace `flow`, or of the namespace the set's
 imports name it by), or holds a type the file declares that carries it, through
-struct positions, variant payloads, vectors, options and any type argument, a
-cycle of types walked once (`Launch.Pair` with `Pair.{ Model Effort }` carries
-both). One that no input or output carries is not refused: Check lists it as an
+struct positions, variant payloads, vectors, options and any type argument
+(`Launch.Pair` with `Pair.{ Model Effort }` carries both). What a type reaches
+is decided once for a file, where every file given is seen: the closure over
+what each type it declares holds, in which `Self` adds nothing, so a recursive
+type that holds no open enum reaches none (`Tree.{ Option<Self> Integer }`).
+Check's finding, the `Carried` a Signal exports and the `Opening` Generate
+writes all read that one reach, so `Launch.:flow:signal:Model` and
+`Pair.{ :flow:signal:Model Effort }`, with `signal` given as the namespace
+`flow`, are each read through `Opening` and `Pair` is no type `Model` carries,
+as they are written bare. A file read alone, with no namespace, names itself
+by no source. One that no input or output carries is not refused: Check lists it as an
 `Unused` finding,
 `Checked.{ [ /a/signal.ethos ] [ Unused.{ /a/signal.ethos Model } ] }`
 for `Signal [] [ Launch.String ] [ Launched ] [ TripleEffort.[ Low Medium High ] ] [ Model ]`
@@ -154,8 +162,7 @@ carries (`Launch.Fable.High`). From a Signal's open enums the file generates:
 
 - `Carried`, once for the file: an enum of every type the file declares, one
   variant each, named as the type. A type is left out if it is generic or
-  reaches an open enum by value (or names `Self`), or the value would hold
-  itself. A Signal that declares nothing to carry has no `Carried`, and its
+  reaches an open enum, or the value would hold itself. A Signal that declares nothing to carry has no `Carried`, and its
   open enums' values are their names alone.
 - for each open enum, a module named for it in snake case (`model`), holding
   its contract: the syntax module's `Name`, `Word`, `Import`, `Declaration`,

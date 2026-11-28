@@ -113,6 +113,8 @@ mod nested_collision;
 mod open_enum_bare;
 #[path = "generated/open-enum-held.rs"]
 mod open_enum_held;
+#[path = "generated/open-enum-recursive.rs"]
+mod open_enum_recursive;
 #[path = "generated/open-enum-shadow.rs"]
 mod open_enum_shadow;
 #[path = "generated/open-enum-signal.rs"]
@@ -141,6 +143,13 @@ mod stream_signal;
 mod streamable_trait;
 #[path = "generated/tree-types.rs"]
 mod tree_types;
+
+// The qualified Nexus names its own open enum by its namespace,
+// `:qualified:contract:Model`: here the crate itself is `qualified`, holding
+// the module `contract` its Nexus generated.
+extern crate self as qualified;
+#[path = "generated/nexus/qualified/contract.rs"]
+mod contract;
 
 #[test]
 fn nested_inline_payloads_have_distinct_rust_types() {
@@ -1395,4 +1404,70 @@ fn an_open_enum_of_a_signal_that_declares_no_type_carries_nothing() {
         Input::Model(model::Input::List),
         Input::Model(model::Input::List)
     );
+}
+
+/// The qualified Nexus's registry: Fable, carrying an Effort.
+struct Qualified;
+
+impl contract::model::Registry for Qualified {
+    fn variant(&self, name: &contract::model::Name) -> Option<contract::model::Variant> {
+        (name.0 == "Fable").then(|| contract::model::Variant {
+            name: name.clone(),
+            type_option: Some(contract::model::Type::Name(contract::model::Name(
+                "Effort".to_owned(),
+            ))),
+        })
+    }
+}
+
+#[cfg(feature = "datom")]
+#[test]
+fn an_open_enum_named_by_its_own_namespace_is_read_through_opening() {
+    use contract::{Carried, Effort, Input, Model, Opening, Pair};
+    // Launch carries Model by `:qualified:contract:Model`, and Pair holds it
+    // so: each is read only with the registry, and Pair is carried by none.
+    let fable = Model {
+        name: contract::model::Name("Fable".to_owned()),
+        carried: Some(Carried::Effort(Effort::Low)),
+    };
+    assert_eq!(
+        Input::open(&formed("Launch.Fable.Low"), &mut budget(), &Qualified)
+            .expect("a launch reads"),
+        Input::Launch(fable.clone())
+    );
+    assert_eq!(
+        Input::open(
+            &formed("Hold.{ Fable.Low High }"),
+            &mut budget(),
+            &Qualified
+        )
+        .expect("a held pair reads"),
+        Input::Hold(Pair {
+            model: fable,
+            effort: Effort::High,
+        })
+    );
+}
+
+#[cfg(feature = "datom")]
+#[test]
+fn a_recursive_type_that_holds_no_open_enum_keeps_composing() {
+    use datom_codec::{Actualizing, Potential};
+    use open_enum_recursive::{Carried, Tree};
+    // Self adds nothing to reach: Tree composes without a registry and is a
+    // type Model carries.
+    let tree = Potential::<Tree>::from("{ Some.{ None 1 } 2 }")
+        .actualize(&mut budget())
+        .expect("a tree composes");
+    assert_eq!(
+        tree,
+        Tree {
+            tree_option: Some(Box::new(Tree {
+                tree_option: None,
+                integer: 1,
+            })),
+            integer: 2,
+        }
+    );
+    assert_eq!(<Carried as open_enum_recursive::Carrying>::NAMES, &["Tree"]);
 }

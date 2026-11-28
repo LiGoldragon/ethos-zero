@@ -370,6 +370,42 @@ fn the_committed_modules_are_what_the_nexus_generates() {
     }
 }
 
+/// The qualified Nexus: its Signal `contract` given as the namespace
+/// `qualified` too, so `:qualified:contract:Model` names its own open enum.
+fn qualified() -> Nexus {
+    let mut nexus = fixture("qualified");
+    nexus.namespaces = vec![Namespace {
+        name: "qualified".to_owned(),
+        modules: nexus.modules.clone(),
+    }];
+    nexus
+}
+
+#[test]
+fn an_open_enum_named_by_the_files_own_namespace_is_reached_once_for_check_and_generation() {
+    let root = env!("CARGO_MANIFEST_DIR");
+    let nexus = qualified();
+    // Check: Launch carries Model, so it is no Unused finding.
+    assert_eq!(nexus.unused(), Vec::<Unused>::new());
+    let assembled = nexus.assemble().expect("the qualified Nexus generates");
+    let module = &assembled[0];
+    let committed = std::fs::read_to_string(format!(
+        "{root}/tests/generated/nexus/qualified/{}.rs",
+        module.stem
+    ))
+    .expect("the qualified module is committed");
+    assert_eq!(
+        module.rust, committed,
+        "tests/generated/nexus/qualified/contract.rs is stale; regenerate from fixtures/nexus/qualified"
+    );
+    let rust = squeezed(&module.rust);
+    // Generation reads the same reach: Input and Pair reach Model, so each
+    // is read through Opening, and Pair is no variant of Carried.
+    assert!(rust.contains("impl<Registry:model::Registry>Opening<Registry>forInput"));
+    assert!(rust.contains("impl<Registry:model::Registry>Opening<Registry>forPair"));
+    assert!(rust.contains("pubenumCarried{Effort(Effort),}"));
+}
+
 /// A Nexus whose Signal gives a record and an enum declared in place, and an output
 /// named for a declared type. Its Memory and Process use them as types.
 fn imported_payloads() -> Nexus {

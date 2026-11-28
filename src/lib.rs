@@ -716,6 +716,9 @@ pub struct Scope<'a> {
     /// The namespaces given: an import of one of their modules must find what
     /// it takes there; an import of any other is trusted.
     pub namespaces: &'a [Namespace],
+    /// What the file's types reach, decided once for the file where every
+    /// file given is seen: the open enums each holds.
+    pub reach: &'a reach::Reach,
 }
 
 // ---------------------------------------------------------------------------
@@ -1011,6 +1014,7 @@ mod location;
 mod nexus;
 mod printing;
 mod protosization;
+mod reach;
 mod sectioning;
 mod signature;
 
@@ -1367,6 +1371,7 @@ mod behavior {
             identity: None,
             associated: &[],
             namespaces: &[],
+            reach: &Default::default(),
         };
         assert!(matches!(file.check(&scope), Err(Error::Conceptual(_))));
     }

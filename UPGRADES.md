@@ -2,6 +2,32 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 44.0.0: what a type reaches is decided once
+
+What a type reaches, the open enums it holds, is decided once for a file,
+where every file given is seen, and Check's `Unused` finding, the `Carried` a
+Signal exports and generates, and the `Opening` Generate writes all read that
+one decision. A reference to an open enum by the file's own namespace,
+`Launch.:flow:signal:Model` or `Pair.{ :flow:signal:Model Effort }` with
+`signal` given as the namespace `flow` (or named so by the namespace the set's
+imports infer), now reaches for generation as it did for Check: `Input` and
+`Pair` lose their `Composing` derive and gain an `Opening` impl, and `Pair` is
+no longer a variant of `Carried` (with `Carrying::NAMES` and `name()` to match);
+under 43.0.0 such a file generated an `Input` deriving `Composing` over a
+`Model` that bears none. Reach is the closure over
+what a type holds: `Self` adds nothing, so a recursive type that holds no open
+enum, `Tree.{ Option<Self> Integer }`, keeps `Composing` and is carried. A file
+generated alone (`File::generate`), with no namespace, names itself by no
+source, as before.
+
+To deploy: repin to 44.0.0 and regenerate. A crate whose Signal names its own
+open enum by its namespace reads each type that reaches it with
+`Type::open(&datom, &mut budget, &registry)` where it composed it, and drops any
+`Carried` variant for a type that holds the enum. No Ethos source changes. The
+Rust API of ethos-zero gains a `reach` field in `Scope`, of a type only the
+crate decides; a caller that builds a `Scope` to check a file gives it
+`reach: &Default::default()`, which reaches nothing.
+
 ## 43.0.0: every crate path is written from the extern prelude
 
 The generated Rust writes every path into another crate with a leading `::`:

@@ -2109,6 +2109,7 @@ impl Checkable for Position {
                 identity: None,
                 associated: &[],
                 namespaces: scope.namespaces,
+                reach: scope.reach,
             }),
         }
     }
@@ -2335,6 +2336,7 @@ impl Checkable for TypeDeclaration {
             identity: Some(identity),
             associated: scope.associated,
             namespaces: scope.namespaces,
+            reach: scope.reach,
         };
         match self {
             TypeDeclaration::Struct(_, positions) => positions.check_children(&inner).place(1),
@@ -2575,6 +2577,7 @@ impl Checkable for TraitDeclaration {
                 TraitBody::Complex { types, .. } => types,
             },
             namespaces: scope.namespaces,
+            reach: scope.reach,
         };
         match &self.body {
             TraitBody::Simple(capabilities) => {
@@ -2710,6 +2713,7 @@ impl Validating for File {
             identity: None,
             associated: &[],
             namespaces: &[],
+            reach: &crate::reach::Reach::default(),
         })
     }
 }

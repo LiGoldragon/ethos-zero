@@ -1,0 +1,12 @@
+; Self adds nothing to reach: Tree holds itself and no open enum, so it keeps
+; Composing and is a type Model carries, while Pair, which holds Model, is
+; read only through Opening.
+Signal
+[]
+[ Launch.Pair
+  Plant.Tree ]
+[ Launched
+  Planted ]
+[ Pair.{ Model Tree }
+  Tree.{ Option<Self> Integer } ]
+[ Model ]

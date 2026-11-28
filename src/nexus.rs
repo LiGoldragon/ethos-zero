@@ -31,16 +31,17 @@ use crate::checking::{
     Supplied, Titled, Uniting,
 };
 use crate::generation::{
-    Carriable, Contract, Contractual, DatomDeriving, Emitting, FieldNaming, Identifying, Itemizing,
-    Modulating, Rendering, SnakeCasing, StructFielding, Tokening,
+    Contract, Contractual, DatomDeriving, Emitting, FieldNaming, Identifying, Itemizing,
+    Modulating, ReachGenerating, Rendering, SnakeCasing, StructFielding, Tokening,
 };
+use crate::reach::{Bearing, Reach, Reaching, Reckoning};
 use crate::sectioning::{ReferencingEach, Sectioning};
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring, Constraint,
-    Entry, Error, File, Generating, Identity, Import, Imported, Misrooted_Data, Name, Named,
-    NamedReference, Organism, Pointer, Position, Problem, ProcessDeclaration, Reference,
-    ReferenceAccess, Resolution, Resolving, Root, Rooted, Scope, Signature, Source, Spelled,
-    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
+    Entry, Error, File, Identity, Import, Imported, Misrooted_Data, Name, Named, NamedReference,
+    Organism, Pointer, Position, Problem, ProcessDeclaration, Reference, ReferenceAccess,
+    Resolution, Resolving, Root, Rooted, Scope, Signature, Source, Spelled, TraitBody,
+    TraitDeclaration, TypeDeclaration, Variant,
 };
 
 /// One root file of a Nexus and the name its module bears: the file's stem.
@@ -530,11 +531,11 @@ impl Finding for Nexus {
 /// enums a Process root holds over its processes (`Process`, `Gift`, `Taken`,
 /// `Outcome`).
 trait Generated {
-    fn generated(&self) -> Vec<Name>;
+    fn generated(&self, reach: &Reach) -> Vec<Name>;
 }
 
 impl Generated for File {
-    fn generated(&self) -> Vec<Name> {
+    fn generated(&self, reach: &Reach) -> Vec<Name> {
         let mut names = Vec::new();
         for implied in self.implied_enums() {
             if !implied.variants.is_empty() || !self.opened().is_empty() {
@@ -548,6 +549,7 @@ impl Generated for File {
                     identity: None,
                     associated: &[],
                     namespaces: &[],
+                    reach: &Reach::default(),
                 };
                 let mut streaming = false;
                 for output in signal.outputs.iter().take(signal.inputs.len()) {
@@ -579,9 +581,9 @@ impl Generated for File {
             names.push(Name::try_from(*name).expect("a generated name is an identifier"));
         }
         // What a Signal's open enums generate beside them, once for the file:
-        // `Carried` and its `Carrying` where they carry any type, as
-        // generation decides it.
-        if !self.carriable().is_empty() {
+        // `Carried` and its `Carrying` where they carry any type, by the
+        // reach generation reads.
+        if !reach.carriable(self).is_empty() {
             for name in ["Carried", "Carrying"] {
                 names.push(Name::try_from(name).expect("a generated name is an identifier"));
             }
@@ -594,14 +596,15 @@ impl Generated for File {
 }
 
 /// The trait whose capability says whether a root exports a name: one it
-/// declares ([`Providing`]) or one it generates ([`Generated`]).
+/// declares ([`Providing`]) or one it generates ([`Generated`]), by the reach
+/// decided where it was read.
 trait Exported {
     fn exports(&self, name: &Name) -> bool;
 }
 
-impl Exported for File {
+impl Exported for (&File, &Reach) {
     fn exports(&self, name: &Name) -> bool {
-        self.provides(name) || self.generated().contains(name)
+        self.0.provides(name) || self.0.generated(self.1).contains(name)
     }
 }
 
@@ -609,7 +612,8 @@ impl Exported for File {
 /// what the contract's root declares or generates, and its `Registry`.
 impl Exported for Contract {
     fn exports(&self, name: &Name) -> bool {
-        self.file().exports(name) || &self.registry() == name
+        let file = self.file();
+        (&file, &file.reckon(vec![])).exports(name) || &self.registry() == name
     }
 }
 
@@ -710,7 +714,7 @@ impl Exporting for [Namespace] {
         let mut named = false;
         for namespace in self {
             for module in namespace.addressed(source) {
-                if module.file.exports(name) {
+                if (&module.file, &namespace.reach(module)).exports(name) {
                     return Export::Provided;
                 }
                 named = true;
@@ -969,7 +973,11 @@ impl Trusting for Nexus {
                 // A name the set's own namespace resolves, in the root it lands on.
                 if let Some(namespace) = &inferred
                     && let Some(target) = self.module(source, namespace)
-                    && self.modules[target].file.exports(name)
+                    && (
+                        &self.modules[target].file,
+                        &self.reach(target, Some(namespace)),
+                    )
+                        .exports(name)
                 {
                     continue;
                 }
@@ -1006,14 +1014,6 @@ impl Trusting for Nexus {
     }
 }
 
-/// One Signal root of the Nexus as what it carries is read: the Nexus, the
-/// root's place in it, and the namespace the set names its roots by, if any.
-struct Bearer<'a> {
-    nexus: &'a Nexus,
-    module: usize,
-    inferred: Option<&'a str>,
-}
-
 /// The trait whose capability says whether a source names a root of the Nexus
 /// itself: by the namespace the set names its roots by, or by a namespace
 /// given, one of whose modules it names is that root, `:flow:signal` of the
@@ -1040,87 +1040,51 @@ impl Homing for Nexus {
     }
 }
 
-/// The trait whose capability says whether a value carries an open enum of
-/// its root: it names it, bare or by the root's own namespace
-/// (`:flow:signal:Model`), or holds a type the root declares that carries it,
-/// through struct positions, variant payloads, vectors, options and any type
-/// argument, each declared type walked once.
-trait Bearing {
-    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool;
+/// The trait whose capability decides what a root's types reach, where every
+/// file given is seen: the sources the root writes that name it, by the
+/// namespace the set names its roots by or by a namespace given, are its own.
+pub(crate) trait Reckoned {
+    fn reach(&self, module: usize, inferred: Option<&str>) -> Reach;
 }
 
-impl Bearing for Reference {
-    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool {
-        let reference = match self {
-            Reference::Vector(element) => return element.bears(open, bearer, visited),
-            Reference::Named(reference) => reference,
-        };
-        let home = match &reference.source {
-            None => true,
-            Some(source) => bearer
-                .nexus
-                .names_root(source, bearer.module, bearer.inferred),
-        };
-        if home {
-            if &reference.name == open {
-                return true;
+impl Reckoned for Nexus {
+    fn reach(&self, module: usize, inferred: Option<&str>) -> Reach {
+        let file = &self.modules[module].file;
+        let mut mentioned = Vec::new();
+        file.mention(&mut mentioned);
+        let mut homes: Vec<Source> = Vec::new();
+        for (source, _) in mentioned {
+            if !homes.contains(source) && self.names_root(source, module, inferred) {
+                homes.push(source.clone());
             }
-            let file = &bearer.nexus.modules[bearer.module].file;
-            if !visited.contains(&reference.name)
-                && let Some(declaration) = file.declaration(&reference.name)
+        }
+        file.reckon(homes)
+    }
+}
+
+/// The trait whose capability decides what a module of a namespace given
+/// reaches: the sources it writes that address it within the namespace are
+/// its own.
+trait NamespaceReckoned {
+    fn reach(&self, module: &Module) -> Reach;
+}
+
+impl NamespaceReckoned for Namespace {
+    fn reach(&self, module: &Module) -> Reach {
+        let mut mentioned = Vec::new();
+        module.file.mention(&mut mentioned);
+        let mut homes: Vec<Source> = Vec::new();
+        for (source, _) in mentioned {
+            if !homes.contains(source)
+                && self
+                    .addressed(source)
+                    .into_iter()
+                    .any(|addressed| addressed == module)
             {
-                visited.push(reference.name.clone());
-                if declaration.bears(open, bearer, visited) {
-                    return true;
-                }
+                homes.push(source.clone());
             }
         }
-        reference.arguments.bears(open, bearer, visited)
-    }
-}
-
-impl Bearing for TypeDeclaration {
-    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool {
-        match self {
-            TypeDeclaration::Struct(_, positions) => positions.bears(open, bearer, visited),
-            TypeDeclaration::Enum(_, variants) => variants.bears(open, bearer, visited),
-            TypeDeclaration::Alias(_, aliased) => aliased.bears(open, bearer, visited),
-        }
-    }
-}
-
-impl Bearing for Position {
-    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool {
-        match self {
-            Position::Referenced(reference) => reference.bears(open, bearer, visited),
-            Position::Declared(declaration) => declaration.bears(open, bearer, visited),
-        }
-    }
-}
-
-/// A bare variant carries the type the root declares of its name, if any.
-impl Bearing for Variant {
-    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool {
-        match self {
-            Variant::Bare(name) => {
-                let file = &bearer.nexus.modules[bearer.module].file;
-                file.declaration(name).is_some() && name.referring().bears(open, bearer, visited)
-            }
-            Variant::Typed(_, reference) => reference.bears(open, bearer, visited),
-            Variant::Struct(_, positions) => positions.bears(open, bearer, visited),
-            Variant::Enum(_, variants) => variants.bears(open, bearer, visited),
-        }
-    }
-}
-
-impl<B: Bearing> Bearing for [B] {
-    fn bears(&self, open: &Name, bearer: &Bearer<'_>, visited: &mut Vec<Name>) -> bool {
-        for element in self {
-            if element.bears(open, bearer, visited) {
-                return true;
-            }
-        }
-        false
+        module.file.reckon(homes)
     }
 }
 
@@ -1132,15 +1096,9 @@ impl Using for Nexus {
             let File::Signal(signal) = &module.file else {
                 continue;
             };
-            let bearer = Bearer {
-                nexus: self,
-                module: index,
-                inferred: inferred.as_deref(),
-            };
+            let reach = self.reach(index, inferred.as_deref());
             for name in signal.open.iter().flatten() {
-                if signal.inputs.bears(name, &bearer, &mut vec![])
-                    || signal.outputs.bears(name, &bearer, &mut vec![])
-                {
+                if signal.inputs.bears(name, &reach) || signal.outputs.bears(name, &reach) {
                     continue;
                 }
                 unused.push(Unused {
@@ -1231,6 +1189,7 @@ impl Carriage for Variant {
             identity: None,
             associated: &[],
             namespaces: &[],
+            reach: &Reach::default(),
         };
         let owner = Name::try_from(owner).expect("a root's implied enum is named");
         match self {
@@ -1381,6 +1340,7 @@ impl Describing for Nexus {
             identity: None,
             associated: &[],
             namespaces: &[],
+            reach: &Reach::default(),
         };
         // A process this root declares, born of the process that gives it.
         if scope.file.declaration(name).is_some() {
@@ -1547,6 +1507,7 @@ impl Describing for Nexus {
             identity: None,
             associated: &[],
             namespaces: &[],
+            reach: &Reach::default(),
         };
         let mut described: Vec<Described> = Vec::new();
         for (at, declaration) in file.processes.iter().enumerate() {
@@ -2207,6 +2168,7 @@ impl Verifying for Nexus {
                 identity: None,
                 associated: &[],
                 namespaces: &self.namespaces,
+                reach: &Reach::default(),
             };
             if let Err(error) = module.file.check(&scope) {
                 return Err(Refusal {
@@ -2270,6 +2232,7 @@ impl Assembling for Nexus {
                         identity: None,
                         associated: &[],
                         namespaces: &[],
+                        reach: &stripped.reckon(vec![]),
                     };
                     let mut items = stripped.items(&scope);
                     if !described.is_empty() {
@@ -2288,7 +2251,11 @@ impl Assembling for Nexus {
                 | File::Matrix(_)
                 | File::Emission(_)
                 | File::Organism(_) => {
-                    match self.resolved(index, namespace.as_deref()).generate() {
+                    let reach = self.reach(index, namespace.as_deref());
+                    match self
+                        .resolved(index, namespace.as_deref())
+                        .generate_within(&reach)
+                    {
                         Ok(rust) => rust,
                         Err(error) => {
                             return Err(Refusal {

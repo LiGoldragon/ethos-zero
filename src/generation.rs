@@ -25,6 +25,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 
 use crate::checking::{Carrying, Declaring, Inlining, Spanning, Streaming, Titled, Uniting};
+use crate::reach::{Bearing, Reach, Reaching as _, Reckoning};
 use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
@@ -276,6 +277,7 @@ impl Parametrizing for Identity {
             identity: None,
             associated: scope.associated,
             namespaces: scope.namespaces,
+            reach: scope.reach,
         };
         let mut parameters = Vec::with_capacity(self.constraints.len());
         for (index, constraint) in self.constraints.iter().enumerate() {
@@ -968,6 +970,7 @@ impl Structuring for [Position] {
             identity: None,
             associated: &[],
             namespaces: scope.namespaces,
+            reach: scope.reach,
         };
         let mut declared = Vec::new();
         for position in self {
@@ -1000,13 +1003,13 @@ impl StructFielding for [Reference] {
             archivals.push(position.archival(scope, owner));
             recursive |= position.recursive(scope, owner);
         }
-        let opens = self.opens_reached(scope.file);
+        let opens = scope.reach.opens_held(self);
         let (derive, opening) = if opens.is_empty() || !identity.constraints.is_empty() {
             (identity.datom_derives(), TokenStream::new())
         } else {
             (
                 identity.writing_derives(),
-                identity.open_impl(&opens, self.struct_reading(scope.file, fields)),
+                identity.open_impl(&opens, self.struct_reading(scope.reach, fields)),
             )
         };
         let bounds = if recursive {
@@ -1027,7 +1030,7 @@ impl Enumerating for [Variant] {
     fn enumeration(&self, scope: &Scope, owner: &Name, identity: &Identity) -> TokenStream {
         let name = identity.name.tokens();
         let parameters = identity.parameters(scope);
-        let opens = self.opens_reached(scope.file);
+        let opens = scope.reach.opens_held(self);
         let (derive, opening) = if opens.is_empty() || !identity.constraints.is_empty() {
             (identity.datom_derives(), TokenStream::new())
         } else {
@@ -1068,6 +1071,7 @@ impl Emitting for TypeDeclaration {
                     identity: Some(identity),
                     associated: scope.associated,
                     namespaces: scope.namespaces,
+                    reach: scope.reach,
                 };
                 positions.structure(&inner, &identity.name, identity)
             }
@@ -1077,6 +1081,7 @@ impl Emitting for TypeDeclaration {
                     identity: Some(identity),
                     associated: scope.associated,
                     namespaces: scope.namespaces,
+                    reach: scope.reach,
                 };
                 variants.enumeration(&inner, &identity.name, identity)
             }
@@ -1086,12 +1091,13 @@ impl Emitting for TypeDeclaration {
                     identity: Some(identity),
                     associated: scope.associated,
                     namespaces: scope.namespaces,
+                    reach: scope.reach,
                 };
                 let name = identity.name.tokens();
                 let parameters = identity.parameters(&inner);
                 let aliased_reference = aliased;
                 let aliased = aliased.emit(&inner);
-                let opens = aliased_reference.opens_reached(scope.file);
+                let opens = scope.reach.opens_held(aliased_reference);
                 let (derive, opening) = match aliased_reference.scalar(&inner) {
                     Some(scalar) => (identity.scalar_datom_derives(scalar), TokenStream::new()),
                     None if opens.is_empty() || !identity.constraints.is_empty() => {
@@ -1294,6 +1300,7 @@ impl Emitting for TraitDeclaration {
             identity: Some(&self.identity),
             associated: types,
             namespaces: scope.namespaces,
+            reach: scope.reach,
         };
         let name = self.identity.name.tokens();
         let parameters = self.identity.parameters(&inner);
@@ -1330,6 +1337,7 @@ impl Emitting for Association {
             identity: Some(&self.identity),
             associated: scope.associated,
             namespaces: scope.namespaces,
+            reach: scope.reach,
         };
         let subject = Reference::Named(NamedReference {
             source: None,
@@ -1990,11 +1998,13 @@ trait Contracted {
 impl Contracted for Name {
     fn contract(&self) -> TokenStream {
         let file = Contract.file();
+        let reach = file.reckon(vec![]);
         let scope = Scope {
             file: &file,
             identity: None,
             associated: &[],
             namespaces: &[],
+            reach: &reach,
         };
         let items = file.items(&scope);
         let module = self.module();
@@ -2011,69 +2021,16 @@ impl Contracted for Name {
     }
 }
 
-/// The trait whose capability yields the types a Signal's open enums can
-/// carry, each a variant of its `Carried`: every type the file declares that is
-/// not generic and reaches no open enum, which would make the value hold
-/// itself. None leaves the file without `Carried`, which it then neither
-/// generates nor exports.
-pub(crate) trait Carriable {
-    fn carriable(&self) -> Vec<&TypeDeclaration>;
-}
-
-impl Carriable for File {
-    fn carriable(&self) -> Vec<&TypeDeclaration> {
-        let opened = self.opened();
-        let mut carriable = Vec::new();
-        if opened.is_empty() {
-            return carriable;
-        }
-        for declaration in self.types() {
-            if !crate::checking::Identified::identity(declaration)
-                .constraints
-                .is_empty()
-            {
-                continue;
-            }
-            let mut holding = false;
-            for open in opened {
-                holding |= declaration.reaches(open, Passage::Any, self, &mut vec![]);
-            }
-            if !holding {
-                carriable.push(declaration);
-            }
-        }
-        carriable
-    }
-}
-
-/// The trait whose capability names the open enums of the file a value
-/// reaches, as carrying reaches: through every type the file declares, its
-/// positions, payloads, vectors and options. A type that reaches one is read
-/// only through `Opening`, with a registry of each.
-trait OpenReaching {
-    fn opens_reached(&self, file: &File) -> Vec<Name>;
-}
-
-impl<Reached: Reaching + ?Sized> OpenReaching for Reached {
-    fn opens_reached(&self, file: &File) -> Vec<Name> {
-        file.opened()
-            .iter()
-            .filter(|open| self.reaches(open, Passage::Any, file, &mut vec![]))
-            .cloned()
-            .collect()
-    }
-}
-
 /// The trait whose capability yields the reading of one child datom: through
 /// `Opening` with the registry where the child reaches an open enum, through
 /// `Composing` where it does not, each within the composition depth.
 trait ChildReading {
-    fn child_reading(&self, file: &File, child: TokenStream) -> TokenStream;
+    fn child_reading(&self, reach: &Reach, child: TokenStream) -> TokenStream;
 }
 
-impl<Reached: OpenReaching + ?Sized> ChildReading for Reached {
-    fn child_reading(&self, file: &File, child: TokenStream) -> TokenStream {
-        if self.opens_reached(file).is_empty() {
+impl<Held: Bearing + ?Sized> ChildReading for Held {
+    fn child_reading(&self, reach: &Reach, child: TokenStream) -> TokenStream {
+        if reach.opens_held(self).is_empty() {
             quote! { ::datom_codec::Composable::compose(#child, budget)? }
         } else {
             quote! {
@@ -2119,16 +2076,16 @@ impl OpenImplementing for Identity {
 /// positions, as the `Composing` derive reads one: a struct form of its
 /// arity, each position in order.
 trait StructReading {
-    fn struct_reading(&self, file: &File, fields: &[Ident]) -> TokenStream;
+    fn struct_reading(&self, reach: &Reach, fields: &[Ident]) -> TokenStream;
 }
 
 impl StructReading for [Reference] {
-    fn struct_reading(&self, file: &File, fields: &[Ident]) -> TokenStream {
+    fn struct_reading(&self, reach: &Reach, fields: &[Ident]) -> TokenStream {
         let arity = proc_macro2::Literal::usize_unsuffixed(self.len());
         let mut reads = Vec::with_capacity(self.len());
         for (index, reference) in self.iter().enumerate() {
             let index = proc_macro2::Literal::usize_unsuffixed(index);
-            reads.push(reference.child_reading(file, quote! { &children[#index] }));
+            reads.push(reference.child_reading(reach, quote! { &children[#index] }));
         }
         quote! {
             ::datom_codec::Budgeted::spend(budget, &datom.path)?;
@@ -2187,7 +2144,7 @@ impl EnumReading for [Variant] {
             if carries {
                 carriers.push(name.tokens());
                 carrier_spellings.push(name.0.clone());
-                reads.push(variant.child_reading(scope.file, quote! { body }));
+                reads.push(variant.child_reading(scope.reach, quote! { body }));
             } else {
                 units.push(name.tokens());
                 unit_spellings.push(name.0.clone());
@@ -2273,7 +2230,7 @@ impl Opening for File {
         let mut variants = Vec::new();
         let mut names = Vec::new();
         let mut spellings = Vec::new();
-        for declaration in self.carriable() {
+        for declaration in scope.reach.carriable(self) {
             let identity = crate::checking::Identified::identity(declaration);
             variants.push(Variant::Typed(
                 identity.name.clone(),
@@ -2590,14 +2547,29 @@ impl Opening for File {
     }
 }
 
+/// A file read alone names itself by no source: only what it names bare is
+/// its own, and its reach is decided from the file alone.
 impl Generating for File {
     fn generate(&self) -> Result<String, crate::Error> {
+        self.generate_within(&self.reckon(vec![]))
+    }
+}
+
+/// The trait whose capability generates a file's Rust module by a reach
+/// decided where it was read: a Nexus decides it with every file given.
+pub(crate) trait ReachGenerating {
+    fn generate_within(&self, reach: &Reach) -> Result<String, crate::Error>;
+}
+
+impl ReachGenerating for File {
+    fn generate_within(&self, reach: &Reach) -> Result<String, crate::Error> {
         crate::Validating::validate(self)?;
         let scope = Scope {
             file: self,
             identity: None,
             associated: &[],
             namespaces: &[],
+            reach,
         };
         Ok(self.items(&scope).render())
     }

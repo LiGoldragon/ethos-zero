@@ -1,0 +1,13 @@
+; An open enum named by the file's own namespace reaches as one named bare:
+; with contract given as the namespace qualified, Launch reaches Model and so
+; does Pair, which holds it; both are read only through Opening, and Pair is
+; no type Model carries. Effort reaches nothing and is carried.
+Signal
+[]
+[ Launch.:qualified:contract:Model
+  Hold.Pair ]
+[ Launched
+  Refused.String ]
+[ Pair.{ :qualified:contract:Model Effort }
+  Effort.[ Low High ] ]
+[ Model ]
