@@ -31,8 +31,8 @@ use crate::checking::{
     Supplied, Titled, Uniting,
 };
 use crate::generation::{
-    DatomDeriving, Emitting, FieldNaming, Identifying, Itemizing, Rendering, SnakeCasing,
-    StructFielding, Tokening,
+    Carriable, DatomDeriving, Emitting, FieldNaming, Identifying, Itemizing, Rendering,
+    SnakeCasing, StructFielding, Tokening,
 };
 use crate::sectioning::{ReferencingEach, Sectioning};
 use crate::{
@@ -547,11 +547,13 @@ impl Generated for File {
         for name in traits {
             names.push(Name::try_from(*name).expect("a generated name is an identifier"));
         }
-        // What a Signal's open enums generate beside them, once for the file.
+        // What a Signal's open enums generate beside them, once for the file:
+        // `Carried` where they carry any type, as generation decides it.
+        if !self.carriable().is_empty() {
+            names.push(Name::try_from("Carried").expect("a generated name is an identifier"));
+        }
         if !self.opened().is_empty() {
-            for name in ["Carried", "Opening"] {
-                names.push(Name::try_from(name).expect("a generated name is an identifier"));
-            }
+            names.push(Name::try_from("Opening").expect("a generated name is an identifier"));
         }
         names
     }

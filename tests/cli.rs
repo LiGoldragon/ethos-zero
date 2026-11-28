@@ -781,6 +781,39 @@ fn check_lists_findings_file_by_file_in_the_order_given_each_in_the_order_of_its
     );
 }
 
+#[test]
+fn a_signal_exports_carried_only_where_its_open_enums_carry_a_type() {
+    let directory = "exported-carried".scratch();
+    let importing = directory.write_source(
+        "importing",
+        "Library\n[ :flow:signal:[ Carried ] ]\n[]\n[]\n[]\n",
+    );
+    let bare =
+        format!("{directory}/bare/flow").write_source("signal", "Signal [] [] [] [] [ Model ]");
+    let carrying = format!("{directory}/carrying/flow")
+        .write_source("signal", "Signal [] [] [] [ Mark.String ] [ Model ]");
+    let checked = |signal: &str| {
+        format!(
+            "Check.{{ [ {} ] [ {{ flow [ {} ] }} ] }}",
+            opaque(&importing),
+            opaque(signal)
+        )
+    };
+    assert_eq!(
+        [checked(&bare).as_str()].invoke(),
+        (
+            false,
+            format!(
+                "Rejected.{{ {importing} {{ 2 18 }} Conceptual.{{ [ 1 0 1 0 ] UnknownName.{{ flow:signal Carried }} }} }}\n"
+            )
+        )
+    );
+    assert_eq!(
+        [checked(&carrying).as_str()].invoke(),
+        (true, format!("Checked.{{ [ {importing} ] [] }}\n"))
+    );
+}
+
 /// The namespace `flow` of two Signals, `signal` and `meta`, each of one input
 /// and one output, given with a query.
 fn two_signal_namespaces(directory: &str) -> String {

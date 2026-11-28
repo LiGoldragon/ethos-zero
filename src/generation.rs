@@ -1912,6 +1912,41 @@ impl Contracted for Name {
     }
 }
 
+/// The trait whose capability yields the types a Signal's open enums can
+/// carry, each a variant of its `Carried`: every type the file declares that is
+/// not generic and reaches no open enum, which would make the value hold
+/// itself. None leaves the file without `Carried`, which it then neither
+/// generates nor exports.
+pub(crate) trait Carriable {
+    fn carriable(&self) -> Vec<&TypeDeclaration>;
+}
+
+impl Carriable for File {
+    fn carriable(&self) -> Vec<&TypeDeclaration> {
+        let opened = self.opened();
+        let mut carriable = Vec::new();
+        if opened.is_empty() {
+            return carriable;
+        }
+        for declaration in self.types() {
+            if !crate::checking::Identified::identity(declaration)
+                .constraints
+                .is_empty()
+            {
+                continue;
+            }
+            let mut holding = false;
+            for open in opened {
+                holding |= declaration.reaches(open, Passage::Any, self, &mut vec![]);
+            }
+            if !holding {
+                carriable.push(declaration);
+            }
+        }
+        carriable
+    }
+}
+
 /// The trait whose capability yields the items a Signal's open enums
 /// generate. Once for the file, `Carried`, an enum of every type the file
 /// declares, one variant each, and `Opening`, by which a datom is read with
@@ -1937,18 +1972,8 @@ impl Opening for File {
         let mut variants = Vec::new();
         let mut names = Vec::new();
         let mut spellings = Vec::new();
-        for declaration in self.types() {
+        for declaration in self.carriable() {
             let identity = crate::checking::Identified::identity(declaration);
-            if !identity.constraints.is_empty() {
-                continue;
-            }
-            let mut holding = false;
-            for open in opened {
-                holding |= declaration.reaches(open, Passage::Any, self, &mut vec![]);
-            }
-            if holding {
-                continue;
-            }
             variants.push(Variant::Typed(
                 identity.name.clone(),
                 identity.name.carried(),

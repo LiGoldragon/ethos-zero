@@ -2,6 +2,15 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 39.0.1: a Signal exports Carried only where it generates it
+
+A Signal of open enums exports `Carried` only where it generates it, where its
+open enums carry a type the file declares; the decision is one, read by
+generation and export alike. Repin to 39.0.1. An import of `Carried` from a
+Signal that has nothing to carry, which passed Check and named no Rust item, is
+refused as `UnknownName.{ flow:signal Carried }` at the name; remove it. Any
+other import, and the Rust generated, are as in 39.0.0.
+
 ## 39.0.0: Check's findings, the unused open enum among them
 
 The second position of `Checked` is every finding, no longer the unchecked

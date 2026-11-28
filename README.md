@@ -196,7 +196,8 @@ derive; the runtime reads the value with `Opening`. An open enum is a name of
 its own: an input or output of its name, `Carried` or `Opening` among the
 types, is `Duplicate`; `Carried` and `Opening` are reserved only in a Signal of
 open enums. A Nexus exports the open enum, `Carried` and `Opening` of a Signal
-to its importers by name. `fixtures/open-enum-signal.ethos`, `open-enum-held.ethos`
+to its importers by name, `Carried` only where the Signal generates it: an
+import of it from a Signal that has nothing to carry is `UnknownName`. `fixtures/open-enum-signal.ethos`, `open-enum-held.ethos`
 (two open enums, a type that holds them) and `open-enum-bare.ethos` (no type)
 are generated into `tests/generated/` and built with and without `datom`.
 
