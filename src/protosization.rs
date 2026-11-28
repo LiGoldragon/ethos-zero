@@ -6,9 +6,9 @@ use protos::{
 
 use crate::{
     AssociatedConstant, AssociatedType, Association, Capability, Constraint, Emission, Entry, File,
-    Identity, Import, Imported, Library, Memory, Operation, Position, Process, ProcessDeclaration,
-    Receiver, Reference, ReferenceAccess, Signal, Signature, Source, Spelled, TraitBody,
-    TraitDeclaration, TypeDeclaration, Variant,
+    Identity, Import, Imported, Library, Matrix, Memory, Operation, Position, Process,
+    ProcessDeclaration, Receiver, Reference, ReferenceAccess, Signal, Signature, Source, Spelled,
+    TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
 
 pub(crate) trait Protosizing {
@@ -541,7 +541,18 @@ impl Protosizing for Memory {
         )
     }
 }
-/// The trait whose capability writes the entries of a Memory section: a name
+impl Protosizing for Matrix {
+    fn protos(&self) -> Protos {
+        "".enclosed(
+            Enclosure::Braced,
+            vec![
+                "".enclosed(Enclosure::Bracketed, self.imports.import_nodes()),
+                "".enclosed(Enclosure::Bracketed, self.records.entry_nodes()),
+            ],
+        )
+    }
+}
+/// The trait whose capability writes the entries of a Memory or Matrix section: a name
 /// bare, a declaration as a declaration is written.
 trait EntriesProtosizing {
     fn entry_nodes(&self) -> Vec<Protos>;
@@ -569,6 +580,7 @@ impl Protosizing for File {
                 "Operation".headed(None, Separator::Period, operation.protos())
             }
             Self::Memory(memory) => "Memory".headed(None, Separator::Period, memory.protos()),
+            Self::Matrix(matrix) => "Matrix".headed(None, Separator::Period, matrix.protos()),
             Self::Emission(emission) => {
                 "Emission".headed(None, Separator::Period, emission.protos())
             }

@@ -174,7 +174,7 @@ impl AsRef<str> for Source {
     }
 }
 
-/// The unit of declaration: one file, one Rust module; an enum of its six roots.
+/// The unit of declaration: one file, one Rust module; an enum of its seven roots.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum File {
     /// Library: imports, types, traits and associations in that order.
@@ -185,6 +185,8 @@ pub enum File {
     Operation(Operation),
     /// Memory: imports, the record types stored.
     Memory(Memory),
+    /// Matrix: imports, the records stored.
+    Matrix(Matrix),
     /// Emission: imports, the emission variants, the outcome variants, the types they carry.
     Emission(Emission),
     /// Process: imports, the processes, the types their outcomes carry.
@@ -202,6 +204,8 @@ pub enum Root {
     Operation,
     /// The memory root: what a Nexus remembers.
     Memory,
+    /// The matrix root: the records a Nexus stores.
+    Matrix,
     /// The emission root: what a Nexus sends into the world.
     Emission,
     /// The process root: what a Nexus is doing, each thing being done one
@@ -277,7 +281,23 @@ pub struct Memory {
     pub types: Vec<TypeDeclaration>,
 }
 
-/// An entry of a Memory section that holds types by name: a type declared in
+/// The matrix variant of a file: the database of a Nexus, its record types,
+/// in two sections.
+///
+/// A record is a type declared in place, `Watch.{ FlowId FilePath }`, or a
+/// name the file imports, a bare `Observed`; there is no types section. The
+/// file generates its records as any declaration is generated, and
+/// `pub struct Memory` over all of them, one field per record, so `Memory` is
+/// a name a Matrix may not declare.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Matrix {
+    /// Where imported names come from.
+    pub imports: Vec<Import>,
+    /// The records kept.
+    pub records: Vec<Entry>,
+}
+
+/// An entry of a Memory or Matrix section that holds types by name: a type declared in
 /// place, or a name the file imports or declares elsewhere, such as a record
 /// of an imported type, or the standard `Answer` for a change.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -833,6 +853,7 @@ impl Named for Root {
             Root::Signal => "Signal",
             Root::Operation => "Operation",
             Root::Memory => "Memory",
+            Root::Matrix => "Matrix",
             Root::Emission => "Emission",
             Root::Process => "Process",
         }
@@ -846,6 +867,7 @@ impl Identifiable for Root {
             Root::Signal,
             Root::Operation,
             Root::Memory,
+            Root::Matrix,
             Root::Emission,
             Root::Process,
         ] {
@@ -875,6 +897,7 @@ impl Rooted for File {
             File::Signal(_) => Root::Signal,
             File::Operation(_) => Root::Operation,
             File::Memory(_) => Root::Memory,
+            File::Matrix(_) => Root::Matrix,
             File::Emission(_) => Root::Emission,
             File::Process(_) => Root::Process,
         }

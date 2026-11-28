@@ -1356,10 +1356,15 @@ impl Itemizing for File {
             File::Signal(_)
             | File::Operation(_)
             | File::Memory(_)
+            | File::Matrix(_)
             | File::Emission(_)
             | File::Process(_) => {
                 for declaration in self.listed_declarations() {
                     items.push(declaration.emit(scope));
+                }
+                // A Matrix's `Memory`: one field per record.
+                if let Some(memory) = self.matrix_memory() {
+                    items.push(memory.emit(scope));
                 }
                 // The unit each bare emission is, a struct of no fields: it
                 // bears Emitted, and its variant in the enum carries nothing,
@@ -1393,9 +1398,11 @@ impl Itemizing for File {
                 let implied = match self {
                     File::Signal(signal) => signal.implied_traits(scope),
                     File::Emission(emission) => emission.implied_traits(scope),
-                    File::Library(_) | File::Operation(_) | File::Memory(_) | File::Process(_) => {
-                        vec![]
-                    }
+                    File::Library(_)
+                    | File::Operation(_)
+                    | File::Memory(_)
+                    | File::Matrix(_)
+                    | File::Process(_) => vec![],
                 };
                 for item in implied {
                     items.push(quote! { #[rustfmt::skip] #item });

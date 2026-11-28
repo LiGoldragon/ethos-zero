@@ -15,11 +15,11 @@ use crate::sectioning::{Hoisting, Referencing, ReferencingEach, Sectioning};
 use crate::signature::{Place, Stance, Standing};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
-    Constraint, Emission, Entry, Error, File, Identifiable, Identity, Import, Intrinsic, Memory,
-    Name, NamedReference, Operation, Placing, Position, Problem, Process, ProcessDeclaration,
-    Reference, ReferenceAccess, Resolution, Resolving, Role, Scope, Signal, Signature, Source,
-    Spelled, TraitBody, TraitDeclaration, TypeDeclaration, UnknownName_Data, Validating, Variant,
-    Wrapping_Data,
+    Constraint, Emission, Entry, Error, File, Identifiable, Identity, Import, Intrinsic, Matrix,
+    Memory, Name, NamedReference, Operation, Placing, Position, Problem, Process,
+    ProcessDeclaration, Reference, ReferenceAccess, Resolution, Resolving, Role, Scope, Signal,
+    Signature, Source, Spelled, TraitBody, TraitDeclaration, TypeDeclaration, UnknownName_Data,
+    Validating, Variant, Wrapping_Data,
 };
 
 /// A schema must remain small enough for complete whole-file checking to have
@@ -902,6 +902,7 @@ impl Checkable for File {
             File::Signal(signal) => signal.check(scope),
             File::Operation(operation) => operation.check(scope),
             File::Memory(memory) => memory.check(scope),
+            File::Matrix(matrix) => matrix.check(scope),
             File::Emission(emission) => emission.check(scope),
             File::Process(process) => process.check(scope),
         };
@@ -1004,6 +1005,24 @@ impl FieldsDistinct for File {
         }
         for root in self.inline_roots() {
             root.variants.variants_distinct(&root.owner, &root.path)?;
+        }
+        if let Some(TypeDeclaration::Struct(identity, positions)) = self.matrix_memory() {
+            // A field of the Memory is named for its record; the record at
+            // the position that meets another is the one refused.
+            let File::Matrix(matrix) = self else {
+                return Ok(());
+            };
+            let fields = positions.references().field_names(&identity.name);
+            let mut at = 0;
+            for (index, entry) in matrix.records.iter().enumerate() {
+                if fields[..index].contains(&fields[index]) {
+                    return Err(Error::conceptual(
+                        vec![1, at],
+                        Problem::DuplicateField(fields[index].to_string()),
+                    ));
+                }
+                at += entry.span();
+            }
         }
         Ok(())
     }
@@ -1254,6 +1273,19 @@ impl Declared for Memory {
     }
 }
 
+impl Declared for Matrix {
+    fn declared(&self) -> Vec<DeclarationSite> {
+        // The struct generated over the records, held at the records.
+        let mut names = vec![DeclarationSite {
+            name: Name::try_from("Memory").expect("static identifier"),
+            path: vec![1],
+        }];
+        names.extend(self.imports.names_in(0));
+        names.extend(self.records.names_in(1));
+        names
+    }
+}
+
 impl Declared for File {
     fn declared(&self) -> Vec<DeclarationSite> {
         let mut names = match self {
@@ -1261,6 +1293,7 @@ impl Declared for File {
             File::Signal(signal) => signal.declared(),
             File::Operation(operation) => operation.declared(),
             File::Memory(memory) => memory.declared(),
+            File::Matrix(matrix) => matrix.declared(),
             File::Emission(emission) => emission.declared(),
             File::Process(process) => process.declared(),
         };
@@ -1440,6 +1473,17 @@ impl Checkable for Memory {
         self.answers.refuse_wrapping(scope).place(3)?;
         self.types.refuse_wrapping(scope).place(4)?;
         self.changes.paired_with(&self.answers).place(2)
+    }
+}
+
+/// A Matrix: its records. `Memory`, the struct generated over them, is a name
+/// the file may not declare.
+impl Checkable for Matrix {
+    fn check(&self, scope: &Scope) -> Result<(), Error> {
+        self.declared().distinct()?;
+        self.imports.check_each(scope, 0)?;
+        self.records.check_each(scope, 1)?;
+        self.records.refuse_wrapping(scope).place(1)
     }
 }
 

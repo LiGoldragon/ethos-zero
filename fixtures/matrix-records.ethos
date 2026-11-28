@@ -1,0 +1,6 @@
+; A matrix file: the records a Nexus stores. Each is a type declared in place or a name the file imports; the file generates them, and Memory over them
+Matrix
+[ flow:[ FlowId Event ] ]
+[ Watch.{ FlowId String }
+  Configured.Option<Watch>
+  Event ]

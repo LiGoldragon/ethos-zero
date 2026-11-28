@@ -293,6 +293,27 @@ fn two_kinds_of_return_under_one_name_are_refused() {
 }
 
 #[test]
+fn a_matrix_provides_its_records_and_memory_to_the_roots_read_with_it() {
+    let nexus = nexus(&[
+        (
+            "matrix",
+            "Matrix [ app:signal:[ Observed ] ] [ Watch.{ Integer String } Observed ]",
+        ),
+        ("signal", "Signal [] [ Ask ] [ Observed.{ Integer } ] []"),
+        (
+            "library",
+            "Library [ app:matrix:[ Watch Observed Memory ] ] [ Held.{ Watch Observed Memory } ] [] []",
+        ),
+    ]);
+    assert!(nexus.verify().is_ok());
+    let rust = squeezed(&generated(&nexus, "library"));
+    assert!(rust.contains("pubwatch:app::matrix::Watch,"));
+    assert!(rust.contains("pubmemory:app::matrix::Memory,"));
+    let matrix = squeezed(&generated(&nexus, "matrix"));
+    assert!(matrix.contains("pubstructMemory{pubwatch:Watch,pubobserved:app::signal::Observed,}"));
+}
+
+#[test]
 fn two_roots_of_one_name_are_refused() {
     let twice = nexus(&[
         ("signal", "Signal [] [ Ask ] [ Told ] []"),

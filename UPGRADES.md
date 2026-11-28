@@ -2,6 +2,18 @@
 
 How to deploy each breaking change of ethos-zero.
 
+## 34.0.0: the Matrix root
+
+A seventh root, `Matrix`, of two sections, imports then records, for the
+database of a Nexus. It generates its records and `pub struct Memory` over them,
+one field per record, and provides both to the roots read with it. The Memory
+root of five sections is unchanged and nothing already written changes meaning,
+but the contract grows a root: `File` has a variant `Matrix`, `Root` a variant
+`Matrix`, and a crate that matches either exhaustively adds the arm. A file that
+was refused for its head `Matrix` (`Root`) now reads. Repin; no file is
+rewritten. A Matrix declares no Change yet, and `Memory` is a name it may not
+declare.
+
 ## 33.0.0: the caller names the namespaces; imports resolve against them
 
 `Check` takes a `Reading`, `{ [ files ] [ namespaces ] }`, and `Generate` a

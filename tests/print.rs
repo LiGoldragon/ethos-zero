@@ -93,6 +93,16 @@ fn leaves_stay_on_one_line_and_angles_stay_tight() {
 }
 
 #[test]
+fn a_matrix_prints_back_as_written() {
+    let written = "Matrix\n[ flow:[ FlowId Event ] ]\n[ Watch.{ FlowId String }\n  Configured.Option<Watch>\n  Event ]\n";
+    assert_eq!(
+        "Matrix [ flow:[ FlowId Event ] ] [ Watch.{ FlowId String } Configured.Option<Watch> Event ]".reprint(),
+        written
+    );
+    assert_eq!(written.reprint(), written);
+}
+
+#[test]
 fn a_capability_hangs_its_inputs_and_yield() {
     assert_eq!(
         "Library [] [] [ Fillable.[ push!{ [ Summarizable ] [ Result<Integer SinkError> ] } create:[ Self ] ] ] []".reprint(),
@@ -129,7 +139,7 @@ fn every_fixture_prints_to_a_text_that_reads_back_to_it_and_prints_the_same() {
             sources.push(entry.expect("root entry").path().display().to_string());
         }
     }
-    assert_eq!(sources.len(), 39);
+    assert_eq!(sources.len(), 40);
     for path in sources {
         let source = std::fs::read_to_string(&path).expect("fixture reads");
         let file = match Potential::<File>::from(source).actualize() {

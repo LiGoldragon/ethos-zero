@@ -39,9 +39,9 @@ regenerates both and every fixture under `tests/generated/`.
 
 ## File variants
 
-Six roots: Library, Signal, Operation, Memory, Emission, Process. Signal
-declares what a Nexus says; Operation what it does, one operation for every
-effect; Memory what it remembers; Emission what it sends into the world, each
+Seven roots: Library, Signal, Operation, Memory, Matrix, Emission, Process.
+Signal declares what a Nexus says; Operation what it does, one operation for
+every effect; Memory what it remembers; Matrix the records it stores; Emission what it sends into the world, each
 emission one external call and its outcome what the translator observed;
 Process what it is doing, each thing being done one object from its birth to
 its end (Process.4); Library what they share.
@@ -51,6 +51,7 @@ Library    [ imports ] [ types ] [ traits ] [ associations ]
 Signal     [ imports ] [ inputs ] [ outputs ] [ types ]       ; Input and Output implied
 Operation  [ imports ] [ operations ] [ outcomes ] [ types ]   ; Operation and Outcome implied
 Memory     [ imports ] [ records ] [ changes ] [ answers ] [ types ]
+Matrix     [ imports ] [ records ]                             ; Memory implied
 Emission   [ imports ] [ emissions ] [ outcomes ] [ types ]    ; Emission and Outcome implied
 Process    [ imports ] [ processes ] [ types ]                 ; Process, Gift, Taken and Outcome held
 ```
@@ -196,6 +197,47 @@ change is the `Result` of its answer or `Unremembered`, as what returns for an
 emission is the `Result` of its outcome or `Unobserved`. The old two-section
 Memory is gone: a file of two sections is `Arity.{ 5 2 }`.
 
+## Matrix
+
+A Matrix is the database of a Nexus: two sections, its imports and its records,
+and no types section. A record is a type declared in place,
+`Watch.{ FlowId FilePath }` or `Configured.Option<Repository>` (the head
+declares the type named `Configured` over `Option<Repository>`), or a name the
+file imports, a bare `Observed`; a helper type comes by import. The Memory
+root above is untouched, and its five sections are unchanged.
+
+```
+Matrix
+[ flow:[ FlowId Event ] ]
+[ Watch.{ FlowId String }
+  Configured.Option<Watch>
+  Event ]
+```
+
+It generates its records as any declaration is generated, the same derives and
+the same naming rules, and `pub struct Memory` over all the records of the
+file, one field per record, named by the field-naming rule below (the type in
+snake case; first and second where they meet). An imported record is a field
+of its imported type and no declaration of the file. `fixtures/matrix-records.ethos`:
+
+```rust
+pub struct Watch { pub flow_id: flow::FlowId, pub string: alloc::string::String }
+pub struct Configured(pub core::option::Option<Watch>);
+pub struct Memory {
+    pub watch: Watch,
+    pub configured: Configured,
+    pub event: flow::Event,
+}
+```
+
+`Memory` is a name the Matrix generates, so a Matrix may not declare or import
+it: `Duplicate.Memory` at the later of the two, as `Input` in a Signal. No
+Change is generated. A Matrix provides to the roots read with it, or to a
+namespace given, its records (a declared one and a named one) and `Memory`. A
+file of another count of sections is `Arity`, as for the others; a duplicate
+record, an undeclared name and the other refusals are the Memory root's. A
+Matrix prints back as written.
+
 ## Process
 
 A Process declares each process as what it is born of, a call, a record or a
@@ -228,7 +270,7 @@ positions, are generated when the roots of the Nexus are read together.
 ## Nexus
 
 `ethos-zero` generates a Nexus from all its root files at once: signal, meta,
-memory, emission, library and process, each a module named for its file, the roots
+memory, matrix, emission, library and process, each a module named for its file, the roots
 naming each other by the Nexus's namespace, the crate that holds them:
 `tally:signal:[ Total ]` is a name of the module `signal`, `tally:[ Add ]` a name
 of the Library, at the crate's root. The namespace is written nowhere: it is the
@@ -258,7 +300,7 @@ source names a module of a namespace given must find each name it takes there:
 a type or trait the file declares, a unit, a record named, a variant of an
 implied enum, or a name the file generates (a Signal's `Input` and `Output`,
 `Answering`, `Answerable` and `Answer`; an Emission's `Emission`, `Outcome`,
-`Emitted` and `Emittable`; an Operation's enums; a Process root's `Process`,
+`Emitted` and `Emittable`; a Matrix's `Memory`; an Operation's enums; a Process root's `Process`,
 `Gift`, `Taken` and `Outcome`). One that does not is refused as
 `UnknownName.{ <namespace> <name> }` at the name, before any Rust exists, and
 Generate refuses the same. An import whose source names no module of a

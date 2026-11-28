@@ -15,7 +15,8 @@ use datom_codec::{Integer, Path};
 
 use crate::checking::Spanning;
 use crate::{
-    Entry, File, Import, Name, NamedReference, Position, Reference, TypeDeclaration, Variant,
+    Entry, File, Identity, Import, Name, NamedReference, Position, Reference, TypeDeclaration,
+    Variant,
 };
 
 /// An enum a root implies: its name, its variants and the section holding them.
@@ -54,6 +55,9 @@ pub(crate) trait Sectioning {
     fn listed_declarations(&self) -> Vec<&TypeDeclaration>;
     /// The enums the root implies, in section order.
     fn implied_enums(&self) -> Vec<Implied<'_>>;
+    /// The struct a Matrix generates over its records, `Memory`, one
+    /// position per record; none for any other root.
+    fn matrix_memory(&self) -> Option<TypeDeclaration>;
 }
 
 impl Sectioning for File {
@@ -63,6 +67,7 @@ impl Sectioning for File {
             File::Signal(signal) => &signal.imports,
             File::Operation(operation) => &operation.imports,
             File::Memory(memory) => &memory.imports,
+            File::Matrix(matrix) => &matrix.imports,
             File::Emission(emission) => &emission.imports,
             File::Process(process) => &process.imports,
         }
@@ -74,6 +79,7 @@ impl Sectioning for File {
             File::Signal(signal) => &signal.types,
             File::Operation(operation) => &operation.types,
             File::Memory(memory) => &memory.types,
+            File::Matrix(_) => &[],
             File::Emission(emission) => &emission.types,
             File::Process(process) => &process.types,
         }
@@ -84,12 +90,31 @@ impl Sectioning for File {
             File::Library(_) => 1,
             File::Process(_) => 2,
             File::Memory(_) => 4,
+            // A Matrix has no types section: this is the index it would have.
+            File::Matrix(_) => 2,
             File::Signal(_) | File::Operation(_) | File::Emission(_) => 3,
         }
     }
 
     fn listed(&self) -> Vec<Listed<'_>> {
         let mut sections = Vec::new();
+        if let File::Matrix(matrix) = self {
+            let mut declarations = Vec::new();
+            let mut at = 0;
+            for entry in &matrix.records {
+                match entry {
+                    Entry::Declared(declaration) => {
+                        declarations.push((at, declaration));
+                        at += declaration.span();
+                    }
+                    Entry::Named(_) => at += 1,
+                }
+            }
+            sections.push(Listed {
+                section: 1,
+                declarations,
+            });
+        }
         if let File::Memory(memory) = self {
             for (section, entries) in [
                 (1, &memory.records),
@@ -138,7 +163,9 @@ impl Sectioning for File {
 
     fn implied_enums(&self) -> Vec<Implied<'_>> {
         let (request, requests, reply, replies) = match self {
-            File::Library(_) | File::Memory(_) | File::Process(_) => return vec![],
+            File::Library(_) | File::Memory(_) | File::Matrix(_) | File::Process(_) => {
+                return vec![];
+            }
             File::Signal(signal) => ("Input", &signal.inputs, "Output", &signal.outputs),
             File::Operation(operation) => (
                 "Operation",
@@ -165,6 +192,33 @@ impl Sectioning for File {
                 section: 2,
             },
         ]
+    }
+
+    fn matrix_memory(&self) -> Option<TypeDeclaration> {
+        let File::Matrix(matrix) = self else {
+            return None;
+        };
+        let mut positions = Vec::with_capacity(matrix.records.len());
+        for entry in &matrix.records {
+            let name = match entry {
+                Entry::Declared(declaration) => crate::checking::Identified::identity(declaration)
+                    .name
+                    .clone(),
+                Entry::Named(name) => name.clone(),
+            };
+            positions.push(Position::Referenced(Reference::Named(NamedReference {
+                source: None,
+                name,
+                arguments: vec![],
+            })));
+        }
+        Some(TypeDeclaration::Struct(
+            Identity {
+                name: Name::try_from("Memory").expect("static identifier"),
+                constraints: vec![],
+            },
+            positions,
+        ))
     }
 }
 

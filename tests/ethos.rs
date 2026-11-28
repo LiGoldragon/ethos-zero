@@ -61,6 +61,70 @@ fn memory_has_five_sections_imports_records_changes_answers_and_types() {
 }
 
 #[test]
+fn matrix_has_two_sections_imports_and_records() {
+    let file = read("Matrix [ crate:[ Handle ] ] [ Record.{ Handle String } Handle ]");
+    assert_eq!(file, read(&file.protosize().textualize()));
+    assert!(matches!(file, File::Matrix(_)));
+    for source in [
+        "Matrix []",
+        "Matrix [] [] []",
+        "Matrix [] [] [] [] []",
+        "Matrix [] [ Record.{ String } ] [] [] []",
+    ] {
+        assert!(
+            Potential::<File>::from(source).actualize().is_err(),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn matrix_generates_its_records_and_a_memory_over_them() {
+    let generated = generates(
+        "Matrix [ crate:[ Observed ] ] [ Watch.{ Integer String } Configured.Option<Watch> Observed ]",
+    );
+    assert!(generated.contains("pub struct Watch"));
+    assert!(generated.contains("pub struct Configured(pub core::option::Option<Watch>);"));
+    assert!(generated.contains("pub struct Memory"));
+    assert!(generated.contains("pub watch: Watch"));
+    assert!(generated.contains("pub configured: Configured"));
+    assert!(generated.contains("pub observed: crate::Observed"));
+    // The Memory bears the derives of every declaration.
+    assert!(generated.contains("rkyv::Archive"));
+    assert!(generated.contains("datom_codec::Datomizable"));
+    // A Matrix generates no Change.
+    assert!(!generated.contains("Change"));
+}
+
+#[test]
+fn a_matrix_of_one_imported_record_generates() {
+    let generated = generates("Matrix [ crate:[ Observed ] ] [ Observed ]");
+    assert!(generated.contains("pub struct Memory {\n    pub observed: crate::Observed,\n}"));
+    assert!(!generated.contains("pub struct Observed"));
+    let empty = generates("Matrix [] []");
+    assert!(empty.contains("pub struct Memory {"));
+}
+
+#[test]
+fn a_matrix_may_not_declare_memory() {
+    let (path, problem) = "Matrix [] [ Memory.{ String } ]".refusal();
+    assert_eq!(problem, Problem::Duplicate("Memory".to_owned()));
+    assert_eq!(path, vec![1, 1, 0, 0]);
+    let (_, problem) = "Matrix [ crate:[ Memory ] ] [ Memory ]".refusal();
+    assert_eq!(problem, Problem::Duplicate("Memory".to_owned()));
+    let (_, problem) = "Matrix [] [ Watch.String Watch.Integer ]".refusal();
+    assert_eq!(problem, Problem::Duplicate("Watch".to_owned()));
+    let (_, problem) = "Matrix [] [ Watch.{ Bogus } ]".refusal();
+    assert_eq!(problem, Problem::Undeclared("Bogus".to_owned()));
+    // Memory is no name of a Memory root's file: a Memory may declare it.
+    assert!(
+        read("Memory [] [ Memory.{ String } ] [] [] []")
+            .generate()
+            .is_ok()
+    );
+}
+
+#[test]
 fn a_file_headed_sema_is_refused() {
     assert!(
         Potential::<File>::from("Sema [] [ Record.{ String } ]")

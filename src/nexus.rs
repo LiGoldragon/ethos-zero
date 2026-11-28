@@ -1,7 +1,7 @@
 //! The Nexus: the root files of one namespace, read together.
 //!
 //! A Nexus is its roots, each a module named for its file: a Signal, a meta
-//! Signal, a Memory, an Emission, a Library and a Process. They name each
+//! Signal, a Memory, a Matrix, an Emission, a Library and a Process. They name each
 //! other by the Nexus's own namespace, the crate that holds them: a module
 //! as `tally:signal:[ Total ]`, the Library at the crate's root as
 //! `tally:[ Add ]`. The namespace is written nowhere: it is the one first
@@ -161,6 +161,15 @@ impl Providing for File {
                 }
             }
         }
+        if let File::Matrix(matrix) = self {
+            for entry in &matrix.records {
+                if let Entry::Named(named) = entry
+                    && named == name
+                {
+                    return true;
+                }
+            }
+        }
         for implied in self.implied_enums() {
             for variant in implied.variants {
                 if variant.title() == name {
@@ -286,7 +295,7 @@ impl Kinding for File {
                 }
                 None
             }
-            File::Library(_) | File::Operation(_) | File::Process(_) => None,
+            File::Library(_) | File::Operation(_) | File::Matrix(_) | File::Process(_) => None,
         }
     }
 }
@@ -430,6 +439,7 @@ impl Finding for Nexus {
             File::Signal(signal) => &mut signal.imports,
             File::Operation(operation) => &mut operation.imports,
             File::Memory(memory) => &mut memory.imports,
+            File::Matrix(matrix) => &mut matrix.imports,
             File::Emission(emission) => &mut emission.imports,
             File::Process(process) => &mut process.imports,
         };
@@ -492,6 +502,7 @@ impl Generated for File {
                     &["Answering", "Answerable"]
                 }
             }
+            File::Matrix(_) => &["Memory"],
             File::Emission(emission) if !emission.emissions.is_empty() => &["Emitted", "Emittable"],
             File::Process(process) if !process.processes.is_empty() => {
                 &["Process", "Gift", "Taken", "Outcome"]
@@ -646,6 +657,9 @@ impl Mentioning for File {
                 memory.changes.mention(mentioned);
                 memory.answers.mention(mentioned);
                 memory.types.mention(mentioned);
+            }
+            File::Matrix(matrix) => {
+                matrix.records.mention(mentioned);
             }
             File::Emission(emission) => {
                 emission.emissions.mention(mentioned);
@@ -1834,7 +1848,11 @@ impl Verifying for Nexus {
             let slot = match &module.file {
                 File::Process(_) => &mut processes,
                 File::Library(_) => &mut libraries,
-                File::Signal(_) | File::Operation(_) | File::Memory(_) | File::Emission(_) => {
+                File::Signal(_)
+                | File::Operation(_)
+                | File::Memory(_)
+                | File::Matrix(_)
+                | File::Emission(_) => {
                     continue;
                 }
             };
@@ -1884,6 +1902,7 @@ impl Assembling for Nexus {
                 | File::Signal(_)
                 | File::Operation(_)
                 | File::Memory(_)
+                | File::Matrix(_)
                 | File::Emission(_) => {
                     match self.resolved(index, namespace.as_deref()).generate() {
                         Ok(rust) => rust,

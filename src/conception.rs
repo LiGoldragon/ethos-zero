@@ -8,7 +8,7 @@ use crate::checking::{CheckingArity, Taking};
 use crate::{
     ArityProblem, AssociatedConstant, AssociatedType, Association, Capability, ConceptualErroring,
     Constraint, Emission, Entry, Error, Ethosizable, File, Form, Identifiable, Identity, Import,
-    Imported, Intrinsic, Library, Memory, Name, Named, NamedReference, Operation, Placing,
+    Imported, Intrinsic, Library, Matrix, Memory, Name, Named, NamedReference, Operation, Placing,
     Position, Problem, Process, ProcessDeclaration, Receiver, Reference, Root, Signal, Signature,
     Source, Spelled, Succeeding, TraitBody, TraitDeclaration, TypeDeclaration, Variant,
 };
@@ -89,6 +89,7 @@ impl Conceiving<File> for Protos {
             Some(Root::Signal) => Ok(File::Signal(body.conceive().place(1)?)),
             Some(Root::Operation) => Ok(File::Operation(body.conceive().place(1)?)),
             Some(Root::Memory) => Ok(File::Memory(body.conceive().place(1)?)),
+            Some(Root::Matrix) => Ok(File::Matrix(body.conceive().place(1)?)),
             Some(Root::Emission) => Ok(File::Emission(body.conceive().place(1)?)),
             Some(Root::Process) => Ok(File::Process(body.conceive().place(1)?)),
             None => match Root::successor(&head.0) {
@@ -497,7 +498,19 @@ impl Conceiving<Memory> for Protos {
         })
     }
 }
-/// The trait whose capability reads the entries of a Memory section: a bare
+impl Conceiving<Matrix> for Protos {
+    fn conceive(&self) -> Result<Matrix, Error> {
+        let s = self.sections(2)?;
+        let Some(records) = s[1].children(Enclosure::Bracketed) else {
+            return Err(Error::conceptual(vec![1], Problem::Expected(Form::Section)));
+        };
+        Ok(Matrix {
+            imports: s[0].imports().place(0)?,
+            records: records.entries().place(1)?,
+        })
+    }
+}
+/// The trait whose capability reads the entries of a Memory or Matrix section: a bare
 /// name is a type named, anything else a type declared where it is listed.
 trait Entries {
     fn entries(&self) -> Result<Vec<Entry>, Error>;

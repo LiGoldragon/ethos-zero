@@ -100,6 +100,8 @@ mod inline_collision;
 mod launch_newtypes;
 #[path = "generated/lock-signal.rs"]
 mod lock_signal;
+#[path = "generated/matrix-records.rs"]
+mod matrix_records;
 #[path = "generated/multi-types.rs"]
 mod multi_types;
 #[path = "generated/nested-collision.rs"]
